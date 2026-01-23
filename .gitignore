@@ -29,7 +29,7 @@ desktop.ini
 .settings
 
 # AI Agent
-.agent
+#.agent
 
 # Environment Variables
 .env
