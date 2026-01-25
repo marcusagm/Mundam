@@ -1,0 +1,177 @@
+# Lista de Tarefas do Elleven-Library
+
+> Baseado em `docs/idea/features.md`
+
+- [ ] 1. Ecossistema de Captura, Ingestão e Fontes de Dados
+  - [ ] 1.1 Captura via Extensão de Navegador (Web Clipper)
+    - [ ] Métodos de Captura de Imagem
+      - [ ] Implementar Arrastar e Soltar (Drag & Drop) para zonas de captura
+      - [ ] Implementar Atalho `Alt + Clique Direito` para salvamento imediato
+      - [ ] Criar Analisador de página para Captura em Lote (Batch Save) com filtros
+      - [ ] Implementar Seletor de Elementos (Element Picker)
+    - [ ] Captura de Tela (Screenshots)
+      - [ ] Captura de Área Visível
+      - [ ] Captura de Área Selecionada (Recorte manual)
+      - [ ] Captura de Página Inteira (Full Page Scroll)
+    - [ ] Captura de URLs e Referências
+      - [ ] Bookmarks Visuais com geração de miniatura
+      - [ ] Mapeamento automático de Metadados (Título, URL, Pinterest, ArtStation, etc.)
+  - [ ] 1.2 Ingestão de Desktop e Sistema Operacional
+    - [ ] Monitoramento e Importação
+      - [ ] Implementar Monitoramento em Tempo Real (Folder Watching)
+      - [ ] Opção de replicar hierarquia original de pastas
+      - [ ] Detecção de Alterações (sincronização de remoções/renomeações)
+    - [ ] Integração via Clipboard
+      - [ ] Colagem Direta (`Ctrl/Cmd + V`) de imagens e arquivos
+    - [ ] Captura de Sistema
+      - [ ] Implementar ferramenta de Screenshot global (fora do navegador)
+  - [ ] 1.3 Importação de Bibliotecas e Conteúdo Externo
+    - [ ] Conectividade e Migração
+      - [ ] Vincular Vídeos Online (YouTube/Vimeo) com player incorporado
+      - [ ] Migração de Terceiros (Importação de pastas/pins do Pinterest)
+      - [ ] Suporte a Pacotes de Ativos (`.eaglepack`) para importação/exportação
+      - [ ] Ferramenta de Manutenção de Locais (recuperação de caminhos quebrados)
+
+- [ ] 2. Organização, Inteligência e Gerenciamento de Metadados
+  - [ ] 2.1 Gerenciamento de Bibliotecas e Estrutura de Pastas
+    - [ ] Estrutura de Bibliotecas
+      - [ ] Modelo Multi-Biblioteca (criar e alternar)
+      - [ ] Funcionalidade de Consolidação (Merge) de bibliotecas
+      - [ ] Segurança de Acesso (Senha para pastas/bibliotecas)
+    - [ ] Hierarquia de Pastas
+      - [ ] Suporte a pastas e subpastas com múltiplos níveis
+      - [ ] Customização Visual (Cores e Ícones para pastas)
+      - [ ] Agrupamento Virtual (sem alterar caminho físico)
+  - [ ] 2.2 Ecossistema de Etiquetas (Tags) e Taxonomia
+    - [ ] Estrutura e Gestão
+      - [ ] Tags Hierárquicas (Pai e Filho)
+      - [ ] Visualização em Árvore com expansão/colapso
+      - [ ] Grupos de Tags com cores
+    - [ ] Operações Avançadas
+      - [ ] Mesclagem de Tags (Merge)
+      - [ ] Painel de Gestão Global (Renomear, Mover, Excluir)
+    - [ ] Atribuição Inteligente
+      - [ ] Sugestão e Autocompletar etiquetas
+      - [ ] Edição em Lote (Bulk Tagging)
+  - [ ] 2.3 Pastas Inteligentes e Filtros Dinâmicos
+    - [ ] Motor de Regras
+      - [ ] Suporte a Lógica Booleana (AND, OR, NOT)
+      - [ ] Filtros por Nome, Extensão, URL
+      - [ ] Filtros por Tags (presença/ausência)
+      - [ ] Filtros por Datas (criação, importação, modificação)
+      - [ ] Filtros por Dimensões, Aspect Ratio, Tamanho
+      - [ ] Filtros por Cores e Ratings
+    - [ ] Atualização em Tempo Real (Auto-Update)
+  - [ ] 2.4 Análise Cromática e Inspeção Visual
+    - [ ] Processamento de Cores
+      - [ ] Extração Automática de Cores (Paleta de 5-10 tons)
+      - [ ] Busca por Proximidade de Cor (Seletor Visual/HEX)
+      - [ ] Ajuste de Tolerância na busca por cor
+  - [ ] 2.5 Metadados e Propriedades Personalizadas
+    - [ ] Dados Técnicos
+      - [ ] Leitura de EXIF/IPTC (Câmera, ISO, GPS, etc.)
+      - [ ] Sistema de Propriedades Personalizadas (Campos definidos pelo usuário)
+    - [ ] Anotações e Comentários
+      - [ ] Anotações em Área (Desenhar sobre a imagem)
+      - [ ] Notas de Ativo (Texto livre)
+      - [ ] Avaliação por Estrelas (Rating 1-5)
+
+- [ ] 3. Visualização, Inspeção e Suporte a Formatos
+  - [ ] 3.1 Motor de Renderização e Visualização Universal
+    - [ ] Suporte a Formatos
+      - [ ] Suporte Multiformato (+90 tipos: imagens, vetores, vídeos, 3D)
+      - [ ] Renderização de Arquivos Proprietários (PSD, AI, XD, Sketch, Affinity, Fig)
+      - [ ] Formatos Web Modernos (WebP, AVIF, HEIC, SVG) e Pro (EXR, HDR, TIFF)
+    - [ ] Performance de Visualização
+      - [ ] Previews Persistentes (Miniaturas de alta fidelidade)
+      - [ ] Carregamento Progressivo (Alta definição sob demanda)
+  - [ ] 3.2 Experiência de Navegação e Layouts Dinâmicos
+    - [ ] Modos de Visualização
+      - [ ] Layout Masonry (Wasm/Rust)
+      - [ ] Layout de Grade (Grid)
+      - [ ] Layout de Lista (com colunas de metadados)
+      - [ ] Modo de Inspeção (Slide Mode/Tela cheia)
+    - [ ] Ferramentas de Visualização
+      - [ ] Zoom Dinâmico
+      - [ ] Ferramenta de Pan
+  - [ ] 3.3 Inspeção Técnica de Vídeo, Áudio e Animação
+    - [ ] Controles e Preview
+      - [ ] Hover Preview (Scrubbing ao passar o mouse)
+      - [ ] Anotações com Timestamp
+      - [ ] Loop de Trecho (A-B Repeat)
+      - [ ] Ajuste de Velocidade (0.5x a 2x)
+      - [ ] Visualização Frame a Frame
+  - [ ] 3.4 Gerenciamento e Visualização de Fontes
+    - [ ] Gestão Tipográfica
+      - [ ] Preview de Texto Customizado
+      - [ ] Ativação/Desativação de fontes no SO via interface
+      - [ ] Filtros por Categoria (Serifa, Sans, Script, Mono)
+  - [ ] 3.5 Inspeção de Ativos 3D
+    - [ ] Visualizador 3D
+      - [ ] Suporte a OBJ, FBX, STL, GLTF
+      - [ ] Navegação Orbital 360° (Rotação, Pan, Zoom)
+      - [ ] Modos de Renderização (Textura, Wireframe, Mesh)
+  - [ ] 3.6 Painel de Propriedades e Metadados Técnicos
+    - [ ] Inspetor Lateral
+      - [ ] Visualização detalhada EXIF/IPTC
+      - [ ] Paleta de Cores Dinâmica (com cópia de HEX)
+      - [ ] Estatísticas Físicas (DPI, Dimensões, Tamanho, Datas)
+
+- [ ] 4. Busca, Recuperação e Processamento em Lote
+  - [ ] 4.1 Motor de Busca Global e Inteligente
+    - [ ] Algoritmos de Busca
+      - [ ] Busca Fuzzy (Texto completo, tolerância a erros)
+      - [ ] Busca em Metadados (Tags, Notas, URL, Extensão)
+      - [ ] Busca por Fonte/Origem (URL original)
+      - [ ] Busca por Paleta de Cores
+  - [ ] 4.2 Construtor de Pesquisa Avançada
+    - [ ] Interface de Consulta
+      - [ ] Construtor com Lógica Booleana (AND/OR/NOT)
+      - [ ] Salvar Consultas (Saved Searches)
+    - [ ] Filtros Técnicos
+      - [ ] Filtro por Resolução e Proporção (Retrato/Paisagem)
+      - [ ] Filtro por Atributos (Extensão, Tamanho, Datas)
+      - [ ] Filtro por Qualidade/Status (Tags, Notas, Rating)
+  - [ ] 4.3 Processamento e Ações em Lote
+    - [ ] Ferramentas de Massa
+      - [ ] Edição em Massa (Tags, Ratings, Mover)
+      - [ ] Renomeação Sequencial (Padrões, prefixos, regex)
+      - [ ] Conversão de Formato em Lote (WebP/JPG, Redimensionar)
+      - [ ] Automação de Fluxo (Actions/Macros com atalhos)
+  - [ ] 4.4 Higiene e Manutenção da Biblioteca
+    - [ ] Ferramentas de Limpeza
+      - [ ] Detector de Duplicatas (Hash visual/arquivo)
+      - [ ] Localizador de Caminhos Quebrados
+      - [ ] Recuperação de Locais (Remapeamento de raiz)
+      - [ ] Otimização de Banco de Dados (Reindexação/Compactação)
+
+- [ ] 5. Fluxo de Trabalho, Infraestrutura e Personalização
+  - [ ] 5.1 Sincronização e Mobilidade de Dados
+    - [ ] Arquitetura de Dados
+      - [ ] Integração Cloud-Agnostic (Dropbox, GDrive, OneDrive, iCloud)
+      - [ ] Sincronização Multi-dispositivo via sistema de arquivos
+      - [ ] Controle de Conflitos (Alertas de instância)
+      - [ ] Visualização Mobile (iOS/Android - Leitura)
+  - [ ] 5.2 Interoperabilidade
+    - [ ] Integração com Apps
+      - [ ] Drag & Drop Universal para softwares de terceiros
+      - [ ] Plugins Dedicados (ex: Figma)
+      - [ ] Cópia rápida de código HEX para clipboard
+  - [ ] 5.3 Exportação e Portabilidade
+    - [ ] Saída de Dados
+      - [ ] Exportação com estrutura e metadados (Sidecar ou embutido)
+      - [ ] Criação de Pacotes Proprietários (.eaglepack)
+      - [ ] Backup completo de Banco de Dados
+  - [ ] 5.4 Personalização e Interface do Usuário
+    - [ ] Customização
+      - [ ] Temas (Escuro, Claro, Cinza, Mono)
+      - [ ] CSS Customizado
+      - [ ] Gestor de Atalhos (Hotkeys)
+      - [ ] Preferências de Inicialização
+  - [ ] 5.5 Infraestrutura Técnica e Performance
+    - [ ] Backend
+      - [ ] Arquitetura Local-First (JSON/Pastas locais)
+      - [ ] Implementação de Motor em Rust/Wasm
+      - [ ] Geração Assíncrona de Miniaturas (Workers)
+      - [ ] Agendamento de Backups Automáticos
+      - [ ] Banco de Dados Interno (SQLite/TypeORM)
