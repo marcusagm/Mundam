@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
-import { ReferenceImage } from "./ReferenceImage";
-import { calculateMasonryLayout, type ImageItem } from "../utils/masonryLayout";
+import { AssetCard } from "./AssetCard";
+import { calculateMasonryLayout, type ImageItem } from "../../../utils/masonryLayout";
+import { appActions } from "../../../core/store/appStore";
 
 interface VirtualMasonryProps {
   items: ImageItem[];
@@ -132,8 +133,8 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
             if (!pos) return null;
 
             return (
-              <div
-                class="virtual-item virtual-masonry-item"
+              <AssetCard
+                item={item}
                 style={{
                   position: "absolute",
                   display: layout().positions.get(item.id) ? "block" : "none",
@@ -142,19 +143,11 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
                   height: `${layout().positions.get(item.id)?.height ?? 0}px`,
                   "margin-bottom": "0"
                 }}
-              >
-                <ReferenceImage
-                  id={item.id}
-                  src={item.path}
-                  thumbnail={item.thumbnail_path}
-                  alt={item.filename}
-                  width={item.width}
-                  height={item.height}
-                />
-                 <div class="item-overlay">
-                  <span class="item-name">#{item.id} - {item.filename}</span>
-                </div>
-              </div>
+                onClick={(e) => {
+                    e.stopPropagation();
+                    appActions.toggleSelection(item.id, e.metaKey || e.ctrlKey);
+                }}
+              />
             );
           }}
         </For>
