@@ -1,9 +1,11 @@
-import { Component, Show, createMemo } from "solid-js";
-import { useAppStore } from "../../core/store/appStore";
-import { Info, Tag, Hash, Calendar, Maximize2 } from "lucide-solid";
+import { Component, Show, createMemo, createResource } from "solid-js";
+import { useAppStore, appActions } from "../../core/store/appStore";
+import { Info, Tag as TagIcon, Hash, Calendar, Maximize2 } from "lucide-solid";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { Separator } from "../ui/Separator";
+import { TagInput, TagOption } from "../ui/TagInput";
+import { tagService } from "../../lib/tags";
 
 export const FileInspector: Component = () => {
   const { state } = useAppStore();
@@ -14,6 +16,68 @@ export const FileInspector: Component = () => {
     const id = state.selection[state.selection.length - 1];
     return state.items.find((i) => i.id === id);
   });
+
+  // Fetch tags for active item
+  const [itemTags, { refetch: refetchTags }] = createResource(
+      () => activeItem()?.id,
+      async (id) => {
+          if (!id) return [];
+          return await tagService.getTagsForImage(id);
+      }
+  );
+  
+  // Tag Options for Input (mapped from itemTags)
+  const tagValue = createMemo<TagOption[]>(() => {
+      return (itemTags() || []).map(t => ({
+          id: t.id,
+          label: t.name,
+          color: t.color || undefined
+      }));
+  });
+  
+  // All tags for suggestions
+  const allTagsOptions = createMemo<TagOption[]>(() => {
+      return state.tags.map(t => ({
+          id: t.id,
+          label: t.name,
+          color: t.color || undefined
+      }));
+  });
+
+  const handleTagsChange = async (newTags: TagOption[]) => {
+      const current = itemTags() || [];
+      const currentIds = new Set(current.map(t => t.id));
+      const newIds = new Set(newTags.map(t => Number(t.id)));
+      
+      const itemId = activeItem()?.id;
+      if (!itemId) return;
+
+      // Added items
+      const added = newTags.filter(t => !currentIds.has(Number(t.id)));
+      if (added.length > 0) {
+          await tagService.addTagsToImagesBatch([itemId], added.map(t => Number(t.id)));
+      }
+
+      // Removed items
+      const removed = current.filter(t => !newIds.has(t.id));
+      for (const t of removed) {
+          await tagService.removeTagFromImage(itemId, t.id);
+      }
+      
+      refetchTags(); // Sync
+  };
+
+  const handleCreateTag = async (name: string) => {
+      const itemId = activeItem()?.id;
+      if (!itemId) return;
+      
+      const newTagId = await tagService.createTag(name);
+      await appActions.loadTags(); // Refresh global list
+      
+      // Add to image
+      await tagService.addTagsToImagesBatch([itemId], [newTagId]);
+      refetchTags();
+  };
 
   return (
     <div style={{ height: "100%", display: "flex", "flex-direction": "column" }}>
@@ -73,20 +137,16 @@ export const FileInspector: Component = () => {
 
                 <div class="field-group" style={{ "margin-bottom": "16px" }}>
                     <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "11px", color: "var(--text-secondary)", "margin-bottom": "6px", "font-weight": "500" }}>
-                        <Tag size={12} /> Tags
+                        <TagIcon size={12} /> Tags
                     </label>
-                    <div style={{ 
-                        display: "flex", 
-                        "flex-wrap": "wrap", 
-                        gap: "6px", 
-                        padding: "8px", 
-                        background: "var(--bg-color)", 
-                        border: "1px dashed var(--border-color)", 
-                        "border-radius": "var(--radius-sm)",
-                        "min-height": "36px"
-                    }}>
-                        <span style={{ "font-size": "11px", color: "var(--text-muted)", "font-style": "italic" }}>Add tags...</span>
-                    </div>
+                    
+                    <TagInput 
+                        value={tagValue()} 
+                        onChange={handleTagsChange} 
+                        suggestions={allTagsOptions()}
+                        onCreate={handleCreateTag}
+                        placeholder="Add tags..."
+                    />
                 </div>
 
                 {/* Metadata Grid */}

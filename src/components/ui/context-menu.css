@@ -1,0 +1,73 @@
+
+/* Shared styles for menu containers */
+.context-menu-list, .context-submenu > .context-menu-list {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  min-width: 160px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Transitions */
+.context-menu-container {
+  animation: context-menu-fade 0.1s ease-out;
+}
+
+.context-submenu {
+    animation: context-menu-fade 0.1s ease-out;
+    z-index: 10000;
+}
+
+.context-menu-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  transition: background-color 0.1s;
+}
+
+.context-menu-item:hover, .context-menu-wrapper:hover > .context-menu-item {
+  background-color: var(--surface-hover);
+}
+
+.context-menu-item.danger {
+  color: var(--danger-color);
+}
+
+.context-menu-item.danger:hover {
+  background-color: rgba(244, 135, 113, 0.1); 
+}
+
+.context-menu-separator {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+}
+
+.context-menu-custom {
+    padding: 4px;
+}
+
+@keyframes context-menu-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

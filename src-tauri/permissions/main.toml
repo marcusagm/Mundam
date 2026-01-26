@@ -2,3 +2,48 @@
 identifier = "allow-start-indexing"
 description = "Enables the start_indexing command"
 commands.allow = ["start_indexing"]
+
+[[permission]]
+identifier = "allow-create-tag"
+description = "Enables create_tag"
+commands.allow = ["create_tag"]
+
+[[permission]]
+identifier = "allow-update-tag"
+description = "Enables update_tag"
+commands.allow = ["update_tag"]
+
+[[permission]]
+identifier = "allow-delete-tag"
+description = "Enables delete_tag"
+commands.allow = ["delete_tag"]
+
+[[permission]]
+identifier = "allow-get-all-tags"
+description = "Enables get_all_tags"
+commands.allow = ["get_all_tags"]
+
+[[permission]]
+identifier = "allow-add-tag-to-image"
+description = "Enables add_tag_to_image"
+commands.allow = ["add_tag_to_image"]
+
+[[permission]]
+identifier = "allow-remove-tag-from-image"
+description = "Enables remove_tag_from_image"
+commands.allow = ["remove_tag_from_image"]
+
+[[permission]]
+identifier = "allow-get-tags-for-image"
+description = "Enables get_tags_for_image"
+commands.allow = ["get_tags_for_image"]
+
+[[permission]]
+identifier = "allow-add-tags-to-images-batch"
+description = "Enables add_tags_to_images_batch"
+commands.allow = ["add_tags_to_images_batch"]
+
+[[permission]]
+identifier = "allow-get-images-filtered"
+description = "Enables get_images_filtered"
+commands.allow = ["get_images_filtered"]

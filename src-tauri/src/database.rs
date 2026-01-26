@@ -10,12 +10,18 @@ impl Db {
     pub async fn new(path: PathBuf) -> Result<Self, sqlx::Error> {
         // Ensure the database file is created if it doesn't exist
         use sqlx::sqlite::SqliteConnectOptions;
+        use sqlx::Executor;
         use std::str::FromStr;
 
         let url = format!("sqlite:{}", path.to_string_lossy());
         let options = SqliteConnectOptions::from_str(&url)?.create_if_missing(true);
 
         let pool = SqlitePool::connect_with(options).await?;
+
+        // Run migration/schema
+        let schema = include_str!("schema.sql");
+        pool.execute(schema).await?;
+
         Ok(Self { pool })
     }
 

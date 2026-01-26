@@ -1,6 +1,8 @@
 mod database;
+mod db_tags;
 mod indexer;
 mod protocols;
+mod tag_commands;
 mod thumbnail_worker;
 mod thumbnails;
 
@@ -72,7 +74,18 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![start_indexing])
+        .invoke_handler(tauri::generate_handler![
+            start_indexing,
+            tag_commands::create_tag,
+            tag_commands::update_tag,
+            tag_commands::delete_tag,
+            tag_commands::get_all_tags,
+            tag_commands::add_tag_to_image,
+            tag_commands::remove_tag_from_image,
+            tag_commands::get_tags_for_image,
+            tag_commands::add_tags_to_images_batch,
+            tag_commands::get_images_filtered
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

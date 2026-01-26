@@ -3,13 +3,13 @@ use imagesize::size;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct ImageMetadata {
     pub path: String,
     pub filename: String,
-    pub width: Option<usize>,
-    pub height: Option<usize>,
-    pub size: u64,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size: i64,
     pub format: String,
     pub modified_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
@@ -31,7 +31,7 @@ pub fn get_image_metadata(path: &Path) -> Option<ImageMetadata> {
 
     // Fast header scanning for dimensions
     let (width, height) = match size(path) {
-        Ok(s) => (Some(s.width), Some(s.height)),
+        Ok(s) => (Some(s.width as i32), Some(s.height as i32)),
         Err(_) => (None, None),
     };
 
@@ -53,7 +53,7 @@ pub fn get_image_metadata(path: &Path) -> Option<ImageMetadata> {
         filename,
         width,
         height,
-        size: file_size,
+        size: file_size as i64,
         format,
         modified_at,
         created_at,

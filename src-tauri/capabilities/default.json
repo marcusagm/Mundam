@@ -13,6 +13,15 @@
     "dialog:default",
     "core:event:allow-listen",
     "core:event:allow-emit",
-    "allow-start-indexing"
+    "allow-start-indexing",
+    "allow-create-tag",
+    "allow-update-tag",
+    "allow-delete-tag",
+    "allow-get-all-tags",
+    "allow-add-tag-to-image",
+    "allow-remove-tag-from-image",
+    "allow-get-tags-for-image",
+    "allow-add-tags-to-images-batch",
+    "allow-get-images-filtered"
   ]
 }

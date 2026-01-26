@@ -1,6 +1,7 @@
 import { createStore, reconcile } from "solid-js/store";
 import { createSignal } from "solid-js";
 import { getImages, getLocations, initDb, addLocation } from "../../lib/db";
+import { tagService, Tag } from "../../lib/tags";
 import { tauriService } from "../tauri/services";
 import { listen } from "@tauri-apps/api/event";
 
@@ -23,14 +24,18 @@ export interface ProgressPayload {
 interface AppState {
   items: ImageItem[];
   locations: { path: string; name: string }[];
-  selection: number[]; // ID of selected items
+  selection: number[]; // ID of selected images
+  tags: Tag[]; 
+  selectedTags: number[]; // ID of selected tags for filtering
 }
 
 // Reactive primitives
 const [state, setState] = createStore<AppState>({ 
   items: [], 
   locations: [], 
-  selection: [] 
+  selection: [],
+  tags: [],
+  selectedTags: []
 });
 const [rootPath, setRootPath] = createSignal<string | null>(null);
 const [loading, setLoading] = createSignal(true);
@@ -45,12 +50,14 @@ const BATCH_SIZE = 100;
 // Actions
 export const appActions = {
   initialize: async () => {
-    // ... (keep logic) ...
     try {
       setLoading(true);
       await initDb();
       const locations = await getLocations();
       setState("locations", locations);
+      
+      // Load Tags
+      await appActions.loadTags();
       
       if (locations.length > 0) {
         const path = locations[0].path;
@@ -72,19 +79,37 @@ export const appActions = {
     }
   },
 
-  // Reset=true implies a full reload (e.g. after indexing finishes or strict refresh)
+  loadTags: async () => {
+      try {
+          const tags = await tagService.getAllTags();
+          setState("tags", tags);
+      } catch (err) {
+          console.error("Failed to load tags:", err);
+      }
+  },
+
   refreshImages: async (reset = false) => {
+    const hasFilter = state.selectedTags.length > 0;
+    
     if (reset) {
         currentOffset = 0;
-        const firstBatch = await getImages(BATCH_SIZE, 0);
+        let firstBatch;
+        if (hasFilter) {
+            firstBatch = await tagService.getImagesFiltered(BATCH_SIZE, 0, state.selectedTags);
+        } else {
+            firstBatch = await getImages(BATCH_SIZE, 0);
+        }
         setState("items", reconcile(firstBatch, { key: "id" }));
         currentOffset = BATCH_SIZE;
     } else {
-        // Just reload current view? Usually we use loadMore for pagination.
-        // For compatibility with listeners, we might want to just reload the visible range
-        // But for simplicity, let's reset on full refresh calls.
-        currentOffset = 0;
-        const fresh = await getImages(BATCH_SIZE, 0);
+        currentOffset = 0; // "Partial refresh" usually resets offset? Or just reloads current viewport?
+        // Logic: For strict refresh, we usually reset.
+        let fresh;
+        if (hasFilter) {
+            fresh = await tagService.getImagesFiltered(BATCH_SIZE, 0, state.selectedTags);
+        } else {
+            fresh = await getImages(BATCH_SIZE, 0);
+        }
         setState("items", reconcile(fresh, { key: "id" }));
         currentOffset = BATCH_SIZE;
     }
@@ -95,7 +120,15 @@ export const appActions = {
     isFetching = true;
 
     try {
-        const nextBatch = await getImages(BATCH_SIZE, currentOffset);
+        const hasFilter = state.selectedTags.length > 0;
+        let nextBatch;
+        
+        if (hasFilter) {
+            nextBatch = await tagService.getImagesFiltered(BATCH_SIZE, currentOffset, state.selectedTags);
+        } else {
+            nextBatch = await getImages(BATCH_SIZE, currentOffset);
+        }
+
         if (nextBatch.length > 0) {
             setState("items", (prev) => [...prev, ...nextBatch]);
             currentOffset += BATCH_SIZE;
@@ -124,15 +157,27 @@ export const appActions = {
       setState("selection", [id]);
     }
   },
+  
+  toggleTagSelection: (tagId: number) => {
+      const current = state.selectedTags;
+      if (current.includes(tagId)) {
+          setState("selectedTags", current.filter(i => i !== tagId));
+      } else {
+          // For now single select filtering might be safer until OR/AND logic UI is ready?
+          // But user asked for multi.
+          setState("selectedTags", [...current, tagId]);
+      }
+      appActions.refreshImages(true);
+  },
 
   setSearch: (query: string) => {
     setSearchQuery(query);
   },
+
   setupListeners: async () => {
     // Indexer Progress
     await listen<ProgressPayload>("indexer:progress", (event) => {
       setProgress(event.payload);
-      // Partial refresh every 10 items to show progress live
       if (event.payload.processed % 10 === 0 || event.payload.processed === event.payload.total) {
         appActions.refreshImages();
       }
@@ -142,7 +187,6 @@ export const appActions = {
     await listen<number>("indexer:complete", (event) => {
       console.log("Indexer complete. Total:", event.payload);
       setProgress(null);
-      // reset=true to ensure we see everything properly sorted
       appActions.refreshImages(true);
     });
 
@@ -157,9 +201,6 @@ export const appActions = {
     });
   }
 };
-
-
-
 
 // Exports for consumption
 export const useAppStore = () => {

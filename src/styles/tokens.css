@@ -5,6 +5,7 @@
   --bg-header: #2d2d2d; /* Top Bar */
 
   --surface-color: #2d2d2d; /* Inputs, Cards */
+  --bg-surface: #2d2d2d; /* Alias for surface components like Modals */
   --surface-hover: #37373d; /* List items hover */
   --surface-active: #094771; /* Selection Blue (Eagle-like) */
 
