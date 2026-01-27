@@ -1,0 +1,148 @@
+.ui-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.ui-slider-horizontal {
+  width: 100%;
+  height: 20px;
+}
+
+.ui-slider-vertical {
+  width: 20px;
+  height: 100%;
+  flex-direction: column;
+}
+
+.ui-slider-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Track */
+.ui-slider-track {
+  position: relative;
+  flex-grow: 1;
+  background-color: var(--surface-hover);
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.ui-slider-horizontal .ui-slider-track {
+  height: 4px;
+}
+
+.ui-slider-vertical .ui-slider-track {
+  width: 4px;
+  height: 100%;
+}
+
+/* Range (filled part) */
+.ui-slider-range {
+  position: absolute;
+  background-color: var(--accent-color);
+  border-radius: 9999px;
+}
+
+.ui-slider-horizontal .ui-slider-range {
+  height: 100%;
+  left: 0;
+}
+
+.ui-slider-vertical .ui-slider-range {
+  width: 100%;
+  bottom: 0;
+}
+
+/* Thumb */
+.ui-slider-thumb {
+  position: absolute;
+  
+  width: 16px;
+  height: 16px;
+  
+  background-color: var(--text-inverse);
+  border: 2px solid var(--accent-color);
+  border-radius: 50%;
+  
+  cursor: grab;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.ui-slider-horizontal .ui-slider-thumb {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ui-slider-vertical .ui-slider-thumb {
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+
+.ui-slider-thumb:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-offset) var(--ring-offset-color),
+              0 0 0 calc(var(--ring-offset) + 2px) var(--ring-color);
+}
+
+.ui-slider-thumb:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.ui-slider-thumb-active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.ui-slider-vertical .ui-slider-thumb:hover {
+  transform: translate(-50%, 50%) scale(1.1);
+}
+
+.ui-slider-vertical .ui-slider-thumb-active {
+  transform: translate(-50%, 50%) scale(1.15);
+}
+
+/* Tooltip */
+.ui-slider-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  
+  padding: 4px 8px;
+  
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+.ui-slider-thumb:hover .ui-slider-tooltip,
+.ui-slider-thumb:focus .ui-slider-tooltip,
+.ui-slider-thumb-active .ui-slider-tooltip {
+  opacity: 1;
+}
+
+/* Hidden input */
+.ui-slider-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

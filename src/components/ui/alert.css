@@ -1,0 +1,109 @@
+.ui-alert {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-color);
+}
+
+.ui-alert-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ui-alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-alert-title {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ui-alert-description {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ui-alert-dismiss {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ui-alert-dismiss:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Variant: Default */
+.ui-alert-default {
+  border-color: var(--border-color);
+}
+
+.ui-alert-default .ui-alert-icon {
+  color: var(--text-secondary);
+}
+
+/* Variant: Info */
+.ui-alert-info {
+  border-color: var(--accent-color);
+  background-color: rgba(0, 122, 204, 0.08);
+}
+
+.ui-alert-info .ui-alert-icon {
+  color: var(--accent-color);
+}
+
+/* Variant: Success */
+.ui-alert-success {
+  border-color: var(--success-color);
+  background-color: rgba(137, 209, 133, 0.08);
+}
+
+.ui-alert-success .ui-alert-icon {
+  color: var(--success-color);
+}
+
+/* Variant: Warning */
+.ui-alert-warning {
+  border-color: var(--warning-color);
+  background-color: rgba(204, 167, 0, 0.08);
+}
+
+.ui-alert-warning .ui-alert-icon {
+  color: var(--warning-color);
+}
+
+/* Variant: Destructive */
+.ui-alert-destructive {
+  border-color: var(--danger-color);
+  background-color: rgba(244, 135, 113, 0.08);
+}
+
+.ui-alert-destructive .ui-alert-icon {
+  color: var(--danger-color);
+}

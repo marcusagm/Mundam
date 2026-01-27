@@ -1,0 +1,20 @@
+/**
+ * Separator Component Styles
+ * Visual divider for separating content sections
+ */
+
+.ui-separator {
+  flex-shrink: 0;
+  background-color: var(--border-subtle);
+}
+
+.ui-separator-horizontal {
+  height: 1px;
+  width: 100%;
+}
+
+.ui-separator-vertical {
+  width: 1px;
+  height: 100%;
+  align-self: stretch;
+}

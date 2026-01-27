@@ -1,25 +1,58 @@
+/**
+ * Badge Component Styles
+ */
+
 .ui-badge {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
+  justify-content: center;
+  font-weight: 500;
+  border-radius: var(--radius-full, 9999px);
   white-space: nowrap;
+  vertical-align: middle;
 }
 
+/* Size variants */
+.ui-badge-sm {
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.ui-badge-md {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* Variant styles */
 .ui-badge-default {
-  background-color: var(--surface-hover);
-  color: var(--text-primary);
+  background-color: var(--accent-primary, #0ea5e9);
+  color: white;
+}
+
+.ui-badge-secondary {
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-secondary);
 }
 
 .ui-badge-outline {
   background-color: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
   color: var(--text-secondary);
 }
 
-.ui-badge-secondary {
-  background-color: var(--bg-header);
-  color: var(--text-secondary);
+.ui-badge-success {
+  background-color: var(--color-success, #22c55e);
+  color: white;
+}
+
+.ui-badge-warning {
+  background-color: var(--color-warning, #f59e0b);
+  color: black;
+}
+
+.ui-badge-error {
+  background-color: var(--color-error, #ef4444);
+  color: white;
 }

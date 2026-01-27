@@ -1,0 +1,72 @@
+.ui-button-group {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.ui-button-group-horizontal {
+  flex-direction: row;
+}
+
+.ui-button-group-vertical {
+  flex-direction: column;
+}
+
+/* Attached variant: buttons connected without gaps */
+.ui-button-group-attached {
+  gap: 0;
+}
+
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn {
+  border-radius: 0;
+}
+
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn:last-child {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn:not(:first-child) {
+  margin-left: -1px;
+}
+
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn:hover,
+.ui-button-group-attached.ui-button-group-horizontal > .ui-btn:focus {
+  z-index: 1;
+}
+
+/* Vertical attached */
+.ui-button-group-attached.ui-button-group-vertical > .ui-btn {
+  border-radius: 0;
+}
+
+.ui-button-group-attached.ui-button-group-vertical > .ui-btn:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.ui-button-group-attached.ui-button-group-vertical > .ui-btn:last-child {
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.ui-button-group-attached.ui-button-group-vertical > .ui-btn:not(:first-child) {
+  margin-top: -1px;
+}
+
+/* Size variants */
+.ui-button-group-sm > .ui-btn {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.ui-button-group-lg > .ui-btn {
+  height: 40px;
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-lg);
+}

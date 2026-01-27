@@ -1,65 +1,65 @@
-.sidebar-panel {
+/**
+ * SidebarPanel Component Styles
+ */
+
+.ui-sidebar-panel {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-sidebar, #252526);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
 }
 
-.sidebar-panel:last-child {
-  border-bottom: none;
-}
-
-.sidebar-panel-header {
-  padding: var(--space-4) var(--space-2) var(--space-2) var(--space-2);
+.ui-sidebar-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  user-select: none;
+  padding: var(--space-3, 12px);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
 }
 
-.sidebar-panel-title {
-  font-size: 11px;
+.ui-sidebar-panel-title {
+  margin: 0;
+  font-size: var(--font-size-sm, 12px);
   font-weight: 600;
-  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: var(--text-muted);
 }
 
-.sidebar-panel-actions {
+.ui-sidebar-panel-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1, 4px);
 }
 
-.sidebar-panel-content {
+.ui-sidebar-panel-content {
   flex: 1;
-  min-height: 0;
-  padding: 0 var(--space-1) var(--space-2);
   overflow-y: auto;
-  overflow-x: hidden;
+  padding: var(--space-2, 8px);
 }
 
-.sidebar-panel-footer {
-  padding: var(--space-2);
-  border-top: 1px solid var(--border-subtle);
+.ui-sidebar-panel-footer {
+  padding: var(--space-3, 12px);
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
 }
 
-.sidebar-panel-content.drag-over {
-  background-color: rgba(0, 122, 204, 0.05); /* Accent with opacity */
-  outline: 1px solid var(--accent-color);
-  outline-offset: -1px;
+/* Scrollbar styling for content */
+.ui-sidebar-panel-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-/* Scrollbar styling for panels */
-.sidebar-panel-content::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-panel-content::-webkit-scrollbar-thumb {
+.ui-sidebar-panel-content::-webkit-scrollbar-track {
   background: transparent;
-  border-radius: 4px;
 }
 
-.sidebar-panel-content:hover::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+.ui-sidebar-panel-content::-webkit-scrollbar-thumb {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+  border-radius: 3px;
+}
+
+.ui-sidebar-panel-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--bg-active, rgba(255, 255, 255, 0.15));
 }

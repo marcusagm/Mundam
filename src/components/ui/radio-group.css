@@ -1,0 +1,111 @@
+.ui-radio-group {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ui-radio-group-vertical {
+  flex-direction: column;
+}
+
+.ui-radio-group-horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.ui-radio-wrapper {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-radio-wrapper.ui-radio-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ui-radio {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  
+  width: 16px;
+  height: 16px;
+  
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ui-radio:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-offset) var(--ring-offset-color),
+              0 0 0 calc(var(--ring-offset) + 2px) var(--ring-color);
+}
+
+.ui-radio:hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+
+.ui-radio:disabled {
+  cursor: not-allowed;
+}
+
+/* Indicator (the dot) */
+.ui-radio-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: transparent;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+  transform: scale(0);
+}
+
+/* Checked state */
+.ui-radio-checked {
+  border-color: var(--accent-color);
+}
+
+.ui-radio-checked .ui-radio-indicator {
+  background-color: var(--accent-color);
+  transform: scale(1);
+}
+
+/* Content */
+.ui-radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+}
+
+.ui-radio-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.ui-radio-description {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Hidden input */
+.ui-radio-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

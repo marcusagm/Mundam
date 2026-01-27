@@ -1,222 +1,291 @@
-import { Component, JSX, Show, createEffect, onCleanup, createSignal, createMemo } from "solid-js";
+import { 
+  Component, 
+  JSX, 
+  Show, 
+  createEffect, 
+  onCleanup, 
+  splitProps,
+} from "solid-js";
 import { Portal } from "solid-js/web";
 import { X } from "lucide-solid";
-import "./modal.css";
+import { cn } from "../../lib/utils";
+import { createFocusTrap } from "../../lib/primitives";
+import { createId } from "../../lib/primitives/createId";
 import { Button } from "./Button";
 import { Input } from "./Input";
+import "./modal.css";
 
-type ModalVariant = "sm" | "md" | "lg" | "full";
+export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
-interface ModalProps {
+export interface ModalProps {
+  /** Whether the modal is open */
   isOpen: boolean;
+  /** Callback when modal should close */
   onClose: () => void;
+  /** Modal title */
   title?: string;
-  variant?: ModalVariant;
+  /** Size variant */
+  size?: ModalSize;
+  /** Whether clicking the overlay closes the modal (default: true) */
   closeOnOverlayClick?: boolean;
+  /** Whether to show the close button (default: true) */
   showCloseButton?: boolean;
+  /** Modal content */
   children: JSX.Element;
+  /** Footer content */
   footer?: JSX.Element;
+  /** Additional CSS class for the container */
+  class?: string;
 }
 
+/**
+ * Modal component for dialogs and overlays.
+ * Implements focus trapping and keyboard accessibility.
+ * 
+ * @example
+ * <Modal isOpen={isOpen()} onClose={() => setIsOpen(false)} title="Settings">
+ *   <p>Modal content goes here</p>
+ * </Modal>
+ * 
+ * @example
+ * <Modal 
+ *   isOpen={isOpen()} 
+ *   onClose={handleClose} 
+ *   title="Confirm Action"
+ *   footer={
+ *     <>
+ *       <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+ *       <Button onClick={handleConfirm}>Confirm</Button>
+ *     </>
+ *   }
+ * >
+ *   Are you sure you want to proceed?
+ * </Modal>
+ */
 export const Modal: Component<ModalProps> = (props) => {
-  const [containerRef, setContainerRef] = createSignal<HTMLDivElement>();
+  const [local] = splitProps(props, [
+    "isOpen",
+    "onClose",
+    "title",
+    "size",
+    "closeOnOverlayClick",
+    "showCloseButton",
+    "children",
+    "footer",
+    "class",
+  ]);
 
-  // Use default props
-  const config = createMemo(() => ({
-    variant: props.variant || "md",
-    closeOnOverlayClick: props.closeOnOverlayClick ?? true,
-    showCloseButton: props.showCloseButton ?? true,
-  }));
+  let containerRef: HTMLDivElement | undefined;
 
-  // Handle Escape key
+  const size = () => local.size || "md";
+  const closeOnOverlayClick = () => local.closeOnOverlayClick ?? true;
+  const showCloseButton = () => local.showCloseButton ?? true;
+
+  const titleId = createId("modal-title");
+
+  // Focus trap
+  createFocusTrap(() => containerRef, () => local.isOpen);
+
+  // Handle Escape key and body scroll lock
   createEffect(() => {
-    if (!props.isOpen) return;
+    if (!local.isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        props.onClose();
+        e.preventDefault();
+        local.onClose();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    document.body.classList.add("modal-open");
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
 
     onCleanup(() => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
     });
   });
 
-  // Simple Focus Trap
+  // Focus the container when opening
   createEffect(() => {
-    const el = containerRef();
-    if (props.isOpen && el) {
-      const focusableElements = el.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusableElements.length > 0) {
-        (focusableElements[0] as HTMLElement).focus();
-      }
-
-      const handleTab = (e: KeyboardEvent) => {
-        if (e.key !== "Tab") return;
-        
-        const first = focusableElements[0] as HTMLElement;
-        const last = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            last.focus();
-            e.preventDefault();
-          }
-        } else {
-          if (document.activeElement === last) {
-            first.focus();
-            e.preventDefault();
-          }
-        }
-      };
-
-      el.addEventListener("keydown", handleTab);
-      onCleanup(() => el.removeEventListener("keydown", handleTab));
+    if (local.isOpen && containerRef) {
+      containerRef.focus();
     }
   });
 
+  const handleOverlayClick = (e: MouseEvent) => {
+    if (e.target === e.currentTarget && closeOnOverlayClick()) {
+      local.onClose();
+    }
+  };
+
   return (
-    <Show when={props.isOpen}>
+    <Show when={local.isOpen}>
       <Portal>
-        <div 
-          class="modal-overlay" 
-          onClick={() => config().closeOnOverlayClick && props.onClose()}
-          aria-modal="true"
+        <div
+          class="ui-modal-overlay"
+          onClick={handleOverlayClick}
+          aria-hidden="true"
+        />
+        <div
+          ref={containerRef}
+          class={cn(
+            "ui-modal-container",
+            `ui-modal-${size()}`,
+            local.class
+          )}
           role="dialog"
+          aria-modal="true"
+          aria-labelledby={local.title ? titleId : undefined}
+          tabindex={-1}
         >
-          <div 
-            ref={setContainerRef}
-            class={`modal-container variant-${config().variant}`}
-            onClick={(e) => e.stopPropagation()}
-            tabindex="-1"
-          >
-            <Show when={props.title || config().showCloseButton}>
-              <div class="modal-header">
-                <Show when={props.title}>
-                  <h3 class="modal-title">{props.title}</h3>
-                </Show>
-                <Show when={config().showCloseButton}>
-                  <button 
-                    class="modal-close-btn" 
-                    onClick={props.onClose}
-                    aria-label="Close"
-                  >
-                    <X size={18} />
-                  </button>
-                </Show>
-              </div>
-            </Show>
+          <Show when={local.title || showCloseButton()}>
+            <header class="ui-modal-header">
+              <Show when={local.title}>
+                <h2 id={titleId} class="ui-modal-title">
+                  {local.title}
+                </h2>
+              </Show>
+              <Show when={showCloseButton()}>
+                <button
+                  type="button"
+                  class="ui-modal-close"
+                  onClick={local.onClose}
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </Show>
+            </header>
+          </Show>
 
-            <div class="modal-body">
-              {props.children}
-            </div>
-
-            <Show when={props.footer}>
-              <div class="modal-footer">
-                {props.footer}
-              </div>
-            </Show>
+          <div class="ui-modal-body">
+            {local.children}
           </div>
+
+          <Show when={local.footer}>
+            <footer class="ui-modal-footer">
+              {local.footer}
+            </footer>
+          </Show>
         </div>
       </Portal>
     </Show>
   );
 };
 
-// Internal sub-components for more flexibility if needed later
-// (Currently we just use the props structure but exports allow for manual building)
-export const ModalHeader: Component<{ children: JSX.Element }> = (p) => <div class="modal-header">{p.children}</div>;
-export const ModalBody: Component<{ children: JSX.Element }> = (p) => <div class="modal-body">{p.children}</div>;
-export const ModalFooter: Component<{ children: JSX.Element }> = (p) => <div class="modal-footer">{p.children}</div>;
+// Sub-components for flexible composition
+export const ModalHeader: Component<{ children: JSX.Element; class?: string }> = (props) => (
+  <header class={cn("ui-modal-header", props.class)}>{props.children}</header>
+);
+
+export const ModalBody: Component<{ children: JSX.Element; class?: string }> = (props) => (
+  <div class={cn("ui-modal-body", props.class)}>{props.children}</div>
+);
+
+export const ModalFooter: Component<{ children: JSX.Element; class?: string }> = (props) => (
+  <footer class={cn("ui-modal-footer", props.class)}>{props.children}</footer>
+);
 
 // --- Specialized Modals ---
 
-export const PromptModal: Component<{
-    isOpen: boolean,
-    onClose: () => void,
-    onConfirm: (val: string) => void,
-    title: string,
-    initialValue?: string,
-    placeholder?: string
-}> = (props) => {
-    let inputRef: HTMLInputElement | undefined;
+export interface PromptModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (value: string) => void;
+  title: string;
+  initialValue?: string;
+  placeholder?: string;
+  confirmText?: string;
+  cancelText?: string;
+}
 
-    const handleSubmit = (e: Event) => {
-        e.preventDefault();
-        if (inputRef && inputRef.value) {
-            props.onConfirm(inputRef.value);
-            props.onClose();
-        }
+/**
+ * Prompt modal for getting text input from the user.
+ */
+export const PromptModal: Component<PromptModalProps> = (props) => {
+  let inputRef: HTMLInputElement | undefined;
+
+  const handleSubmit = (e: Event) => {
+    e.preventDefault();
+    if (inputRef?.value) {
+      props.onConfirm(inputRef.value);
+      props.onClose();
     }
+  };
 
-    return (
-        <Modal 
-            isOpen={props.isOpen} 
-            onClose={props.onClose} 
-            title={props.title}
-            variant="sm"
-        >
-            <form onSubmit={handleSubmit}>
-                <Input 
-                    ref={inputRef}
-                    value={props.initialValue || ""} 
-                    placeholder={props.placeholder}
-                    autofocus
-                />
-                <div style={{ display: "flex", "justify-content": "flex-end", gap: "8px", "margin-top": "24px" }}>
-                    <Button type="button" variant="ghost" onClick={props.onClose}>Cancel</Button>
-                    <Button type="submit" variant="primary">Confirm</Button>
-                </div>
-            </form>
-        </Modal>
-    );
+  return (
+    <Modal
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+      title={props.title}
+      size="sm"
+    >
+      <form onSubmit={handleSubmit}>
+        <Input
+          ref={inputRef}
+          value={props.initialValue || ""}
+          placeholder={props.placeholder}
+          autofocus
+        />
+        <div class="ui-modal-prompt-actions">
+          <Button type="button" variant="ghost" onClick={props.onClose}>
+            {props.cancelText || "Cancel"}
+          </Button>
+          <Button type="submit" variant="primary">
+            {props.confirmText || "Confirm"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
 };
 
-export const ConfirmModal: Component<{
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    kind?: "danger" | "warning" | "info";
-    variant?: ModalVariant;
-    children?: JSX.Element;
-}> = (props) => {
-    return (
-        <Modal
-            isOpen={props.isOpen}
-            onClose={props.onClose}
-            title={props.title}
-            variant={props.variant || "sm"}
-            footer={
-              <>
-                <Button variant="ghost" onClick={props.onClose}>
-                    {props.cancelText || "Cancel"}
-                </Button>
-                <Button 
-                    variant={props.kind === "danger" ? "destructive" : "primary"} 
-                    onClick={() => {
-                        props.onConfirm();
-                        props.onClose();
-                    }}
-                >
-                    {props.confirmText || "Confirm"}
-                </Button>
-              </>
-            }
-        >
-            <Show when={props.children} fallback={<div>{props.message}</div>}>
-                {props.children}
-            </Show>
-        </Modal>
-    );
+export interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  kind?: "danger" | "warning" | "info";
+  size?: ModalSize;
+  children?: JSX.Element;
+}
+
+/**
+ * Confirmation modal for destructive or important actions.
+ */
+export const ConfirmModal: Component<ConfirmModalProps> = (props) => {
+  const handleConfirm = () => {
+    props.onConfirm();
+    props.onClose();
+  };
+
+  return (
+    <Modal
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+      title={props.title}
+      size={props.size || "sm"}
+      footer={
+        <>
+          <Button variant="ghost" onClick={props.onClose}>
+            {props.cancelText || "Cancel"}
+          </Button>
+          <Button
+            variant={props.kind === "danger" ? "destructive" : "primary"}
+            onClick={handleConfirm}
+          >
+            {props.confirmText || "Confirm"}
+          </Button>
+        </>
+      }
+    >
+      <Show when={props.children} fallback={<p>{props.message}</p>}>
+        {props.children}
+      </Show>
+    </Modal>
+  );
 };

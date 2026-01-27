@@ -1,19 +1,49 @@
-.ui-tooltip {
-    position: absolute;
-    background-color: var(--surface-color);
-    color: var(--text-primary);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 11px;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
-    white-space: nowrap;
-    z-index: 50;
-    pointer-events: none;
-    animation: fadeIn 0.1s ease-out;
+/**
+ * Tooltip Component Styles
+ */
+
+.ui-tooltip-trigger {
+  display: inline-flex;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+.ui-tooltip {
+  position: fixed;
+  padding: var(--space-2, 6px) var(--space-3, 10px);
+  background-color: var(--bg-tooltip, #1a1a1a);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
+  border-radius: var(--radius-sm, 4px);
+  white-space: nowrap;
+  z-index: 10000;
+  pointer-events: none;
+  animation: ui-tooltip-in 0.15s ease;
+}
+
+/* Position variants */
+.ui-tooltip-top {
+  transform: translateY(-4px);
+}
+
+.ui-tooltip-bottom {
+  transform: translateY(4px);
+}
+
+.ui-tooltip-left {
+  transform: translateX(-4px);
+}
+
+.ui-tooltip-right {
+  transform: translateX(4px);
+}
+
+@keyframes ui-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

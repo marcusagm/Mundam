@@ -1,80 +1,106 @@
-/* Accordion System */
+/**
+ * Accordion Component Styles
+ */
 
-.accordion-item {
-  border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface);
+.ui-accordion {
+  width: 100%;
 }
 
-.accordion-item:last-child {
+.ui-accordion-item {
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.ui-accordion-item:last-child {
   border-bottom: none;
 }
 
-.accordion-header {
-  width: 100%;
+.ui-accordion-item-disabled {
+  opacity: 0.5;
+}
+
+.ui-accordion-trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  width: 100%;
+  padding: var(--space-3, 12px) 0;
   background: transparent;
   border: none;
   cursor: pointer;
+  text-align: left;
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: background-color var(--transition-fast);
+  font-family: inherit;
+  font-size: inherit;
+  transition: color 0.15s ease;
 }
 
-.accordion-header:hover {
-  background-color: var(--surface-hover);
+.ui-accordion-trigger:hover:not(:disabled) {
+  color: var(--text-primary);
 }
 
-.accordion-header:focus-visible {
-  outline: 2px solid var(--border-active);
-  outline-offset: -2px;
+.ui-accordion-trigger:disabled {
+  cursor: not-allowed;
 }
 
-.accordion-trigger {
+.ui-accordion-trigger:focus-visible {
+  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.ui-accordion-trigger-content {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  flex: 1;
+  gap: var(--space-2, 8px);
 }
 
-.accordion-icon {
+.ui-accordion-title {
+  font-weight: 500;
+}
+
+.ui-accordion-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
   color: var(--text-muted);
-  transition: transform var(--transition-normal);
 }
 
-.accordion-header[aria-expanded="true"] .accordion-icon {
+.ui-accordion-item-open .ui-accordion-chevron {
   transform: rotate(90deg);
 }
 
-.accordion-content {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows var(--transition-normal);
+.ui-accordion-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.ui-accordion-content {
   overflow: hidden;
 }
 
-.accordion-content[data-state="open"] {
-  grid-template-rows: 1fr;
+.ui-accordion-content[data-state="closed"] {
+  display: none;
 }
 
-.accordion-inner {
-  min-height: 0;
-  padding: 0 var(--space-4);
-  opacity: 0;
-  transition: opacity 0.2s ease, padding 0.2s ease;
+.ui-accordion-content[data-state="open"] {
+  animation: ui-accordion-expand 0.2s ease-out;
 }
 
-.accordion-content[data-state="open"] .accordion-inner {
-  padding-bottom: var(--space-4);
-  opacity: 1;
+.ui-accordion-content-inner {
+  padding-bottom: var(--space-4, 16px);
+  padding-left: 24px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm, 14px);
+  line-height: 1.6;
 }
 
-.accordion-icon-wrapper {
-  color: var(--text-muted);
-  display: flex;
+@keyframes ui-accordion-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -1,44 +1,109 @@
+/**
+ * Input Component Styles
+ */
+
 .ui-input-wrapper {
+  width: 100%;
+}
+
+.ui-input-container {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
+  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-input-container:focus-within {
+  border-color: var(--accent-primary, #0ea5e9);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+}
+
+.ui-input-container.ui-input-error {
+  border-color: var(--color-error, #ef4444);
+}
+
+.ui-input-container.ui-input-error:focus-within {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+/* Size variants */
+.ui-input-sm {
+  height: 32px;
+}
+
+.ui-input-md {
+  height: 40px;
+}
+
+.ui-input-lg {
+  height: 48px;
 }
 
 .ui-input {
+  flex: 1;
   width: 100%;
-  height: 32px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 0 12px;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  height: 100%;
+  padding: 0 var(--space-3, 12px);
+  background: transparent;
+  border: none;
   outline: none;
-  transition: border-color var(--transition-fast);
-  font-family: var(--font-main);
+  font-family: inherit;
+  font-size: var(--font-size-sm, 14px);
+  color: var(--text-primary);
 }
 
-.ui-input:focus {
-  border-color: var(--border-active);
-  box-shadow: 0 0 0 1px var(--border-active);
+.ui-input::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
 }
 
-.ui-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: var(--surface-color);
+/* Left icon padding */
+.ui-input-has-left .ui-input {
+  padding-left: 0;
+}
+
+/* Right icon padding */
+.ui-input-has-right .ui-input {
+  padding-right: 0;
+}
+
+/* Icon containers */
+.ui-input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .ui-input-icon-left {
-  position: absolute;
-  left: 8px;
-  color: var(--text-secondary);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
+  padding-left: var(--space-3, 12px);
+  padding-right: var(--space-2, 8px);
 }
 
-.ui-input-has-left-icon {
-  padding-left: 32px;
+.ui-input-icon-right {
+  padding-left: var(--space-2, 8px);
+  padding-right: var(--space-3, 12px);
+}
+
+/* Error message */
+.ui-input-error-message {
+  display: block;
+  margin-top: var(--space-1, 4px);
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-error, #ef4444);
+}
+
+/* Disabled state */
+.ui-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-input-container:has(.ui-input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

@@ -1,117 +1,155 @@
+/**
+ * ColorPicker Component Styles
+ */
 
-.color-picker-container {
-    padding: 12px;
-    background: var(--bg-surface);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-md);
-    width: 240px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    cursor: default;
-    user-select: none;
+.ui-color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  padding: var(--space-3, 12px);
+  background-color: var(--bg-elevated, #2d2d2d);
+  border-radius: var(--radius-md, 6px);
+  min-width: 220px;
 }
 
-/* Saturation/Brightness Square */
-.sb-area {
-    width: 100%;
-    height: 150px;
-    position: relative;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    cursor: crosshair;
+/* Saturation/Brightness Area */
+.ui-color-picker-sb {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: var(--radius-sm, 4px);
+  cursor: crosshair;
+  overflow: hidden;
 }
 
-.sb-layer-white {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to right, white, transparent);
+.ui-color-picker-sb:focus-visible {
+  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline-offset: 2px;
 }
 
-.sb-layer-black {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to bottom, transparent, black);
+.ui-color-picker-sb-white,
+.ui-color-picker-sb-black {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
-/* Hue Slider bar */
-.hue-slider {
-    width: 100%;
-    height: 12px;
-    border-radius: 6px;
-    background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
-    position: relative;
-    cursor: pointer;
+.ui-color-picker-sb-white {
+  background: linear-gradient(to right, #fff, transparent);
 }
 
-/* Thumbs */
-.picker-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 2px rgba(0,0,0,0.5);
-    position: absolute;
-    transform: translate(-50%, -50%); /* Centered on point */
-    pointer-events: none;
+.ui-color-picker-sb-black {
+  background: linear-gradient(to top, #000, transparent);
 }
 
-.picker-thumb-slide {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: white;
-    border: 1px solid rgba(0,0,0,0.2);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
+.ui-color-picker-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
 }
 
-/* Inputs and Previews */
-.color-preview-box {
-    width: 24px;
-    height: 24px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
+/* Hue Slider */
+.ui-color-picker-hue {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  border-radius: var(--radius-full, 9999px);
+  background: linear-gradient(
+    to right,
+    #f00 0%,
+    #ff0 17%,
+    #0f0 33%,
+    #0ff 50%,
+    #00f 67%,
+    #f0f 83%,
+    #f00 100%
+  );
+  cursor: pointer;
 }
 
-.hex-input {
-    flex: 1;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    padding: 4px 8px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    text-transform: uppercase;
+.ui-color-picker-hue:focus-visible {
+  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline-offset: 2px;
 }
 
-.hex-input:focus {
-    outline: none;
-    border-color: var(--border-active);
+.ui-color-picker-hue-thumb {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: white;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* Preview & Input */
+.ui-color-picker-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.ui-color-picker-preview {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  flex-shrink: 0;
+}
+
+.ui-color-picker-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 var(--space-3, 12px);
+  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-sm, 4px);
+  font-family: monospace;
+  font-size: var(--font-size-sm, 14px);
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.ui-color-picker-input:focus {
+  outline: none;
+  border-color: var(--accent-primary, #0ea5e9);
 }
 
 /* Presets */
-.color-presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+.ui-color-picker-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.color-preset-item {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.1s;
+.ui-color-picker-preset {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease;
 }
 
-.color-preset-item:hover {
-    transform: scale(1.1);
-    border-color: white;
+.ui-color-picker-preset:hover {
+  transform: scale(1.15);
+}
+
+.ui-color-picker-preset:focus-visible {
+  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline-offset: 2px;
+}
+
+.ui-color-picker-preset-selected {
+  border-color: white;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }

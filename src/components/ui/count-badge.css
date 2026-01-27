@@ -1,71 +1,68 @@
-.count-badge {
+/**
+ * CountBadge Component Styles
+ */
+
+.ui-count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
-  height: 18px;
   min-width: 20px;
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 4px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: help;
-  user-select: none;
-  font-variant-numeric: tabular-nums;
-  position: relative;
-}
-
-.count-badge.secondary {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.count-badge.primary {
-  background-color: var(--accent-color);
-  color: white;
-}
-
-.count-badge.outline {
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-}
-
-.count-badge:hover {
-  background-color: var(--accent-color);
-  color: white;
-  transform: translateY(-1px);
-}
-
-/* Tooltip Styles */
-.count-badge-tooltip {
-  position: fixed;
-  z-index: 9999;
-  background-color: #1a1a1a;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 5px;
+  height: 20px;
+  padding: 0 6px;
   font-size: 11px;
-  pointer-events: none;
-  transform: translate(-50%, -100%);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  animation: tooltip-fade-in 0.15s ease-out;
-  white-space: nowrap;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-full, 9999px);
+  cursor: default;
+  user-select: none;
 }
 
-.tooltip-arrow {
+/* Variant styles */
+.ui-count-badge-primary {
+  background-color: var(--accent-primary, #0ea5e9);
+  color: white;
+}
+
+.ui-count-badge-secondary {
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-secondary);
+}
+
+.ui-count-badge-outline {
+  background-color: transparent;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
+  color: var(--text-secondary);
+}
+
+/* Tooltip */
+.ui-count-badge-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  padding: 4px 8px;
+  background-color: var(--bg-tooltip, #1a1a1a);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm, 4px);
+  white-space: nowrap;
+  z-index: 10000;
+  pointer-events: none;
+  animation: ui-count-badge-tooltip-in 0.15s ease;
+}
+
+.ui-count-badge-tooltip-arrow {
   position: absolute;
-  bottom: -4px;
   left: 50%;
+  bottom: -4px;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 4px solid #1a1a1a;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--bg-tooltip, #1a1a1a);
 }
 
-@keyframes tooltip-fade-in {
+@keyframes ui-count-badge-tooltip-in {
   from {
     opacity: 0;
     transform: translate(-50%, -90%);

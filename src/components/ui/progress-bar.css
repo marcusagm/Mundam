@@ -1,35 +1,66 @@
-.progress-container {
+/**
+ * ProgressBar Component Styles
+ */
+
+.ui-progress-container {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 
-.progress-track {
-  width: 100%;
-  background-color: var(--border-color); /* or surface-color for higher contrast */
-  border-radius: 9999px; /* Pill shape */
-  overflow: hidden;
-  height: 6px;
-  position: relative;
-}
-
-.progress-track.sm { height: 4px; }
-.progress-track.md { height: 8px; }
-.progress-track.lg { height: 12px; }
-
-.progress-fill {
-  height: 100%;
-  background-color: var(--accent-color);
-  border-radius: 9999px;
-  transition: width var(--transition-normal);
-  /* Optional striped/animated effect */
-}
-
-.progress-label {
+.ui-progress-label {
   display: flex;
   justify-content: space-between;
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  font-weight: 500;
+  align-items: center;
+  margin-bottom: var(--space-1, 4px);
+  font-size: var(--font-size-sm, 12px);
+  color: var(--text-secondary);
+}
+
+.ui-progress-percentage {
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-progress-track {
+  width: 100%;
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-full, 9999px);
+  overflow: hidden;
+}
+
+/* Size variants */
+.ui-progress-sm {
+  height: 4px;
+}
+
+.ui-progress-md {
+  height: 8px;
+}
+
+.ui-progress-lg {
+  height: 12px;
+}
+
+.ui-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--accent-primary, #0ea5e9) 0%,
+    var(--accent-secondary, #06b6d4) 100%
+  );
+  border-radius: inherit;
+  transition: width 0.3s ease-out;
+}
+
+/* Indeterminate animation */
+.ui-progress-indeterminate {
+  width: 40%;
+  animation: ui-progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes ui-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
 }

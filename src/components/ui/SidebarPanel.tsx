@@ -1,43 +1,68 @@
-import { Component, JSX, Show } from "solid-js";
+import { Component, JSX, Show, splitProps } from "solid-js";
+import { cn } from "../../lib/utils";
 import "./sidebar-panel.css";
 
-interface SidebarPanelProps {
+export interface SidebarPanelProps extends JSX.HTMLAttributes<HTMLElement> {
+  /** Panel title */
   title: string;
+  /** Panel content */
   children: JSX.Element;
+  /** Actions to display in the header (e.g., buttons) */
   actions?: JSX.Element;
+  /** Footer content */
   footer?: JSX.Element;
-  class?: string;
+  /** Additional class for content area */
   contentClass?: string;
-  style?: JSX.CSSProperties;
-  onDragOver?: (e: any) => void;
-  onDragLeave?: (e: any) => void;
-  onDrop?: (e: any) => void;
+  /** Whether the panel is collapsible */
+  collapsible?: boolean;
 }
 
+/**
+ * SidebarPanel component for sidebar sections with header and optional footer.
+ * 
+ * @example
+ * <SidebarPanel 
+ *   title="Tags" 
+ *   actions={<Button size="icon-sm"><Plus size={14} /></Button>}
+ * >
+ *   <TagList />
+ * </SidebarPanel>
+ */
 export const SidebarPanel: Component<SidebarPanelProps> = (props) => {
+  const [local, others] = splitProps(props, [
+    "title",
+    "children",
+    "actions",
+    "footer",
+    "class",
+    "contentClass",
+    "collapsible",
+  ]);
+
   return (
-    <div class={`sidebar-panel ${props.class || ""}`} style={props.style}>
-      <div class="sidebar-panel-header">
-        <span class="sidebar-panel-title">{props.title}</span>
-        <Show when={props.actions}>
-          <div class="sidebar-panel-actions">
-            {props.actions}
+    <section
+      class={cn("ui-sidebar-panel", local.class)}
+      aria-label={local.title}
+      {...others}
+    >
+      <header class="ui-sidebar-panel-header">
+        <h3 class="ui-sidebar-panel-title">{local.title}</h3>
+        <Show when={local.actions}>
+          <div class="ui-sidebar-panel-actions" role="group">
+            {local.actions}
           </div>
         </Show>
+      </header>
+
+      <div class={cn("ui-sidebar-panel-content", local.contentClass)}>
+        {local.children}
       </div>
-      <div 
-        class={`sidebar-panel-content ${props.contentClass || ""}`}
-        onDragOver={props.onDragOver}
-        onDragLeave={props.onDragLeave}
-        onDrop={props.onDrop}
-      >
-        {props.children}
-      </div>
-      <Show when={props.footer}>
-        <div class="sidebar-panel-footer">
-          {props.footer}
-        </div>
+
+      <Show when={local.footer}>
+        <footer class="ui-sidebar-panel-footer">
+          {local.footer}
+        </footer>
       </Show>
-    </div>
+    </section>
   );
 };

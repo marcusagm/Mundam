@@ -1,80 +1,128 @@
+/**
+ * ContextMenu Component Styles
+ */
 
-/* Shared styles for menu containers */
-.context-menu-list, .context-submenu > .context-menu-list {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 4px;
-  min-width: 160px;
-  color: var(--text-primary);
+.ui-context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+}
+
+.ui-context-menu-container {
+  position: fixed;
+  min-width: 180px;
+  padding: var(--space-1, 4px);
+  background-color: var(--bg-elevated, #2d2d2d);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.ui-context-menu-list {
   display: flex;
   flex-direction: column;
 }
 
-/* Transitions */
-.context-menu-container {
-  animation: context-menu-fade 0.1s ease-out;
+.ui-context-menu-item-wrapper {
+  position: relative;
 }
 
-.context-submenu {
-    animation: context-menu-fade 0.1s ease-out;
-    z-index: 10000;
-}
-
-.context-menu-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.context-menu-item {
+.ui-context-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  font-family: inherit;
+  font-size: var(--font-size-sm, 13px);
   color: var(--text-primary);
-  transition: background-color 0.1s;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
 }
 
-.context-menu-item:hover, .context-menu-wrapper:hover > .context-menu-item {
-  background-color: var(--surface-hover);
+.ui-context-menu-item:hover:not(:disabled),
+.ui-context-menu-item-focused {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
 }
 
-.context-menu-item.danger {
-  color: var(--danger-color);
+.ui-context-menu-item:focus-visible {
+  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline-offset: -2px;
 }
 
-.context-menu-item.danger:hover {
-  background-color: rgba(244, 135, 113, 0.1); 
+.ui-context-menu-item-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
 }
 
-.context-menu-separator {
+.ui-context-menu-item-danger {
+  color: var(--color-error, #ef4444);
+}
+
+.ui-context-menu-item-danger:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.ui-context-menu-item-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-context-menu-shortcut {
+  margin-left: var(--space-4, 16px);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ui-context-menu-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.ui-context-menu-separator {
   height: 1px;
-  background-color: var(--border-color);
-  margin: 4px 0;
+  margin: var(--space-1, 4px) 0;
+  background-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
 }
 
-.context-menu-custom {
-    padding: 4px;
+.ui-context-menu-custom {
+  padding: var(--space-2, 8px);
 }
 
-@keyframes context-menu-fade {
+/* Submenu */
+.ui-context-menu-submenu-trigger {
+  position: relative;
+}
+
+.ui-context-submenu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 4px;
+  min-width: 180px;
+  padding: var(--space-1, 4px);
+  background-color: var(--bg-elevated, #2d2d2d);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: ui-context-submenu-in 0.15s ease;
+}
+
+@keyframes ui-context-submenu-in {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateX(-4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateX(0);
   }
-}
-
-.context-menu-label {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex: 1;
 }

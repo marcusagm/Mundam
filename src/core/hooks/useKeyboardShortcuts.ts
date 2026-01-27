@@ -1,5 +1,4 @@
 import { onMount, onCleanup } from "solid-js";
-import { onMount, onCleanup } from "solid-js";
 import { useSelection, useLibrary } from "./index";
 
 export function useKeyboardShortcuts() {

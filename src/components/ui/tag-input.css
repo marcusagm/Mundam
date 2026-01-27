@@ -1,82 +1,128 @@
-.tag-input-container {
-  position: relative;
+/**
+ * TagInput Component Styles
+ */
+
+.ui-tag-input-wrapper {
   width: 100%;
 }
 
-.tag-input-content {
+.ui-tag-input-container {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 4px 8px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  transition: border-color 0.1s;
+  gap: var(--space-1, 4px);
+  min-height: 40px;
+  padding: var(--space-2, 8px);
+  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  cursor: text;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tag-input-content:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-soft);
+.ui-tag-input-container:focus-within {
+  border-color: var(--accent-primary, #0ea5e9);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
 }
 
-.tag-chip {
-  display: flex;
+.ui-tag-input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-tag-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background-color: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
+  gap: var(--space-1, 4px);
+  padding: 2px 6px 2px 8px;
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-sm, 4px);
+  font-size: var(--font-size-sm, 13px);
+  color: var(--text-primary);
 }
 
-.tag-remove-btn {
+.ui-tag-chip-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-tag-chip-remove {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: none;
-  color: currentColor;
-  cursor: pointer;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  opacity: 0.7;
-}
-
-.tag-remove-btn:hover {
-  opacity: 1;
-}
-
-.tag-input-field {
-  border: none;
   background: transparent;
-  outline: none;
+  border: none;
+  border-radius: var(--radius-xs, 2px);
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.ui-tag-chip-remove:hover:not(:disabled) {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.ui-tag-chip-remove:disabled {
+  cursor: not-allowed;
+}
+
+.ui-tag-input {
   flex: 1;
   min-width: 60px;
-  font-size: 13px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm, 14px);
   color: var(--text-primary);
 }
 
-.tag-suggestions-dropdown {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-  z-index: 9999;
+.ui-tag-input::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.ui-tag-input:disabled {
+  cursor: not-allowed;
+}
+
+/* Suggestions dropdown */
+.ui-tag-suggestions {
+  position: fixed;
+  margin: 0;
+  padding: var(--space-1, 4px);
+  list-style: none;
+  background-color: var(--bg-elevated, #2d2d2d);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
   max-height: 200px;
   overflow-y: auto;
-  min-width: 200px;
 }
 
-.tag-suggestion-item {
-  padding: 6px 12px;
-  font-size: 13px;
+.ui-tag-suggestion-item {
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
+  font-size: var(--font-size-sm, 14px);
   color: var(--text-primary);
+  transition: background-color 0.1s ease;
 }
 
-.tag-suggestion-item:hover {
-  background-color: var(--bg-hover);
+.ui-tag-suggestion-item:hover,
+.ui-tag-suggestion-highlighted {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+}
+
+.ui-tag-suggestion-highlighted {
+  background-color: var(--accent-primary, #0ea5e9);
+  color: white;
 }

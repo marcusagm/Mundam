@@ -1,4 +1,4 @@
-import { Component, Show, JSX } from "solid-js";
+import { Component, Show } from "solid-js";
 import { ProgressBar } from "./ProgressBar";
 import "./loader.css";
 

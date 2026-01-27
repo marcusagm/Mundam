@@ -1,0 +1,227 @@
+.ui-toaster {
+  position: fixed;
+  z-index: 99999;
+  
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+/* Positions */
+.ui-toaster-top-left {
+  top: 0;
+  left: 0;
+  align-items: flex-start;
+}
+
+.ui-toaster-top-center {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+}
+
+.ui-toaster-top-right {
+  top: 0;
+  right: 0;
+  align-items: flex-end;
+}
+
+.ui-toaster-bottom-left {
+  bottom: 0;
+  left: 0;
+  align-items: flex-start;
+  flex-direction: column-reverse;
+}
+
+.ui-toaster-bottom-center {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+  flex-direction: column-reverse;
+}
+
+.ui-toaster-bottom-right {
+  bottom: 0;
+  right: 0;
+  align-items: flex-end;
+  flex-direction: column-reverse;
+}
+
+/* Toast */
+.ui-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  
+  min-width: 280px;
+  max-width: 400px;
+  padding: var(--space-3) var(--space-4);
+  
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  
+  pointer-events: all;
+  
+  animation: toast-enter 0.3s cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ui-toast-exiting {
+  animation: toast-exit 0.2s ease-out forwards;
+}
+
+@keyframes toast-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+.ui-toast-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ui-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-toast-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.ui-toast-description {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.ui-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.ui-toast-action-btn {
+  padding: var(--space-1) var(--space-2);
+  
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ui-toast-action-btn:hover {
+  background-color: var(--surface-hover);
+}
+
+.ui-toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  
+  color: var(--text-muted);
+  cursor: pointer;
+  
+  transition: all var(--transition-fast);
+}
+
+.ui-toast-close:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Toast Types */
+.ui-toast-default .ui-toast-icon {
+  color: var(--text-secondary);
+}
+
+.ui-toast-success {
+  border-color: var(--success-color);
+}
+
+.ui-toast-success .ui-toast-icon {
+  color: var(--success-color);
+}
+
+.ui-toast-error {
+  border-color: var(--danger-color);
+}
+
+.ui-toast-error .ui-toast-icon {
+  color: var(--danger-color);
+}
+
+.ui-toast-warning {
+  border-color: var(--warning-color);
+}
+
+.ui-toast-warning .ui-toast-icon {
+  color: var(--warning-color);
+}
+
+.ui-toast-info {
+  border-color: var(--accent-color);
+}
+
+.ui-toast-info .ui-toast-icon {
+  color: var(--accent-color);
+}
+
+/* Rich Colors (optional background tint) */
+.ui-toaster-rich .ui-toast-success {
+  background-color: rgba(137, 209, 133, 0.1);
+}
+
+.ui-toaster-rich .ui-toast-error {
+  background-color: rgba(244, 135, 113, 0.1);
+}
+
+.ui-toaster-rich .ui-toast-warning {
+  background-color: rgba(204, 167, 0, 0.1);
+}
+
+.ui-toaster-rich .ui-toast-info {
+  background-color: rgba(0, 122, 204, 0.1);
+}

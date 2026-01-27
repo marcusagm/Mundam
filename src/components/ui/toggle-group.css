@@ -1,0 +1,81 @@
+.ui-toggle-group {
+  display: inline-flex;
+  gap: 0;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.ui-toggle-group-horizontal {
+  flex-direction: row;
+}
+
+.ui-toggle-group-vertical {
+  flex-direction: column;
+}
+
+.ui-toggle-group-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  height: 28px;
+  min-width: 28px;
+  padding: 0 var(--space-2);
+  
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ui-toggle-group-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-offset) var(--ring-offset-color),
+              0 0 0 calc(var(--ring-offset) + 2px) var(--ring-color);
+  z-index: 1;
+}
+
+.ui-toggle-group-item:hover:not(:disabled) {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-toggle-group-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ui-toggle-group-item-pressed {
+  background-color: var(--surface-active);
+  color: var(--text-inverse);
+}
+
+.ui-toggle-group-item-pressed:hover:not(:disabled) {
+  background-color: var(--surface-active);
+}
+
+/* Separator between items (horizontal) */
+.ui-toggle-group-horizontal .ui-toggle-group-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background-color: var(--border-color);
+  opacity: 0;
+}
+
+/* Vertical layout adjustments */
+.ui-toggle-group-vertical .ui-toggle-group-item {
+  width: 100%;
+  justify-content: flex-start;
+}
