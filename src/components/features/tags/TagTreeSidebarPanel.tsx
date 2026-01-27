@@ -181,7 +181,7 @@ export const TagTreeSidebarPanel: Component = () => {
   return (
       <SidebarPanel 
         title="Tags" 
-        style={{ flex: "1 1 0%" }}
+        class="panel-fluid"
         actions={
             <Button variant="ghost" size="icon-sm" title="Create Tag" onClick={handleCreateTag}>
                 <Plus size={14} />

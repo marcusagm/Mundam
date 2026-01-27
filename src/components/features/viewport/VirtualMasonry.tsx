@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
 import { AssetCard } from "./AssetCard";
 import { calculateMasonryLayout, type ImageItem } from "../../../utils/masonryLayout";
 import { appActions, useAppStore } from "../../../core/store/appStore";
+import "./viewport.css";
 
 interface VirtualMasonryProps {
   items: ImageItem[];
@@ -114,21 +115,12 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
   return (
     <div 
       ref={scrollContainer} 
-      class="virtual-scroll-container" 
-      style={{ 
-        width: "100%", 
-        height: "100%", 
-        "overflow-y": "auto", 
-        position: "relative",
-        "will-change": "transform"
-      }}
+      class="virtual-scroll-container"
     >
       <div 
         class="virtual-track" 
         style={{ 
           height: `${layout().height}px`, 
-          width: "100%", 
-          position: "relative" 
         }}
       >
         <For each={visibleItems()}>

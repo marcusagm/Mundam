@@ -35,6 +35,7 @@
   color: var(--text-muted);
   gap: var(--space-3);
   opacity: 0.5;
+  font-size: 12px;
 }
 
 /* Metadata Fields */

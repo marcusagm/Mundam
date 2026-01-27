@@ -11,14 +11,14 @@ export const FoldersSidebarPanel: Component = () => {
     return (
         <SidebarPanel 
             title="Folders" 
-            style={{ flex: "0 1 auto", "max-height": "40%" }}
+            class="panel-limited"
             actions={
                 <Button variant="ghost" size="icon-sm" title="Create Folder">
                     <Plus size={14} />
                 </Button>
             }
         >
-            <div style={{ "display": "flex", "flex-direction": "column", gap: "1px" }}>
+            <div class="sidebar-list">
                 <For each={state.locations}>
                     {(loc) => (
                         <div 
@@ -27,7 +27,7 @@ export const FoldersSidebarPanel: Component = () => {
                             onClick={() => appActions.selectLocation((loc as any).id)}
                         >
                             <Folder size={16} fill="var(--text-muted)" stroke="none" /> 
-                            <span style={{ flex: 1, "white-space": "nowrap", "overflow": "hidden", "text-overflow": "ellipsis" }}>
+                            <span class="truncate" style={{ flex: 1 }}>
                                 {loc.name}
                             </span>
                             <CountBadge count={state.libraryStats.folder_counts.get((loc as any).id) || 0} variant="outline" />
@@ -36,7 +36,7 @@ export const FoldersSidebarPanel: Component = () => {
                 </For>
                 
                 {state.locations.length === 0 && (
-                    <div style={{ padding: "12px", "text-align": "center", color: "var(--text-muted)", "font-size": "11px", "font-style": "italic" }}>
+                    <div class="sidebar-empty-state">
                         No folders linked
                     </div>
                 )}

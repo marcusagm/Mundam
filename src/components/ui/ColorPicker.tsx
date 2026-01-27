@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount } from "solid-js";
+import { Component, createSignal, onMount, For } from "solid-js";
 import "./color-picker.css";
 
 // Helper: HSB <-> Hex
@@ -150,7 +150,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
             </div>
 
             {/* Preview & Input */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
                 <div 
                     class="color-preview-box"
                     style={{ "background-color": props.color }}

@@ -208,7 +208,9 @@ export const appActions = {
 
   setRootLocation: async (path: string, name: string) => {
     await addLocation(path, name);
-    setState("locations", (locs) => [...locs, { path, name }]);
+    // Reload locations to get the ID and valid state
+    const locations = await getLocations();
+    setState("locations", locations);
     setRootPath(path);
     await tauriService.startIndexing({ path });
   },
@@ -315,6 +317,10 @@ export const appActions = {
       } catch (err) {
            console.error(`Failed to update notes for ${id}:`, err);
       }
+  },
+
+  setSelection: (ids: number[]) => {
+      setState("selection", ids);
   }
 };
 

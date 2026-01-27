@@ -63,30 +63,30 @@ O sistema de tags está distribuído em três zonas principais da interface:
 
 Localizado no painel lateral direito, é onde o usuário interage com as tags de um arquivo selecionado.
 
-* **Campo de Entrada Inteligente:** Suporta *Fuzzy Search* (busca difusa). Ao digitar, o sistema sugere tags existentes.
-* **Tags Sugeridas:** Uma lista baseada em IA ou frequência de uso aparece abaixo do campo para inserção em um clique.
+* [ ] **Campo de Entrada Inteligente:** Suporta *Fuzzy Search* (busca difusa). Ao digitar, o sistema sugere tags existentes.
+* [ ] **Tags Sugeridas:** Uma lista baseada em IA ou frequência de uso aparece abaixo do campo para inserção em um clique.
 * [x] **Visualização de Tags:** Cada tag é exibida como um "token" removível com a cor do seu respectivo grupo.
 
 ### B. O Gerenciador Global de Tags
 
 Uma tela ou modal dedicado para manutenção da taxonomia.
 
-* **Árvore de Tags:** Visualização completa da hierarquia.
+* [x] **Árvore de Tags:** Visualização completa da hierarquia.
 * **Ações em Massa:** Mesclar duas tags semelhantes ou renomear uma tag em toda a biblioteca.
-* **Estatísticas:** Mostra quantos arquivos estão vinculados a cada tag.
+* [x] **Estatísticas:** Mostra quantos arquivos estão vinculados a cada tag.
 
 ### C. Filtros de Tags (Sidebar)
 
 Localizado no painel esquerdo, permite filtrar o Viewport atual.
 
-* **Seleção Múltipla:** Filtrar por `Tag A` **E** `Tag B` ou `Tag A` **OU** `Tag B`.
-* **Filtro de Exclusão:** Mostrar tudo, exceto arquivos com a `Tag C`.
+* [ ] **Seleção Múltipla:** Filtrar por `Tag A` **E** `Tag B` ou `Tag A` **OU** `Tag B`.
+* [ ] **Filtro de Exclusão:** Mostrar tudo, exceto arquivos com a `Tag C`.
 
 ---
 
 ## 3. Fluxos de Trabalho (UX)
 
-### Fluxo 1: Atribuição de Tags (Single & Batch)
+### [ ] Fluxo 1: Atribuição de Tags (Single & Batch)
 
 1. O usuário seleciona um ou mais ativos no **Viewport**.
 2. Pressiona a tecla de atalho `T`.
@@ -94,13 +94,13 @@ Localizado no painel esquerdo, permite filtrar o Viewport atual.
 4. O usuário digita as tags separadas por vírgula ou espaço.
 5. O sistema valida e cria novas tags ou vincula às existentes em tempo real.
 
-### Fluxo 2: Organização de Hierarquia
+### [x] Fluxo 2: Organização de Hierarquia
 
 1. No **Gerenciador de Tags**, o usuário clica em uma tag e a arrasta para cima de outra.
 2. O sistema pergunta se deseja tornar a tag arrastada uma "filha" (child).
 3. Ao confirmar, a estrutura é atualizada. Buscar pela tag "Pai" agora pode, opcionalmente, incluir todos os resultados das tags "Filhas".
 
-### Fluxo 3: Uso em Pastas Inteligentes (Smart Folders)
+### [ ] Fluxo 3: Uso em Pastas Inteligentes (Smart Folders)
 
 Este é o fluxo mais avançado de automação:
 

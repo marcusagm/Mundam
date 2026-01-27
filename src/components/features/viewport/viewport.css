@@ -1,0 +1,16 @@
+.virtual-scroll-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  will-change: transform;
+}
+
+.virtual-track {
+  width: 100%;
+  position: relative;
+}
+
+.virtual-masonry-item.drop-target-active {
+  border: 2px solid var(--accent-color);
+}

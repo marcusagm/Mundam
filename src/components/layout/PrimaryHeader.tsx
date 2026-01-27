@@ -3,22 +3,15 @@ import { appActions, useAppStore } from "../../core/store/appStore";
 import { Search, ChevronLeft, ChevronRight, Plus, LoaderCircle } from "lucide-solid";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import "./primary-header.css";
 
 export const PrimaryHeader: Component = () => {
   const { searchQuery, progress } = useAppStore();
 
   return (
-    <div style={{ 
-        padding: "0 16px", 
-        height: "52px", 
-        display: "flex", 
-        "align-items": "center", 
-        gap: "16px",
-        background: "var(--bg-header)",
-        "border-bottom": "1px solid var(--border-color)"
-    }}>
+    <div class="primary-header">
        {/* Navigation */}
-       <div style={{ display: "flex", gap: "8px" }}>
+       <div class="header-nav">
          <Button variant="ghost" size="icon" disabled>
             <ChevronLeft size={16} />
          </Button>
@@ -28,8 +21,8 @@ export const PrimaryHeader: Component = () => {
        </div>
 
        {/* OmniSearch */}
-       <div style={{ flex: 1, display: "flex", "justify-content": "center" }}>
-           <div style={{ width: "100%", "max-width": "600px" }}>
+       <div class="header-search">
+           <div class="header-search-wrapper">
                <Input 
                  placeholder="Search references (Ctrl+K)" 
                  value={searchQuery()}
@@ -40,9 +33,9 @@ export const PrimaryHeader: Component = () => {
        </div>
 
        {/* Actions / Status */}
-       <div style={{ display: "flex", "align-items": "center", gap: "16px", "font-size": "11px" }}>
+       <div class="header-actions">
             <Show when={progress()}>
-                <div style={{ display: "flex", "align-items": "center", gap: "8px", color: "var(--text-secondary)" }}>
+                <div class="indexing-status">
                     <LoaderCircle size={12} class="spin" />
                     <span>Indexing {progress()?.processed} / {progress()?.total}</span>
                 </div>

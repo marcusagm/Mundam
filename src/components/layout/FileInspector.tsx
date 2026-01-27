@@ -44,7 +44,7 @@ export const FileInspector: Component = () => {
              // Empty State
              <div class="inspector-loading-overlay">
                 <Info size={32} />
-                <span style={{ "font-size": "12px" }}>No item selected</span>
+                <span>No item selected</span>
             </div>
         }>
             <Match when={selectionCount() > 1}>

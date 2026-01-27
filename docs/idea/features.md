@@ -8,22 +8,22 @@ Esta etapa foca em como os ativos entram no sistema, garantindo que o fluxo de t
 
 Transforma o navegador em uma ferramenta de coleta ativa de referências.
 
-* **Métodos de Captura de Imagem:**
-* **Arrastar e Soltar (Drag & Drop):** Captura instantânea ao arrastar imagens para zonas de captura.
-* **Atalhos Rápidos:** Uso de `Alt + Clique Direito` para salvamento imediato.
-* **Captura em Lote (Batch Save):** Analisador de página para download múltiplo com filtros de tamanho e formato.
-* **Seleção de Elementos (Element Picker):** Ferramenta para capturar imagens específicas de uma página.
+* [ ] **Métodos de Captura de Imagem:**
+* [ ] **Arrastar e Soltar (Drag & Drop):** Captura instantânea ao arrastar imagens para zonas de captura.
+* [ ] **Atalhos Rápidos:** Uso de `Alt + Clique Direito` para salvamento imediato.
+* [ ] **Captura em Lote (Batch Save):** Analisador de página para download múltiplo com filtros de tamanho e formato.
+* [ ] **Seleção de Elementos (Element Picker):** Ferramenta para capturar imagens específicas de uma página.
 
 
-* **Captura de Tela (Screenshots):**
-* **Área Visível:** Captura do que está na tela.
-* **Área Selecionada:** Recorte manual de regiões da página.
-* **Página Inteira (Full Page):** Scroll automático para capturar o comprimento total do site.
+* [ ] **Captura de Tela (Screenshots):**
+* [ ] **Área Visível:** Captura do que está na tela.
+* [ ] **Área Selecionada:** Recorte manual de regiões da página.
+* [ ] **Página Inteira (Full Page):** Scroll automático para capturar o comprimento total do site.
 
 
-* **Captura de URLs e Referências:**
-* **Bookmarks Visuais:** Salva o link com miniatura gerada automaticamente.
-* **Mapeamento de Metadados:** Captura automática do Título, URL de origem e metadados de plataformas como Pinterest, ArtStation, Behance e Dribbble.
+* [ ] **Captura de URLs e Referências:**
+* [ ] **Bookmarks Visuais:** Salva o link com miniatura gerada automaticamente.
+* [ ] **Mapeamento de Metadados:** Captura automática do Título, URL de origem e metadados de plataformas como Pinterest, ArtStation, Behance e Dribbble.
 
 
 
@@ -63,13 +63,13 @@ Esta etapa detalha como o sistema transforma arquivos brutos em uma biblioteca e
 
 Permite a separação lógica e física de grandes volumes de ativos.
 
-* **Modelo Multi-Biblioteca:** Suporte para criar e alternar rapidamente entre diferentes "containers" ou bases de dados independentes.
-* **Consolidação (Merge):** Capacidade de unir duas ou mais bibliotecas em uma estrutura única.
-* **Segurança de Acesso:** Opção para proteger pastas ou bibliotecas específicas com senha.
-* **Hierarquia de Pastas Clássica:**
-* **Pastas e Subpastas:** Suporte a múltiplos níveis de profundidade para categorias fixas.
-* **Customização Visual:** Atribuição de cores e ícones para identificação rápida de pastas.
-* **Agrupamento Virtual:** Recurso para agrupar pastas relacionadas sem alterar o caminho físico no disco.
+* [ ] **Modelo Multi-Biblioteca:** Suporte para criar e alternar rapidamente entre diferentes "containers" ou bases de dados independentes.
+* [ ] **Consolidação (Merge):** Capacidade de unir duas ou mais bibliotecas em uma estrutura única.
+* [ ] **Segurança de Acesso:** Opção para proteger pastas ou bibliotecas específicas com senha.
+* [ ] **Hierarquia de Pastas Clássica:**
+* [ ] **Pastas e Subpastas:** Suporte a múltiplos níveis de profundidade para categorias fixas.
+* [ ] **Customização Visual:** Atribuição de cores e ícones para identificação rápida de pastas.
+* [ ] **Agrupamento Virtual:** Recurso para agrupar pastas relacionadas sem alterar o caminho físico no disco.
 
 
 
@@ -81,13 +81,13 @@ Um sistema flexível que permite múltiplas camadas de classificação.
 * [x] **Visualização em Árvore:** Interface dedicada para navegar pela taxonomia com estados de expansão e colapso.
 * [x] **Grupos de Tags:** Organização de etiquetas em grupos coloridos para facilitar a seleção em massa e a gestão visual.
 * **Operações Avançadas de Taxonomia:**
-* **Mesclagem (Tag Merge):** Consolidação de etiquetas duplicadas ou similares em uma única categoria.
-* **Gestão Global:** Painel centralizado para renomear, mover entre ramos ou excluir etiquetas em toda a biblioteca.
+* [ ] **Mesclagem (Tag Merge):** Consolidação de etiquetas duplicadas ou similares em uma única categoria.
+* [ ] **Gestão Global:** Painel centralizado para renomear, mover entre ramos ou excluir etiquetas em toda a biblioteca.
 
 
 * **Atribuição Inteligente:**
-* **Sugestão e Autocompletar:** Sistema que sugere etiquetas baseadas no histórico de uso ou ativos similares durante a digitação.
-* **Edição em Lote (Bulk Tagging):** Vinculação de etiquetas a múltiplos arquivos simultaneamente.
+* [ ] **Sugestão e Autocompletar:** Sistema que sugere etiquetas baseadas no histórico de uso ou ativos similares durante a digitação.
+* [ ] **Edição em Lote (Bulk Tagging):** Vinculação de etiquetas a múltiplos arquivos simultaneamente.
 
 
 
@@ -133,31 +133,31 @@ Este módulo transforma a biblioteca em um "canivete suíço" visual, permitindo
 
 Capacidade de exibir e processar uma vasta gama de ativos com alta fidelidade.
 
-* **Suporte Multiformato Profissional:** Visualização de mais de 90 formatos, incluindo imagens tradicionais, vetores, vídeos, áudios e arquivos 3D.
-* **Renderização de Arquivos Proprietários:** Pré-visualização direta de arquivos do ecossistema de design como `.psd`, `.ai`, `.xd`, `.sketch`, `.affinity` e `.fig`.
-* **Formatos Web e Modernos:** Suporte nativo para `.webp`, `.avif`, `.heic`, `.svg`, além de formatos profissionais como `.exr`, `.hdr` e `.tiff`.
-* **Previews Persistentes:** Geração de miniaturas de alta fidelidade que permitem a visualização instantânea de arquivos pesados (ex: PSDs de 2GB) sem consumo excessivo de RAM.
-* **Carregamento Progressivo:** Uso de miniaturas para navegação rápida e carregamento de imagens em alta definição apenas sob demanda.
+* [ ] **Suporte Multiformato Profissional:** Visualização de mais de 90 formatos, incluindo imagens tradicionais, vetores, vídeos, áudios e arquivos 3D.
+* [ ] **Renderização de Arquivos Proprietários:** Pré-visualização direta de arquivos do ecossistema de design como `.psd`, `.ai`, `.xd`, `.sketch`, `.affinity` e `.fig`.
+* [ ] **Formatos Web e Modernos:** Suporte nativo para `.webp`, `.avif`, `.heic`, `.svg`, além de formatos profissionais como `.exr`, `.hdr` e `.tiff`.
+* [ ] **Previews Persistentes:** Geração de miniaturas de alta fidelidade que permitem a visualização instantânea de arquivos pesados (ex: PSDs de 2GB) sem consumo excessivo de RAM.
+* [x] **Carregamento Progressivo:** Uso de miniaturas para navegação rápida e carregamento de imagens em alta definição apenas sob demanda.
 
 ### 3.2 Experiência de Navegação e Layouts Dinâmicos
 
 Diferentes modos de visualização para se adaptar ao fluxo de trabalho do usuário.
 
-* **Layout Masonry de Alta Performance:** Organização otimizada de imagens com proporções variadas, utilizando processamento via **Wasm/Rust** para garantir fluidez.
-* **Layouts de Grade e Lista:** Opções de visualização simétrica tradicional ou detalhada com metadados em colunas.
-* **Modo de Inspeção (Slide Mode):** Visualização em tela cheia com navegação por gestos ou teclado.
-* **Zoom Dinâmico e Pan:** Ferramentas para inspeção de detalhes em alta resolução e navegação dentro de arquivos grandes.
+* [x] **Layout Masonry de Alta Performance:** Organização otimizada de imagens com proporções variadas, utilizando processamento via **Wasm/Rust** para garantir fluidez.
+* [ ] **Layouts de Grade e Lista:** Opções de visualização simétrica tradicional ou detalhada com metadados em colunas.
+* [ ] **Modo de Inspeção (Slide Mode):** Visualização em tela cheia com navegação por gestos ou teclado.
+* [ ] **Zoom Dinâmico e Pan:** Ferramentas para inspeção de detalhes em alta resolução e navegação dentro de arquivos grandes.
 
 ### 3.3 Inspeção Técnica de Vídeo, Áudio e Animação
 
 Ferramentas de "baixo nível" para análise de mídia temporal.
 
-* **Hover Preview (Scrubbing):** Pré-visualização do conteúdo de vídeos e GIFs apenas ao passar o mouse sobre a miniatura.
-* **Anotações com Timestamp:** Capacidade de adicionar comentários em momentos específicos do vídeo ou áudio, funcionando como marcadores de tempo.
-* **Controles de Reprodução Avançados:**
-* **Loop de Trecho:** Definição de pontos "A" e "B" para repetição contínua.
-* **Ajuste de Velocidade:** Reprodução de 0.5x a 2x para análise técnica.
-* **Visualização Frame a Frame:** Navegação por quadros individuais em GIFs e vídeos.
+* [ ] **Hover Preview (Scrubbing):** Pré-visualização do conteúdo de vídeos e GIFs apenas ao passar o mouse sobre a miniatura.
+* [ ] **Anotações com Timestamp:** Capacidade de adicionar comentários em momentos específicos do vídeo ou áudio, funcionando como marcadores de tempo.
+* [ ] **Controles de Reprodução Avançados:**
+* [ ] **Loop de Trecho:** Definição de pontos "A" e "B" para repetição contínua.
+* [ ] **Ajuste de Velocidade:** Reprodução de 0.5x a 2x para análise técnica.
+* [ ] **Visualização Frame a Frame:** Navegação por quadros individuais em GIFs e vídeos.
 
 
 
@@ -165,25 +165,25 @@ Ferramentas de "baixo nível" para análise de mídia temporal.
 
 Atua como um hub central para tipografia, eliminando softwares de terceiros.
 
-* **Preview de Texto Customizado:** Permite digitar frases personalizadas e visualizá-las instantaneamente em todas as fontes da biblioteca.
-* **Ativação em Um Clique:** Ativa ou desativa fontes no sistema operacional diretamente pela interface do aplicativo.
-* **Filtros de Classificação Tipográfica:** Busca refinada por categorias como serifa, sem serifa, manuscrita ou monoespaçada.
+* [ ] **Preview de Texto Customizado:** Permite digitar frases personalizadas e visualizá-las instantaneamente em todas as fontes da biblioteca.
+* [ ] **Ativação em Um Clique:** Ativa ou desativa fontes no sistema operacional diretamente pela interface do aplicativo.
+* [ ] **Filtros de Classificação Tipográfica:** Busca refinada por categorias como serifa, sem serifa, manuscrita ou monoespaçada.
 
 ### 3.5 Inspeção de Ativos 3D
 
 Visualização e navegação em modelos tridimensionais sem engines de renderização.
 
-* **Formatos Suportados:** Inspeção de arquivos `.obj`, `.fbx`, `.stl` e `.gltf`.
-* **Navegação Orbital 360°:** Rotação completa, pan e zoom no modelo dentro do painel de visualização.
-* **Modos de Visualização Técnica:** Alternância entre renderização texturizada, *wireframe* (aramado) e inspeção de malha.
+* [ ] **Formatos Suportados:** Inspeção de arquivos `.obj`, `.fbx`, `.stl` e `.gltf`.
+* [ ] **Navegação Orbital 360°:** Rotação completa, pan e zoom no modelo dentro do painel de visualização.
+* [ ] **Modos de Visualização Técnica:** Alternância entre renderização texturizada, *wireframe* (aramado) e inspeção de malha.
 
 ### 3.6 Painel de Propriedades e Metadados Técnicos
 
 Extração de dados profundos para conferência técnica.
 
-* **Inspetor EXIF/IPTC:** Visualização detalhada de dados de captura como ISO, abertura e localização geográfica.
-* **Paleta de Cores Dinâmica:** Listagem de códigos HEX das cores predominantes com funcionalidade de cópia rápida.
-* **Estatísticas Físicas:** Exibição de dimensões exatas, DPI, tamanho em disco e datas de criação/modificação.
+* [x] **Inspetor EXIF/IPTC:** Visualização detalhada de dados de captura como ISO, abertura e localização geográfica.
+* [ ] **Paleta de Cores Dinâmica:** Listagem de códigos HEX das cores predominantes com funcionalidade de cópia rápida.
+* [x] **Estatísticas Físicas:** Exibição de dimensões exatas, DPI, tamanho em disco e datas de criação/modificação.
 
 
 ## 4. Busca, Recuperação e Processamento em Lote
@@ -194,44 +194,40 @@ Este módulo garante que a recuperação da informação seja instantânea e que
 
 Algoritmos avançados para localização de ativos por contexto ou texto.
 
-* **Busca por Texto Completo (Fuzzy Search):** Pesquisa em nomes de arquivos, extensões, tags, notas e até URLs de origem.
-* **Tolerância a Erros (Fuzzy Matching):** Algoritmo que encontra resultados aproximados mesmo com termos incompletos ou pequenos erros de digitação.
-* **Busca por Fonte e Origem:** Localiza imagens através do link original do site onde foram capturadas ou caminhos relativos de armazenamento.
-* **Busca por Paleta de Cores:** Filtro visual que permite localizar ativos através de tons específicos selecionados em um seletor.
+* [ ] **Busca por Texto Completo (Fuzzy Search):** Pesquisa em nomes de arquivos, extensões, tags, notas e até URLs de origem.
+* [ ] **Tolerância a Erros (Fuzzy Matching):** Algoritmo que encontra resultados aproximados mesmo com termos incompletos ou pequenos erros de digitação.
+* [ ] **Busca por Fonte e Origem:** Localiza imagens através do link original do site onde foram capturadas ou caminhos relativos de armazenamento.
+* [ ] **Busca por Paleta de Cores:** Filtro visual que permite localizar ativos através de tons específicos selecionados em um seletor.
 
 ### 4.2 Construtor de Pesquisa Avançada e Filtros Multidimensionais
 
 Interface para consultas complexas baseadas em propriedades físicas e metadados técnicos.
 
-* **Lógica Booleana Completa:** Suporte a operadores lógicos **E** (AND), **OU** (OR) e **NÃO** (NOT) para combinar critérios de busca.
-* **Critérios de Refinamento Técnico:**
-* **Resolução e Proporção:** Filtros por dimensões exatas (largura/altura) ou proporções de tela (Retrato, Paisagem, Quadrado).
-* **Atributos de Arquivo:** Filtragem por extensão (formato), tamanho do arquivo e datas (criação, modificação ou importação).
-* **Qualidade e Status:** Busca por ativos com ou sem tags/anotações e por classificação (estrelas).
-
-
-* **Consultas Salvas (Saved Searches):** Capacidade de salvar critérios complexos para acesso rápido, com atualização dinâmica dos resultados conforme novos ativos entram na biblioteca.
+* [ ] **Lógica Booleana Completa:** Suporte a operadores lógicos **E** (AND), **OU** (OR) e **NÃO** (NOT) para combinar critérios de busca.
+* [ ] **Critérios de Refinamento Técnico:**
+* [ ] **Resolução e Proporção:** Filtros por dimensões exatas (largura/altura) ou proporções de tela (Retrato, Paisagem, Quadrado).
+* [ ] **Atributos de Arquivo:** Filtragem por extensão (formato), tamanho do arquivo e datas (criação, modificação ou importação).
+* [ ] **Qualidade e Status:** Busca por ativos com ou sem tags/anotações e por classificação (estrelas).
+* [ ] **Consultas Salvas (Saved Searches):** Capacidade de salvar critérios complexos para acesso rápido, com atualização dinâmica dos resultados conforme novos ativos entram na biblioteca.
 
 ### 4.3 Processamento e Ações em Lote (Batch Processing)
 
 Ferramentas para manipulação massiva de arquivos em uma única operação.
 
-* **Edição em Massa:** Adição ou remoção de tags, alteração de ratings e movimentação entre pastas para múltiplos arquivos simultaneamente.
-* **Renomeação Sequencial:** Ferramenta avançada para renomear centenas de arquivos seguindo padrões de numeração, prefixos, sufixos e substituição de strings.
-* **Conversão de Formato em Lote:** Capacidade de converter grupos de imagens para formatos mais leves (como WebP ou JPG) definindo qualidade e redimensionamento.
-* **Automação de Fluxo (Actions):** Criação de macros ou "receitas" (ex: "Tag X + Mover para Pasta Y") disparadas por atalhos de teclado customizáveis.
+* [ ] **Edição em Massa:** Adição ou remoção de tags, alteração de ratings e movimentação entre pastas para múltiplos arquivos simultaneamente.
+* [ ] **Renomeação Sequencial:** Ferramenta avançada para renomear centenas de arquivos seguindo padrões de numeração, prefixos, sufixos e substituição de strings.
+* [ ] **Conversão de Formato em Lote:** Capacidade de converter grupos de imagens para formatos mais leves (como WebP ou JPG) definindo qualidade e redimensionamento.
+* [ ] **Automação de Fluxo (Actions):** Criação de macros ou "receitas" (ex: "Tag X + Mover para Pasta Y") disparadas por atalhos de teclado customizáveis.
 
 ### 4.4 Higiene e Manutenção da Biblioteca
 
 Recursos para garantir a integridade e limpeza do banco de dados.
 
-* **Busca por Duplicatas:** Identificação de arquivos idênticos ou muito similares via hash para liberar espaço em disco.
-* **Manutenção de Integridade de Links:**
-* **Localizador de Caminhos Quebrados:** Identifica ativos cujos arquivos originais foram movidos ou deletados fora do sistema.
-* **Recuperação de Locais (Location Recovery):** Ferramenta para remapear diretórios raiz que foram renomeados no sistema operacional.
-
-
-* **Otimização de Banco de Dados:** Recurso para reconstruir índices e compactar a base de dados local para manter a performance em bibliotecas massivas.
+* [ ] **Busca por Duplicatas:** Identificação de arquivos idênticos ou muito similares via hash para liberar espaço em disco.
+* [ ] **Manutenção de Integridade de Links:**
+* [ ] **Localizador de Caminhos Quebrados:** Identifica ativos cujos arquivos originais foram movidos ou deletados fora do sistema.
+* [ ] **Recuperação de Locais (Location Recovery):** Ferramenta para remapear diretórios raiz que foram renomeados no sistema operacional.
+* [ ] **Otimização de Banco de Dados:** Recurso para reconstruir índices e compactar a base de dados local para manter a performance em bibliotecas massivas.
 
 
 ## 5. Fluxo de Trabalho, Infraestrutura e Personalização
@@ -242,51 +238,51 @@ Este módulo final detalha como o sistema se integra ao sistema operacional, gar
 
 Modelo centrado na privacidade e na liberdade de escolha do provedor de nuvem.
 
-* **Modelo Cloud-Agnostic:** O software não possui nuvem proprietária, mas integra-se a pastas locais do **Dropbox, Google Drive, OneDrive, iCloud e pCloud** para sincronização.
-* **Sincronização Multi-dispositivo:** Permite acessar a mesma biblioteca em diferentes computadores através de pastas sincronizadas.
-* **Controle de Conflitos:** Sistema de alerta que solicita o fechamento de instâncias em outros dispositivos para evitar corrupção de dados ao editar simultaneamente.
-* **Acesso Mobile:** Versões para iOS e Android focadas em visualização e gerenciamento remoto via Wi-Fi.
+* [ ] **Modelo Cloud-Agnostic:** O software não possui nuvem proprietária, mas integra-se a pastas locais do **Dropbox, Google Drive, OneDrive, iCloud e pCloud** para sincronização.
+* [ ] **Sincronização Multi-dispositivo:** Permite acessar a mesma biblioteca em diferentes computadores através de pastas sincronizadas.
+* [ ] **Controle de Conflitos:** Sistema de alerta que solicita o fechamento de instâncias em outros dispositivos para evitar corrupção de dados ao editar simultaneamente.
+* [ ] **Acesso Mobile:** Versões para iOS e Android focadas em visualização e gerenciamento remoto via Wi-Fi.
 
 ### 5.2 Interoperabilidade e Integração Criativa
 
 Conectividade direta com o ecossistema de softwares de design e edição.
 
-* **Drag & Drop Universal:** Suporte para arrastar ativos diretamente para o canvas de ferramentas como **Figma, Photoshop, Illustrator, After Effects, Premiere e Canva**.
-* **Plugins Dedicados:** Extensões específicas (ex: Figma) para navegar na biblioteca sem sair da tela de design.
-* **Cópia de Código HEX:** Integração com a área de transferência para colar paletas de cores extraídas diretamente em campos de preenchimento de ferramentas de UI.
+* [x] **Drag & Drop Universal:** Suporte para arrastar ativos diretamente para o canvas de ferramentas como **Figma, Photoshop, Illustrator, After Effects, Premiere e Canva**.
+* [ ] **Plugins Dedicados:** Extensões específicas (ex: Figma) para navegar na biblioteca sem sair da tela de design.
+* [ ] **Cópia de Código HEX:** Integração com a área de transferência para colar paletas de cores extraídas diretamente em campos de preenchimento de ferramentas de UI.
 
 ### 5.3 Exportação e Portabilidade
 
 Flexibilidade para retirar e compartilhar dados organizados.
 
-* **Exportação com Metadados:** Salva arquivos em pastas locais preservando a estrutura hierárquica e incluindo informações de tags e notas.
-* **Pacotes Proprietários (.eaglepack):** Compactação de seleções de ativos com todos os metadados para compartilhamento entre usuários do sistema.
-* **Backup de Banco de Dados:** Ferramentas para exportar a base de dados e a taxonomia de etiquetas para transferência segura.
+* [ ] **Exportação com Metadados:** Salva arquivos em pastas locais preservando a estrutura hierárquica e incluindo informações de tags e notas.
+* [ ] **Pacotes Proprietários (.eaglepack):** Compactação de seleções de ativos com todos os metadados para compartilhamento entre usuários do sistema.
+* [ ] **Backup de Banco de Dados:** Ferramentas para exportar a base de dados e a taxonomia de etiquetas para transferência segura.
 
 ### 5.4 Personalização e Interface do Usuário
 
 Ajuste da ferramenta ao gosto visual e à produtividade do usuário.
 
-* **Gerenciamento de Aparência (Themes):** Suporte a temas **Escuro, Claro, Cinza e Monocromático**.
-* **Personalização Avançada:** Opção para aplicação de **CSS customizado** por usuários avançados.
-* **Gestão de Atalhos (Hotkeys):** Configuração total de teclas rápidas para navegação, classificação e disparar ações de automação.
-* **Preferências de Inicialização:** Configuração do comportamento ao abrir (abrir última pesquisa, mostrar biblioteca vazia) e definição de formatos suportados.
+* [ ] **Gerenciamento de Aparência (Themes):** Suporte a temas **Escuro, Claro, Cinza e Monocromático**.
+* [ ] **Personalização Avançada:** Opção para aplicação de **CSS customizado** por usuários avançados.
+* [ ] **Gestão de Atalhos (Hotkeys):** Configuração total de teclas rápidas para navegação, classificação e disparar ações de automação.
+* [ ] **Preferências de Inicialização:** Configuração do comportamento ao abrir (abrir última pesquisa, mostrar biblioteca vazia) e definição de formatos suportados.
 
 ### 5.5 Infraestrutura Técnica e Performance
 
 Mecanismos de fundo que garantem a velocidade e a integridade dos arquivos.
 
-* **Paradigma Local-First:** Toda a inteligência de busca e visualização é processada na máquina do usuário, utilizando arquivos JSON e estruturas de pastas locais.
-* **Motor de Alta Performance (Rust/Wasm):** Uso de WebAssembly e Rust para processamento de layouts complexos e decodificação de formatos pesados com velocidade nativa.
-* **Geração Assíncrona de Miniaturas:** Worker dedicado em threads separadas para criar previews de arquivos profissionais (PSD, TIFF, HDR) sem travar a interface.
-* **Agendamento de Backups:** Criação automática de cópias de segurança da base de dados com sistema de rotação para economizar disco.
-* **Arquitetura de Dados:** Otimização interna utilizando **SQLite ou TypeORM** para garantir consultas rápidas em bases massivas.
+* [ ] **Paradigma Local-First:** Toda a inteligência de busca e visualização é processada na máquina do usuário, utilizando arquivos JSON e estruturas de pastas locais.
+* [ ] **Motor de Alta Performance (Rust/Wasm):** Uso de WebAssembly e Rust para processamento de layouts complexos e decodificação de formatos pesados com velocidade nativa.
+* [ ] **Geração Assíncrona de Miniaturas:** Worker dedicado em threads separadas para criar previews de arquivos profissionais (PSD, TIFF, HDR) sem travar a interface.
+* [ ] **Agendamento de Backups:** Criação automática de cópias de segurança da base de dados com sistema de rotação para economizar disco.
+* [ ] **Arquitetura de Dados:** Otimização interna utilizando **SQLite ou TypeORM** para garantir consultas rápidas em bases massivas.
 
 ### 5.6 Diferenciais e Limitações Identificadas
 
 Observações sobre o comportamento do sistema em escala.
 
-* **Escalabilidade Extrema:** Capacidade comprovada de lidar com mais de **100.000 ativos** mantendo a fluidez de busca.
-* **Fluxo Não-Destrutivo:** Os ativos originais permanecem intactos; todas as edições de metadados ocorrem em uma camada de software separada.
-* **Dependência de Hardware:** O processamento inicial e a análise cromática de grandes volumes são intensivos em CPU e RAM.
-* **Colaboração em Equipe:** Limitada ao compartilhamento de pastas de nuvem sincronizadas, sem suporte nativo a permissões de múltiplos usuários.
+* [ ] **Escalabilidade Extrema:** Capacidade comprovada de lidar com mais de **100.000 ativos** mantendo a fluidez de busca.
+* [ ] **Fluxo Não-Destrutivo:** Os ativos originais permanecem intactos; todas as edições de metadados ocorrem em uma camada de software separada.
+* [ ] **Dependência de Hardware:** O processamento inicial e a análise cromática de grandes volumes são intensivos em CPU e RAM.
+* [ ] **Colaboração em Equipe:** Limitada ao compartilhamento de pastas de nuvem sincronizadas, sem suporte nativo a permissões de múltiplos usuários.

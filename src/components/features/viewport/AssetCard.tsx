@@ -192,8 +192,7 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
     <div
       class={`virtual-item virtual-masonry-item ${props.selected ? "selected" : ""} ${props.className || ""} ${isDropTarget() ? "drop-target-active" : ""}`}
       style={{
-          ...props.style,
-          "border": isDropTarget() ? "2px solid var(--accent-color)" : undefined
+          ...props.style
       }}
       draggable={true}
       onDragStart={handleDragStart}

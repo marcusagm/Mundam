@@ -1,5 +1,6 @@
 import { Component, JSX } from "solid-js";
 import "../styles/global.css";
+import "./app-shell.css";
 
 // This layout implements the 3-pane Grid structure
 // [ Header ]
@@ -16,64 +17,32 @@ interface AppShellProps {
 
 export const AppShell: Component<AppShellProps> = (props) => {
   return (
-    <div class="app-shell" style={{
-        display: "grid",
-        "grid-template-rows": "min-content 1fr min-content", /* Header, Main, Footer */
-        "grid-template-columns": "1fr",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden"
-    }}>
+    <div class="app-shell">
       {/* Header Area */}
-      <header class="shell-header" style={{ "border-bottom": "1px solid var(--border-subtle)", background: "var(--bg-header)" }}>
+      <header class="shell-header">
         {props.header}
       </header>
 
       {/* Main 3-Pane Area */}
-      <div class="shell-body" style={{
-          display: "grid",
-          "grid-template-columns": "260px 1fr 280px", /* Sidebar | Content | Inspector */
-          "min-height": "0", /* Fix for nested scrolling */
-          overflow: "hidden"
-      }}>
+      <div class="shell-body">
         {/* Left Sidebar */}
-        <aside class="shell-sidebar" style={{ 
-            "border-right": "1px solid var(--border-subtle)",
-            "background-color": "var(--bg-sidebar)",
-            "overflow": "hidden"
-        }}>
+        <aside class="shell-sidebar">
           {props.sidebar}
         </aside>
 
         {/* Central Viewport */}
-        <main class="shell-content" style={{
-            "position": "relative",
-            "background-color": "var(--bg-color)",
-            "overflow": "hidden" 
-        }}>
+        <main class="shell-content">
           {props.children}
         </main>
 
         {/* Right Inspector */}
-        <aside class="shell-inspector" style={{
-            "border-left": "1px solid var(--border-subtle)",
-            "background-color": "var(--bg-sidebar)",
-             "overflow-y": "auto"
-        }}>
+        <aside class="shell-inspector">
           {props.inspector}
         </aside>
       </div>
 
       {/* Footer / Statusbar */}
-      <footer class="shell-footer" style={{ 
-          "border-top": "1px solid var(--border-subtle)", 
-          "padding": "0 8px",
-          "height": "28px",
-          "display": "flex",
-          "align-items": "center",
-          "font-size": "11px",
-          "background-color": "var(--bg-sidebar)"
-      }}>
+      <footer class="shell-footer">
         {props.statusbar}
       </footer>
     </div>

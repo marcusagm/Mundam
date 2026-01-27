@@ -1,0 +1,33 @@
+.library-sidebar {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.library-sidebar .panel-fixed {
+  flex: 0 0 auto;
+}
+
+.library-sidebar .panel-limited {
+  flex: 0 1 auto;
+  max-height: 40%;
+}
+
+.library-sidebar .panel-fluid {
+  flex: 1 1 0%;
+}
+
+.sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-empty-state {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
+}

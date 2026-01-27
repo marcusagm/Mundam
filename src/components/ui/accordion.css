@@ -73,3 +73,8 @@
   padding-bottom: var(--space-4);
   opacity: 1;
 }
+
+.accordion-icon-wrapper {
+  color: var(--text-muted);
+  display: flex;
+}

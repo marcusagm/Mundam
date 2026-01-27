@@ -41,7 +41,7 @@ export const AccordionItem: Component<AccordionItemProps> = (props) => {
           {props.title}
         </span>
         <Show when={props.icon}>
-          <div style={{ color: "var(--text-muted)" }}>{props.icon}</div>
+          <div class="accordion-icon-wrapper">{props.icon}</div>
         </Show>
       </button>
       

@@ -8,7 +8,7 @@ export const LibrarySidebarPanel: Component = () => {
     const { state } = useAppStore();
 
     return (
-        <SidebarPanel title="Library" style={{ flex: "0 0 auto" }}>
+        <SidebarPanel title="Library" class="panel-fixed">
             <div 
                 class={`nav-item ${(!state.selectedLocationId && !state.filterUntagged && state.selectedTags.length === 0) ? 'active' : ''}`}
                 onClick={() => appActions.clearAllFilters()}

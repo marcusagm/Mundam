@@ -207,7 +207,12 @@ export const TreeViewItem: Component<TreeViewItemProps> = (props) => {
   const isInvalid = () => !validationState().valid && currentDragItem()?.type === "TAG";
 
   return (
-    <div class="tree-item-container">
+    <div 
+        class="tree-item-container"
+        role="treeitem"
+        aria-selected={props.selectedIds?.some(id => String(id) === String(props.node.id))}
+        aria-expanded={hasChildren() ? isExpanded() : undefined}
+    >
         <div 
             class={`tree-item-content ${props.selectedIds?.some(id => String(id) === String(props.node.id)) ? 'selected' : ''} ${dropPosition() === 'inside' ? 'drop-target' : ''} ${isInvalid() ? 'drop-disabled' : ''} ${isDraggingSource() ? 'dragging-source' : ''}`}
             style={{ 
@@ -281,24 +286,26 @@ export const TreeViewItem: Component<TreeViewItemProps> = (props) => {
         </div>
         
         <Show when={isExpanded() && hasChildren()}>
-            <For each={props.node.children}>
-                {(child) => (
-                    <TreeViewItem 
-                        node={child} 
-                        depth={props.depth + 1} 
-                        onSelect={props.onSelect}
-                        onContextMenu={props.onContextMenu}
-                        selectedIds={props.selectedIds}
-                        editingId={props.editingId}
-                        onRename={props.onRename}
-                        onEditCancel={props.onEditCancel}
-                        defaultIcon={props.defaultIcon}
-                        expandedIds={props.expandedIds}
-                        onToggle={props.onToggle}
-                        onMove={props.onMove}
-                    />
-                )}
-            </For>
+            <div role="group">
+                <For each={props.node.children}>
+                    {(child) => (
+                        <TreeViewItem 
+                            node={child} 
+                            depth={props.depth + 1} 
+                            onSelect={props.onSelect}
+                            onContextMenu={props.onContextMenu}
+                            selectedIds={props.selectedIds}
+                            editingId={props.editingId}
+                            onRename={props.onRename}
+                            onEditCancel={props.onEditCancel}
+                            defaultIcon={props.defaultIcon}
+                            expandedIds={props.expandedIds}
+                            onToggle={props.onToggle}
+                            onMove={props.onMove}
+                        />
+                    )}
+                </For>
+            </div>
         </Show>
     </div>
   );
@@ -310,6 +317,7 @@ export const TreeView: Component<TreeViewProps> = (props) => {
     return (
         <div 
             class={`tree-view ${isDragOver() ? 'root-drop-active' : ''}`}
+            role="tree"
             onDragEnter={(e) => e.preventDefault()}
             onDragOver={(e) => {
                 e.preventDefault();

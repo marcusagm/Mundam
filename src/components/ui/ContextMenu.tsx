@@ -1,4 +1,4 @@
-import { Component, For, Show, createSignal, onCleanup, createEffect } from "solid-js";
+import { Component, For, Show, createSignal, createEffect, JSX } from "solid-js";
 import { Portal, Dynamic } from "solid-js/web";
 import { ChevronRight } from "lucide-solid";
 import "./context-menu.css";
@@ -97,7 +97,7 @@ const MenuList: Component<{ items: ContextMenuItem[]; onCloseRoot: () => void }>
                 {(item, index) => (
                     <div 
                         class="context-menu-wrapper"
-                        onMouseEnter={(e) => {
+                        onMouseEnter={() => {
                             setActiveSubMenu(index());
                         }}
                         onMouseLeave={() => setActiveSubMenu(null)}
@@ -129,7 +129,7 @@ const MenuList: Component<{ items: ContextMenuItem[]; onCloseRoot: () => void }>
 
                         <Show when={item.type === "submenu"}>
                             <div class="context-menu-item submenu-trigger">
-                                <span style={{ display: "flex", gap: "8px", "align-items": "center", flex: 1 }}>
+                                <span class="context-menu-label">
                                     <Show when={(item as any).icon}>
                                         <Dynamic component={(item as any).icon} size={14} />
                                     </Show>
