@@ -3,15 +3,129 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
-    <title>Tauri + Solid + Typescript App</title>
+  <style>
+      /* 
+         Loader Styling - Scoped to #splash-screen to prevent conflicts.
+         Colors match tokens.css manually to ensure 1:1 match without import issues.
+      */
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background-color: #1e1e1e; /* bg-color */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #969696; /* text-secondary */
+        transition: opacity 0.3s ease-out;
+      }
+
+      #splash-spinner {
+        width: 48px;
+        height: 48px;
+        border: 2px solid transparent;
+        border-bottom-color: #007acc; /* accent-color */
+        border-radius: 50%;
+        box-sizing: border-box;
+        animation: splash-spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+
+      #splash-text {
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+      }
+
+      #splash-error {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+      }
+
+      #splash-error-msg {
+        color: #f48771; /* danger-color */
+        max-width: 80%;
+      }
+
+      #splash-reload {
+        padding: 8px 16px;
+        background-color: #007acc;
+        color: #ffffff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 12px;
+      }
+
+      @keyframes splash-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
 
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    
+    <!-- Sibling Loader - NOT inside root -->
+    <div id="splash-screen">
+      <div id="splash-content" style="display: flex; flex-direction: column; align-items: center;">
+        <div id="splash-spinner"></div>
+        <div id="splash-text">Initializing Elleven Library...</div>
+      </div>
+      
+      <div id="splash-error">
+        <div id="splash-error-msg">Application failed to start.</div>
+        <button id="splash-reload" onclick="window.location.reload()">Reload</button>
+      </div>
+    </div>
+
+    <!-- Application Root -->
     <div id="root"></div>
 
+    <script>
+      (function() {
+        const splash = document.getElementById('splash-screen');
+        const content = document.getElementById('splash-content');
+        const errorView = document.getElementById('splash-error');
+        const errorMsg = document.getElementById('splash-error-msg');
+        const text = document.getElementById('splash-text');
+
+        // 1. Listen for App Ready Event
+        window.addEventListener('app-ready', () => {
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 300); // Remove after fade
+        });
+
+        // 2. Global Error Handler (Boot Phase)
+        window.onerror = function(msg, source, lineno, colno, error) {
+          if (document.body.contains(splash)) {
+            content.style.display = 'none';
+            errorView.style.display = 'flex';
+            errorMsg.textContent = msg || "Unknown startup error";
+            return false;
+          }
+        };
+
+        // 3. Long Load Warning (5s)
+        const timeout = setTimeout(() => {
+          if (document.body.contains(splash) && content.style.display !== 'none') {
+             text.textContent = "Taking longer than usual...";
+          }
+        }, 5000);
+
+        // Cleanup timeout on success
+        window.addEventListener('app-ready', () => clearTimeout(timeout));
+      })();
+    </script>
+    
     <script src="/src/index.tsx" type="module"></script>
   </body>
 </html>

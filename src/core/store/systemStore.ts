@@ -23,6 +23,20 @@ export const systemActions = {
       setLoading(true);
       await initDb();
       await metadataActions.loadLocations();
+      await metadataActions.loadTags();
+      
+      // Auto-select root path if locations exist
+      import("./metadataStore").then(({ metadataState }) => {
+          if (metadataState.locations.length > 0) {
+              const main = metadataState.locations[0];
+              setRootPath(main.path);
+              // Trigger initial load
+               import("./libraryStore").then(({ libraryActions }) => {
+                  libraryActions.refreshImages(true);
+               });
+               metadataActions.loadStats();
+          }
+      });
       
       // Setup Listeners
       listen<ProgressPayload>("indexer:progress", (e) => {

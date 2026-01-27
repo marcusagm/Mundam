@@ -1,4 +1,5 @@
 import { createSignal, createEffect, Show } from "solid-js";
+import { Loader } from "../../ui/Loader";
 
 interface ReferenceImageProps {
   id: number;
@@ -56,8 +57,8 @@ export function ReferenceImage(props: ReferenceImageProps) {
       data-id={props.id}
     >
       <Show when={!displaySrc() || !loaded()}>
-        <div class="image-placeholder animate-pulse">
-           <div class="placeholder-icon"></div>
+        <div class="image-placeholder">
+           <Loader size="sm" />
         </div>
       </Show>
       

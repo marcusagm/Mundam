@@ -1,8 +1,9 @@
 import { Component, Show } from "solid-js";
 import { useFilters, useSystem } from "../../core/hooks";
-import { Search, ChevronLeft, ChevronRight, Plus, LoaderCircle } from "lucide-solid";
+import { Search, ChevronLeft, ChevronRight, Plus } from "lucide-solid";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { Loader } from "../ui/Loader";
 import "./primary-header.css";
 
 export const PrimaryHeader: Component = () => {
@@ -37,7 +38,7 @@ export const PrimaryHeader: Component = () => {
        <div class="header-actions">
             <Show when={system.progress()}>
                 <div class="indexing-status">
-                    <LoaderCircle size={12} class="spin" />
+                    <Loader size="sm" />
                     <span>Indexing {system.progress()?.processed} / {system.progress()?.total}</span>
                 </div>
             </Show>

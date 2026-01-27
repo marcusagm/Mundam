@@ -1,0 +1,35 @@
+.progress-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.progress-track {
+  width: 100%;
+  background-color: var(--border-color); /* or surface-color for higher contrast */
+  border-radius: 9999px; /* Pill shape */
+  overflow: hidden;
+  height: 6px;
+  position: relative;
+}
+
+.progress-track.sm { height: 4px; }
+.progress-track.md { height: 8px; }
+.progress-track.lg { height: 12px; }
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--accent-color);
+  border-radius: 9999px;
+  transition: width var(--transition-normal);
+  /* Optional striped/animated effect */
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+}

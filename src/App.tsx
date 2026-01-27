@@ -9,6 +9,7 @@ import { VirtualMasonry } from "./components/features/viewport/VirtualMasonry";
 import { open } from "@tauri-apps/plugin-dialog";
 // Native DnD
 import { dndRegistry, TagDropStrategy, ImageDropStrategy } from "./core/dnd";
+import { Loader } from "./components/ui/Loader";
 
 import { useKeyboardShortcuts } from "./core/hooks/useKeyboardShortcuts";
 
@@ -27,6 +28,9 @@ function App() {
     
     
     // Check if shift key held during start?
+    
+    // Notify Splah Screen
+    window.dispatchEvent(new CustomEvent('app-ready'));
   });
 
   const handleSelectFolder = async () => {
@@ -50,7 +54,7 @@ function App() {
   };
 
   return (
-    <Show when={!system.loading()} fallback={<div class="grid-placeholder">Loading...</div>}>
+    <Show when={!system.loading()} fallback={<Loader fullscreen text="Initializing Elleven Library..." />}>
       <Show 
         when={system.rootPath()} 
         fallback={
