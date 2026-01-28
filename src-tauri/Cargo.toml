@@ -36,3 +36,9 @@ percent-encoding = "2.3"
 rayon = "1.8"
 rexif = "0.7"
 
+# Thumbnail optimization - Fast path
+zune-jpeg = "0.4"
+webp = "0.3"
+zip = "2.1"
+
+

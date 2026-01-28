@@ -66,3 +66,8 @@ commands.allow = ["update_image_notes"]
 identifier = "allow-get-image-exif"
 description = "Enables get_image_exif"
 commands.allow = ["get_image_exif"]
+
+[[permission]]
+identifier = "allow-request-thumbnail-regenerate"
+description = "Enables request_thumbnail_regenerate for 404 recovery"
+commands.allow = ["request_thumbnail_regenerate"]

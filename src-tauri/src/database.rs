@@ -137,4 +137,13 @@ impl Db {
             .await?;
         Ok(())
     }
+
+    /// Clear thumbnail path to trigger regeneration by the worker
+    pub async fn clear_thumbnail_path(&self, image_id: i64) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE images SET thumbnail_path = NULL WHERE id = ?")
+            .bind(image_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }

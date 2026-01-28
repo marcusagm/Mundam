@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="bgfont" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3e3a2a"/>
+      <stop offset="100%" style="stop-color:#2e2a1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="12" fill="url(#bgfont)"/>
+  <!-- Letter A for Font -->
+  <text x="60" y="78" text-anchor="middle" fill="#caba8a" font-family="Georgia, serif" font-size="48" font-weight="bold">A</text>
+  <text x="60" y="105" text-anchor="middle" fill="#aa9a6a" font-family="system-ui" font-size="12" font-weight="600">FONT</text>
+</svg>

@@ -1,12 +1,15 @@
 mod database;
 mod db_tags;
+mod ffmpeg;
 mod indexer;
 mod metadata_commands;
 mod metadata_reader;
 mod protocols;
 mod tag_commands;
+mod thumbnail_commands;
 mod thumbnail_worker;
 mod thumbnails;
+
 
 use crate::database::Db;
 use crate::indexer::Indexer;
@@ -91,7 +94,8 @@ pub fn run() {
             tag_commands::get_images_filtered,
             tag_commands::update_image_rating,
             tag_commands::update_image_notes,
-            metadata_commands::get_image_exif
+            metadata_commands::get_image_exif,
+            thumbnail_commands::request_thumbnail_regenerate
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

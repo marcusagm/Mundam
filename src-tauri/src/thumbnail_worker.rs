@@ -47,12 +47,22 @@ impl ThumbnailWorker {
                         // Clone thumb_dir for the move closure
                         let thumb_dir_clone = thumb_dir.clone();
 
-                        // Use a blocking thread for CPU-intensive work (Rayon)
+                        // Use a blocking thread for CPU-intensive work
+                        // Limit parallelism to 2 threads to reduce CPU usage
                         let db_updates = tauri::async_runtime::spawn_blocking(move || {
                             use rayon::prelude::*;
+                            use rayon::ThreadPoolBuilder;
+                            
+                            // Create a limited thread pool (2 threads max)
+                            let pool = ThreadPoolBuilder::new()
+                                .num_threads(2)
+                                .build()
+                                .unwrap();
+                            
+                            pool.install(|| {
+                                images
+                                    .par_iter()
 
-                            images
-                                .par_iter()
                                 .filter_map(|(id, img_path)| {
                                     let input_path = Path::new(&img_path);
                                     if !input_path.exists() {
@@ -90,6 +100,7 @@ impl ThumbnailWorker {
                                     }
                                 })
                                 .collect::<Vec<_>>()
+                            }) // Close pool.install
                         })
                         .await
                         .unwrap_or_else(|e| {

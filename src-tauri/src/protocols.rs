@@ -56,6 +56,9 @@ pub fn thumb_handler(
     } else {
         uri.trim_start_matches("thumb://")
     };
+    
+    // Strip query params if present (e.g., ?v=0 for cache busting)
+    let path_part = path_part.split('?').next().unwrap_or(path_part);
 
     let thumb_dir = app
         .path()

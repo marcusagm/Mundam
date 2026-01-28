@@ -26,6 +26,7 @@
     "allow-get-library-stats",
     "allow-update-image-rating",
     "allow-update-image-notes",
-    "allow-get-image-exif"
+    "allow-get-image-exif",
+    "allow-request-thumbnail-regenerate"
   ]
 }
