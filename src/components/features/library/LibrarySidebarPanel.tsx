@@ -11,7 +11,7 @@ export const LibrarySidebarPanel: Component = () => {
     return (
         <SidebarPanel title="Library" class="panel-fixed">
             <div 
-                class={`nav-item ${(!filters.selectedLocationId && !filters.filterUntagged && filters.selectedTags.length === 0) ? 'active' : ''}`}
+                class={`nav-item ${(!filters.selectedFolderId && !filters.filterUntagged && filters.selectedTags.length === 0) ? 'active' : ''}`}
                 onClick={() => filters.clearAll()}
             >
                 <Layers size={16} />

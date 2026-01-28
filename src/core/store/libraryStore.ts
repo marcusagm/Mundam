@@ -37,18 +37,18 @@ export const libraryActions = {
   refreshImages: async (reset = false) => {
 
     const isUntagged = filterState.filterUntagged;
-    const locationId = filterState.selectedLocationId;
-    const subfolderId = filterState.selectedSubfolderId;
+    const folderId = filterState.selectedFolderId;
+    const recursive = filterState.folderRecursiveView;
     const anyFilter = filterActions.hasActiveFilters();
     
-    console.log("libraryStore.refreshImages", { reset, isUntagged, locationId, subfolderId, anyFilter });
+    console.log("libraryStore.refreshImages", { reset, isUntagged, folderId, recursive, anyFilter });
 
     if (reset) {
       currentOffset = 0;
       let firstBatch;
       if (anyFilter) {
         firstBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive
         );
       } else {
         firstBatch = await getImages(BATCH_SIZE, 0);
@@ -59,7 +59,7 @@ export const libraryActions = {
       let fresh;
       if (anyFilter) {
         fresh = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive
         );
       } else {
         fresh = await getImages(BATCH_SIZE, 0);
@@ -75,15 +75,15 @@ export const libraryActions = {
 
     try {
       const isUntagged = filterState.filterUntagged;
-        const locationId = filterState.selectedLocationId;
-        const subfolderId = filterState.selectedSubfolderId;
-        const anyFilter = filterActions.hasActiveFilters();
+      const folderId = filterState.selectedFolderId;
+      const recursive = filterState.folderRecursiveView;
+      const anyFilter = filterActions.hasActiveFilters();
       
       let nextBatch;
       
       if (anyFilter) {
         nextBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
+          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive
         );
       } else {
         nextBatch = await getImages(BATCH_SIZE, currentOffset);

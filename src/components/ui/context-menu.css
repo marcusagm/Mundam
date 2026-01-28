@@ -93,9 +93,9 @@
   background-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
 }
 
-.ui-context-menu-custom {
+/* .ui-context-menu-custom {
   padding: var(--space-2, 8px);
-}
+} */
 
 /* Submenu */
 .ui-context-menu-submenu-trigger {
@@ -104,7 +104,7 @@
 
 .ui-context-submenu {
   position: absolute;
-  left: 100%;
+  left: calc(100% - var(--space-1, 4px));
   top: 0;
   margin-left: 4px;
   min-width: 180px;

@@ -10,8 +10,8 @@ export const useFilters = () => {
   return {
     // State (Read-only proxies)
     get selectedTags() { return filterState.selectedTags; },
-    get selectedLocationId() { return filterState.selectedLocationId; },
-    get selectedSubfolderId() { return filterState.selectedSubfolderId; },
+    get selectedFolderId() { return filterState.selectedFolderId; },
+    get folderRecursiveView() { return filterState.folderRecursiveView; },
     get filterUntagged() { return filterState.filterUntagged; },
     get searchQuery() { return filterState.searchQuery; },
     
@@ -19,9 +19,8 @@ export const useFilters = () => {
     toggleTag: withRefresh(filterActions.toggleTag),
     setUntagged: withRefresh(filterActions.setUntagged),
     toggleUntagged: withRefresh(filterActions.toggleUntagged),
-    setLocation: withRefresh(filterActions.setLocation),
-    setSubfolder: withRefresh(filterActions.setSubfolder),
     setFolder: withRefresh(filterActions.setFolder),
+    setFolderRecursiveView: withRefresh(filterActions.setFolderRecursiveView),
     setSearch: withRefresh(filterActions.setSearch),
     clearAll: withRefresh(filterActions.clearAll),
     hasActiveFilters: filterActions.hasActiveFilters

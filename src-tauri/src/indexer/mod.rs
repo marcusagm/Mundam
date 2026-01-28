@@ -4,7 +4,7 @@ use self::metadata::{get_image_metadata, ImageMetadata};
 use crate::database::Db;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
@@ -17,10 +17,10 @@ pub struct ProgressPayload {
     pub current_file: String,
 }
 
-/// Struct to hold image path with its relative directory
+/// Struct to hold image path with its parent directory path
 struct IndexedImage {
     metadata: ImageMetadata,
-    relative_dir: String,  // e.g., "Vacation/Beach" or "" for root
+    parent_dir: String, 
 }
 
 pub struct Indexer {
@@ -45,7 +45,7 @@ impl Indexer {
         let root_for_watcher = root_path.clone();
         let root_str = root_path.to_string_lossy().to_string();
 
-        // 1. Initial Quick Scan - Collect files with relative paths
+        // 1. Initial Quick Scan - Collect files with absolute parent paths
         let files: Vec<(PathBuf, String)> = WalkDir::new(&root_path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -53,13 +53,12 @@ impl Indexer {
             .filter(|e| is_image_file(e.path()))
             .map(|e| {
                 let file_path = e.path().to_path_buf();
-                // Calculate relative directory (not including filename)
-                let relative_dir = file_path
+                // Get absolute parent directory
+                let parent_dir = file_path
                     .parent()
-                    .and_then(|p| p.strip_prefix(&root_path).ok())
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
-                (file_path, relative_dir)
+                (file_path, parent_dir)
             })
             .collect();
 
@@ -67,69 +66,52 @@ impl Indexer {
         println!("DEBUG: Indexer found {} images", total_files);
 
         // Get Location ID
-        let location_path = root_path.to_string_lossy().to_string();
-        let location_name = root_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(&location_path)
-            .to_string();
-
-        let location_id = match db
-            .get_or_create_location(&location_path, &location_name)
-            .await
-        {
-            Ok(id) => id,
-            Err(e) => {
-                eprintln!("Failed to get/create location: {}", e);
-                return;
-            }
-        };
-
-        // 2. Build subfolder hierarchy BEFORE processing images
-        let unique_dirs: std::collections::HashSet<String> = files
+        // 2. Identify all unique folders (including Root)
+        let mut unique_dirs: std::collections::HashSet<String> = files
             .iter()
             .filter(|(_, dir)| !dir.is_empty())
             .map(|(_, dir)| dir.clone())
             .collect();
-        
-        println!("DEBUG: Found {} unique subdirectories", unique_dirs.len());
-        for dir in &unique_dirs {
-            println!("DEBUG: Subdirectory: '{}'", dir);
-        }
-        
-        // Create subfolders and build lookup map
-        let subfolder_map = match self.create_subfolder_hierarchy(location_id, unique_dirs).await {
+            
+        // Ensure root is in the set
+        unique_dirs.insert(root_str.clone());
+
+        println!("DEBUG: Found {} unique folders", unique_dirs.len());
+
+        // 3. Ensure Hierarchy Exists
+        let folder_map = match self.ensure_folder_hierarchy(unique_dirs, &root_str).await {
             Ok(map) => map,
             Err(e) => {
-                eprintln!("Failed to create subfolder hierarchy: {}", e);
+                eprintln!("Failed to ensure folder hierarchy: {}", e);
                 HashMap::new()
             }
         };
-        
-        println!("DEBUG: Created {} subfolders", subfolder_map.len());
+
+        // We need the ID of the root folder for the watcher or logging?
+        let _location_id = *folder_map.get(&root_str).unwrap_or(&0); 
 
         if total_files > 0 {
             // Adaptive Chunking Strategy
             let chunk_size = (total_files / 100).clamp(1, 200);
             let (tx, mut rx) = mpsc::channel::<IndexedImage>(100);
 
-            // 3. Spawn Worker to save images
+            // 4. Spawn Worker to save images
             let app_worker = app.clone();
             let db_worker = db.clone();
-            let subfolder_map_worker = subfolder_map.clone();
+            let folder_map_worker = folder_map.clone();
             
             tokio::spawn(async move {
                 let mut processed: usize = 0;
-                let mut batch: Vec<(Option<i64>, ImageMetadata)> = Vec::new();
+                let mut batch: Vec<(i64, ImageMetadata)> = Vec::new();
 
                 while let Some(indexed) = rx.recv().await {
                     processed += 1;
-                    let subfolder_id = if indexed.relative_dir.is_empty() {
-                        None
+                    
+                    if let Some(&folder_id) = folder_map_worker.get(&indexed.parent_dir) {
+                        batch.push((folder_id, indexed.metadata.clone()));
                     } else {
-                        subfolder_map_worker.get(&indexed.relative_dir).copied()
-                    };
-                    batch.push((subfolder_id, indexed.metadata.clone()));
+                        eprintln!("Warning: Folder ID not found for '{}'", indexed.parent_dir);
+                    }
 
                     if processed % chunk_size == 0 || processed == total_files {
                         let _ = app_worker.emit(
@@ -141,10 +123,10 @@ impl Indexer {
                             },
                         );
 
-                        // Save batch with subfolder_ids
-                        for (sf_id, img) in batch.drain(..) {
+                        // Save batch
+                        for (fid, img) in batch.drain(..) {
                             if let Err(e) = db_worker
-                                .save_image_with_subfolder(location_id, sf_id, &img)
+                                .save_image(fid, &img)
                                 .await
                             {
                                 eprintln!("Failed to save image: {}", e);
@@ -157,14 +139,14 @@ impl Indexer {
                 println!("DEBUG: Indexer complete. Processed {}", processed);
             });
 
-            // 4. Producer - Distribute work
-            for (path, relative_dir) in files {
+            // 5. Producer - Distribute work
+            for (path, parent_dir) in files {
                 let tx_clone = tx.clone();
                 tokio::spawn(async move {
                     if let Some(meta) = get_image_metadata(&path) {
                         let _ = tx_clone.send(IndexedImage {
                             metadata: meta,
-                            relative_dir,
+                            parent_dir,
                         }).await;
                     }
                 });
@@ -174,59 +156,72 @@ impl Indexer {
         }
 
         // 5. Start File Watcher for real-time updates
-        self.start_watcher(root_for_watcher, location_id, root_str);
+        self.start_watcher(root_for_watcher, 0, root_str);
     }
     
-    /// Create subfolder hierarchy in database and return path -> id mapping
-    async fn create_subfolder_hierarchy(
+    /// Ensure folder hierarchy exists in database
+    async fn ensure_folder_hierarchy(
         &self,
-        location_id: i64,
-        dirs: std::collections::HashSet<String>,
+        folders: std::collections::HashSet<String>,
+        root_path: &str,
     ) -> Result<HashMap<String, i64>, String> {
         let mut path_to_id: HashMap<String, i64> = HashMap::new();
         
-        // Sort paths to ensure parents are created before children
-        let mut sorted_dirs: Vec<String> = dirs.into_iter().collect();
-        sorted_dirs.sort();
+        // Sort paths by length to ensure parents are processed first
+        let mut sorted_dirs: Vec<String> = folders.into_iter().collect();
+        sorted_dirs.sort_by_key(|a| a.len());
         
         for dir_path in sorted_dirs {
-            // Split path into components
-            let components: Vec<&str> = dir_path.split(std::path::MAIN_SEPARATOR).collect();
-            let name = components.last().unwrap_or(&"").to_string();
+            let path_buf = PathBuf::from(&dir_path);
+            let name = path_buf
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
             
-            // Find parent ID
-            let parent_id = if components.len() > 1 {
-                let parent_path = components[..components.len()-1].join(&std::path::MAIN_SEPARATOR.to_string());
-                path_to_id.get(&parent_path).copied()
-            } else {
-                None
-            };
+            // Find parent
+            // We check if the parent path exists in our map (which means it's part of the current scan)
+            // Or we check DB? 
+            // Better: Check map first. If not in map, check DB (it might be an existing folder outside this scan context).
             
-            // Create subfolder
-            println!("DEBUG: Creating subfolder '{}' with parent_id {:?}", dir_path, parent_id);
-            match self.db.get_or_create_subfolder(location_id, &dir_path, &name, parent_id).await {
+            let parent_path_str = path_buf
+                .parent()
+                .map(|p| p.to_string_lossy().to_string());
+            
+            let mut parent_id = None;
+            if let Some(pp) = parent_path_str {
+                if let Some(id) = path_to_id.get(&pp) {
+                    parent_id = Some(*id);
+                } else if let Ok(Some(id)) = self.db.get_folder_by_path(&pp).await {
+                    parent_id = Some(id);
+                }
+            }
+            
+            let is_root = dir_path == root_path;
+            
+            println!("DEBUG: Upserting folder '{}' (Parent: {:?}, Root: {})", dir_path, parent_id, is_root);
+            
+            match self.db.upsert_folder(&dir_path, &name, parent_id, is_root).await {
                 Ok(id) => {
-                    println!("DEBUG: Created subfolder ID {} for '{}'", id, dir_path);
                     path_to_id.insert(dir_path, id);
                 }
                 Err(e) => {
-                    eprintln!("Failed to create subfolder '{}': {}", dir_path, e);
+                    eprintln!("Failed to upsert folder '{}': {}", dir_path, e);
                 }
             }
         }
         
-        println!("DEBUG: Total subfolders created: {}", path_to_id.len());
-        
+        println!("DEBUG: Hierarchy processed. Map size: {}", path_to_id.len());
         Ok(path_to_id)
     }
 
-    fn start_watcher(&self, path: PathBuf, location_id: i64, root_str: String) {
+    fn start_watcher(&self, path: PathBuf, _location_id: i64, root_str: String) {
         use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 
         let app = self.app_handle.clone();
         let db = self.db.clone();
         let watch_path = path.clone();
-        let root_path = PathBuf::from(&root_str);
+        let _root_path = PathBuf::from(&root_str);
 
         tokio::spawn(async move {
             let (tx, mut rx) = mpsc::channel(1);
@@ -256,48 +251,48 @@ impl Indexer {
                             for file_path in event.paths {
                                 if is_image_file(&file_path) {
                                     if let Some(meta) = get_image_metadata(&file_path) {
-                                        // Calculate relative directory
-                                        let relative_dir = file_path
+                                        // Get parent directory
+                                        let parent_dir = file_path
                                             .parent()
-                                            .and_then(|p| p.strip_prefix(&root_path).ok())
                                             .map(|p| p.to_string_lossy().to_string())
                                             .unwrap_or_default();
                                         
-                                        // Get or create subfolder if needed
-                                        let subfolder_id = if relative_dir.is_empty() {
-                                            None
-                                        } else {
-                                            // Get subfolder name
-                                            let name = file_path
-                                                .parent()
-                                                .and_then(|p| p.file_name())
-                                                .and_then(|n| n.to_str())
-                                                .unwrap_or("")
-                                                .to_string();
-                                            
-                                            // Find parent subfolder
-                                            let components: Vec<&str> = relative_dir.split(std::path::MAIN_SEPARATOR).collect();
-                                            let parent_id = if components.len() > 1 {
-                                                let parent_path = components[..components.len()-1].join(&std::path::MAIN_SEPARATOR.to_string());
-                                                // Try to get parent - this is async so we need a simpler approach
-                                                // For watched files, we'll just set parent_id to None
-                                                // The hierarchy is already created during initial scan
-                                                None
-                                            } else {
-                                                None
-                                            };
-                                            
-                                            match db.get_or_create_subfolder(location_id, &relative_dir, &name, parent_id).await {
-                                                Ok(id) => Some(id),
-                                                Err(e) => {
-                                                    eprintln!("Failed to get/create subfolder: {}", e);
-                                                    None
-                                                }
+                                        // We need to ensure this folder exists.
+                                        // Since we can't easily do full hierarchy check in this async loop efficiently
+                                        // without refactoring, for now we try to find it.
+                                        // If it's a new folder, it might not exist.
+                                        // Ideally we call upsert_folder here.
+                                        
+                                        let name = file_path
+                                            .parent()
+                                            .and_then(|p| p.file_name())
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("")
+                                            .to_string();
+
+                                        // Try to find parent_id for this folder (grandparent of file)
+                                        let grandparent_path = file_path
+                                            .parent()
+                                            .and_then(|p| p.parent())
+                                            .map(|p| p.to_string_lossy().to_string());
+                                        
+                                        let mut parent_id = None;
+                                        if let Some(gp) = grandparent_path {
+                                            if let Ok(Some(id)) = db.get_folder_by_path(&gp).await {
+                                                parent_id = Some(id);
+                                            }
+                                        }
+
+                                        let folder_id = match db.upsert_folder(&parent_dir, &name, parent_id, false).await {
+                                            Ok(id) => id,
+                                            Err(e) => {
+                                                eprintln!("Failed to upsert folder for watcher: {}", e);
+                                                continue;
                                             }
                                         };
                                         
                                         if let Err(e) = db
-                                            .save_image_with_subfolder(location_id, subfolder_id, &meta)
+                                            .save_image(folder_id, &meta)
                                             .await
                                         {
                                             eprintln!("Failed to save watched file: {}", e);

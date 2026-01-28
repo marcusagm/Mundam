@@ -3,16 +3,16 @@ import { createStore } from "solid-js/store";
 
 interface FilterState {
   selectedTags: number[];
-  selectedLocationId: number | null;
-  selectedSubfolderId: number | null;
+  selectedFolderId: number | null;
+  folderRecursiveView: boolean;
   filterUntagged: boolean;
   searchQuery: string;
 }
 
 const [filterState, setFilterState] = createStore<FilterState>({
   selectedTags: [],
-  selectedLocationId: null,
-  selectedSubfolderId: null,
+  selectedFolderId: null,
+  folderRecursiveView: false,
   filterUntagged: false,
   searchQuery: ""
 });
@@ -41,23 +41,12 @@ export const filterActions = {
     filterActions.setUntagged(!filterState.filterUntagged);
   },
 
-  setLocation: (locationId: number | null) => {
-    setFilterState({
-      selectedLocationId: locationId,
-      selectedSubfolderId: null
-    });
+  setFolder: (folderId: number | null) => {
+    setFilterState("selectedFolderId", folderId);
   },
 
-  setSubfolder: (subfolderId: number | null) => {
-    setFilterState("selectedSubfolderId", subfolderId);
-  },
-
-  // Atomic setter to avoid race conditions
-  setFolder: (locationId: number | null, subfolderId: number | null) => {
-    setFilterState({
-      selectedLocationId: locationId,
-      selectedSubfolderId: subfolderId
-    });
+  setFolderRecursiveView: (isRecursive: boolean) => {
+    setFilterState("folderRecursiveView", isRecursive);
   },
 
   setSearch: (query: string) => {
@@ -67,8 +56,7 @@ export const filterActions = {
   clearAll: () => {
     setFilterState({
       selectedTags: [],
-      selectedLocationId: null,
-      selectedSubfolderId: null,
+      selectedFolderId: null,
       filterUntagged: false,
       searchQuery: ""
     });
@@ -77,10 +65,8 @@ export const filterActions = {
   hasActiveFilters: () => {
     return filterState.selectedTags.length > 0 || 
            filterState.filterUntagged || 
-           filterState.selectedLocationId !== null ||
-           filterState.selectedSubfolderId !== null;
+           filterState.selectedFolderId !== null;
   }
 };
 
 export { filterState };
-

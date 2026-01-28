@@ -12,7 +12,8 @@ export interface LibraryStats {
   total_images: number;
   untagged_images: number;
   tag_counts: { tag_id: number; count: number }[];
-  folder_counts: { location_id: number; count: number }[];
+  folder_counts: { folder_id: number; count: number }[];
+  folder_counts_recursive: { folder_id: number; count: number }[];
 }
 
 export const tagService = {
@@ -54,8 +55,8 @@ export const tagService = {
     tagIds: number[], 
     matchAll: boolean = true,
     untagged?: boolean,
-    locationId?: number,
-    subfolderId?: number
+    folderId?: number,
+    recursive: boolean = false
   ): Promise<any[]> => {
     return await invoke("get_images_filtered", { 
       limit, 
@@ -63,8 +64,8 @@ export const tagService = {
       tagIds, 
       matchAll,
       untagged,
-      locationId,
-      subfolderId
+      folderId,
+      recursive
     });
   },
 

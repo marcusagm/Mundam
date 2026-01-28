@@ -18,7 +18,7 @@ pub struct TagCount {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FolderCount {
-    pub location_id: i64,
+    pub folder_id: i64,
     pub count: i64,
 }
 
@@ -27,7 +27,8 @@ pub struct LibraryStats {
     pub total_images: i64,
     pub untagged_images: i64,
     pub tag_counts: Vec<TagCount>,
-    pub folder_counts: Vec<FolderCount>,
+    pub folder_counts: Vec<FolderCount>, // Direct counts
+    pub folder_counts_recursive: Vec<FolderCount>, // Recursive counts
 }
 
 use crate::database::Db;
@@ -193,12 +194,27 @@ impl Db {
         tag_ids: Vec<i64>,
         match_all: bool,
         untagged: Option<bool>,
-        location_id: Option<i64>,
-        subfolder_id: Option<i64>,
+        folder_id: Option<i64>,
+        recursive: bool,
     ) -> Result<Vec<crate::indexer::metadata::ImageMetadata>, sqlx::Error> {
         let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-            "SELECT DISTINCT i.id, i.path, i.filename, i.width, i.height, i.size, i.thumbnail_path, i.format, i.rating, i.notes, i.created_at, i.modified_at FROM images i "
+            "WITH RECURSIVE target_folders AS (
+               SELECT id FROM folders WHERE id = "
         );
+
+        if let Some(fid) = folder_id {
+            query_builder.push_bind(fid);
+            if recursive {
+                query_builder.push(" UNION ALL SELECT f.id FROM folders f JOIN target_folders tf ON f.parent_id = tf.id");
+            }
+        } else {
+             // If no folder selected, effectively selecting all folders? 
+             // Or maybe we just don't use the CTE if folder_id is None.
+             // But for cleaner building, let's just put a dummy condition if None or handle it below.
+             query_builder.push(" -1 "); // Dummy ID if none provided, handled in WHERE clause
+        }
+
+        query_builder.push(") SELECT DISTINCT i.id, i.path, i.filename, i.width, i.height, i.size, i.thumbnail_path, i.format, i.rating, i.notes, i.created_at, i.modified_at FROM images i ");
 
         if !tag_ids.is_empty() {
             query_builder.push(" JOIN image_tags it ON i.id = it.image_id ");
@@ -206,22 +222,12 @@ impl Db {
 
         query_builder.push(" WHERE 1=1 ");
 
-        if let Some(loc_id) = location_id {
-            query_builder.push(" AND i.location_id = ");
-            query_builder.push_bind(loc_id);
-        }
-
-        // Handle subfolder filtering:
-        // -1 = root only (images with no subfolder)
-        // > 0 = specific subfolder
-        // None = all images in location (including subfolders)
-        if let Some(sf_id) = subfolder_id {
-            if sf_id == -1 {
-                // Root only: images directly in location, not in any subfolder
-                query_builder.push(" AND i.subfolder_id IS NULL ");
+        if let Some(_) = folder_id {
+            if recursive {
+                query_builder.push(" AND i.folder_id IN target_folders ");
             } else {
-                query_builder.push(" AND i.subfolder_id = ");
-                query_builder.push_bind(sf_id);
+                query_builder.push(" AND i.folder_id = ");
+                query_builder.push_bind(folder_id.unwrap());
             }
         }
 
@@ -272,20 +278,24 @@ impl Db {
         .map(|(tag_id, count)| TagCount { tag_id, count })
         .collect();
 
-        let folder_counts = sqlx::query_as::<_, (i64, i64)>(
-            "SELECT location_id, COUNT(*) FROM images GROUP BY location_id",
-        )
-        .fetch_all(&self.pool)
-        .await?
-        .into_iter()
-        .map(|(location_id, count)| FolderCount { location_id, count })
-        .collect();
+        let folder_counts = self.get_folder_counts_direct()
+            .await?
+            .into_iter()
+            .map(|(folder_id, count)| FolderCount { folder_id, count })
+            .collect();
+
+        let folder_counts_recursive = self.get_folder_counts_recursive()
+            .await?
+            .into_iter()
+            .map(|(folder_id, count)| FolderCount { folder_id, count })
+            .collect();
 
         Ok(LibraryStats {
             total_images: total_images.0,
             untagged_images: untagged_images.0,
             tag_counts,
             folder_counts,
+            folder_counts_recursive,
         })
     }
 }

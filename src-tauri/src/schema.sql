@@ -1,28 +1,18 @@
 -- Elleven Library Schema
 
-CREATE TABLE IF NOT EXISTS locations (
+CREATE TABLE IF NOT EXISTS folders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_id INTEGER,
     path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS subfolders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    location_id INTEGER NOT NULL,
-    parent_id INTEGER,
-    relative_path TEXT NOT NULL,
-    name TEXT NOT NULL,
+    is_root BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES subfolders(id) ON DELETE CASCADE,
-    UNIQUE(location_id, relative_path)
+    FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS images (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    location_id INTEGER NOT NULL,
-    subfolder_id INTEGER,
+    folder_id INTEGER NOT NULL,
     path TEXT NOT NULL UNIQUE,
     filename TEXT NOT NULL,
     width INTEGER,
@@ -36,8 +26,7 @@ CREATE TABLE IF NOT EXISTS images (
     created_at DATETIME NOT NULL,
     modified_at DATETIME NOT NULL,
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
-    FOREIGN KEY (subfolder_id) REFERENCES subfolders(id) ON DELETE SET NULL
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -59,8 +48,8 @@ CREATE TABLE IF NOT EXISTS image_tags (
 );
 
 CREATE INDEX IF NOT EXISTS idx_images_path ON images(path);
-CREATE INDEX IF NOT EXISTS idx_images_subfolder ON images(subfolder_id);
-CREATE INDEX IF NOT EXISTS idx_subfolders_location ON subfolders(location_id);
-CREATE INDEX IF NOT EXISTS idx_subfolders_parent ON subfolders(parent_id);
+CREATE INDEX IF NOT EXISTS idx_images_folder ON images(folder_id);
+CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
+CREATE INDEX IF NOT EXISTS idx_folders_path ON folders(path);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 

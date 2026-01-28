@@ -58,6 +58,7 @@ export const systemActions = {
             libraryActions.refreshImages(true);
         });
         metadataActions.loadStats();
+        metadataActions.loadLocations();
       });
 
       listen<{id: number, path: string}>("thumbnail:ready", (e) => {
@@ -74,8 +75,8 @@ export const systemActions = {
     }
   },
 
-  setRootLocation: async (path: string, name: string) => {
-    await addLocation(path, name);
+  setRootLocation: async (path: string) => {
+    await addLocation(path);
     await metadataActions.loadLocations();
     setRootPath(path);
     await tauriService.startIndexing({ path });

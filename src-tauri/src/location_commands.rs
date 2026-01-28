@@ -6,20 +6,22 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Serialize)]
-pub struct LocationInfo {
+pub struct FolderNode {
     pub id: i64,
     pub path: String,
     pub name: String,
+    pub parent_id: Option<i64>,
+    pub is_root: bool,
 }
 
-/// Add a new folder location and start indexing it
+/// Add a new root folder and start indexing it
 #[tauri::command]
 pub async fn add_location(
     path: String,
     app: AppHandle,
     db: State<'_, Arc<Db>>,
-) -> Result<LocationInfo, String> {
-    println!("COMMAND: add_location called with path: {}", path);
+) -> Result<FolderNode, String> {
+    println!("COMMAND: add_location (add_root) called with path: {}", path);
     
     let root = PathBuf::from(&path);
     
@@ -31,17 +33,39 @@ pub async fn add_location(
         return Err("Path is not a directory".to_string());
     }
     
-    // Get or create location in database
-    let location_name = root
+    // Check if a parent folder already exists
+    let mut parent_id = None;
+    let mut current = root.parent();
+    while let Some(p) = current {
+        let p_str = p.to_string_lossy().to_string();
+        // We use get_folder_by_path, assuming it's exposed or we can access it
+        // db is State<Arc<Db>>, so db.get_folder_by_path should work
+        if let Some(id) = db.get_folder_by_path(&p_str).await.unwrap_or(None) {
+            parent_id = Some(id);
+            break;
+        }
+        current = p.parent();
+    }
+    
+    let is_root = parent_id.is_none();
+    
+    // Upsert folder
+    let name = root
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or(&path)
         .to_string();
     
-    let location_id = db
-        .get_or_create_location(&path, &location_name)
+    let id = db
+        .upsert_folder(&path, &name, parent_id, is_root)
         .await
-        .map_err(|e| format!("Failed to create location: {}", e))?;
+        .map_err(|e| format!("Failed to add folder: {}", e))?;
+    
+    // Attempt to adopt orphaned roots (e.g. if we added a parent after its child)
+    // Only strictly needed if this is a new folder
+    if let Err(e) = db.adopt_orphaned_children(id, &path).await {
+        eprintln!("Warning: Failed to adopt orphaned children: {}", e);
+    }
     
     // Start indexing in background
     let indexer = Indexer::new(app.clone(), db.inner());
@@ -49,23 +73,25 @@ pub async fn add_location(
         indexer.start_scan(root).await;
     });
     
-    Ok(LocationInfo {
-        id: location_id,
+    Ok(FolderNode {
+        id,
         path,
-        name: location_name,
+        name,
+        parent_id,
+        is_root,
     })
 }
 
-/// Remove a folder location and delete all associated images and thumbnails
+/// Remove a folder (and its content)
 #[tauri::command]
 pub async fn remove_location(
     location_id: i64,
     app: AppHandle,
     db: State<'_, Arc<Db>>,
 ) -> Result<(), String> {
-    println!("COMMAND: remove_location called for ID: {}", location_id);
+    println!("COMMAND: remove_location (delete_folder) called for ID: {}", location_id);
     
-    // Get thumbnail paths before deletion
+    // Get thumbnail paths before deletion using get_location_thumbnails (which uses CTE now)
     let thumbnail_paths = db
         .get_location_thumbnails(location_id)
         .await
@@ -92,80 +118,61 @@ pub async fn remove_location(
     println!("DEBUG: Deleted {} thumbnail files", deleted_count);
     
     // Delete from database
-    db.delete_location(location_id)
+    db.delete_folder(location_id)
         .await
-        .map_err(|e| format!("Failed to delete location: {}", e))?;
+        .map_err(|e| format!("Failed to delete folder: {}", e))?;
     
-    println!("DEBUG: Location {} deleted successfully", location_id);
+    println!("DEBUG: Folder {} deleted successfully", location_id);
     Ok(())
 }
 
-/// Get all registered locations
+/// Get all folders (roots and hierarchy)
 #[tauri::command]
 pub async fn get_locations(
     db: State<'_, Arc<Db>>,
-) -> Result<Vec<LocationInfo>, String> {
-    let locations = db
-        .get_locations()
+) -> Result<Vec<FolderNode>, String> {
+    // We return ALL folders now, frontend can build the tree
+    let folders = db
+        .get_folder_hierarchy()
         .await
-        .map_err(|e| format!("Failed to get locations: {}", e))?;
+        .map_err(|e| format!("Failed to get folder hierarchy: {}", e))?;
     
-    Ok(locations
+    Ok(folders
         .into_iter()
-        .map(|(id, path, name)| LocationInfo { id, path, name })
-        .collect())
-}
-
-#[derive(Serialize)]
-pub struct SubfolderInfo {
-    pub id: i64,
-    pub location_id: i64,
-    pub parent_id: Option<i64>,
-    pub relative_path: String,
-    pub name: String,
-}
-
-/// Get all subfolders (for tree building)
-#[tauri::command]
-pub async fn get_all_subfolders(
-    db: State<'_, Arc<Db>>,
-) -> Result<Vec<SubfolderInfo>, String> {
-    println!("COMMAND: get_all_subfolders called");
-    let subfolders = db
-        .get_all_subfolders()
-        .await
-        .map_err(|e| format!("Failed to get subfolders: {}", e))?;
-    
-    println!("DEBUG: Found {} subfolders in database", subfolders.len());
-    
-    Ok(subfolders
-        .into_iter()
-        .map(|(id, location_id, parent_id, relative_path, name)| SubfolderInfo {
+        .map(|(id, parent_id, path, name, is_root)| FolderNode {
             id,
-            location_id,
-            parent_id,
-            relative_path,
+            path,
             name,
+            parent_id,
+            is_root,
         })
         .collect())
 }
 
-/// Get image counts per subfolder
+// Deprecated or Aliased commands for compatibility if needed (but we are refactoring frontend)
+
+#[tauri::command]
+pub async fn get_all_subfolders(
+    db: State<'_, Arc<Db>>,
+) -> Result<Vec<FolderNode>, String> {
+    // Just alias to get_locations for now, or return empty if frontend expects distinct subfolders
+    // But better to fail fast or return same data
+    get_locations(db).await
+}
+
 #[tauri::command]
 pub async fn get_subfolder_counts(
     db: State<'_, Arc<Db>>,
 ) -> Result<Vec<(i64, i64)>, String> {
-    db.get_subfolder_counts()
+    db.get_folder_counts_recursive()
         .await
-        .map_err(|e| format!("Failed to get subfolder counts: {}", e))
+        .map_err(|e| format!("Failed to get folder counts: {}", e))
 }
 
-/// Get image counts per location ROOT (images with no subfolder)
 #[tauri::command]
 pub async fn get_location_root_counts(
-    db: State<'_, Arc<Db>>,
+    _db: State<'_, Arc<Db>>,
 ) -> Result<Vec<(i64, i64)>, String> {
-    db.get_location_root_counts()
-        .await
-        .map_err(|e| format!("Failed to get location root counts: {}", e))
+    // No longer relevant with unified folders
+    Ok(vec![])
 }
