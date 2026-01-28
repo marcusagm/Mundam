@@ -38,14 +38,17 @@ export const libraryActions = {
 
     const isUntagged = filterState.filterUntagged;
     const locationId = filterState.selectedLocationId;
+    const subfolderId = filterState.selectedSubfolderId;
     const anyFilter = filterActions.hasActiveFilters();
+    
+    console.log("libraryStore.refreshImages", { reset, isUntagged, locationId, subfolderId, anyFilter });
 
     if (reset) {
       currentOffset = 0;
       let firstBatch;
       if (anyFilter) {
         firstBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
         );
       } else {
         firstBatch = await getImages(BATCH_SIZE, 0);
@@ -56,7 +59,7 @@ export const libraryActions = {
       let fresh;
       if (anyFilter) {
         fresh = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
         );
       } else {
         fresh = await getImages(BATCH_SIZE, 0);
@@ -73,13 +76,14 @@ export const libraryActions = {
     try {
       const isUntagged = filterState.filterUntagged;
         const locationId = filterState.selectedLocationId;
+        const subfolderId = filterState.selectedSubfolderId;
         const anyFilter = filterActions.hasActiveFilters();
       
       let nextBatch;
       
       if (anyFilter) {
         nextBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, locationId || undefined
+          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, locationId || undefined, subfolderId || undefined
         );
       } else {
         nextBatch = await getImages(BATCH_SIZE, currentOffset);

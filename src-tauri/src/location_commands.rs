@@ -115,3 +115,57 @@ pub async fn get_locations(
         .map(|(id, path, name)| LocationInfo { id, path, name })
         .collect())
 }
+
+#[derive(Serialize)]
+pub struct SubfolderInfo {
+    pub id: i64,
+    pub location_id: i64,
+    pub parent_id: Option<i64>,
+    pub relative_path: String,
+    pub name: String,
+}
+
+/// Get all subfolders (for tree building)
+#[tauri::command]
+pub async fn get_all_subfolders(
+    db: State<'_, Arc<Db>>,
+) -> Result<Vec<SubfolderInfo>, String> {
+    println!("COMMAND: get_all_subfolders called");
+    let subfolders = db
+        .get_all_subfolders()
+        .await
+        .map_err(|e| format!("Failed to get subfolders: {}", e))?;
+    
+    println!("DEBUG: Found {} subfolders in database", subfolders.len());
+    
+    Ok(subfolders
+        .into_iter()
+        .map(|(id, location_id, parent_id, relative_path, name)| SubfolderInfo {
+            id,
+            location_id,
+            parent_id,
+            relative_path,
+            name,
+        })
+        .collect())
+}
+
+/// Get image counts per subfolder
+#[tauri::command]
+pub async fn get_subfolder_counts(
+    db: State<'_, Arc<Db>>,
+) -> Result<Vec<(i64, i64)>, String> {
+    db.get_subfolder_counts()
+        .await
+        .map_err(|e| format!("Failed to get subfolder counts: {}", e))
+}
+
+/// Get image counts per location ROOT (images with no subfolder)
+#[tauri::command]
+pub async fn get_location_root_counts(
+    db: State<'_, Arc<Db>>,
+) -> Result<Vec<(i64, i64)>, String> {
+    db.get_location_root_counts()
+        .await
+        .map_err(|e| format!("Failed to get location root counts: {}", e))
+}

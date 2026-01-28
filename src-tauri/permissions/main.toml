@@ -86,3 +86,18 @@ commands.allow = ["remove_location"]
 identifier = "allow-get-locations"
 description = "Enables get_locations to list all folders"
 commands.allow = ["get_locations"]
+
+[[permission]]
+identifier = "allow-get-all-subfolders"
+description = "Enables get_all_subfolders to get folder hierarchy"
+commands.allow = ["get_all_subfolders"]
+
+[[permission]]
+identifier = "allow-get-subfolder-counts"
+description = "Enables get_subfolder_counts for image count per folder"
+commands.allow = ["get_subfolder_counts"]
+
+[[permission]]
+identifier = "allow-get-location-root-counts"
+description = "Enables get_location_root_counts for valid root count"
+commands.allow = ["get_location_root_counts"]

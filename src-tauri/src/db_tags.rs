@@ -194,6 +194,7 @@ impl Db {
         match_all: bool,
         untagged: Option<bool>,
         location_id: Option<i64>,
+        subfolder_id: Option<i64>,
     ) -> Result<Vec<crate::indexer::metadata::ImageMetadata>, sqlx::Error> {
         let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
             "SELECT DISTINCT i.id, i.path, i.filename, i.width, i.height, i.size, i.thumbnail_path, i.format, i.rating, i.notes, i.created_at, i.modified_at FROM images i "
@@ -208,6 +209,20 @@ impl Db {
         if let Some(loc_id) = location_id {
             query_builder.push(" AND i.location_id = ");
             query_builder.push_bind(loc_id);
+        }
+
+        // Handle subfolder filtering:
+        // -1 = root only (images with no subfolder)
+        // > 0 = specific subfolder
+        // None = all images in location (including subfolders)
+        if let Some(sf_id) = subfolder_id {
+            if sf_id == -1 {
+                // Root only: images directly in location, not in any subfolder
+                query_builder.push(" AND i.subfolder_id IS NULL ");
+            } else {
+                query_builder.push(" AND i.subfolder_id = ");
+                query_builder.push_bind(sf_id);
+            }
         }
 
         if untagged == Some(true) {

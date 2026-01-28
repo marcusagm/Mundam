@@ -96,14 +96,9 @@ pub async fn get_images_filtered(
     match_all: bool,
     untagged: Option<bool>,
     location_id: Option<i64>,
+    subfolder_id: Option<i64>,
 ) -> Result<Vec<ImageMetadata>, String> {
-    // This is a simplification. For a real production app,
-    // we would extend get_images_filtered to handle multiple filter types.
-    // For now, let's keep it focused on the new requirements.
-
-    // logic to handle untagged and location_id would go here...
-    // I will implement a more robust version in db_tags.rs shortly.
-    db.get_images_filtered(limit, offset, tag_ids, match_all, untagged, location_id)
+    db.get_images_filtered(limit, offset, tag_ids, match_all, untagged, location_id, subfolder_id)
         .await
         .map_err(|e| e.to_string())
 }

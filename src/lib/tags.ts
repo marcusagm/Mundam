@@ -54,7 +54,8 @@ export const tagService = {
     tagIds: number[], 
     matchAll: boolean = true,
     untagged?: boolean,
-    locationId?: number
+    locationId?: number,
+    subfolderId?: number
   ): Promise<any[]> => {
     return await invoke("get_images_filtered", { 
       limit, 
@@ -62,7 +63,8 @@ export const tagService = {
       tagIds, 
       matchAll,
       untagged,
-      locationId
+      locationId,
+      subfolderId
     });
   },
 

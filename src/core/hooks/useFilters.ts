@@ -11,6 +11,7 @@ export const useFilters = () => {
     // State (Read-only proxies)
     get selectedTags() { return filterState.selectedTags; },
     get selectedLocationId() { return filterState.selectedLocationId; },
+    get selectedSubfolderId() { return filterState.selectedSubfolderId; },
     get filterUntagged() { return filterState.filterUntagged; },
     get searchQuery() { return filterState.searchQuery; },
     
@@ -19,8 +20,11 @@ export const useFilters = () => {
     setUntagged: withRefresh(filterActions.setUntagged),
     toggleUntagged: withRefresh(filterActions.toggleUntagged),
     setLocation: withRefresh(filterActions.setLocation),
+    setSubfolder: withRefresh(filterActions.setSubfolder),
+    setFolder: withRefresh(filterActions.setFolder),
     setSearch: withRefresh(filterActions.setSearch),
     clearAll: withRefresh(filterActions.clearAll),
     hasActiveFilters: filterActions.hasActiveFilters
   };
 };
+

@@ -30,6 +30,9 @@
     "allow-request-thumbnail-regenerate",
     "allow-add-location",
     "allow-remove-location",
-    "allow-get-locations"
+    "allow-get-locations",
+    "allow-get-all-subfolders",
+    "allow-get-subfolder-counts",
+    "allow-get-location-root-counts"
   ]
 }

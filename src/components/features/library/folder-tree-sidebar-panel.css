@@ -1,0 +1,31 @@
+/* Folder tree specific styles */
+.folder-tree-sidebar-panel .tree-view {
+  padding: var(--spacing-xs) 0;
+}
+
+/* Drag over state */
+.panel-fluid.drag-over {
+  outline: 2px dashed var(--accent-primary);
+  outline-offset: -2px;
+}
+
+/* Empty state */
+.sidebar-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.sidebar-empty-state p {
+  margin: 0;
+}
+
+.sidebar-empty-state .empty-hint {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+  margin-top: var(--spacing-xs);
+}

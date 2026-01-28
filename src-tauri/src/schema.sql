@@ -7,9 +7,22 @@ CREATE TABLE IF NOT EXISTS locations (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS subfolders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_id INTEGER NOT NULL,
+    parent_id INTEGER,
+    relative_path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES subfolders(id) ON DELETE CASCADE,
+    UNIQUE(location_id, relative_path)
+);
+
 CREATE TABLE IF NOT EXISTS images (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     location_id INTEGER NOT NULL,
+    subfolder_id INTEGER,
     path TEXT NOT NULL UNIQUE,
     filename TEXT NOT NULL,
     width INTEGER,
@@ -23,7 +36,8 @@ CREATE TABLE IF NOT EXISTS images (
     created_at DATETIME NOT NULL,
     modified_at DATETIME NOT NULL,
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
+    FOREIGN KEY (subfolder_id) REFERENCES subfolders(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -45,11 +59,8 @@ CREATE TABLE IF NOT EXISTS image_tags (
 );
 
 CREATE INDEX IF NOT EXISTS idx_images_path ON images(path);
+CREATE INDEX IF NOT EXISTS idx_images_subfolder ON images(subfolder_id);
+CREATE INDEX IF NOT EXISTS idx_subfolders_location ON subfolders(location_id);
+CREATE INDEX IF NOT EXISTS idx_subfolders_parent ON subfolders(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 
--- Self-migrations for existing databases
--- Note: SQLite does not support IF NOT EXISTS for ADD COLUMN in standard SQL, 
--- but we can use a safe block if we were using a migration runner.
--- Since this runs on app init, we rely on the app logic or simplistic error ignoring.
--- However, standard practice without a migration tool is harder.
--- For this setup, we will perform robust migrations in Rust `database.rs`.

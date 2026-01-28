@@ -99,7 +99,10 @@ pub fn run() {
             thumbnail_commands::request_thumbnail_regenerate,
             location_commands::add_location,
             location_commands::remove_location,
-            location_commands::get_locations
+            location_commands::get_locations,
+            location_commands::get_all_subfolders,
+            location_commands::get_subfolder_counts,
+            location_commands::get_location_root_counts
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

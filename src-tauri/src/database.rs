@@ -18,18 +18,50 @@ impl Db {
 
         let pool = SqlitePool::connect_with(options).await?;
 
-        // Run migration/schema
-        let schema = include_str!("schema.sql");
-        pool.execute(schema).await?;
+        // Manual migrations for existing databases BEFORE schema
+        // Step 1: Create subfolders table if not exists (needed before adding FK to images)
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS subfolders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                location_id INTEGER NOT NULL,
+                parent_id INTEGER,
+                relative_path TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES subfolders(id) ON DELETE CASCADE,
+                UNIQUE(location_id, relative_path)
+            )"
+        )
+        .execute(&pool)
+        .await;
 
-        // Manual migration for existing databases (SQLite "ADD COLUMN IF NOT EXISTS" workaround)
-        // We attempt to add columns and ignore errors if they exist
+        // Step 2: Add columns to images table (ignore if already exist)
         let _ = sqlx::query("ALTER TABLE images ADD COLUMN rating INTEGER DEFAULT 0")
             .execute(&pool)
             .await;
         let _ = sqlx::query("ALTER TABLE images ADD COLUMN notes TEXT")
             .execute(&pool)
             .await;
+        // Add subfolder_id WITHOUT foreign key constraint (SQLite limitation with ALTER)
+        let _ = sqlx::query("ALTER TABLE images ADD COLUMN subfolder_id INTEGER")
+            .execute(&pool)
+            .await;
+
+        // Step 3: Create indices if they don't exist
+        let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_images_subfolder ON images(subfolder_id)")
+            .execute(&pool)
+            .await;
+        let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_subfolders_location ON subfolders(location_id)")
+            .execute(&pool)
+            .await;
+        let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_subfolders_parent ON subfolders(parent_id)")
+            .execute(&pool)
+            .await;
+
+        // Run main schema for new databases (tables already exist will be skipped)
+        let schema = include_str!("schema.sql");
+        pool.execute(schema).await?;
 
         Ok(Self { pool })
     }
@@ -191,4 +223,117 @@ impl Db {
         
         Ok(rows)
     }
+    
+    /// Get or create a subfolder
+    pub async fn get_or_create_subfolder(
+        &self,
+        location_id: i64,
+        relative_path: &str,
+        name: &str,
+        parent_id: Option<i64>,
+    ) -> Result<i64, sqlx::Error> {
+        // Try to find existing
+        let row: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM subfolders WHERE location_id = ? AND relative_path = ?"
+        )
+        .bind(location_id)
+        .bind(relative_path)
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        if let Some((id,)) = row {
+            Ok(id)
+        } else {
+            let res = sqlx::query(
+                "INSERT INTO subfolders (location_id, parent_id, relative_path, name) VALUES (?, ?, ?, ?)"
+            )
+            .bind(location_id)
+            .bind(parent_id)
+            .bind(relative_path)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
+            Ok(res.last_insert_rowid())
+        }
+    }
+    
+    /// Get all subfolders for a location
+    pub async fn get_subfolders(&self, location_id: i64) -> Result<Vec<(i64, Option<i64>, String, String)>, sqlx::Error> {
+        let rows: Vec<(i64, Option<i64>, String, String)> = sqlx::query_as(
+            "SELECT id, parent_id, relative_path, name FROM subfolders WHERE location_id = ? ORDER BY relative_path"
+        )
+        .bind(location_id)
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Get all subfolders for all locations (for tree building)
+    pub async fn get_all_subfolders(&self) -> Result<Vec<(i64, i64, Option<i64>, String, String)>, sqlx::Error> {
+        let rows: Vec<(i64, i64, Option<i64>, String, String)> = sqlx::query_as(
+            "SELECT id, location_id, parent_id, relative_path, name FROM subfolders ORDER BY location_id, relative_path"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Count images per subfolder
+    pub async fn get_subfolder_counts(&self) -> Result<Vec<(i64, i64)>, sqlx::Error> {
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT subfolder_id, COUNT(*) as count FROM images WHERE subfolder_id IS NOT NULL GROUP BY subfolder_id"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows)
+    }
+
+    /// Get image counts per location ROOT (images with no subfolder)
+    pub async fn get_location_root_counts(&self) -> Result<Vec<(i64, i64)>, sqlx::Error> {
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT location_id, COUNT(*) as count FROM images WHERE subfolder_id IS NULL GROUP BY location_id"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Save image with subfolder_id
+    pub async fn save_image_with_subfolder(
+        &self,
+        location_id: i64,
+        subfolder_id: Option<i64>,
+        img: &crate::indexer::metadata::ImageMetadata,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO images (location_id, subfolder_id, path, filename, width, height, size, created_at, modified_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET
+                location_id=excluded.location_id,
+                subfolder_id=excluded.subfolder_id,
+                filename=excluded.filename,
+                width=excluded.width,
+                height=excluded.height,
+                size=excluded.size,
+                modified_at=excluded.modified_at"
+        )
+        .bind(location_id)
+        .bind(subfolder_id)
+        .bind(&img.path)
+        .bind(&img.filename)
+        .bind(img.width.map(|w| w as i32))
+        .bind(img.height.map(|h| h as i32))
+        .bind(img.size as i64)
+        .bind(img.created_at)
+        .bind(img.modified_at)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
 }
+

@@ -3,7 +3,8 @@ pub mod metadata;
 use self::metadata::{get_image_metadata, ImageMetadata};
 use crate::database::Db;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
@@ -14,6 +15,12 @@ pub struct ProgressPayload {
     pub total: usize,
     pub processed: usize,
     pub current_file: String,
+}
+
+/// Struct to hold image path with its relative directory
+struct IndexedImage {
+    metadata: ImageMetadata,
+    relative_dir: String,  // e.g., "Vacation/Beach" or "" for root
 }
 
 pub struct Indexer {
@@ -36,14 +43,24 @@ impl Indexer {
         let app = self.app_handle.clone();
         let db = self.db.clone();
         let root_for_watcher = root_path.clone();
+        let root_str = root_path.to_string_lossy().to_string();
 
-        // 1. Initial Quick Scan - Count files
-        let files: Vec<PathBuf> = WalkDir::new(&root_path)
+        // 1. Initial Quick Scan - Collect files with relative paths
+        let files: Vec<(PathBuf, String)> = WalkDir::new(&root_path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
             .filter(|e| is_image_file(e.path()))
-            .map(|e| e.path().to_path_buf())
+            .map(|e| {
+                let file_path = e.path().to_path_buf();
+                // Calculate relative directory (not including filename)
+                let relative_dir = file_path
+                    .parent()
+                    .and_then(|p| p.strip_prefix(&root_path).ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                (file_path, relative_dir)
+            })
             .collect();
 
         let total_files = files.len();
@@ -68,22 +85,51 @@ impl Indexer {
             }
         };
 
+        // 2. Build subfolder hierarchy BEFORE processing images
+        let unique_dirs: std::collections::HashSet<String> = files
+            .iter()
+            .filter(|(_, dir)| !dir.is_empty())
+            .map(|(_, dir)| dir.clone())
+            .collect();
+        
+        println!("DEBUG: Found {} unique subdirectories", unique_dirs.len());
+        for dir in &unique_dirs {
+            println!("DEBUG: Subdirectory: '{}'", dir);
+        }
+        
+        // Create subfolders and build lookup map
+        let subfolder_map = match self.create_subfolder_hierarchy(location_id, unique_dirs).await {
+            Ok(map) => map,
+            Err(e) => {
+                eprintln!("Failed to create subfolder hierarchy: {}", e);
+                HashMap::new()
+            }
+        };
+        
+        println!("DEBUG: Created {} subfolders", subfolder_map.len());
+
         if total_files > 0 {
             // Adaptive Chunking Strategy
             let chunk_size = (total_files / 100).clamp(1, 200);
-            let (tx, mut rx) = mpsc::channel::<ImageMetadata>(100);
+            let (tx, mut rx) = mpsc::channel::<IndexedImage>(100);
 
-            // 2. Spawn Workers
+            // 3. Spawn Worker to save images
             let app_worker = app.clone();
             let db_worker = db.clone();
+            let subfolder_map_worker = subfolder_map.clone();
+            
             tokio::spawn(async move {
                 let mut processed: usize = 0;
-                let mut batch: Vec<ImageMetadata> = Vec::new();
+                let mut batch: Vec<(Option<i64>, ImageMetadata)> = Vec::new();
 
-                while let Some(msg) = rx.recv().await {
-                    let msg: ImageMetadata = msg;
+                while let Some(indexed) = rx.recv().await {
                     processed += 1;
-                    batch.push(msg.clone());
+                    let subfolder_id = if indexed.relative_dir.is_empty() {
+                        None
+                    } else {
+                        subfolder_map_worker.get(&indexed.relative_dir).copied()
+                    };
+                    batch.push((subfolder_id, indexed.metadata.clone()));
 
                     if processed % chunk_size == 0 || processed == total_files {
                         let _ = app_worker.emit(
@@ -91,16 +137,18 @@ impl Indexer {
                             ProgressPayload {
                                 total: total_files,
                                 processed,
-                                current_file: msg.filename.clone(),
+                                current_file: indexed.metadata.filename.clone(),
                             },
                         );
 
-                        let current_batch = batch.split_off(0);
-                        if let Err(e) = db_worker
-                            .save_images_batch(location_id, current_batch)
-                            .await
-                        {
-                            eprintln!("Batch save failed: {}", e);
+                        // Save batch with subfolder_ids
+                        for (sf_id, img) in batch.drain(..) {
+                            if let Err(e) = db_worker
+                                .save_image_with_subfolder(location_id, sf_id, &img)
+                                .await
+                            {
+                                eprintln!("Failed to save image: {}", e);
+                            }
                         }
                     }
                 }
@@ -109,12 +157,15 @@ impl Indexer {
                 println!("DEBUG: Indexer complete. Processed {}", processed);
             });
 
-            // 3. Producer - Distribute work
-            for path in files {
+            // 4. Producer - Distribute work
+            for (path, relative_dir) in files {
                 let tx_clone = tx.clone();
                 tokio::spawn(async move {
                     if let Some(meta) = get_image_metadata(&path) {
-                        let _ = tx_clone.send(meta).await;
+                        let _ = tx_clone.send(IndexedImage {
+                            metadata: meta,
+                            relative_dir,
+                        }).await;
                     }
                 });
             }
@@ -122,16 +173,60 @@ impl Indexer {
             let _ = app.emit("indexer:complete", 0);
         }
 
-        // 4. Start File Watcher for real-time updates
-        self.start_watcher(root_for_watcher, location_id);
+        // 5. Start File Watcher for real-time updates
+        self.start_watcher(root_for_watcher, location_id, root_str);
+    }
+    
+    /// Create subfolder hierarchy in database and return path -> id mapping
+    async fn create_subfolder_hierarchy(
+        &self,
+        location_id: i64,
+        dirs: std::collections::HashSet<String>,
+    ) -> Result<HashMap<String, i64>, String> {
+        let mut path_to_id: HashMap<String, i64> = HashMap::new();
+        
+        // Sort paths to ensure parents are created before children
+        let mut sorted_dirs: Vec<String> = dirs.into_iter().collect();
+        sorted_dirs.sort();
+        
+        for dir_path in sorted_dirs {
+            // Split path into components
+            let components: Vec<&str> = dir_path.split(std::path::MAIN_SEPARATOR).collect();
+            let name = components.last().unwrap_or(&"").to_string();
+            
+            // Find parent ID
+            let parent_id = if components.len() > 1 {
+                let parent_path = components[..components.len()-1].join(&std::path::MAIN_SEPARATOR.to_string());
+                path_to_id.get(&parent_path).copied()
+            } else {
+                None
+            };
+            
+            // Create subfolder
+            println!("DEBUG: Creating subfolder '{}' with parent_id {:?}", dir_path, parent_id);
+            match self.db.get_or_create_subfolder(location_id, &dir_path, &name, parent_id).await {
+                Ok(id) => {
+                    println!("DEBUG: Created subfolder ID {} for '{}'", id, dir_path);
+                    path_to_id.insert(dir_path, id);
+                }
+                Err(e) => {
+                    eprintln!("Failed to create subfolder '{}': {}", dir_path, e);
+                }
+            }
+        }
+        
+        println!("DEBUG: Total subfolders created: {}", path_to_id.len());
+        
+        Ok(path_to_id)
     }
 
-    fn start_watcher(&self, path: PathBuf, location_id: i64) {
+    fn start_watcher(&self, path: PathBuf, location_id: i64, root_str: String) {
         use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 
         let app = self.app_handle.clone();
         let db = self.db.clone();
         let watch_path = path.clone();
+        let root_path = PathBuf::from(&root_str);
 
         tokio::spawn(async move {
             let (tx, mut rx) = mpsc::channel(1);
@@ -158,18 +253,58 @@ impl Indexer {
                     Ok(event) => {
                         // Debounce by only processing specific events
                         if event.kind.is_create() || event.kind.is_modify() {
-                            for path in event.paths {
-                                if is_image_file(&path) {
-                                    if let Some(meta) = get_image_metadata(&path) {
+                            for file_path in event.paths {
+                                if is_image_file(&file_path) {
+                                    if let Some(meta) = get_image_metadata(&file_path) {
+                                        // Calculate relative directory
+                                        let relative_dir = file_path
+                                            .parent()
+                                            .and_then(|p| p.strip_prefix(&root_path).ok())
+                                            .map(|p| p.to_string_lossy().to_string())
+                                            .unwrap_or_default();
+                                        
+                                        // Get or create subfolder if needed
+                                        let subfolder_id = if relative_dir.is_empty() {
+                                            None
+                                        } else {
+                                            // Get subfolder name
+                                            let name = file_path
+                                                .parent()
+                                                .and_then(|p| p.file_name())
+                                                .and_then(|n| n.to_str())
+                                                .unwrap_or("")
+                                                .to_string();
+                                            
+                                            // Find parent subfolder
+                                            let components: Vec<&str> = relative_dir.split(std::path::MAIN_SEPARATOR).collect();
+                                            let parent_id = if components.len() > 1 {
+                                                let parent_path = components[..components.len()-1].join(&std::path::MAIN_SEPARATOR.to_string());
+                                                // Try to get parent - this is async so we need a simpler approach
+                                                // For watched files, we'll just set parent_id to None
+                                                // The hierarchy is already created during initial scan
+                                                None
+                                            } else {
+                                                None
+                                            };
+                                            
+                                            match db.get_or_create_subfolder(location_id, &relative_dir, &name, parent_id).await {
+                                                Ok(id) => Some(id),
+                                                Err(e) => {
+                                                    eprintln!("Failed to get/create subfolder: {}", e);
+                                                    None
+                                                }
+                                            }
+                                        };
+                                        
                                         if let Err(e) = db
-                                            .save_images_batch(location_id, vec![meta.clone()])
+                                            .save_image_with_subfolder(location_id, subfolder_id, &meta)
                                             .await
                                         {
                                             eprintln!("Failed to save watched file: {}", e);
                                         } else {
                                             println!(
                                                 "DEBUG: Successfully indexed watched file: {:?}",
-                                                path
+                                                file_path
                                             );
                                             // Notify UI
                                             let _ = app.emit(
@@ -180,17 +315,7 @@ impl Indexer {
                                                     current_file: meta.filename,
                                                 },
                                             );
-
-                                            // Clear the progress after a short delay
-                                            let app_complete = app.clone();
-                                            tokio::spawn(async move {
-                                                tokio::time::sleep(
-                                                    std::time::Duration::from_millis(1500),
-                                                )
-                                                .await;
-                                                let _ = app_complete
-                                                    .emit("indexer:complete", 1 as usize);
-                                            });
+                                            let _ = app.emit("indexer:complete", 1);
                                         }
                                     }
                                 }
@@ -247,4 +372,3 @@ fn is_image_file(path: &std::path::Path) -> bool {
         "cdr" | "indd" | "xd" | "fig" | "sketch"
     )
 }
-

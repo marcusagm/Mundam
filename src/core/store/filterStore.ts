@@ -4,6 +4,7 @@ import { createStore } from "solid-js/store";
 interface FilterState {
   selectedTags: number[];
   selectedLocationId: number | null;
+  selectedSubfolderId: number | null;
   filterUntagged: boolean;
   searchQuery: string;
 }
@@ -11,6 +12,7 @@ interface FilterState {
 const [filterState, setFilterState] = createStore<FilterState>({
   selectedTags: [],
   selectedLocationId: null,
+  selectedSubfolderId: null,
   filterUntagged: false,
   searchQuery: ""
 });
@@ -40,7 +42,22 @@ export const filterActions = {
   },
 
   setLocation: (locationId: number | null) => {
-    setFilterState("selectedLocationId", locationId);
+    setFilterState({
+      selectedLocationId: locationId,
+      selectedSubfolderId: null
+    });
+  },
+
+  setSubfolder: (subfolderId: number | null) => {
+    setFilterState("selectedSubfolderId", subfolderId);
+  },
+
+  // Atomic setter to avoid race conditions
+  setFolder: (locationId: number | null, subfolderId: number | null) => {
+    setFilterState({
+      selectedLocationId: locationId,
+      selectedSubfolderId: subfolderId
+    });
   },
 
   setSearch: (query: string) => {
@@ -51,6 +68,7 @@ export const filterActions = {
     setFilterState({
       selectedTags: [],
       selectedLocationId: null,
+      selectedSubfolderId: null,
       filterUntagged: false,
       searchQuery: ""
     });
@@ -59,8 +77,10 @@ export const filterActions = {
   hasActiveFilters: () => {
     return filterState.selectedTags.length > 0 || 
            filterState.filterUntagged || 
-           filterState.selectedLocationId !== null;
+           filterState.selectedLocationId !== null ||
+           filterState.selectedSubfolderId !== null;
   }
 };
 
 export { filterState };
+
