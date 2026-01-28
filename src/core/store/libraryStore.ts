@@ -123,6 +123,34 @@ export const libraryActions = {
       "thumbnail_path",
       path
     );
+  },
+
+  handleBatchChange: (payload: any) => {
+      // 1. Handle Removals
+      if (payload.removed && payload.removed.length > 0) {
+          const removedIds = new Set(payload.removed.map((r: any) => r.id));
+          setLibraryState("items", (items) => items.filter(i => !removedIds.has(i.id)));
+      }
+
+      // 2. Handle Additions
+      if (payload.added && payload.added.length > 0) {
+          // Fallback for valid IDs or just simplicity: trigger soft refresh
+          libraryActions.refreshImages(false);
+      }
+
+      // 3. Handle Updates (Renames)
+      if (payload.updated && payload.updated.length > 0) {
+          console.log("Processing updates/renames:", payload.updated);
+          for (const item of payload.updated) {
+              setLibraryState("items", i => i.id === item.id, (prev) => ({
+                  ...prev,
+                  path: item.path,
+                  filename: item.filename,
+                  modified_at: item.modified_at,
+                  folder_id: item.folder_id
+              }));
+          }
+      }
   }
 };
 

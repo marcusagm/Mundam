@@ -58,11 +58,22 @@ pub fn run() {
                         handle.manage(db_arc.clone());
 
                         let worker = crate::thumbnail_worker::ThumbnailWorker::new(
-                            db_arc,
+                            db_arc.clone(),
                             thumbnails_dir,
                             handle.clone(),
                         );
                         worker.start().await;
+
+                        // Start Watchers for Existing Roots
+                        if let Ok(roots) = db_arc.get_all_root_folders().await {
+                             println!("INFO: Starting watchers for {} roots", roots.len());
+                             for (_id, path) in roots {
+                                 // Indexer expects &Db
+                                 let indexer = Indexer::new(handle.clone(), &db_arc);
+                                 let root_path = std::path::PathBuf::from(path);
+                                 indexer.start_scan(root_path).await;
+                             }
+                        }
                     }
                     Err(e) => eprintln!("Failed to initialize database: {}", e),
                 }

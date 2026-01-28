@@ -102,6 +102,135 @@ export const metadataActions = {
       metadataActions.loadLocations(),
       metadataActions.loadStats()
     ]);
+  },
+
+  handleBatchChange: (payload: any) => {
+      let needsRefresh = false;
+      // Get known location IDs to check for new folders
+      const knownIds = new Set(metadataState.locations.map(l => l.id));
+
+      if (payload.added) {
+          for (const item of payload.added) {
+              // If item belongs to a folder we don't know about, we must refresh locations
+              if (item.folder_id && !knownIds.has(item.folder_id)) {
+                  needsRefresh = true;
+                  break;
+              }
+          }
+      }
+
+      setMetadataState("libraryStats", (stats) => {
+          const newStats = { ...stats };
+          const tagCounts = new Map(stats.tag_counts);
+          const folderCounts = new Map(stats.folder_counts);
+          const folderRecursive = new Map(stats.folder_counts_recursive);
+          
+          let totalDiff = 0;
+          let untaggedDiff = 0;
+
+          const getAncestors = (folderId: number): number[] => {
+              const ancestors: number[] = [];
+              let currentId: number | null = folderId;
+              while (currentId) {
+                  ancestors.push(currentId);
+                  const node = metadataState.locations.find(n => n.id === currentId);
+                  currentId = node ? node.parent_id : null;
+              }
+              return ancestors;
+          };
+
+          // Removed
+          if (payload.removed) {
+              for (const item of payload.removed) {
+                  totalDiff--;
+                  if (!item.tag_ids || item.tag_ids.length === 0) {
+                      untaggedDiff--;
+                  } else {
+                      for (const tagId of item.tag_ids) {
+                          const c = tagCounts.get(tagId) || 0;
+                          if (c > 0) tagCounts.set(tagId, c - 1);
+                      }
+                  }
+                  
+                  // Folder
+                  if (item.folder_id) {
+                      const fc = folderCounts.get(item.folder_id) || 0;
+                      if (fc > 0) folderCounts.set(item.folder_id, fc - 1);
+                      
+                      const ancestors = getAncestors(item.folder_id);
+                      for (const aid of ancestors) {
+                          const rc = folderRecursive.get(aid) || 0;
+                          if (rc > 0) folderRecursive.set(aid, rc - 1);
+                      }
+                  }
+              }
+          }
+
+          // Added
+           if (payload.added) {
+              for (const item of payload.added) {
+                  totalDiff++;
+                  // Assumptions new items are untagged
+                  untaggedDiff++; 
+                  
+                  if (item.folder_id) {
+                      const fc = folderCounts.get(item.folder_id) || 0;
+                      folderCounts.set(item.folder_id, fc + 1);
+                      
+                      const ancestors = getAncestors(item.folder_id);
+                      for (const aid of ancestors) {
+                          const rc = folderRecursive.get(aid) || 0;
+                          folderRecursive.set(aid, rc + 1);
+                      }
+                  }
+              }
+           }
+
+           // Updated (Moves)
+           if (payload.updated) {
+              for (const item of payload.updated) {
+                  if (item.old_folder_id && item.old_folder_id !== item.folder_id) {
+                      // Decrement Old
+                      const oldFc = folderCounts.get(item.old_folder_id) || 0;
+                      if (oldFc > 0) folderCounts.set(item.old_folder_id, oldFc - 1);
+                      
+                      const oldAncestors = getAncestors(item.old_folder_id);
+                      for (const aid of oldAncestors) {
+                          const rc = folderRecursive.get(aid) || 0;
+                          if (rc > 0) folderRecursive.set(aid, rc - 1);
+                      }
+
+                      // Increment New
+                      const newFc = folderCounts.get(item.folder_id) || 0;
+                      folderCounts.set(item.folder_id, newFc + 1);
+                      
+                      const newAncestors = getAncestors(item.folder_id);
+                      for (const aid of newAncestors) {
+                          const rc = folderRecursive.get(aid) || 0;
+                          folderRecursive.set(aid, rc + 1);
+                      }
+                  }
+                  
+                  // Check if new folder is unknown
+                  if (item.folder_id && !knownIds.has(item.folder_id)) {
+                      needsRefresh = true;
+                  }
+              }
+           }
+
+          newStats.total_images += totalDiff;
+          newStats.untagged_images += untaggedDiff;
+          newStats.tag_counts = tagCounts;
+          newStats.folder_counts = folderCounts;
+          newStats.folder_counts_recursive = folderRecursive;
+          
+          return newStats;
+      });
+
+      if (needsRefresh) {
+          console.log("New folders detected, refreshing all metadata...");
+          metadataActions.refreshAll();
+      }
   }
 };
 

@@ -67,6 +67,20 @@ export const systemActions = {
          });
       });
 
+      listen<any>("library:batch-change", (e) => {
+        const payload = e.payload;
+        console.log("Batch Change:", payload);
+        
+        import("./libraryStore").then(({ libraryActions }) => {
+            libraryActions.handleBatchChange(payload);
+        });
+        
+        // Also update stats
+        import("./metadataStore").then(({ metadataActions }) => {
+            metadataActions.handleBatchChange(payload);
+        });
+      });
+
       setInitialized(true);
     } catch (err) {
       console.error("Initialization failed:", err);

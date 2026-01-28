@@ -238,7 +238,13 @@ impl Db {
         &self,
         folder_id: i64,
         img: &crate::indexer::metadata::ImageMetadata,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<bool, sqlx::Error> {
+        // Check if exists
+        let exists: Option<(i64,)> = sqlx::query_as("SELECT id FROM images WHERE path = ?")
+            .bind(&img.path)
+            .fetch_optional(&self.pool)
+            .await?;
+
         sqlx::query(
             "INSERT INTO images (folder_id, path, filename, width, height, size, created_at, modified_at) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -261,7 +267,148 @@ impl Db {
         .execute(&self.pool)
         .await?;
         
-        Ok(())
+        Ok(exists.is_none())
+    }
+
+    /// Retrieve context (folder, tags) for an image before deletion
+    pub async fn get_image_context(
+        &self,
+        path: &str
+    ) -> Result<Option<(i64, i64, Vec<i64>)>, sqlx::Error> {
+        // Returns (image_id, folder_id, vec<tag_id>)
+        // We first get image ID and folder ID
+        let row: Option<(i64, i64)> = sqlx::query_as(
+            "SELECT id, folder_id FROM images WHERE path = ?"
+        )
+        .bind(path)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some((image_id, folder_id)) = row {
+            // Get tags
+            let tags: Vec<(i64,)> = sqlx::query_as(
+                "SELECT tag_id FROM image_tags WHERE image_id = ?"
+            )
+            .bind(image_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+            let tag_ids = tags.into_iter().map(|(id,)| id).collect();
+            Ok(Some((image_id, folder_id, tag_ids)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn get_file_comparison_data(
+        &self,
+        path: &str
+    ) -> Result<Option<(i64, chrono::DateTime<chrono::Utc>)>, sqlx::Error> {
+        let row: Option<(i64, String)> = sqlx::query_as(
+            "SELECT size, created_at FROM images WHERE path = ?"
+        )
+        .bind(path)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some((s, c_at)) = row {
+             let created_dt = chrono::DateTime::parse_from_rfc3339(&c_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+             Ok(Some((s, created_dt)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn delete_image_by_path_returning_context(
+        &self,
+        path: &str
+    ) -> Result<Option<(i64, i64, Vec<i64>)>, sqlx::Error> {
+        // 1. Get Context
+        let context = self.get_image_context(path).await?;
+
+        if let Some((image_id, _, _)) = context {
+            // 2. Delete
+            sqlx::query("DELETE FROM images WHERE id = ?")
+                .bind(image_id)
+                .execute(&self.pool)
+                .await?;
+            
+            // Note: image_tags are cascaded if schema is correct, 
+            // but we kept the IDs in memory to return
+        }
+        
+        Ok(context)
+    }
+
+    pub async fn rename_image(
+        &self,
+        old_path: &str,
+        new_path: &str,
+        new_filename: &str,
+        new_folder_id: i64
+    ) -> Result<Option<(crate::indexer::metadata::ImageMetadata, i64)>, sqlx::Error> {
+        // 1. Get existing image
+        let row: Option<(i64, i64, i32, i32, i64, String, String, Option<String>, i32, Option<String>)> = sqlx::query_as(
+            "SELECT id, folder_id, width, height, size, created_at, modified_at, thumbnail_path, rating, notes FROM images WHERE path = ?"
+        )
+        .bind(old_path)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some((id, old_folder_id, w, h, s, c_at, m_at, thumb, rating, notes)) = row {
+            // 2. Update Path, Filename, Folder
+            sqlx::query(
+                "UPDATE images SET path = ?, filename = ?, folder_id = ?, modified_at = ? WHERE id = ?"
+            )
+            .bind(new_path)
+            .bind(new_filename)
+            .bind(new_folder_id)
+            .bind(chrono::Utc::now().to_rfc3339())
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+            // Parse timestamps
+            let created_dt = chrono::DateTime::parse_from_rfc3339(&c_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+            let modified_dt = chrono::DateTime::parse_from_rfc3339(&m_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+
+            // Return updated metadata for frontend
+            use crate::indexer::metadata::ImageMetadata;
+            Ok(Some((ImageMetadata {
+                id,
+                path: new_path.to_string(),
+                filename: new_filename.to_string(),
+                width: Some(w),
+                height: Some(h),
+                size: s,
+                created_at: created_dt,
+                modified_at: modified_dt, 
+                thumbnail_path: thumb,
+                rating,
+                notes,
+                format: std::path::Path::new(new_filename)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            }, old_folder_id)))
+        } else {
+            Ok(None)
+        }
+    }
+    pub async fn get_all_root_folders(&self) -> Result<Vec<(i64, String)>, sqlx::Error> {
+        let rows: Vec<(i64, String)> = sqlx::query_as(
+            "SELECT id, path FROM folders WHERE is_root = 1 OR parent_id IS NULL"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 }
 

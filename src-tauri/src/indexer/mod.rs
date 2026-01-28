@@ -6,7 +6,8 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::mpsc;
 use walkdir::WalkDir;
 
@@ -15,6 +16,30 @@ pub struct ProgressPayload {
     pub total: usize,
     pub processed: usize,
     pub current_file: String,
+}
+
+use notify::event::{ModifyKind, RenameMode};
+
+#[derive(Clone, Serialize, Debug)]
+pub struct BatchChangePayload {
+    pub added: Vec<AddedItemContext>,
+    pub removed: Vec<RemovedItemContext>,
+    pub updated: Vec<AddedItemContext>,
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub struct AddedItemContext {
+    #[serde(flatten)]
+    pub metadata: ImageMetadata,
+    pub folder_id: i64,
+    pub old_folder_id: Option<i64>,
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub struct RemovedItemContext {
+    pub id: i64,
+    pub folder_id: i64,
+    pub tag_ids: Vec<i64>,
 }
 
 /// Struct to hold image path with its parent directory path
@@ -216,19 +241,27 @@ impl Indexer {
     }
 
     fn start_watcher(&self, path: PathBuf, _location_id: i64, root_str: String) {
-        use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+        use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
         let app = self.app_handle.clone();
         let db = self.db.clone();
         let watch_path = path.clone();
         let _root_path = PathBuf::from(&root_str);
 
+        // Get app data dir for thumbnail deletion
+        let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from(""));
+        
         tokio::spawn(async move {
-            let (tx, mut rx) = mpsc::channel(1);
+            let (tx, mut rx) = mpsc::channel::<Event>(100);
 
+            // Debouncer buffer
+            let debouncer_window = Duration::from_millis(500);
+            
             let mut watcher = RecommendedWatcher::new(
-                move |res| {
-                    let _ = tx.blocking_send(res);
+                move |res: notify::Result<Event>| {
+                    if let Ok(event) = res {
+                         let _ = tx.blocking_send(event);
+                    }
                 },
                 Config::default(),
             )
@@ -238,86 +271,294 @@ impl Indexer {
                 .watch(&watch_path, RecursiveMode::Recursive)
                 .expect("Failed to watch path");
 
-            println!("DEBUG: Watcher started for {:?}", watch_path);
+            println!("DEBUG: Robust Watcher started for {:?}", watch_path);
 
-            // Keep watcher alive in this scope
+            // Keep watcher alive
             let _watcher = watcher;
 
-            while let Some(res) = rx.recv().await {
-                match res {
-                    Ok(event) => {
-                        // Debounce by only processing specific events
-                        if event.kind.is_create() || event.kind.is_modify() {
-                            for file_path in event.paths {
-                                if is_image_file(&file_path) {
-                                    if let Some(meta) = get_image_metadata(&file_path) {
-                                        // Get parent directory
-                                        let parent_dir = file_path
-                                            .parent()
-                                            .map(|p| p.to_string_lossy().to_string())
-                                            .unwrap_or_default();
-                                        
-                                        // We need to ensure this folder exists.
-                                        // Since we can't easily do full hierarchy check in this async loop efficiently
-                                        // without refactoring, for now we try to find it.
-                                        // If it's a new folder, it might not exist.
-                                        // Ideally we call upsert_folder here.
-                                        
-                                        let name = file_path
-                                            .parent()
-                                            .and_then(|p| p.file_name())
-                                            .and_then(|n| n.to_str())
-                                            .unwrap_or("")
-                                            .to_string();
+            // Event Loop with Debouncing
+            let mut buffer_added: HashMap<String, ImageMetadata> = HashMap::new();
+            let mut buffer_removed: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut buffer_renamed: HashMap<String, String> = HashMap::new();
+            let mut pending_renames: HashMap<usize, String> = HashMap::new();
+            
+            let mut timer = tokio::time::interval(debouncer_window);
+            
+            // Loop that selects between incoming events and timer tick
+            loop {
+                tokio::select! {
+                        Some(event) = rx.recv() => {
+                        // DEBUG LOG
+                        println!("RAW EVENT: {:?}", event);
 
-                                        // Try to find parent_id for this folder (grandparent of file)
-                                        let grandparent_path = file_path
-                                            .parent()
-                                            .and_then(|p| p.parent())
-                                            .map(|p| p.to_string_lossy().to_string());
-                                        
-                                        let mut parent_id = None;
-                                        if let Some(gp) = grandparent_path {
-                                            if let Ok(Some(id)) = db.get_folder_by_path(&gp).await {
-                                                parent_id = Some(id);
-                                            }
-                                        }
+                        // Aggregate events
+                         match event.kind {
+                            EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                                if event.paths.len() == 2 {
+                                    let from = event.paths[0].to_string_lossy().to_string();
+                                    let to = event.paths[1].to_string_lossy().to_string();
+                                    
+                                    // Check if relevant
+                                    if is_image_file(&event.paths[0]) || is_image_file(&event.paths[1]) {
+                                        buffer_renamed.insert(from, to);
+                                    }
+                                }
+                            },
+                            // Handle Split Rename (From)
+                            EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+                                if !event.paths.is_empty() {
+                                    let path_str = event.paths[0].to_string_lossy().to_string();
+                                    if let Some(tracker) = event.attrs.tracker() {
+                                        pending_renames.insert(tracker, path_str);
+                                    } else {
+                                        buffer_removed.insert(path_str);
+                                    }
+                                }
+                            },
+                            // Handle Split Rename (To)
+                            EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+                                if !event.paths.is_empty() {
+                                    let path_str = event.paths[0].to_string_lossy().to_string();
+                                    
+                                    // Try to match pending rename
+                                    let matched_from = if let Some(tracker) = event.attrs.tracker() {
+                                        pending_renames.remove(&tracker)
+                                    } else {
+                                        None
+                                    };
 
-                                        let folder_id = match db.upsert_folder(&parent_dir, &name, parent_id, false).await {
-                                            Ok(id) => id,
-                                            Err(e) => {
-                                                eprintln!("Failed to upsert folder for watcher: {}", e);
-                                                continue;
-                                            }
-                                        };
-                                        
-                                        if let Err(e) = db
-                                            .save_image(folder_id, &meta)
-                                            .await
-                                        {
-                                            eprintln!("Failed to save watched file: {}", e);
-                                        } else {
-                                            println!(
-                                                "DEBUG: Successfully indexed watched file: {:?}",
-                                                file_path
-                                            );
-                                            // Notify UI
-                                            let _ = app.emit(
-                                                "indexer:progress",
-                                                ProgressPayload {
-                                                    total: 1,
-                                                    processed: 1,
-                                                    current_file: meta.filename,
-                                                },
-                                            );
-                                            let _ = app.emit("indexer:complete", 1);
+                                    if let Some(from) = matched_from {
+                                        buffer_renamed.insert(from, path_str);
+                                    } else {
+                                        if let Some(meta) = get_image_metadata(&event.paths[0]) {
+                                            buffer_added.insert(path_str, meta);
                                         }
                                     }
                                 }
+                            },
+                            EventKind::Create(_) | EventKind::Modify(_) => {
+                                for path in event.paths {
+                                    if is_image_file(&path) {
+                                        let path_str = path.to_string_lossy().to_string();
+                                        
+                                        // Check if file exists to distinguish Add/Mod vs Rename(From)
+                                        if path.exists() {
+                                            // It exists, so it's an Add or Modify
+                                            buffer_removed.remove(&path_str);
+                                            if let Some(meta) = get_image_metadata(&path) {
+                                                buffer_added.insert(path_str, meta);
+                                            }
+                                        } else {
+                                            // It does NOT exist, implies Rename(From) or deletion detected as Mod
+                                            buffer_added.remove(&path_str);
+                                            buffer_removed.insert(path_str);
+                                        }
+                                    }
+                                }
+                            },
+                            EventKind::Remove(_) => {
+                                for path in event.paths {
+                                     // For remove, we might not be able to check extension if file is gone?
+                                     // Notify sends the path. We should check if extension matches OUR types.
+                                     // Even if file is gone, path still has extension.
+                                     if is_image_file(&path) {
+                                         let path_str = path.to_string_lossy().to_string();
+                                         buffer_added.remove(&path_str); // If pending add, remove it
+                                         buffer_removed.insert(path_str);
+                                     }
+                                }
+                            },
+                             _ => {}
+                         }
+                    }
+                    _ = timer.tick() => {
+                        // Flush pending renames as removals
+                        for (_, path) in pending_renames.drain() {
+                            buffer_removed.insert(path);
+                        }
+
+                        // Heuristic: Attempt to pair Removed + Added as Rename based on metadata (Size + CreatedAt)
+                        // This handles cases where OS emits split events without tracker correlation (e.g. macOS FSEvents generic)
+                        let removed_paths: Vec<String> = buffer_removed.iter().cloned().collect();
+                        for from_path in removed_paths {
+                             if !buffer_removed.contains(&from_path) { continue; }
+
+                             if let Ok(Some((old_size, old_created))) = db.get_file_comparison_data(&from_path).await {
+                                 let match_key = buffer_added.iter().find_map(|(to_path, meta)| {
+                                     if meta.size == old_size && meta.created_at == old_created {
+                                         return Some(to_path.clone());
+                                     }
+                                     None
+                                 });
+
+                                 if let Some(to_path) = match_key {
+                                     println!("DEBUG: Heuristic Match found: {} -> {}", from_path, to_path);
+                                     buffer_renamed.insert(from_path.clone(), to_path.clone());
+                                     buffer_removed.remove(&from_path);
+                                     buffer_added.remove(&to_path);
+                                 }
+                             }
+                        }
+
+                        // Process Buffer if not empty
+                        if buffer_added.is_empty() && buffer_removed.is_empty() && buffer_renamed.is_empty() {
+                            continue;
+                        }
+
+                        let mut added_list: Vec<AddedItemContext> = Vec::new();
+                        let mut removed_list: Vec<RemovedItemContext> = Vec::new();
+                        let mut updated_list: Vec<AddedItemContext> = Vec::new();
+
+                        // 0. Process Renames
+                        for (from_str, to_str) in buffer_renamed.drain() {
+                             let to_path = PathBuf::from(&to_str);
+                             let new_name = to_path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+                             
+                             // Resolve Folder ID for new path
+                             let parent_dir = to_path.parent()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or_default();
+                                
+                             // Try to get folder ID
+                             let mut folder_id = match db.get_folder_by_path(&parent_dir).await {
+                                Ok(Some(id)) => id,
+                                _ => 0
+                             };
+                             
+                             // If folder unknown, try to upsert (like in Add)
+                             if folder_id == 0 {
+                                 if let Ok(id) = db.upsert_folder(&parent_dir, &parent_dir, None, false).await {
+                                     folder_id = id;
+                                 }
+                             }
+                             
+                             if folder_id > 0 {
+                                 match db.rename_image(&from_str, &to_str, &new_name, folder_id).await {
+                                     Ok(Some((meta, old_folder_id))) => {
+                                         println!("DEBUG: Watcher detected RENAME: {} -> {}", from_str, to_str);
+                                         
+                                         let moved_val = if old_folder_id != folder_id { Some(old_folder_id) } else { None };
+                                         
+                                         updated_list.push(AddedItemContext { 
+                                             metadata: meta, 
+                                             folder_id,
+                                             old_folder_id: moved_val,
+                                         });
+                                         
+                                         // Clean up other buffers to avoid double processing
+                                         buffer_removed.remove(&from_str);
+                                         buffer_added.remove(&to_str);
+                                     },
+                                     _ => {
+                                         // Rename failed (old not found?), verify existence and treat as Add
+                                         if to_path.exists() {
+                                             if let Some(meta) = get_image_metadata(&to_path) {
+                                                 buffer_added.insert(to_str, meta);
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                        }
+
+                        // 1. Process Removed
+                        for path_str in buffer_removed.drain() {
+                            // Use context-aware delete
+                            match db.delete_image_by_path_returning_context(&path_str).await {
+                                Ok(Some((img_id, folder_id, tag_ids))) => {
+                                    println!("DEBUG: Watcher detected REMOVE: {}", path_str);
+                                    
+                                    // Delete local thumbnail if exists
+                                    let thumb_filename = format!("{}.webp", img_id);
+                                    let thumb_path = app_data_dir.join("thumbnails").join(thumb_filename);
+                                    if thumb_path.exists() {
+                                        let _ = std::fs::remove_file(thumb_path);
+                                    }
+
+                                    removed_list.push(RemovedItemContext {
+                                        id: img_id,
+                                        folder_id,
+                                        tag_ids,
+                                    });
+                                },
+                                Ok(None) => {
+                                    // Not in DB, ignore
+                                },
+                                Err(e) => eprintln!("Error deleting watched file: {}", e),
                             }
                         }
+
+                        // 2. Process Added
+                        for (path_str, meta) in buffer_added.drain() {
+                             let path_buf = PathBuf::from(&path_str);
+                             
+                             // Get/Ensure Folder
+                             let parent_dir = path_buf.parent()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or_default();
+                                
+                             let name = path_buf.parent()
+                                .and_then(|p| p.file_name())
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("").to_string();
+                             
+                             // We try to find parent... simplified logic from indexer:
+                             // If folder doesn't exist, we try to create it non-recursively for now,
+                             // or just attach to root? Ideally we want correct parent.
+                             // For now, let's try to get existing ID or create.
+                            
+                            // Try to look up folder
+                            let mut folder_id = match db.get_folder_by_path(&parent_dir).await {
+                                Ok(Some(id)) => id,
+                                _ => 0 // Fallback
+                            };
+
+                            if folder_id == 0 {
+                                // Try creating
+                                if let Ok(id) = db.upsert_folder(&parent_dir, &name, None, false).await {
+                                    folder_id = id;
+                                }
+                            }
+                            
+                            if folder_id > 0 {
+                                match db.save_image(folder_id, &meta).await {
+                                    Ok(is_new) => {
+                                        if is_new {
+                                            println!("DEBUG: Watcher detected ADD: {}", path_str);
+                                            added_list.push(AddedItemContext {
+                                                metadata: meta,
+                                                folder_id,
+                                                old_folder_id: None,
+                                            });
+                                        } else {
+                                            println!("DEBUG: Watcher detected MOD (Update): {}", path_str);
+                                            updated_list.push(AddedItemContext {
+                                                metadata: meta,
+                                                folder_id,
+                                                old_folder_id: Some(folder_id), // Same folder
+                                            });
+                                        }
+                                    },
+                                    Err(e) => eprintln!("Failed to save image: {}", e),
+                                }
+                            } else {
+                                eprintln!("DEBUG: Could not determine folder for {}", path_str);
+                            }
+                        }
+
+                        // 3. Emit Batch Event
+                        if !added_list.is_empty() || !removed_list.is_empty() || !updated_list.is_empty() {
+                            let _ = app.emit("library:batch-change", BatchChangePayload {
+                                added: added_list,
+                                removed: removed_list,
+                                updated: updated_list,
+                            });
+                        }
                     }
-                    Err(e) => eprintln!("Watcher error: {:?}", e),
                 }
             }
         });
