@@ -204,12 +204,47 @@ impl Indexer {
     }
 }
 
+/// Check if a file has a supported extension for indexing
+/// This list matches the thumbnail generation supported formats
 fn is_image_file(path: &std::path::Path) -> bool {
-    let extensions = [
-        "jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "psd", "exr", "hdr", "tga",
-    ];
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| extensions.contains(&ext.to_lowercase().as_str()))
-        .unwrap_or(false)
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    
+    matches!(ext.as_str(),
+        // Tier 1: Fast path - Common formats
+        "jpg" | "jpeg" | "jpe" | "jfif" | "png" | "webp" | "gif" | "bmp" | "ico" |
+        
+        // Tier 2: FFmpeg - Modern codecs
+        "heic" | "heif" | "hif" | "avif" | "jxl" |
+        
+        // Tier 2: FFmpeg - RAW formats
+        "cr2" | "cr3" | "arw" | "nef" | "dng" | "raf" | "orf" | "pef" | "rw2" |
+        "3fr" | "mrw" | "nrw" | "sr2" | "srw" | "x3f" | "erf" | "crw" | "raw" |
+        
+        // Tier 2: FFmpeg - Design & Vector
+        "psd" | "psb" | "ai" | "eps" | "svg" | "tif" | "tiff" |
+        
+        // Tier 2: FFmpeg - HDR & Special
+        "exr" | "hdr" | "tga" |
+        
+        // Tier 3: ZIP Preview - Affinity Suite
+        "af" | "afdesign" | "afphoto" | "afpub" |
+        
+        // Tier 3: ZIP Preview - Other apps
+        "clip" | "xmind" | "graffle" |
+        
+        // Tier 4: Icon fallback - 3D formats
+        "c4d" | "3ds" | "obj" | "fbx" | "blend" | "stl" | "dae" |
+        "skp" | "dwg" | "dxf" | "max" | "lwo" | "lws" | "ma" | "mb" |
+        
+        // Tier 4: Icon fallback - Fonts
+        "ttf" | "otf" | "woff" | "woff2" | "eot" | "fon" | "fnt" |
+        
+        // Tier 4: Icon fallback - Design (non-ZIP)
+        "cdr" | "indd" | "xd" | "fig" | "sketch"
+    )
 }
+

@@ -27,6 +27,9 @@
     "allow-update-image-rating",
     "allow-update-image-notes",
     "allow-get-image-exif",
-    "allow-request-thumbnail-regenerate"
+    "allow-request-thumbnail-regenerate",
+    "allow-add-location",
+    "allow-remove-location",
+    "allow-get-locations"
   ]
 }

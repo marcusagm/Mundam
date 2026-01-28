@@ -2,6 +2,7 @@ mod database;
 mod db_tags;
 mod ffmpeg;
 mod indexer;
+mod location_commands;
 mod metadata_commands;
 mod metadata_reader;
 mod protocols;
@@ -95,7 +96,10 @@ pub fn run() {
             tag_commands::update_image_rating,
             tag_commands::update_image_notes,
             metadata_commands::get_image_exif,
-            thumbnail_commands::request_thumbnail_regenerate
+            thumbnail_commands::request_thumbnail_regenerate,
+            location_commands::add_location,
+            location_commands::remove_location,
+            location_commands::get_locations
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

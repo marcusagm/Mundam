@@ -24,14 +24,14 @@ type ThumbnailCallback = (id: number, path: string) => void;
 const subscribers = new Map<number, Set<ThumbnailCallback>>();
 
 // Global listener - initialized once
-let globalUnlisten: UnlistenFn | null = null;
+let _globalUnlisten: UnlistenFn | null = null;
 let listenerInitialized = false;
 
 async function initGlobalListener() {
   if (listenerInitialized) return;
   listenerInitialized = true;
   
-  globalUnlisten = await listen<ThumbnailReadyPayload>("thumbnail:ready", (event) => {
+  _globalUnlisten = await listen<ThumbnailReadyPayload>("thumbnail:ready", (event) => {
     const { id, path } = event.payload;
     
     // Update store

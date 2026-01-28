@@ -1,0 +1,33 @@
+.folder-delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.folder-delete-modal-content p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.folder-delete-modal-content strong {
+  color: var(--text-primary);
+}
+
+.folder-delete-path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+  color: var(--text-muted);
+}
+
+.folder-delete-warning {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: color-mix(in oklch, var(--status-error) 15%, transparent);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--status-error);
+  font-size: var(--font-size-sm);
+}

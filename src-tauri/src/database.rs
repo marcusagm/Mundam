@@ -146,4 +146,49 @@ impl Db {
             .await?;
         Ok(())
     }
+    
+    /// Get all thumbnail paths for a location (for cleanup before deletion)
+    pub async fn get_location_thumbnails(&self, location_id: i64) -> Result<Vec<String>, sqlx::Error> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT thumbnail_path FROM images WHERE location_id = ? AND thumbnail_path IS NOT NULL"
+        )
+        .bind(location_id)
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+    
+    /// Delete a location and all its images
+    pub async fn delete_location(&self, location_id: i64) -> Result<(), sqlx::Error> {
+        // First delete all images for this location
+        sqlx::query("DELETE FROM images WHERE location_id = ?")
+            .bind(location_id)
+            .execute(&self.pool)
+            .await?;
+        
+        // Also delete any tags associated with those images
+        sqlx::query("DELETE FROM image_tags WHERE image_id NOT IN (SELECT id FROM images)")
+            .execute(&self.pool)
+            .await?;
+        
+        // Then delete the location itself
+        sqlx::query("DELETE FROM locations WHERE id = ?")
+            .bind(location_id)
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Get all locations
+    pub async fn get_locations(&self) -> Result<Vec<(i64, String, String)>, sqlx::Error> {
+        let rows: Vec<(i64, String, String)> = sqlx::query_as(
+            "SELECT id, path, name FROM locations ORDER BY name"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(rows)
+    }
 }

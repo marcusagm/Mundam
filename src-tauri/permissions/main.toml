@@ -71,3 +71,18 @@ commands.allow = ["get_image_exif"]
 identifier = "allow-request-thumbnail-regenerate"
 description = "Enables request_thumbnail_regenerate for 404 recovery"
 commands.allow = ["request_thumbnail_regenerate"]
+
+[[permission]]
+identifier = "allow-add-location"
+description = "Enables add_location to add new folder"
+commands.allow = ["add_location"]
+
+[[permission]]
+identifier = "allow-remove-location"
+description = "Enables remove_location to delete folder and its images"
+commands.allow = ["remove_location"]
+
+[[permission]]
+identifier = "allow-get-locations"
+description = "Enables get_locations to list all folders"
+commands.allow = ["get_locations"]
