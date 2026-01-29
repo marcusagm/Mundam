@@ -13,14 +13,12 @@
 }
 
 .shell-body {
-  display: grid;
-  grid-template-columns: 260px 1fr 280px; /* Sidebar | Content | Inspector */
+  flex: 1;
   min-height: 0; /* Fix for nested scrolling */
   overflow: hidden;
 }
 
 .shell-sidebar {
-  border-right: 1px solid var(--border-subtle);
   background-color: var(--bg-sidebar);
   overflow: hidden;
 }
@@ -32,7 +30,6 @@
 }
 
 .shell-inspector {
-  border-left: 1px solid var(--border-subtle);
   background-color: var(--bg-sidebar);
   overflow-y: auto;
 }

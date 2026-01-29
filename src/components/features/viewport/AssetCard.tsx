@@ -1,8 +1,8 @@
 import { Component, JSX, createSignal } from "solid-js";
 import { ReferenceImage } from "./ReferenceImage";
-import { type ImageItem } from "../../../utils/masonryLayout";
+import { type ImageItem } from "../../../types";
 import { dndRegistry, setDragItem, currentDragItem } from "../../../core/dnd";
-import { useLibrary, useSelection } from "../../../core/hooks";
+import { useLibrary, useSelection, useViewport } from "../../../core/hooks";
 
 interface AssetCardProps {
   item: ImageItem;
@@ -189,7 +189,9 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
       }
   };
 
-  return (
+    const viewport = useViewport();
+
+    return (
     <div
       class={`virtual-item virtual-masonry-item ${props.selected ? "selected" : ""} ${props.className || ""} ${isDropTarget() ? "drop-target-active" : ""}`}
       style={{
@@ -203,6 +205,7 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={props.onClick}
+      onDblClick={() => viewport.openItem(props.item.id.toString())}
       onContextMenu={props.onContextMenu}
     >
         <div style={{ width: "100%", height: "100%", "pointer-events": "none" }}>

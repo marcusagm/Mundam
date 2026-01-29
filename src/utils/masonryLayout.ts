@@ -1,11 +1,4 @@
-export interface ImageItem {
-  id: number;
-  path: string;
-  filename: string;
-  width: number | null;
-  height: number | null;
-  thumbnail_path: string | null;
-}
+import { type ImageItem } from "../types";
 
 export interface LayoutOptions {
   items: ImageItem[];

@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 
 // Centralized store to track thumbnail regeneration state
 // This persists across component mount/unmount cycles (virtualization)
@@ -24,14 +24,13 @@ type ThumbnailCallback = (id: number, path: string) => void;
 const subscribers = new Map<number, Set<ThumbnailCallback>>();
 
 // Global listener - initialized once
-let _globalUnlisten: UnlistenFn | null = null;
 let listenerInitialized = false;
 
 async function initGlobalListener() {
   if (listenerInitialized) return;
   listenerInitialized = true;
   
-  _globalUnlisten = await listen<ThumbnailReadyPayload>("thumbnail:ready", (event) => {
+  await listen<ThumbnailReadyPayload>("thumbnail:ready", (event) => {
     const { id, path } = event.payload;
     
     // Update store

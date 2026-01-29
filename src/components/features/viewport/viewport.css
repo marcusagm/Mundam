@@ -11,6 +11,7 @@
   overflow-y: auto;
   position: relative;
   will-change: transform;
+  padding: var(--space-2);
 }
 
 .virtual-track {

@@ -1,7 +1,7 @@
 import { Component } from "solid-js";
 import { Maximize2, Hash } from "lucide-solid";
 import { AccordionItem } from "../../ui/Accordion";
-import { ImageItem } from "../../../core/store/libraryStore";
+import { type ImageItem } from "../../../types";
 import "./inspector.css";
 
 interface ImageMetadataProps {

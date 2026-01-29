@@ -1,0 +1,13 @@
+.list-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.list-view-content {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}

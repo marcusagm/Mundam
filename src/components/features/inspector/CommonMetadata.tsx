@@ -4,7 +4,7 @@ import { AccordionItem } from "../../ui/Accordion";
 import { Input } from "../../ui/Input";
 import { StarRating } from "./StarRating";
 import { useLibrary } from "../../../core/hooks"; // Import hooks
-import { type ImageItem } from "../../../core/store/libraryStore"; 
+import { type ImageItem } from "../../../types"; 
 import "./inspector.css";
 
 interface CommonMetadataProps {

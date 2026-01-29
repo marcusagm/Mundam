@@ -14,6 +14,10 @@ export const useFilters = () => {
     get folderRecursiveView() { return filterState.folderRecursiveView; },
     get filterUntagged() { return filterState.filterUntagged; },
     get searchQuery() { return filterState.searchQuery; },
+    get sortBy() { return filterState.sortBy; },
+    get sortOrder() { return filterState.sortOrder; },
+    get layout() { return filterState.layout; },
+    get thumbSize() { return filterState.thumbSize; },
     
     // Actions
     toggleTag: withRefresh(filterActions.toggleTag),
@@ -22,6 +26,10 @@ export const useFilters = () => {
     setFolder: withRefresh(filterActions.setFolder),
     setFolderRecursiveView: withRefresh(filterActions.setFolderRecursiveView),
     setSearch: withRefresh(filterActions.setSearch),
+    setSortBy: withRefresh(filterActions.setSortBy),
+    setSortOrder: withRefresh(filterActions.setSortOrder),
+    setLayout: withRefresh(filterActions.setLayout),
+    setThumbSize: withRefresh(filterActions.setThumbSize),
     clearAll: withRefresh(filterActions.clearAll),
     hasActiveFilters: filterActions.hasActiveFilters
   };

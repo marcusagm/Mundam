@@ -13,18 +13,8 @@
   gap: 8px;
 }
 
-.header-search {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-
-.header-search-wrapper {
-  width: 100%;
-  max-width: 600px;
-}
-
 .header-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 16px;

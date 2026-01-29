@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import { ImageItem } from "../../../core/store/libraryStore";
+import { type ImageItem } from "../../../types";
 import { CommonMetadata } from "./CommonMetadata";
 import { ImageMetadata } from "./ImageMetadata";
 import { InspectorTags } from "./InspectorTags";

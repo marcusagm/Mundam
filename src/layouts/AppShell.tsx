@@ -1,8 +1,9 @@
 import { Component, JSX } from "solid-js";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/Resizable";
 import "../styles/global.css";
 import "./app-shell.css";
 
-// This layout implements the 3-pane Grid structure
+// This layout implements the 3-pane Grid structure with resizable areas
 // [ Header ]
 // [ Sidebar | Content | Inspector ]
 // [ Statusbar ]
@@ -23,23 +24,27 @@ export const AppShell: Component<AppShellProps> = (props) => {
         {props.header}
       </header>
 
-      {/* Main 3-Pane Area */}
-      <div class="shell-body">
+      {/* Main 3-Pane Area - Resizable */}
+      <ResizablePanelGroup direction="horizontal" class="shell-body">
         {/* Left Sidebar */}
-        <aside class="shell-sidebar">
+        <ResizablePanel id="shell-sidebar" defaultSize={18} minSize={12} maxSize={35} class="shell-sidebar">
           {props.sidebar}
-        </aside>
+        </ResizablePanel>
+
+        <ResizableHandle />
 
         {/* Central Viewport */}
-        <main class="shell-content">
+        <ResizablePanel id="shell-content" defaultSize={62} minSize={30} class="shell-content">
           {props.children}
-        </main>
+        </ResizablePanel>
+
+        <ResizableHandle />
 
         {/* Right Inspector */}
-        <aside class="shell-inspector">
+        <ResizablePanel id="shell-inspector" defaultSize={20} minSize={15} maxSize={40} class="shell-inspector">
           {props.inspector}
-        </aside>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Footer / Statusbar */}
       <footer class="shell-footer">

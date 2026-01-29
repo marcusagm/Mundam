@@ -1,11 +1,11 @@
 import { onMount, Show } from "solid-js";
-import { useSystem, useLibrary } from "./core/hooks";
+import { useSystem } from "./core/hooks";
 import { AppShell } from "./layouts/AppShell";
 import { PrimaryHeader } from "./components/layout/PrimaryHeader";
 import { LibrarySidebar } from "./components/layout/LibrarySidebar";
 import { FileInspector } from "./components/layout/FileInspector";
 import { GlobalStatusbar } from "./components/layout/GlobalStatusbar";
-import { VirtualMasonry } from "./components/features/viewport/VirtualMasonry";
+import { Viewport } from "./components/layout/Viewport";
 import { open } from "@tauri-apps/plugin-dialog";
 // Native DnD
 import { dndRegistry, TagDropStrategy, ImageDropStrategy } from "./core/dnd";
@@ -15,7 +15,6 @@ import { useKeyboardShortcuts } from "./core/hooks/useKeyboardShortcuts";
 
 function App() {
   const system = useSystem();
-  const lib = useLibrary();
   
   useKeyboardShortcuts();
 
@@ -44,8 +43,7 @@ function App() {
       if (selected) {
         const path = typeof selected === 'string' ? selected : (selected as any).path;
         if (path) {
-          const name = path.split(/[\/\\]/).pop() || path;
-          await system.setRootLocation(path, name);
+          await system.setRootLocation(path);
         }
       }
     } catch (err) {
@@ -73,7 +71,7 @@ function App() {
             inspector={<FileInspector />}
             statusbar={<GlobalStatusbar />}
         >
-            <VirtualMasonry items={lib.items} />
+            <Viewport />
         </AppShell>
       </Show>
     </Show>

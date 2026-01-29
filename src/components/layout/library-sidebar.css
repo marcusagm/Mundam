@@ -5,17 +5,9 @@
   overflow: hidden;
 }
 
-.library-sidebar .panel-fixed {
-  flex: 0 0 auto;
-}
-
-.library-sidebar .panel-limited {
-  flex: 0 1 auto;
-  max-height: 40%;
-}
-
-.library-sidebar .panel-fluid {
-  flex: 1 1 0%;
+.library-sidebar .ui-resizable-panel {
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-list {

@@ -1,7 +1,8 @@
 import { createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
 import { AssetCard } from "./AssetCard";
-import { calculateMasonryLayout, type ImageItem } from "../../../utils/masonryLayout";
-import { useLibrary, useSelection } from "../../../core/hooks";
+import { calculateMasonryLayout } from "../../../utils/masonryLayout";
+import { type ImageItem } from "../../../types";
+import { useLibrary, useSelection, useFilters } from "../../../core/hooks";
 import "./viewport.css";
 
 interface VirtualMasonryProps {
@@ -17,15 +18,17 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [containerHeight, setContainerHeight] = createSignal(0);
   
+  const filters = useFilters();
+  
   // Configuration
-  const minColWidth = 280;
+  const minColWidth = createMemo(() => filters.thumbSize || 280);
   const gap = 16;
   
   // 1. Initial columns calculation based on width
   const columns = createMemo(() => {
     const width = containerWidth();
     if (width <= 0) return 4; // Default
-    return Math.max(1, Math.floor((width + gap) / (minColWidth + gap)));
+    return Math.max(1, Math.floor((width + gap) / (minColWidth() + gap)));
   });
 
   // 2. Synchronous layout calculation

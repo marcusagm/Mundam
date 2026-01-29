@@ -4,7 +4,6 @@ import {
   splitProps,
   createSignal,
   createEffect,
-  onCleanup,
   createContext,
   useContext,
   Show,
@@ -16,9 +15,10 @@ import "./resizable.css";
 // Context
 interface ResizableContextValue {
   direction: Accessor<"horizontal" | "vertical">;
-  registerPanel: (id: string, defaultSize: number, minSize?: number, maxSize?: number) => void;
+  registerPanel: (id: string, config: { defaultSize: number; minSize: number; maxSize: number }) => void;
   getPanelSize: (id: string) => Accessor<number>;
-  startResize: (handleIndex: number, e: PointerEvent) => void;
+  startResize: (handleId: string, e: PointerEvent) => void;
+  registerHandle: (id: string) => void;
 }
 
 const ResizableContext = createContext<ResizableContextValue>();
@@ -38,20 +38,6 @@ export interface ResizablePanelGroupProps extends JSX.HTMLAttributes<HTMLDivElem
   children: JSX.Element;
 }
 
-/**
- * ResizablePanelGroup for creating resizable panels.
- * 
- * @example
- * <ResizablePanelGroup direction="horizontal">
- *   <ResizablePanel defaultSize={30}>
- *     <Sidebar />
- *   </ResizablePanel>
- *   <ResizableHandle />
- *   <ResizablePanel defaultSize={70}>
- *     <Content />
- *   </ResizablePanel>
- * </ResizablePanelGroup>
- */
 export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) => {
   const [local, others] = splitProps(props, [
     "class",
@@ -64,31 +50,51 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
   
   let containerRef: HTMLDivElement | undefined;
 
-  // Panel state registry
-  const panelConfigs: Map<string, { defaultSize: number; minSize: number; maxSize: number }> = new Map();
+  // Panel registry
+  const [panelOrder, setPanelOrder] = createSignal<string[]>([]);
+  const panelConfigs = new Map<string, { defaultSize: number; minSize: number; maxSize: number }>();
   const [panelSizes, setPanelSizes] = createSignal<Map<string, number>>(new Map());
 
-  const registerPanel = (id: string, defaultSize: number, minSize = 0, maxSize = 100) => {
-    panelConfigs.set(id, { defaultSize, minSize, maxSize });
+  // Handle registry
+  const [handleOrder, setHandleOrder] = createSignal<string[]>([]);
+
+  const registerPanel = (id: string, config: { defaultSize: number; minSize: number; maxSize: number }) => {
+    panelConfigs.set(id, config);
+    
+    setPanelOrder(prev => {
+      if (prev.includes(id)) return prev;
+      return [...prev, id];
+    });
+
     setPanelSizes((prev) => {
+      if (prev.has(id)) return prev;
       const next = new Map(prev);
-      next.set(id, defaultSize);
+      next.set(id, config.defaultSize);
       return next;
     });
   };
 
-  const getPanelSize = (id: string): Accessor<number> => {
-    return () => panelSizes().get(id) ?? 50;
+  const registerHandle = (id: string) => {
+    setHandleOrder(prev => {
+      if (prev.includes(id)) return prev;
+      return [...prev, id];
+    });
   };
 
-  const startResize = (handleIndex: number, e: PointerEvent) => {
-    e.preventDefault();
-    
+  const getPanelSize = (id: string): Accessor<number> => {
+    return () => panelSizes().get(id) ?? 0;
+  };
+
+  const startResize = (handleId: string, e: PointerEvent) => {
     if (!containerRef) return;
 
-    const panelIds = Array.from(panelConfigs.keys());
-    const beforePanelId = panelIds[handleIndex];
-    const afterPanelId = panelIds[handleIndex + 1];
+    const handles = handleOrder();
+    const handleIndex = handles.indexOf(handleId);
+    if (handleIndex === -1) return;
+
+    const panels = panelOrder();
+    const beforePanelId = panels[handleIndex];
+    const afterPanelId = panels[handleIndex + 1];
     
     if (!beforePanelId || !afterPanelId) return;
 
@@ -100,30 +106,30 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     const containerSize = isHorizontal ? containerRect.width : containerRect.height;
 
     const startPos = isHorizontal ? e.clientX : e.clientY;
-    const startBeforeSize = panelSizes().get(beforePanelId) ?? 50;
-    const startAfterSize = panelSizes().get(afterPanelId) ?? 50;
+    const startBeforeSize = panelSizes().get(beforePanelId) ?? 0;
+    const startAfterSize = panelSizes().get(afterPanelId) ?? 0;
 
     const handlePointerMove = (e: PointerEvent) => {
       const currentPos = isHorizontal ? e.clientX : e.clientY;
-      const delta = ((currentPos - startPos) / containerSize) * 100;
+      const deltaPx = currentPos - startPos;
+      const deltaPercent = (deltaPx / containerSize) * 100;
 
-      let newBeforeSize = startBeforeSize + delta;
-      let newAfterSize = startAfterSize - delta;
+      let newBeforeSize = startBeforeSize + deltaPercent;
+      let newAfterSize = startAfterSize - deltaPercent;
 
-      // Clamp to min/max
+      // Constraints
       if (newBeforeSize < beforeConfig.minSize) {
         newBeforeSize = beforeConfig.minSize;
         newAfterSize = startBeforeSize + startAfterSize - beforeConfig.minSize;
-      }
-      if (newBeforeSize > beforeConfig.maxSize) {
+      } else if (newBeforeSize > beforeConfig.maxSize) {
         newBeforeSize = beforeConfig.maxSize;
         newAfterSize = startBeforeSize + startAfterSize - beforeConfig.maxSize;
       }
+
       if (newAfterSize < afterConfig.minSize) {
         newAfterSize = afterConfig.minSize;
         newBeforeSize = startBeforeSize + startAfterSize - afterConfig.minSize;
-      }
-      if (newAfterSize > afterConfig.maxSize) {
+      } else if (newAfterSize > afterConfig.maxSize) {
         newAfterSize = afterConfig.maxSize;
         newBeforeSize = startBeforeSize + startAfterSize - afterConfig.maxSize;
       }
@@ -137,17 +143,19 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     };
 
     const handlePointerUp = () => {
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       
-      const sizes = Array.from(panelSizes().values());
-      local.onLayout?.(sizes);
+      if (local.onLayout) {
+        const sizes = panels.map(id => panelSizes().get(id) ?? 0);
+        local.onLayout(sizes);
+      }
     };
 
-    document.addEventListener("pointermove", handlePointerMove);
-    document.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
     document.body.style.cursor = isHorizontal ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
   };
@@ -157,6 +165,7 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     registerPanel,
     getPanelSize,
     startResize,
+    registerHandle,
   };
 
   return (
@@ -178,14 +187,12 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
 
 // Panel
 export interface ResizablePanelProps extends JSX.HTMLAttributes<HTMLDivElement> {
-  id?: string;
+  id: string;
   defaultSize?: number;
   minSize?: number;
   maxSize?: number;
   children: JSX.Element;
 }
-
-let panelCounter = 0;
 
 export const ResizablePanel: Component<ResizablePanelProps> = (props) => {
   const [local, others] = splitProps(props, [
@@ -198,34 +205,26 @@ export const ResizablePanel: Component<ResizablePanelProps> = (props) => {
   ]);
 
   const context = useResizable();
-  const panelId = local.id || `panel-${++panelCounter}`;
 
-  // Register panel on mount
   createEffect(() => {
-    context.registerPanel(
-      panelId,
-      local.defaultSize ?? 50,
-      local.minSize ?? 0,
-      local.maxSize ?? 100
-    );
+    context.registerPanel(local.id, {
+      defaultSize: local.defaultSize ?? 50,
+      minSize: local.minSize ?? 0,
+      maxSize: local.maxSize ?? 100,
+    });
   });
 
-  const size = context.getPanelSize(panelId);
-
-  const style = (): JSX.CSSProperties => {
-    const isHorizontal = context.direction() === "horizontal";
-    return {
-      [isHorizontal ? "width" : "height"]: `${size()}%`,
-      "flex-shrink": 0,
-      "flex-grow": 0,
-    };
-  };
+  const size = context.getPanelSize(local.id);
 
   return (
     <div
       class={cn("ui-resizable-panel", local.class)}
-      style={style()}
-      data-panel-id={panelId}
+      style={{
+        [context.direction() === "horizontal" ? "width" : "height"]: `${size()}%`,
+        "flex-shrink": 0,
+        "flex-grow": 0,
+      }}
+      data-panel-id={local.id}
       {...others}
     >
       {local.children}
@@ -235,25 +234,26 @@ export const ResizablePanel: Component<ResizablePanelProps> = (props) => {
 
 // Handle
 export interface ResizableHandleProps extends JSX.HTMLAttributes<HTMLDivElement> {
+  id?: string;
   withHandle?: boolean;
 }
 
-let handleCounter = 0;
+let handleIdCounter = 0;
 
 export const ResizableHandle: Component<ResizableHandleProps> = (props) => {
-  const [local, others] = splitProps(props, ["class", "withHandle"]);
-
+  const [local, others] = splitProps(props, ["id", "class", "withHandle"]);
   const context = useResizable();
-  const handleIndex = handleCounter++;
+  
+  const handleId = local.id || `handle-${++handleIdCounter}`;
+
+  createEffect(() => {
+    context.registerHandle(handleId);
+  });
 
   const handlePointerDown = (e: PointerEvent) => {
-    context.startResize(handleIndex, e);
+    e.preventDefault();
+    context.startResize(handleId, e);
   };
-
-  // Reset counter when component unmounts (for HMR)
-  onCleanup(() => {
-    handleCounter = 0;
-  });
 
   return (
     <div
