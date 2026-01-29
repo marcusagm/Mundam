@@ -47,3 +47,24 @@ Implement a robust synchronization system between the file system, database, and
 1.  **Add File:** Drop an image into a watched folder -> Appears in Grid + Counts increment.
 2.  **Remove File:** Delete image from finder -> Disappears from Grid + Counts decrement (Tags & Folders).
 3.  **Remove Root:** Click "Remove" on Sidebar Root -> Entire tree disappears from Sidebar + Images cleared from View.
+
+## 🚀 Improvements & Unplanned Fixes
+During implementation, several critical robustness issues were identified and resolved:
+
+1.  **Robust Rename Handling (Split Events)**:
+    - Implemented a 3-layer defense for file renames:
+        1.  Atomic `RenameMode::Both` (Standard).
+        2.  Tracker-based correlation for Split `From`/`To` events.
+        3.  **Heuristic Correlation**: Matches `Remove` + `Add` events based on File Size and Creation Time when the OS fails to provide trackers.
+
+2.  **Idempotency & Toggle Count Bug**:
+    - Fixed a bug where file modification events were treated as "Additions", causing folder counts to incorrectly increment (e.g. 1 -> 3).
+    - Backend now distinguishes `Insert` vs `Update`. Updates only modify metadata, preserving IDs and Counts.
+
+3.  **Recursive Folder Hierarchy Repair**:
+    - Implemented `ensure_folder_hierarchy` in Database.
+    - Automatically reconstructs the database folder tree (Parent/Child links) when a deep folder structure is added or modified, preventing new subfolders from appearing as "Floating Roots".
+
+## ⏳ Pending / Known Issues
+1.  **Subfolder Visual Glitch**:
+    - Occasionally, deeply nested subfolders may still appear at the root level in the frontend immediately after creation. backend logic `ensure_folder_hierarchy` was implemented to fix this by repairing parent links, but user reports persistence in some scenarios. Further investigation into Frontend State `refreshFolderCounts` or Race Conditions recommended.

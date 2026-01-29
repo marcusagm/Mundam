@@ -234,6 +234,54 @@ impl Db {
         Ok(rows)
     }
 
+    pub async fn ensure_folder_hierarchy(&self, path: &str) -> Result<i64, sqlx::Error> {
+        // Always derive hierarchy (Repair existing, Create new)
+        
+        // 1. Find parent context.
+        let path_obj = std::path::Path::new(path);
+        let name = path_obj.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let parent_id = if let Some(parent) = path_obj.parent() {
+            let parent_str = parent.to_string_lossy();
+            
+            // Allow recursion to find/create parent
+            // But we must stop if we go too far (outside monitored roots).
+            // However, we assume we only call this for paths INSIDE monitored roots.
+            // But if we hit system root, get_folder_by_path returns None.
+            // We need a break condition. 
+            // If get_folder_by_path returns None, we recursively call ensure?
+            // BUT what if it's a new ROOT added by user?
+            // This function is for "Child" creation. 
+            // If we assume Roots are already created by "Start Scan" setup?
+            // "Watcher" logic assumes Roots exist.
+            // So if we climb up, we WILL hit a Root.
+            
+            // Check Parent Exists directly to avoid infinite loop on system roots if something is wrong?
+            // Getting existing parent is fast.
+            if let Some(pid) = self.get_folder_by_path(&parent_str).await? {
+                Some(pid)
+            } else {
+                // Parent not found. Recursively ensure parent.
+                // We trust that 'path' is valid and under a known root.
+                // If we reach "/" or empty, parent() is None.
+                // So recursion terminates naturally.
+                // But check purely:
+                if parent_str.len() > 1 { // Simple guard
+                     Some(Box::pin(self.ensure_folder_hierarchy(&parent_str)).await?)
+                } else {
+                    None // Should be impossible if inside Library Root
+                }
+            }
+        } else {
+            None
+        };
+
+        // 3. Create this folder (linked to parent)
+        self.upsert_folder(path, &name, parent_id, false).await
+    }
     pub async fn save_image(
         &self,
         folder_id: i64,

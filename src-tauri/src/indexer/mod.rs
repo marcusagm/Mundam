@@ -511,18 +511,14 @@ impl Indexer {
                              // or just attach to root? Ideally we want correct parent.
                              // For now, let's try to get existing ID or create.
                             
-                            // Try to look up folder
-                            let mut folder_id = match db.get_folder_by_path(&parent_dir).await {
-                                Ok(Some(id)) => id,
-                                _ => 0 // Fallback
-                            };
-
-                            if folder_id == 0 {
-                                // Try creating
-                                if let Ok(id) = db.upsert_folder(&parent_dir, &name, None, false).await {
-                                    folder_id = id;
+                            // Ensure folder exists with correct hierarchy
+                            let folder_id = match db.ensure_folder_hierarchy(&parent_dir).await {
+                                Ok(id) => id,
+                                Err(e) => {
+                                    eprintln!("DEBUG: Failed to ensure hierarchy: {}", e);
+                                    0
                                 }
-                            }
+                            };
                             
                             if folder_id > 0 {
                                 match db.save_image(folder_id, &meta).await {

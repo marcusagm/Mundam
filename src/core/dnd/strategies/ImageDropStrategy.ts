@@ -12,7 +12,6 @@ export const ImageDropStrategy: DropStrategy = {
     },
 
     onDrop: async (item: DragItem, targetId: number | string) => {
-        console.log("ImageDropStrategy:onDrop", item, targetId);
         const targetImageId = Number(targetId);
         
         if (item.type === "TAG") {
@@ -37,7 +36,6 @@ export const ImageDropStrategy: DropStrategy = {
     },
     
     onDragOver: (item: DragItem) => {
-        console.log("ImageDropStrategy:onDragOver", item);
         return item.type === "TAG";
     }
 };

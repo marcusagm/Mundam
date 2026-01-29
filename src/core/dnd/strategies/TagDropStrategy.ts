@@ -9,7 +9,6 @@ export const TagDropStrategy: DropStrategy = {
     },
 
     onDrop: async (item: DragItem, targetId: number | string, position: "before" | "inside" | "after" = "inside") => {
-        console.log("TagDropStrategy:onDrop", item, targetId, position);
         let targetTagId: number | null = Number(targetId);
         
         // Handle "root" target (from placeholder)
@@ -121,7 +120,6 @@ export const TagDropStrategy: DropStrategy = {
     },
     
     onDragOver: (_item: DragItem) => {
-        // ...
          return true;
     }
 };

@@ -16,12 +16,10 @@ class DndStrategyRegistry {
     private strategies: Map<string, DropStrategy> = new Map();
 
     register(targetType: string, strategy: DropStrategy) {
-        console.log("dnd-core:register", targetType, strategy);
         this.strategies.set(targetType, strategy);
     }
 
     get(targetType: string): DropStrategy | undefined {
-        console.log("dnd-core: get", targetType);
         return this.strategies.get(targetType);
     }
 }
