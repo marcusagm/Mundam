@@ -27,7 +27,12 @@ async fn start_indexing(path: String, app: tauri::AppHandle) -> Result<(), Strin
         None => return Err("Database not initialized".to_string()),
     };
 
-    let indexer = Indexer::new(app.clone(), db.inner());
+    let registry = match app.try_state::<std::sync::Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
+        Some(r) => r,
+        None => return Err("Registry not initialized".to_string()),
+    };
+
+    let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
 
     let root = PathBuf::from(path);
     indexer.start_scan(root).await;
@@ -55,7 +60,10 @@ pub fn run() {
                 match Db::new(db_path).await {
                     Ok(db) => {
                         let db_arc = std::sync::Arc::new(db);
+                        let watcher_registry = std::sync::Arc::new(tokio::sync::Mutex::new(crate::indexer::WatcherRegistry::default()));
+                        
                         handle.manage(db_arc.clone());
+                        handle.manage(watcher_registry.clone());
 
                         let worker = crate::thumbnail_worker::ThumbnailWorker::new(
                             db_arc.clone(),
@@ -68,8 +76,7 @@ pub fn run() {
                         if let Ok(roots) = db_arc.get_all_root_folders().await {
                              println!("INFO: Starting watchers for {} roots", roots.len());
                              for (_id, path) in roots {
-                                 // Indexer expects &Db
-                                 let indexer = Indexer::new(handle.clone(), &db_arc);
+                                 let indexer = Indexer::new(handle.clone(), &db_arc, watcher_registry.clone());
                                  let root_path = std::path::PathBuf::from(path);
                                  indexer.start_scan(root_path).await;
                              }

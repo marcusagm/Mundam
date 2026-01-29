@@ -49,18 +49,34 @@ struct IndexedImage {
     parent_dir: String, 
 }
 
+#[derive(Default)]
+pub struct WatcherRegistry {
+    pub watchers: HashMap<String, tokio::sync::oneshot::Sender<()>>,
+}
+
 pub struct Indexer {
     app_handle: AppHandle,
     db: Arc<Db>,
+    registry: Arc<tokio::sync::Mutex<WatcherRegistry>>,
 }
 
 impl Indexer {
-    pub fn new(app_handle: AppHandle, db: &Db) -> Self {
+    pub fn new(app_handle: AppHandle, db: &Db, registry: Arc<tokio::sync::Mutex<WatcherRegistry>>) -> Self {
         Self {
             app_handle,
             db: Arc::new(Db {
                 pool: db.pool.clone(),
             }),
+            registry,
+        }
+    }
+
+    pub async fn stop_watcher(&self, root_path: &str) {
+        let path = normalize_path(root_path);
+        let mut registry = self.registry.lock().await;
+        if let Some(tx) = registry.watchers.remove(&path) {
+            println!("DEBUG: Stopping watcher for root: {}", path);
+            let _ = tx.send(());
         }
     }
 
@@ -226,9 +242,21 @@ impl Indexer {
         let watch_path = path.canonicalize().unwrap_or(path);
         let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from(""));
         let root_str_clone = root_str.clone();
+        let registry = self.registry.clone();
         
         tokio::spawn(async move {
             let (tx, mut rx) = mpsc::channel::<Event>(100);
+            let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+            
+            // Register stop handle
+            {
+                let mut reg = registry.lock().await;
+                // If there's already a watcher for this path, stop it first
+                if let Some(old_tx) = reg.watchers.insert(root_str_clone.clone(), stop_tx) {
+                    let _ = old_tx.send(());
+                }
+            }
+
             let debouncer_window = Duration::from_millis(600);
             
             let mut watcher = RecommendedWatcher::new(
@@ -254,6 +282,10 @@ impl Indexer {
             
             loop {
                 tokio::select! {
+                    _ = &mut stop_rx => {
+                        println!("DEBUG: Watcher task received STOP for {}", root_str_clone);
+                        break;
+                    }
                     Some(event) = rx.recv() => {
                         if event.paths.iter().any(|p| p.starts_with(&app_data_dir)) { continue; }
                         println!("DEBUG: Watcher RAW - {:?}", event);

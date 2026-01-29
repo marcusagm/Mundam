@@ -45,6 +45,14 @@ impl Db {
     }
 
 
+    pub async fn get_folder_path(&self, id: i64) -> Result<Option<String>, sqlx::Error> {
+        let row: Option<(String,)> = sqlx::query_as("SELECT path FROM folders WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.map(|r| r.0))
+    }
+
     pub async fn get_folder_by_path(&self, path: &str) -> Result<Option<i64>, sqlx::Error> {
         let path = path.trim_end_matches('/');
         let row: Option<(i64,)> = sqlx::query_as("SELECT id FROM folders WHERE path = ?")

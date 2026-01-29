@@ -68,7 +68,11 @@ pub async fn add_location(
     }
     
     // Start indexing in background
-    let indexer = Indexer::new(app.clone(), db.inner());
+    let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
+        Some(r) => r,
+        None => return Err("Registry not initialized".to_string()),
+    };
+    let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
     tokio::spawn(async move {
         indexer.start_scan(root).await;
     });
@@ -89,8 +93,12 @@ pub async fn remove_location(
     app: AppHandle,
     db: State<'_, Arc<Db>>,
 ) -> Result<(), String> {
-    println!("COMMAND: remove_location (delete_folder) called for ID: {}", location_id);
-    
+    // Get location path for stopping watcher
+    let location_path = match db.get_folder_path(location_id).await {
+        Ok(Some(p)) => p,
+        _ => return Err("Folder not found".to_string()),
+    };
+
     // Get thumbnail paths before deletion using get_location_thumbnails (which uses CTE now)
     let thumbnail_paths = db
         .get_location_thumbnails(location_id)
@@ -122,6 +130,14 @@ pub async fn remove_location(
         .await
         .map_err(|e| format!("Failed to delete folder: {}", e))?;
     
+    // Stop the watcher via Indexer
+    let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
+        Some(r) => r,
+        None => return Err("Registry not initialized".to_string()),
+    };
+    let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
+    indexer.stop_watcher(&location_path).await;
+
     println!("DEBUG: Folder {} deleted successfully", location_id);
     Ok(())
 }
