@@ -10,6 +10,7 @@ interface AssetCardProps {
   className?: string;
   selected?: boolean;
   onClick?: (e: MouseEvent) => void;
+  onDblClick?: (e: MouseEvent) => void;
   onContextMenu?: (e: MouseEvent) => void;
 }
 
@@ -205,7 +206,7 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={props.onClick}
-      onDblClick={() => viewport.openItem(props.item.id.toString())}
+      onDblClick={props.onDblClick || (() => viewport.openItem(props.item.id.toString()))}
       onContextMenu={props.onContextMenu}
     >
         <div style={{ width: "100%", height: "100%", "pointer-events": "none" }}>

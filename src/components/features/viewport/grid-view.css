@@ -1,0 +1,14 @@
+.grid-view-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background-color: var(--bg-color);
+    position: relative;
+    padding: var(--space-4);
+    scrollbar-gutter: stable;
+}
+
+.grid-view-track {
+  width: 100%;
+  will-change: transform;
+}

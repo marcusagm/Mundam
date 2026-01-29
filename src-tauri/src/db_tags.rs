@@ -214,7 +214,7 @@ impl Db {
              query_builder.push(" -1 "); // Dummy ID if none provided, handled in WHERE clause
         }
 
-        query_builder.push(") SELECT DISTINCT i.id, i.path, i.filename, i.width, i.height, i.size, i.thumbnail_path, i.format, i.rating, i.notes, i.created_at, i.modified_at FROM images i ");
+        query_builder.push(") SELECT DISTINCT i.id, i.path, i.filename, i.width, i.height, i.size, i.thumbnail_path, i.format, i.rating, i.notes, i.created_at, i.modified_at, i.added_at FROM images i ");
 
         if !tag_ids.is_empty() {
             query_builder.push(" JOIN image_tags it ON i.id = it.image_id ");

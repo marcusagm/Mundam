@@ -45,6 +45,8 @@ export interface TableProps<T> {
   onRowClick?: (item: T, multi: boolean, range: boolean) => void;
   /** Callback for double click */
   onRowDoubleClick?: (item: T) => void;
+  /** Callback for scroll events */
+  onScroll?: (e: Event) => void;
   /** Key field to use for identifying rows (default: 'id') */
   keyField?: keyof T;
   /** Additional CSS class for the container */
@@ -71,6 +73,7 @@ export function Table<T>(props: TableProps<T>) {
     "onSort",
     "onRowClick",
     "onRowDoubleClick",
+    "onScroll",
     "keyField",
     "class",
     "height",
@@ -113,6 +116,7 @@ export function Table<T>(props: TableProps<T>) {
   const handleScroll = (e: Event) => {
     const target = e.currentTarget as HTMLDivElement;
     setScrollTop(target.scrollTop);
+    local.onScroll?.(e);
   };
 
   const handleSort = (key: string) => {
@@ -195,14 +199,6 @@ export function Table<T>(props: TableProps<T>) {
     return { start, end };
   });
 
-  const visibleData = createMemo(() => {
-    const { start, end } = visibleRange();
-    return local.data.slice(start, end).map((item, index) => ({
-      item,
-      index: start + index
-    }));
-  });
-
   const totalHeight = createMemo(() => local.data.length * rowHeight());
 
   return (
@@ -266,11 +262,12 @@ export function Table<T>(props: TableProps<T>) {
         </div>
 
         {/* Dynamic Rows */}
-        <For each={visibleData()}>
-          {({ item, index }) => {
+        <For each={local.data.slice(visibleRange().start, visibleRange().end)}>
+          {(item, index) => {
+            const realIndex = createMemo(() => visibleRange().start + index());
             const id = (item[keyField()] as any);
             const isSelected = createMemo(() => selectedIds().includes(id));
-            const isFocused = createMemo(() => focusedIndex() === index);
+            const isFocused = createMemo(() => focusedIndex() === realIndex());
 
             return (
               <div 
@@ -281,12 +278,12 @@ export function Table<T>(props: TableProps<T>) {
                 )}
                 style={{ 
                   height: `${rowHeight()}px`, 
-                  transform: `translate3d(0, ${(index + 1) * rowHeight()}px, 0)` 
+                  transform: `translate3d(0, ${(realIndex() + 1) * rowHeight()}px, 0)` 
                 }}
                 onClick={(e) => local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey)}
                 onDblClick={() => local.onRowDoubleClick?.(item)}
                 role="row"
-                aria-rowindex={index + 2} // +1 for index and +1 for header
+                aria-rowindex={realIndex() + 2} // +1 for index and +1 for header
                 aria-selected={isSelected()}
               >
                 <For each={visibleColumns()}>

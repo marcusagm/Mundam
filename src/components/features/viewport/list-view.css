@@ -10,4 +10,16 @@
     flex: 1;
     min-height: 0;
     position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ensure children specialized views take full space */
+.virtual-list-view,
+.grid-view-container,
+.virtual-scroll-container {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
 }

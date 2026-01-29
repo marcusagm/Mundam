@@ -519,7 +519,8 @@ impl Db {
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("unknown")
-                    .to_string()
+                    .to_string(),
+                added_at: None,
             }, old_folder_id)))
         } else {
             Ok(None)

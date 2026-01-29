@@ -1,19 +1,31 @@
-import { Component } from "solid-js";
-import { useLibrary } from "../../../core/hooks";
+import { Component, Switch, Match } from "solid-js";
+import { useLibrary, useFilters } from "../../../core/hooks";
 import { ListViewToolbar } from "./ListViewToolbar";
 import { VirtualMasonry } from "./VirtualMasonry";
+import { VirtualGridView } from "./VirtualGridView";
+import { VirtualListView } from "./VirtualListView";
 import "./list-view.css";
 
 export const ListView: Component = () => {
     const lib = useLibrary();
+    const filters = useFilters();
 
     return (
         <div class="list-view">
             <ListViewToolbar />
             
             <div class="list-view-content">
-                {/* Por enquanto apenas Masonry Vertical é suportado na implementação */}
-                <VirtualMasonry items={lib.items} />
+                <Switch>
+                    <Match when={filters.layout === "grid"}>
+                        <VirtualGridView />
+                    </Match>
+                    <Match when={filters.layout === "list"}>
+                        <VirtualListView />
+                    </Match>
+                    <Match when={filters.layout === "masonry-v" || filters.layout === "masonry-h"}>
+                        <VirtualMasonry items={lib.items} />
+                    </Match>
+                </Switch>
             </div>
         </div>
     );

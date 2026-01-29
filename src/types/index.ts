@@ -8,7 +8,9 @@ export interface ImageItem {
   rating: number;
   notes: string | null;
   size: number;
+  format: string;
   created_at: string;
   modified_at: string;
+  added_at: string;
   folder_id: number;
 }

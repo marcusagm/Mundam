@@ -19,6 +19,8 @@ pub struct ImageMetadata {
     pub notes: Option<String>,
     pub modified_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+    #[sqlx(default)]
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 pub fn get_image_metadata(path: &Path) -> Option<ImageMetadata> {
@@ -67,5 +69,6 @@ pub fn get_image_metadata(path: &Path) -> Option<ImageMetadata> {
         notes: None,
         modified_at,
         created_at,
+        added_at: None,
     })
 }
