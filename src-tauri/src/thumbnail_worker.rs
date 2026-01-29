@@ -25,7 +25,7 @@ impl ThumbnailWorker {
         let app = self.app_handle.clone();
         let thumb_dir = self.thumbnails_dir.clone();
 
-        println!("DEBUG: Thumbnail worker started. Dir: {:?}", thumb_dir);
+        // println!("DEBUG: Thumbnail worker started. Dir: {:?}", thumb_dir);
 
         tauri::async_runtime::spawn(async move {
             loop {
@@ -74,15 +74,15 @@ impl ThumbnailWorker {
                                     let output_path = thumb_dir_clone.join(&thumb_name);
 
                                     // println!("DEBUG: Generating thumbnail for ID: {}", id);
-                                    println!(
-                                        "DEBUG: Processing ID: {} | Path: {:?}",
-                                        id, input_path
-                                    );
+                                    // println!(
+                                    //     "DEBUG: Processing ID: {} | Path: {:?}",
+                                    //     id, input_path
+                                    // );
 
                                     // Generate thumbnail
                                     match generate_thumbnail(input_path, &output_path, 300) {
                                         Ok(_) => {
-                                            println!("DEBUG: Success ID: {}", id);
+                                            // println!("DEBUG: Success ID: {}", id);
                                             let filename_only = output_path
                                                 .file_name()
                                                 .unwrap_or_default()
@@ -130,7 +130,7 @@ impl ThumbnailWorker {
                             if let Err(e) = db.update_thumbnail_path(id, &filename).await {
                                 eprintln!("Error updating DB for thumbnail: {}", e);
                             } else {
-                                println!("DEBUG: Thumbs saved: ID {}", id);
+                                // println!("DEBUG: Thumbs saved: ID {}", id);
                                 let payload = ThumbnailPayload {
                                     id,
                                     path: filename.clone(),

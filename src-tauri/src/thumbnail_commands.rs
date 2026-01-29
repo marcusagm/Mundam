@@ -9,7 +9,7 @@ pub async fn request_thumbnail_regenerate(
     image_id: i64,
     db: State<'_, Arc<Db>>,
 ) -> Result<(), String> {
-    println!("DEBUG: Thumbnail regeneration requested for ID: {}", image_id);
+    // println!("DEBUG: Thumbnail regeneration requested for ID: {}", image_id);
     
     db.clear_thumbnail_path(image_id)
         .await

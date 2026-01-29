@@ -19,7 +19,7 @@ fn serve_file(path: &Path) -> Result<Response<Vec<u8>>, Response<Vec<u8>>> {
     match std::fs::read(path) {
         Ok(data) => {
             let mime = from_path(path).first_or_octet_stream();
-            println!("DEBUG: Serving {:?} as {}", path, mime.essence_str());
+            // println!("DEBUG: Serving {:?} as {}", path, mime.essence_str());
             Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, mime.essence_str())
@@ -49,7 +49,7 @@ pub fn thumb_handler(
     request: &tauri::http::Request<Vec<u8>>,
 ) -> Response<Vec<u8>> {
     let uri = request.uri().to_string();
-    println!("DEBUG: thumb_handler called for URI: {}", uri);
+    // println!("DEBUG: thumb_handler called for URI: {}", uri);
 
     let path_part = if uri.contains("://localhost/") {
         uri.split("://localhost/").nth(1).unwrap_or("")

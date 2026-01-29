@@ -136,6 +136,6 @@ mod tests {
     fn test_ffmpeg_available() {
         // This test will pass if FFmpeg is installed on the system
         let available = is_ffmpeg_available();
-        println!("FFmpeg available: {}", available);
+        // println!("FFmpeg available: {}", available);
     }
 }

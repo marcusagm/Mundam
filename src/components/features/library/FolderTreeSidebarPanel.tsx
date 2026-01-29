@@ -75,7 +75,7 @@ export const FolderTreeSidebarPanel: Component = () => {
                     isRoot: f.is_root 
                 } as FolderNodeData,
                 icon: f.is_root ? FolderOpen : Folder,
-                badge: <CountBadge count={counts.get(f.id) || 0} variant="secondary" />
+                badge: <CountBadge showZero={true} count={counts.get(f.id) || 0} variant="secondary" />
             });
         }
 

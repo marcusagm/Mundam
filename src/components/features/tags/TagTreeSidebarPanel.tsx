@@ -73,7 +73,7 @@ export const TagTreeSidebarPanel: Component = () => {
               data: t,
               icon: Tag,
               iconColor: t.color || undefined,
-              badge: <CountBadge count={metadata.stats.tag_counts.get(t.id) || 0} />
+              badge: <CountBadge showZero={true} count={metadata.stats.tag_counts.get(t.id) || 0} />
           });
       });
       

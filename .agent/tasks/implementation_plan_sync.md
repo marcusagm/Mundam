@@ -65,6 +65,48 @@ During implementation, several critical robustness issues were identified and re
     - Implemented `ensure_folder_hierarchy` in Database.
     - Automatically reconstructs the database folder tree (Parent/Child links) when a deep folder structure is added or modified, preventing new subfolders from appearing as "Floating Roots".
 
-## ⏳ Pending / Known Issues
-1.  **Subfolder Visual Glitch**:
-    - Occasionally, deeply nested subfolders may still appear at the root level in the frontend immediately after creation. backend logic `ensure_folder_hierarchy` was implemented to fix this by repairing parent links, but user reports persistence in some scenarios. Further investigation into Frontend State `refreshFolderCounts` or Race Conditions recommended.
+## ✅ Resolved Issues (2025-01-29)
+
+### 1. Subfolder Visual Glitch & Floating Roots
+- **Cause:** The `Rename` logic in the Watcher was using `db.upsert_folder` incorrectly (passing full path as name) when encountering a new folder. This created orphaned folders with wrong names.
+- **Fix:** Replaced with `db.ensure_folder_hierarchy`, which correctly derives the name and recursively ensures parent existence.
+
+### 2. Empty Folders & Hierarchy Sync
+- **Cause:** 
+    1. `get_folder_counts_recursive` used `JOIN` instead of `LEFT JOIN`, excluding empty folders from stats.
+    2. Startup Scan and Watcher ignored Directory-only events (filtered by `is_image_file`).
+- **Fix:** 
+    1. Updated SQL to `LEFT JOIN`.
+    2. Updated Watcher to listen for Directory Create/Modify events and trigger `needs_refresh`.
+    3. Updated Startup Scan (`WalkDir`) to explicitly collect and index keys for all directories.
+
+### 3. Frontend Sync
+- **Fix:** Added `needs_refresh` flag to `BatchChangePayload`. Frontend `metadataStore` now re-fetches locations when this flag is true (e.g., when an empty folder is added).
+
+### 4. Folder Rename/Move Handling
+- **Cause:** 
+    1. Watcher was ignoring `Rename`/`Remove` for Directories.
+    2. Race conditions in `upsert_folder` caused Unique Constraint violations.
+    3. MacOS Case-Insensitive filesystem vs SQLite Case-Sensitive equality caused `rename_folder` to fail finding the old folder (e.g. "Teste 5" vs "teste 5"), treating it as a new folder creation (duplication).
+- **Fix:** 
+    - Updated Watcher to handle Directory events.
+    - Implemented `db.rename_folder` with **Merge Strategy**.
+    - **Race Condition Fix:** `upsert_folder` now handles `SQLITE_CONSTRAINT_UNIQUE` (2067) by re-fetching the existing ID.
+    - **Case-Insensitivity:** `get_folder_by_path` now attempts an exact match, and falls back to `COLLATE NOCASE` if not found, ensuring compatibility with MacOS filesystem behavior.
+
+### 5. Startup Sanity Check (Orphaned Folders)
+- **Cause:** Folders deleted or renamed while the app was closed (or due to bugs) remained in the DB, causing "ghost" folders (e.g. "Pasta Sem Título") to persist after restarts.
+- **Fix:** 
+    - Implemented a **Pruning Step** at the end of `start_scan`.
+    - After scanning the disk and building a map of *verified existing* folders, the system queries the DB for all folders under the current root.
+    - Any folder in the DB that is NOT in the verified map is deleted. This automatically "cleans up" any phantom data on every startup.
+
+### 6. Robust Rename Detection
+- **Cause:** Renames often come as split events (Remove "From" + Add "To") or generic events. The previous buffer loop only treated renames as **Image** renames, ignoring buffered Folder renames.
+- **Fix:** 
+    - Updated `buffer_renamed.drain()` loop to check `is_dir()` on the target path.
+    - If it is a directory, it now correctly calls `db.rename_folder` (triggering the Merge/Recursive logic) instead of trying to process it as an image.
+    - Added heuristic matching (Size/Time) to pair orphan Remove+Add events for files, correcting split-event rename detection on MacOS.
+
+## ⏳ Pending
+- None. System should now be robust.

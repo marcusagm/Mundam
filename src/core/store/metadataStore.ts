@@ -109,6 +109,10 @@ export const metadataActions = {
       // Get known location IDs to check for new folders
       const knownIds = new Set(metadataState.locations.map(l => l.id));
 
+      if (payload.needs_refresh) {
+          needsRefresh = true;
+      }
+
       if (payload.added) {
           for (const item of payload.added) {
               // If item belongs to a folder we don't know about, we must refresh locations
