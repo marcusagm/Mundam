@@ -65,7 +65,7 @@ function addToast(partial: Omit<Toast, "id">): string {
   const id = `toast-${++toastCounter}`;
   const newToast: Toast = {
     id,
-    duration: 5000,
+    duration: 15000,
     dismissible: true,
     ...partial,
   };
@@ -93,7 +93,12 @@ const toastIcons: Record<ToastType, Component<{ size?: number }>> = {
 };
 
 // Individual Toast Component
-const ToastItem: Component<{ toast: Toast }> = (props) => {
+const ToastItem: Component<{ 
+  toast: Toast; 
+  index: number; 
+  total: number;
+  isExpanded: boolean;
+}> = (props) => {
   const [isExiting, setIsExiting] = createSignal(false);
 
   const dismiss = () => {
@@ -111,6 +116,9 @@ const ToastItem: Component<{ toast: Toast }> = (props) => {
 
   const IconComponent = toastIcons[props.toast.type];
 
+  // We use reverse index (0 = front, 1 = second, etc.)
+  const reverseIndex = () => props.total - 1 - props.index;
+
   return (
     <div
       class={cn(
@@ -120,6 +128,14 @@ const ToastItem: Component<{ toast: Toast }> = (props) => {
       )}
       role="alert"
       aria-live="polite"
+      data-index={reverseIndex()}
+      data-expanded={props.isExpanded}
+      style={{
+          "--index": reverseIndex(),
+          "z-index": props.index,
+          "opacity": reverseIndex() >= 3 && !props.isExpanded ? 0 : 1,
+          "pointer-events": reverseIndex() > 0 && !props.isExpanded ? "none" : "auto"
+      }}
     >
       <div class="ui-toast-icon">
         <IconComponent size={18} />
@@ -179,6 +195,7 @@ export interface ToasterProps {
  */
 export const Toaster: Component<ToasterProps> = (props) => {
   const position = () => props.position || "bottom-right";
+  const [isExpanded, setIsExpanded] = createSignal(false);
 
   return (
     <Portal>
@@ -189,9 +206,19 @@ export const Toaster: Component<ToasterProps> = (props) => {
           props.expand && "ui-toaster-expand",
           props.richColors && "ui-toaster-rich"
         )}
+        data-expanded={isExpanded()}
+        onMouseEnter={() => setIsExpanded(true)}
+        onMouseLeave={() => setIsExpanded(false)}
       >
         <For each={toastState().toasts}>
-          {(t) => <ToastItem toast={t} />}
+          {(t, index) => (
+            <ToastItem 
+              toast={t} 
+              index={index()} 
+              total={toastState().toasts.length}
+              isExpanded={isExpanded()}
+            />
+          )}
         </For>
       </div>
     </Portal>

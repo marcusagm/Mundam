@@ -21,15 +21,53 @@
   --text-destructive: #c84747;
   --text-destructive-hover: #b13d3d;
   --text-destructive-active: #9a3434;
-
   --bg-destructive: #3e1818;
   --bg-destructive-hover: #4a1f1f;
   --bg-destructive-active: #562626;
-
   --border-destructive: #c84747;
   --border-destructive-hover: #b13d3d;
   --border-destructive-active: #9a3434;
 
+  --text-success: #89d185;
+  --text-success-hover: #78b875;
+  --text-success-active: #679f65;
+  --bg-success: #1c2b1c;
+  --bg-success-hover: #243624;
+  --bg-success-active: #2c422c;
+  --border-success: #89d185;
+  --border-success-hover: #78b875;
+  --border-success-active: #679f65;
+
+  --text-error: #f48771;
+  --text-error-hover: #d97865;
+  --text-error-active: #bf6959;
+  --bg-error: #3e1c1c;
+  --bg-error-hover: #4a2222;
+  --bg-error-active: #562828;
+  --border-error: #f48771;
+  --border-error-hover: #d97865;
+  --border-error-active: #bf6959;
+
+  --text-warning: #cca700;
+  --text-warning-hover: #b39200;
+  --text-warning-active: #997d00;
+  --bg-warning: #352b00;
+  --bg-warning-hover: #423600;
+  --bg-warning-active: #4f4100;
+  --border-warning: #cca700;
+  --border-warning-hover: #b39200;
+  --border-warning-active: #997d00;
+
+  --text-info: #75beff;
+  --text-info-hover: #64b0f0;
+  --text-info-active: #53a1e0;
+  --bg-info: #062f4a;
+  --bg-info-hover: #083a5a;
+  --bg-info-active: #0a456a;
+  --border-info: #75beff;
+  --border-info-hover: #64b0f0;
+  --border-info-active: #53a1e0;
+  
   /* Accent - Controlled Professional Blue */
   --accent-color: #00a0a9;
   --accent-hover: #005f7b;
@@ -38,6 +76,7 @@
   --danger-color: #f48771;
   --warning-color: #cca700;
   --success-color: #89d185;
+  --info-color: #75beff;
 
   /* Typography - Clean Sans */
   --font-main:
