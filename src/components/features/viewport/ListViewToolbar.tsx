@@ -10,8 +10,9 @@ import {
     SortDesc,
     ChevronDown
 } from "lucide-solid";
-import { useFilters, useViewport } from "../../../core/hooks";
+import { useFilters } from "../../../core/hooks";
 import { Button } from "../../ui/Button";
+import { ButtonGroup } from "../../ui/ButtonGroup";
 import { SearchToolbar } from "../search/SearchToolbar";
 import { DropdownMenu } from "../../ui/DropdownMenu";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
@@ -20,30 +21,31 @@ import "./list-view-toolbar.css";
 
 export const ListViewToolbar: Component = () => {
     const filters = useFilters();
-    const viewport = useViewport();
 
     return (
         <div class="list-view-toolbar">
             {/* History Navigation */}
             <div class="toolbar-group">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => viewport.goBack()} 
-                    disabled={!viewport.canGoBack()}
-                    title="Back"
-                >
-                    <ArrowLeft size={18} />
-                </Button>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => viewport.goForward()} 
-                    disabled={!viewport.canGoForward()}
-                    title="Forward"
-                >
-                    <ArrowRight size={18} />
-                </Button>
+                <ButtonGroup attached>
+                    <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        onClick={() => filters.goBack()} 
+                        disabled={!filters.canGoBack}
+                        title="Back"
+                    >
+                        <ArrowLeft size={18} />
+                    </Button>
+                    <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        onClick={() => filters.goForward()} 
+                        disabled={!filters.canGoForward}
+                        title="Forward"
+                    >
+                        <ArrowRight size={18} />
+                    </Button>
+                </ButtonGroup>
             </div>
 
             {/* Search Bar */}

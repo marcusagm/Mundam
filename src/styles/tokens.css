@@ -4,14 +4,16 @@
   --bg-sidebar: #252526; /* Sidebars */
   --bg-header: #2d2d2d; /* Top Bar */
 
-  --surface-color: #2d2d2d; /* Inputs, Cards */
   --bg-surface: #2d2d2d; /* Alias for surface components like Modals */
+  --surface-color: #2d2d2d; /* Inputs, Cards */
   --surface-hover: #37373d; /* List items hover */
   --surface-active: #005f7b; /* Selection Blue (Eagle-like) */
 
   --border-color: #3e3e42; /* Subtle separators */
   --border-active: #005f7b; /* Focus borders */
-  --border-subtle: #2b2b2b;
+
+  --bg-subtle: rgba(255, 255, 255, 0.02);
+  --border-subtle: rgba(255, 255, 255, 0.05);
 
   --text-primary: #cccccc;
   --text-secondary: #969696;

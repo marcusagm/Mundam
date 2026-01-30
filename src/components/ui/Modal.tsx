@@ -271,7 +271,7 @@ export const ConfirmModal: Component<ConfirmModalProps> = (props) => {
       size={props.size || "sm"}
       footer={
         <>
-          <Button variant="ghost" onClick={props.onClose}>
+          <Button variant="secondary" onClick={props.onClose}>
             {props.cancelText || "Cancel"}
           </Button>
           <Button

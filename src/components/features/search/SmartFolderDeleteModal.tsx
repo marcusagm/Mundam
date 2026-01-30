@@ -36,6 +36,7 @@ export const SmartFolderDeleteModal: Component<SmartFolderDeleteModalProps> = (p
             title="Delete Smart Folder"
             kind="danger"
             confirmText="Delete"
+            message=""
         >
             <div class="delete-confirmation-content">
                 <p>

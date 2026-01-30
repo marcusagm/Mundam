@@ -323,11 +323,11 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
             size="lg"
             footer={
                 <div class="modal-footer-content">
-                    <Button variant="outline" onClick={handleReset}>Reset</Button>
+                    <Button variant="secondary" onClick={handleReset}>Reset</Button>
                     <div style={{ flex: 1 }} />
                     
                     <Show when={criteria().length > 0}>
-                        <Button variant="outline" onClick={handleSaveSmartFolder} disabled={!smartFolderName()}>
+                        <Button variant="secondary" onClick={handleSaveSmartFolder} disabled={!smartFolderName()}>
                             <Save size={16} class="mr-2" />
                             Save Smart Folder
                         </Button>

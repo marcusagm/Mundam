@@ -20,6 +20,10 @@ export const useFilters = () => {
     get thumbSize() { return filterState.thumbSize; },
     get advancedSearch() { return filterState.advancedSearch; },
     
+    // History State
+    get canGoBack() { return filterActions.canGoBack(); },
+    get canGoForward() { return filterActions.canGoForward(); },
+
     // Actions
     toggleTag: withRefresh(filterActions.toggleTag),
     setUntagged: withRefresh(filterActions.setUntagged),
@@ -33,6 +37,11 @@ export const useFilters = () => {
     setThumbSize: withRefresh(filterActions.setThumbSize),
     setAdvancedSearch: withRefresh(filterActions.setAdvancedSearch),
     clearAll: withRefresh(filterActions.clearAll),
+    
+    // History Actions
+    goBack: withRefresh(filterActions.goBack),
+    goForward: withRefresh(filterActions.goForward),
+
     hasActiveFilters: filterActions.hasActiveFilters
   };
 };

@@ -86,7 +86,7 @@
 }
 
 .ui-btn-secondary {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
   color: var(--text-primary);
 }
 
@@ -100,7 +100,7 @@
 }
 
 .ui-btn-ghost:hover:not(:disabled) {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
   color: var(--text-primary);
 }
 
