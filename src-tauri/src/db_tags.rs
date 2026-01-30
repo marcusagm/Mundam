@@ -198,6 +198,8 @@ impl Db {
         recursive: bool,
         sort_by: Option<String>,
         sort_order: Option<String>,
+        advanced_query: Option<String>,
+        search_query: Option<String>,
     ) -> Result<Vec<crate::indexer::metadata::ImageMetadata>, sqlx::Error> {
         let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
             "WITH RECURSIVE target_folders AS (
@@ -220,6 +222,31 @@ impl Db {
         }
 
         query_builder.push(" WHERE 1=1 ");
+
+        let _group_storage: Option<crate::search_logic::SearchGroup>;
+        _group_storage = if let Some(filter) = advanced_query {
+            match serde_json::from_str::<crate::search_logic::SearchGroup>(&filter) {
+                Ok(group) => Some(group),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
+        if let Some(group) = &_group_storage {
+            query_builder.push(" AND ");
+            crate::search_logic::build_where_clause(group, &mut query_builder);
+        }
+
+        if let Some(search) = search_query {
+            if !search.is_empty() {
+                query_builder.push(" AND (i.filename LIKE ");
+                query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(" OR i.notes LIKE ");
+                query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(") ");
+            }
+        }
 
         if let Some(_) = folder_id {
             if recursive {

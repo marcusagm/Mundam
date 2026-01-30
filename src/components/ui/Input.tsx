@@ -5,6 +5,8 @@ import "./input.css";
 export type InputSize = "sm" | "md" | "lg";
 
 export interface InputProps extends JSX.InputHTMLAttributes<HTMLInputElement> {
+  /** Label to display above the input */
+  label?: string;
   /** Icon to display on the left side */
   leftIcon?: JSX.Element;
   /** Icon to display on the right side */
@@ -36,6 +38,7 @@ export interface InputProps extends JSX.InputHTMLAttributes<HTMLInputElement> {
  */
 export const Input: Component<InputProps> = (props) => {
   const [local, others] = splitProps(props, [
+    "label",
     "leftIcon",
     "rightIcon",
     "size",
@@ -49,6 +52,9 @@ export const Input: Component<InputProps> = (props) => {
 
   return (
     <div class={cn("ui-input-wrapper", local.wrapperClass)}>
+      <Show when={local.label}>
+        <label class="ui-input-label">{local.label}</label>
+      </Show>
       <div
         class={cn(
           "ui-input-container",

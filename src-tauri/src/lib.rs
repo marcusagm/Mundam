@@ -1,11 +1,14 @@
 mod database;
 mod db_tags;
+mod db_smart_folders;
 mod ffmpeg;
 mod indexer;
 mod location_commands;
 mod metadata_commands;
 mod metadata_reader;
 mod protocols;
+mod search_logic;
+mod smart_folder_commands;
 mod tag_commands;
 mod thumbnail_commands;
 mod thumbnail_worker;
@@ -120,7 +123,11 @@ pub fn run() {
             location_commands::get_locations,
             location_commands::get_all_subfolders,
             location_commands::get_subfolder_counts,
-            location_commands::get_location_root_counts
+            location_commands::get_location_root_counts,
+            smart_folder_commands::get_smart_folders,
+            smart_folder_commands::save_smart_folder,
+            smart_folder_commands::update_smart_folder,
+            smart_folder_commands::delete_smart_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

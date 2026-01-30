@@ -6,6 +6,14 @@
   width: 100%;
 }
 
+.ui-input-label {
+  display: block;
+  margin-bottom: var(--space-2, 8px);
+  font-size: var(--font-size-sm, 14px);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 .ui-input-container {
   position: relative;
   display: flex;

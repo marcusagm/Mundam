@@ -33,6 +33,10 @@
     "allow-get-locations",
     "allow-get-all-subfolders",
     "allow-get-subfolder-counts",
-    "allow-get-location-root-counts"
+    "allow-get-location-root-counts",
+    "allow-get-smart-folders",
+    "allow-save-smart-folder",
+    "allow-update-smart-folder",
+    "allow-delete-smart-folder"
   ]
 }

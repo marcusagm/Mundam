@@ -3,10 +3,11 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../ui/Resi
 import { LibrarySidebarPanel } from "../features/library/LibrarySidebarPanel";
 import { FolderTreeSidebarPanel } from "../features/library/FolderTreeSidebarPanel";
 import { TagTreeSidebarPanel } from "../features/tags/TagTreeSidebarPanel";
+import { SmartFoldersSidebarPanel } from "../features/search/SmartFoldersSidebarPanel";
 import "./library-sidebar.css";
 
 export const LibrarySidebar: Component = () => {
-    const STORAGE_KEY = "sidebar-layout";
+    const STORAGE_KEY = "sidebar-layout-v2"; // Increment version since we added a panel
 
     // Get persisted sizes or use defaults
     const getPersistedLayout = () => {
@@ -19,9 +20,10 @@ export const LibrarySidebar: Component = () => {
     };
 
     const layout = getPersistedLayout();
-    const librarySize = layout?.[0] ?? 25;
-    const foldersSize = layout?.[1] ?? 45;
+    const librarySize = layout?.[0] ?? 15;
+    const foldersSize = layout?.[1] ?? 35;
     const tagsSize = layout?.[2] ?? 30;
+    const smartSize = layout?.[3] ?? 20;
 
     const handleLayoutChange = (sizes: number[]) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(sizes));
@@ -44,6 +46,12 @@ export const LibrarySidebar: Component = () => {
                 
                 <ResizablePanel id="sidebar-tags" defaultSize={tagsSize} minSize={15} class="panel-tags">
                     <TagTreeSidebarPanel />
+                </ResizablePanel>
+
+                <ResizableHandle />
+
+                <ResizablePanel id="sidebar-smart" defaultSize={smartSize} minSize={10} class="panel-smart">
+                    <SmartFoldersSidebarPanel />
                 </ResizablePanel>
             </ResizablePanelGroup>
         </aside>

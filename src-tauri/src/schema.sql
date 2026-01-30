@@ -47,6 +47,13 @@ CREATE TABLE IF NOT EXISTS image_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS smart_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    query_json TEXT NOT NULL, -- structured query object as JSON string
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_images_path ON images(path);
 CREATE INDEX IF NOT EXISTS idx_images_folder ON images(folder_id);
 CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);

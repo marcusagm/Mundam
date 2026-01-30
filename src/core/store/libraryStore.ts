@@ -31,14 +31,16 @@ export const libraryActions = {
     const sortBy = filterState.sortBy;
     const sortOrder = filterState.sortOrder;
     
-    console.log("libraryStore.refreshImages", { reset, isUntagged, folderId, recursive, anyFilter, sortBy, sortOrder });
+    const advancedQuery = filterState.advancedSearch ? JSON.stringify(filterState.advancedSearch) : undefined;
+    
+    console.log("libraryStore.refreshImages", { reset, isUntagged, folderId, recursive, anyFilter, sortBy, sortOrder, advancedQuery });
 
     if (reset) {
       currentOffset = 0;
       let firstBatch;
       if (anyFilter) {
         firstBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder, advancedQuery, filterState.searchQuery
         );
       } else {
         firstBatch = await getImages(BATCH_SIZE, 0, sortBy, sortOrder);
@@ -49,7 +51,7 @@ export const libraryActions = {
       let fresh;
       if (anyFilter) {
         fresh = await tagService.getImagesFiltered(
-          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder
+          BATCH_SIZE, 0, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder, advancedQuery, filterState.searchQuery
         );
       } else {
         fresh = await getImages(BATCH_SIZE, 0, sortBy, sortOrder);
@@ -72,10 +74,11 @@ export const libraryActions = {
       const sortOrder = filterState.sortOrder;
       
       let nextBatch;
+      const advancedQuery = filterState.advancedSearch ? JSON.stringify(filterState.advancedSearch) : undefined;
       
       if (anyFilter) {
         nextBatch = await tagService.getImagesFiltered(
-          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder
+          BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder, advancedQuery, filterState.searchQuery
         );
       } else {
         nextBatch = await getImages(BATCH_SIZE, currentOffset, sortBy, sortOrder);

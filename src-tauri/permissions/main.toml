@@ -101,3 +101,23 @@ commands.allow = ["get_subfolder_counts"]
 identifier = "allow-get-location-root-counts"
 description = "Enables get_location_root_counts for valid root count"
 commands.allow = ["get_location_root_counts"]
+
+[[permission]]
+identifier = "allow-get-smart-folders"
+description = "Enables get_smart_folders"
+commands.allow = ["get_smart_folders"]
+
+[[permission]]
+identifier = "allow-save-smart-folder"
+description = "Enables save_smart_folder"
+commands.allow = ["save_smart_folder"]
+
+[[permission]]
+identifier = "allow-update-smart-folder"
+description = "Enables update_smart_folder"
+commands.allow = ["update_smart_folder"]
+
+[[permission]]
+identifier = "allow-delete-smart-folder"
+description = "Enables delete_smart_folder"
+commands.allow = ["delete_smart_folder"]

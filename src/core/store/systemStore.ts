@@ -24,6 +24,7 @@ export const systemActions = {
       await initDb();
       await metadataActions.loadLocations();
       await metadataActions.loadTags();
+      await metadataActions.loadSmartFolders();
       
       // Auto-select root path if locations exist
       import("./metadataStore").then(({ metadataState }) => {

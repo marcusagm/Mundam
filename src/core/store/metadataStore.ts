@@ -10,9 +10,17 @@ interface FolderNode {
   is_root: boolean;
 }
 
+export interface SmartFolder {
+  id: number;
+  name: string;
+  query_json: string;
+  created_at: string;
+}
+
 interface MetadataState {
   tags: Tag[];
   locations: FolderNode[];
+  smartFolders: SmartFolder[];
   libraryStats: {
     total_images: number;
     untagged_images: number;
@@ -26,6 +34,7 @@ interface MetadataState {
 const [metadataState, setMetadataState] = createStore<MetadataState>({
   tags: [],
   locations: [],
+  smartFolders: [],
   libraryStats: {
     total_images: 0,
     untagged_images: 0,
@@ -38,6 +47,39 @@ const [metadataState, setMetadataState] = createStore<MetadataState>({
 
 export const metadataActions = {
   // ... (notifyTagUpdate same)
+  loadSmartFolders: async () => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const folders = await invoke("get_smart_folders") as SmartFolder[];
+      setMetadataState("smartFolders", folders);
+    } catch (err) {
+      console.error("Failed to load smart folders:", err);
+    }
+  },
+
+  saveSmartFolder: async (name: string, query: any, id?: number) => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (id) {
+          await invoke("update_smart_folder", { id, name, query: JSON.stringify(query) });
+      } else {
+          await invoke("save_smart_folder", { name, query: JSON.stringify(query) });
+      }
+      await metadataActions.loadSmartFolders();
+    } catch (err) {
+      console.error("Failed to save smart folder:", err);
+    }
+  },
+
+  deleteSmartFolder: async (id: number) => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("delete_smart_folder", { id });
+      await metadataActions.loadSmartFolders();
+    } catch (err) {
+      console.error("Failed to delete smart folder:", err);
+    }
+  },
   notifyTagUpdate: () => {
     setMetadataState("tagUpdateVersion", v => v + 1);
     metadataActions.loadStats();
@@ -100,7 +142,8 @@ export const metadataActions = {
     await Promise.all([
       metadataActions.loadTags(),
       metadataActions.loadLocations(),
-      metadataActions.loadStats()
+      metadataActions.loadStats(),
+      metadataActions.loadSmartFolders()
     ]);
   },
 

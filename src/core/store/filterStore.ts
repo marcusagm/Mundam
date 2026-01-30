@@ -4,12 +4,28 @@ export type SortField = "modified_at" | "added_at" | "created_at" | "filename" |
 export type SortOrder = "asc" | "desc";
 export type ViewLayout = "masonry-v" | "masonry-h" | "grid" | "list";
 
+export type LogicalOperator = "and" | "or";
+
+export interface SearchCriterion {
+  id: string;
+  key: string;
+  operator: string;
+  value: any;
+}
+
+export interface SearchGroup {
+  id: string;
+  logicalOperator: LogicalOperator;
+  items: (SearchCriterion | SearchGroup)[];
+}
+
 interface FilterState {
   selectedTags: number[];
   selectedFolderId: number | null;
   folderRecursiveView: boolean;
   filterUntagged: boolean;
   searchQuery: string;
+  advancedSearch: SearchGroup | null;
   sortBy: SortField;
   sortOrder: SortOrder;
   layout: ViewLayout;
@@ -24,6 +40,7 @@ const defaultState: FilterState = {
   folderRecursiveView: false,
   filterUntagged: false,
   searchQuery: "",
+  advancedSearch: null,
   sortBy: "modified_at",
   sortOrder: "desc",
   layout: "masonry-v",
@@ -48,7 +65,8 @@ const [filterState, setFilterState] = createStore<FilterState>({
   selectedTags: [],
   selectedFolderId: null,
   filterUntagged: false,
-  searchQuery: ""
+  searchQuery: "",
+  advancedSearch: null
 });
 
 const persist = (newState: Partial<FilterState>) => {
@@ -98,6 +116,10 @@ export const filterActions = {
     setFilterState("searchQuery", query);
   },
 
+  setAdvancedSearch: (search: SearchGroup | null) => {
+    setFilterState("advancedSearch", search);
+  },
+
   setSortBy: (field: SortField) => {
     setFilterState("sortBy", field);
     persist({ sortBy: field });
@@ -120,19 +142,20 @@ export const filterActions = {
 
   clearAll: () => {
     setFilterState({
-      ...defaultState,
-      // Keep persistent ones but let user clear search/tags
       selectedTags: [],
       selectedFolderId: null,
       filterUntagged: false,
-      searchQuery: ""
+      searchQuery: "",
+      advancedSearch: null
     });
   },
 
   hasActiveFilters: () => {
     return filterState.selectedTags.length > 0 || 
            filterState.filterUntagged || 
-           filterState.selectedFolderId !== null;
+           filterState.selectedFolderId !== null ||
+           filterState.searchQuery !== "" ||
+           filterState.advancedSearch !== null;
   }
 };
 

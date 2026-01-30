@@ -60,6 +60,8 @@ export interface TreeViewProps {
   class?: string;
   /** Indentation per level in pixels */
   indentSize?: number;
+  /** Whether drag-and-drop is enabled (default: true) */
+  draggable?: boolean;
 }
 
 interface TreeViewItemProps {
@@ -78,6 +80,7 @@ interface TreeViewItemProps {
   treeId: string;
   indentSize: number;
   isLast?: boolean;
+  draggable: boolean;
 }
 
 /**
@@ -139,6 +142,7 @@ const TreeViewItem: Component<TreeViewItemProps> = (props) => {
 
   // Drag handlers
   const handleDragStart = (e: DragEvent) => {
+    if (!props.draggable) return;
     e.stopPropagation();
     if (!isEditing() && e.dataTransfer) {
       const data = { type: "TAG", payload: { id: props.node.id } };
@@ -166,7 +170,7 @@ const TreeViewItem: Component<TreeViewItemProps> = (props) => {
     if (relY < threshold) pos = "before";
     else if (relY > height - threshold) pos = "after";
     
-    if (!validation.valid) {
+    if (!props.draggable || !validation.valid) {
       e.dataTransfer!.dropEffect = "none";
       setDropPosition(null);
       return;
@@ -307,11 +311,11 @@ const TreeViewItem: Component<TreeViewItemProps> = (props) => {
         class={cn(
           "ui-tree-item",
           isSelected() && "ui-tree-item-selected",
-          dropPosition() === "inside" && "ui-tree-item-drop-target",
+          props.draggable && dropPosition() === "inside" && "ui-tree-item-drop-target",
           isInvalid() && "ui-tree-item-drop-disabled",
           isDraggingSource() && "ui-tree-item-dragging"
         )}
-        draggable={!isEditing()}
+        draggable={props.draggable && !isEditing()}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragEnter={(e) => e.preventDefault()}
@@ -428,6 +432,7 @@ const TreeViewItem: Component<TreeViewItemProps> = (props) => {
                 onMove={props.onMove}
                 treeId={props.treeId}
                 indentSize={props.indentSize}
+                draggable={props.draggable}
                 isLast={index() === (props.node.children?.length ?? 0) - 1}
               />
             )}
@@ -471,6 +476,7 @@ export const TreeView: Component<TreeViewProps> = (props) => {
     "onMove",
     "class",
     "indentSize",
+    "draggable",
   ]);
 
   const [isDragOver, setIsDragOver] = createSignal(false);
@@ -537,6 +543,7 @@ export const TreeView: Component<TreeViewProps> = (props) => {
             onMove={local.onMove}
             treeId={treeId}
             indentSize={indentSize()}
+            draggable={local.draggable ?? true}
             isLast={index() === local.items.length - 1}
           />
         )}

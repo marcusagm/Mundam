@@ -99,8 +99,10 @@ pub async fn get_images_filtered(
     recursive: bool,
     sort_by: Option<String>,
     sort_order: Option<String>,
+    advanced_query: Option<String>,
+    search_query: Option<String>,
 ) -> Result<Vec<ImageMetadata>, String> {
-    db.get_images_filtered(limit, offset, tag_ids, match_all, untagged, folder_id, recursive, sort_by, sort_order)
+    db.get_images_filtered(limit, offset, tag_ids, match_all, untagged, folder_id, recursive, sort_by, sort_order, advanced_query, search_query)
         .await
         .map_err(|e| e.to_string())
 }

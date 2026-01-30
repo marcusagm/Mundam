@@ -18,6 +18,7 @@ export const useFilters = () => {
     get sortOrder() { return filterState.sortOrder; },
     get layout() { return filterState.layout; },
     get thumbSize() { return filterState.thumbSize; },
+    get advancedSearch() { return filterState.advancedSearch; },
     
     // Actions
     toggleTag: withRefresh(filterActions.toggleTag),
@@ -30,6 +31,7 @@ export const useFilters = () => {
     setSortOrder: withRefresh(filterActions.setSortOrder),
     setLayout: withRefresh(filterActions.setLayout),
     setThumbSize: withRefresh(filterActions.setThumbSize),
+    setAdvancedSearch: withRefresh(filterActions.setAdvancedSearch),
     clearAll: withRefresh(filterActions.clearAll),
     hasActiveFilters: filterActions.hasActiveFilters
   };

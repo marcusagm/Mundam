@@ -1,9 +1,7 @@
 import { Component } from "solid-js";
 import { 
-    Search, 
     ArrowLeft, 
     ArrowRight, 
-    SlidersHorizontal, 
     LayoutGrid, 
     AlignCenterVertical, 
     AlignCenterHorizontal, 
@@ -14,7 +12,7 @@ import {
 } from "lucide-solid";
 import { useFilters, useViewport } from "../../../core/hooks";
 import { Button } from "../../ui/Button";
-import { Input } from "../../ui/Input";
+import { SearchToolbar } from "../search/SearchToolbar";
 import { DropdownMenu } from "../../ui/DropdownMenu";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
 import { Slider } from "../../ui/Slider";
@@ -50,18 +48,7 @@ export const ListViewToolbar: Component = () => {
 
             {/* Search Bar */}
             <div class="toolbar-search">
-                <div class="search-input-wrapper">
-                    <Input 
-                        placeholder="Search references (Ctrl+K)" 
-                        value={filters.searchQuery}
-                        onInput={(e) => filters.setSearch(e.currentTarget.value)}
-                        leftIcon={<Search size={14} />}
-                        class="search-input"
-                    />
-                    <Button variant="ghost" size="icon" class="advanced-search-btn" title="Advanced Search">
-                        <SlidersHorizontal size={14} />
-                    </Button>
-                </div>
+                <SearchToolbar />
             </div>
 
             {/* Sort & View Controls */}

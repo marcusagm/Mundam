@@ -1,0 +1,101 @@
+.search-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    width: 100% !important;
+}
+
+.search-actions {
+    position: absolute;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.search-action-btn {
+    height: 24px !important;
+    width: 24px !important;
+    color: var(--text-muted);
+}
+
+.search-action-btn.active {
+    color: var(--accent-color);
+}
+
+/* Active Filters Popover */
+.active-filters-popover {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.active-filters-header {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.active-filters-header h4 {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.active-filters-list {
+    padding: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.active-filter-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1_5) var(--space-2);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-hover);
+    font-size: var(--font-size-sm);
+}
+
+.filter-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filter-value {
+    color: var(--text-secondary);
+}
+
+.remove-filter-btn {
+    color: var(--text-muted);
+    padding: 2px;
+    border-radius: 50%;
+}
+
+.remove-filter-btn:hover {
+    color: var(--danger-color);
+    background-color: rgba(244, 135, 113, 0.1);
+}
