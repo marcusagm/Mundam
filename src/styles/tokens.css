@@ -18,6 +18,18 @@
   --text-muted: #6e6e6e;
   --text-inverse: #ffffff;
 
+  --text-destructive: #c84747;
+  --text-destructive-hover: #b13d3d;
+  --text-destructive-active: #9a3434;
+
+  --bg-destructive: #3e1818;
+  --bg-destructive-hover: #4a1f1f;
+  --bg-destructive-active: #562626;
+
+  --border-destructive: #c84747;
+  --border-destructive-hover: #b13d3d;
+  --border-destructive-active: #9a3434;
+
   /* Accent - Controlled Professional Blue */
   --accent-color: #00a0a9;
   --accent-hover: #005f7b;

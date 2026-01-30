@@ -7,6 +7,7 @@ import { AdvancedSearchModal } from "./AdvancedSearchModal";
 import { SmartFolderDeleteModal } from "./SmartFolderDeleteModal";
 import { SearchGroup } from "../../../core/store/filterStore";
 import { SmartFolder } from "../../../core/store/metadataStore";
+import { cn } from "../../../lib/utils";
 import "./smart-folders.css";
 
 export const SmartFoldersSidebarPanel: Component = () => {
@@ -130,7 +131,3 @@ export const SmartFoldersSidebarPanel: Component = () => {
     );
 };
 
-// Simple utility since I can't import cn from '../../lib/utils' here easily without verifying
-function cn(...classes: any[]) {
-    return classes.filter(Boolean).join(" ");
-}

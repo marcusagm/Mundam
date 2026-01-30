@@ -12,13 +12,15 @@ This plan documents the implementation of an advanced search system for Elleven 
 - [x] Smart Folder persistence in SQLite database.
 - [x] Smart Folders listed and manageable in the Library Sidebar.
 - [x] Active filters indicator with popover to view and remove individual filters.
-- [ ] Successful cross-layer integration (Frontend -> Tauri IPC -> Rust Logic -> SQL).
+- [x] Successful cross-layer integration (Frontend -> Tauri IPC -> Rust Logic -> SQL).
+- [x] Robust Form Validation for criteria entry.
+- [x] In-line Editing of existing criteria in the Query Editor.
 
 ## Tech Stack
 - **Frontend**: SolidJS, Lucide Icons, Vanilla CSS (Variables).
 - **State Management**: SolidJS Stores (`filterStore`, `metadataStore`).
 - **Backend**: Rust, Tauri, SQLx (SQLite).
-- **UI Components**: Custom `Modal`, `Select`, `Popover`, `MaskedInput`.
+- **UI Components**: Custom `Modal`, `Select`, `Popover`, `MaskedInput`, `Tooltip`.
 
 ## File Structure
 ### Frontend
@@ -78,9 +80,49 @@ This plan documents the implementation of an advanced search system for Elleven 
 - [x] **Validation**: Ensure dynamic SQL generation correctly integrates with the main filtering pipeline.
 - [x] **UI Polish**: Verify active filters popover interaction and search execution.
 
+
+## Extra-Planned Improvements & UX Refinement
+Beyond the initial scope, the following enhancements were implemented to provide a premium experience:
+
+### 1. Advanced Validation System
+- **Real-time Feedback**: Implemented a `validationErrors` signal to track and display errors for each input field.
+- **Context-Aware Rules**: Required field checks, date format validation (using Regex), and "between" range completeness.
+- **UI Integration**: Updated `Input`, `Select`, and `MaskedInput` components to support `error` and `errorMessage` props with dedicated CSS styling.
+
+### 2. In-line Criterion Editing
+- **Functional Workflow**: Added the ability to edit existing criteria directly in the list (Query Editor) without removing them.
+- **Dynamic Field Injection**: The editing mode automatically injects the correct input type (Date, Number, Select, etc.) based on the field type.
+- **Auto-Conversion**: Handles MB-to-Bytes conversion automatically during editing for file size fields.
+
+### 3. Progressive Disclosure & Help System
+- **Tooltips**: Integrated a `Tooltip` component to explain the "Criteria Builder", "Query Editor", and "Match Mode" sections.
+- **Logical Clarity**: Updated Match Mode labels to "Any (OR)" and "All (AND)" to assist users unfamiliar with boolean logic.
+
+### 4. Layout Reorganization
+- **Flow Optimization**: Moved "Match Mode" from the modal footer to the main content area (below the criteria list) for better cognitive flow.
+- **Flexible UI**: Refactored CSS to use Flexbox instead of rigid Grids for criteria items, preventing layout breaks with long values.
+- **Destructive Actions**: Implemented `ghost-destructive` button variants for deletion tasks to prevent accidental clicks while maintaining a clean look.
+
+## Pending & Next Steps
+
+### 🛠️ Functionality
+- [ ] **Inline Editing Validation**: Add validation logic to the confirm-edit action (currently it trusts the input).
+- [ ] **Complex Nesting**: While the model supports it, the UI doesn't yet allow creating groups within groups.
+- [ ] **Recursive Filter Toggle**: Integrate the backend's recursive folder search with the Advanced Search "Folder" criterion.
+
+### 🎨 UI/UX
+- [ ] **Empty State Guidance**: Improve the "Empty Query" illustration with a call-to-action button or arrow.
+- [ ] **Drag and Drop**: Allow reordering criteria in the Query Editor (Low Priority).
+- [ ] **Feedback Animations**: Add subtle transitions when adding/removing criteria from the list.
+
+### 🧪 Quality Assurance
+- [x] **Lint & Type Check**: `npm run lint && npx tsc --noEmit` (Fixed initial reference errors).
+- [x] **Backend Compilation**: `cargo check` (Success).
+- [ ] **Playwright E2E**: Create a test suite for complex query combinations.
+
 ## Phase X: Verification
-- [ ] Lint & Type Check: `npm run lint && npx tsc --noEmit`
-- [x] Backend Compilation: `cargo check` (Success)
-- [ ] Security Scan: `python .agent/skills/vulnerability-scanner/scripts/security_scan.py .`
-- [ ] UI Audit: `python .agent/skills/frontend-design/scripts/ux_audit.py .`
-- [ ] Final Build: `npm run tauri build -- --debug`
+- [x] **Lint & Type Check**: Resolved `cn` reference errors and `Select` prop mismatches.
+- [x] **Backend Compilation**: `cargo check` (Success)
+- [ ] **Security Scan**: `python .agent/skills/vulnerability-scanner/scripts/security_scan.py .`
+- [ ] **UI Audit**: `python .agent/skills/frontend-design/scripts/ux_audit.py .`
+- [ ] **Final Build**: `npm run tauri build -- --debug`

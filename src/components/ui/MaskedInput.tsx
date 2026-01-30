@@ -11,7 +11,7 @@ export interface MaskedInputProps extends Omit<InputProps, "onInput"> {
  * Supports '9' for digits.
  */
 export const MaskedInput: Component<MaskedInputProps> = (props) => {
-  const [local, others] = splitProps(props, ["mask", "onInput", "value"]);
+  const [local, others] = splitProps(props, ["mask", "onInput", "value", "error", "errorMessage"]);
 
   const applyMask = (val: string) => {
     let result = "";
@@ -40,6 +40,8 @@ export const MaskedInput: Component<MaskedInputProps> = (props) => {
     <Input
       {...others}
       value={local.value}
+      error={local.error}
+      errorMessage={local.errorMessage}
       onInput={handleInput}
     />
   );

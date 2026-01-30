@@ -31,6 +31,8 @@ export interface SelectProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "o
   clearable?: boolean;
   searchable?: boolean;
   name?: string;
+  error?: boolean;
+  errorMessage?: string;
 }
 
 /**
@@ -59,6 +61,8 @@ export const Select: Component<SelectProps> = (props) => {
     "clearable",
     "searchable",
     "name",
+    "error",
+    "errorMessage",
     "id",
   ]);
 
@@ -197,7 +201,8 @@ export const Select: Component<SelectProps> = (props) => {
         class={cn(
           "ui-select-trigger",
           isOpen() && "ui-select-trigger-open",
-          local.disabled && "ui-select-trigger-disabled"
+          local.disabled && "ui-select-trigger-disabled",
+          local.error && "ui-select-trigger-error"
         )}
         role="combobox"
         aria-expanded={isOpen()}
@@ -287,6 +292,12 @@ export const Select: Component<SelectProps> = (props) => {
             </div>
           </div>
         </Portal>
+      </Show>
+
+      <Show when={local.error && local.errorMessage}>
+        <span class="ui-select-error-message" role="alert">
+          {local.errorMessage}
+        </span>
       </Show>
 
       {/* Hidden input for form submission */}

@@ -46,6 +46,21 @@
   cursor: not-allowed;
 }
 
+.ui-select-trigger-error {
+  border-color: var(--danger-color, #ef4444);
+}
+
+.ui-select-trigger-error:hover {
+  border-color: var(--danger-hover, #dc2626) !important;
+}
+
+.ui-select-error-message {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--danger-color, #ef4444);
+}
+
 .ui-select-value {
   flex: 1;
   overflow: hidden;

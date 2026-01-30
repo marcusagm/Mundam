@@ -5,19 +5,22 @@ import {
     Trash2, 
     Search, 
     Save, 
-    HelpCircle, 
+    CircleQuestionMark, 
     Info, 
-    ChevronRight,
+    Pencil,
+    Check,
 } from "lucide-solid";
 import { Modal } from "../../ui/Modal";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
 import { Select } from "../../ui/Select";
 import { RadioGroup, RadioGroupItem } from "../../ui/RadioGroup";
+import { Tooltip } from "../../ui/Tooltip";
 import { useFilters, useMetadata } from "../../../core/hooks";
 import { SearchCriterion, SearchGroup, LogicalOperator } from "../../../core/store/filterStore";
 import { createId } from "../../../lib/primitives/createId";
 import { MaskedInput } from "../../ui/MaskedInput";
+import { cn } from "../../../lib/utils";
 import "./advanced-search-modal.css";
 
 interface FileFormat {
@@ -103,6 +106,12 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
     const [currentValue2, setCurrentValue2] = createSignal<any>(null);
     const [criteria, setCriteria] = createSignal<SearchCriterion[]>([]);
     const [matchMode, setMatchMode] = createSignal<LogicalOperator>("and");
+    const [validationErrors, setValidationErrors] = createSignal<Record<string, string>>({});
+    
+    // Editing state
+    const [editingId, setEditingId] = createSignal<string | null>(null);
+    const [editingValue, setEditingValue] = createSignal<any>(null);
+    const [editingValue2, setEditingValue2] = createSignal<any>(null);
 
     const SIZE_UNITS = [
         { value: "1", label: "Bytes" },
@@ -134,17 +143,95 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
     });
 
     // Reset operator when key changes
-    createMemo(() => {
+    createEffect(() => {
         const field = selectedField();
         if (field) {
             const defaultOp = OPERATORS_FOR_TYPE[field.type]?.[0]?.value;
             setCurrentOperator(defaultOp || "");
             setCurrentValue(null);
             setCurrentValue2(null);
+            setValidationErrors({});
         }
     });
 
+    const validateCurrent = () => {
+        const errors: Record<string, string> = {};
+        const field = selectedField();
+        const op = currentOperator();
+        const val = currentValue();
+        const val2 = currentValue2();
+
+        if (val === null || val === "") {
+            errors.value = "Value is required";
+        }
+
+        if (op === 'between' && (val2 === null || val2 === "")) {
+            errors.value2 = "End value is required";
+        }
+
+        if (field?.type === 'date') {
+            const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+            if (val && !dateRegex.test(val)) errors.value = "Invalid date format";
+            if (op === 'between' && val2 && !dateRegex.test(val2)) errors.value2 = "Invalid date format";
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleStartEdit = (item: SearchCriterion) => {
+        setEditingId(item.id);
+        if (Array.isArray(item.value)) {
+            if (item.key === 'size') {
+                // Convert back to MB for editing display
+                setEditingValue(Number(item.value[0]) / 1024 / 1024);
+                setEditingValue2(Number(item.value[1]) / 1024 / 1024);
+            } else {
+                setEditingValue(item.value[0]);
+                setEditingValue2(item.value[1]);
+            }
+        } else {
+            if (item.key === 'size') {
+                setEditingValue(Number(item.value) / 1024 / 1024);
+            } else {
+                setEditingValue(item.value);
+            }
+            setEditingValue2(null);
+        }
+    };
+
+    const handleConfirmEdit = () => {
+        const id = editingId();
+        if (!id) return;
+
+        setCriteria(prev => prev.map(c => {
+            if (c.id === id) {
+                let finalValue = editingValue();
+                
+                // Handle size conversion (assume MB for edit simplification)
+                if (c.key === 'size') {
+                    if (Array.isArray(c.value) || c.operator === 'between') {
+                        finalValue = [
+                            Math.round(Number(editingValue()) * 1024 * 1024),
+                            Math.round(Number(editingValue2()) * 1024 * 1024)
+                        ];
+                    } else {
+                        finalValue = Math.round(Number(editingValue()) * 1024 * 1024);
+                    }
+                } else if (c.operator === 'between') {
+                    finalValue = [editingValue(), editingValue2()];
+                }
+                
+                return { ...c, value: finalValue };
+            }
+            return c;
+        }));
+        setEditingId(null);
+    };
+
     const handleAddCriteria = () => {
+        if (!validateCurrent()) return;
+
         let finalValue = currentValue();
         
         // Handle Unit conversion for size
@@ -235,29 +322,21 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
             title={props.isSmartFolderMode ? "Smart Folder Configuration" : "Advanced Search"}
             size="lg"
             footer={
-                <div class="match-section">
-                    <RadioGroup 
-                        value={matchMode()} 
-                        onValueChange={(val) => setMatchMode(val as LogicalOperator)}
-                        class="match-radio"
-                    >
-                        <RadioGroupItem value="or" label="Any" />
-                        <RadioGroupItem value="and" label="All" />
-                    </RadioGroup>
-                <div style={{ flex: 1 }} />
-                <Button variant="outline" onClick={handleReset}>Reset</Button>
-                
-                <Show when={criteria().length > 0}>
-                    <Button variant="outline" onClick={handleSaveSmartFolder} disabled={!smartFolderName()}>
-                        <Save size={16} class="mr-2" />
-                        Save Smart Folder
-                    </Button>
-                </Show>
+                <div class="modal-footer-content">
+                    <Button variant="outline" onClick={handleReset}>Reset</Button>
+                    <div style={{ flex: 1 }} />
+                    
+                    <Show when={criteria().length > 0}>
+                        <Button variant="outline" onClick={handleSaveSmartFolder} disabled={!smartFolderName()}>
+                            <Save size={16} class="mr-2" />
+                            Save Smart Folder
+                        </Button>
+                    </Show>
 
-                <Button variant="primary" onClick={handleSearch} disabled={criteria().length === 0}>
-                    <Search size={16} class="mr-2" />
-                    Search
-                </Button>
+                    <Button variant="primary" onClick={handleSearch} disabled={criteria().length === 0}>
+                        <Search size={16} class="mr-2" />
+                        Search
+                    </Button>
                 </div>
             }
         >
@@ -272,9 +351,11 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                 </div>
 
                 <div class="criteria-builder-section">
-                    <div class="section-title">
-                        Criteria Builder <HelpCircle size={12} />
-                    </div>
+                    <Tooltip content="Choose a field, operator, and value to add new search criteria. Filter by name, tags, date, and more.">
+                        <div class="section-title">
+                            Criteria Builder <CircleQuestionMark size={12} />
+                        </div>
+                    </Tooltip>
                     <div class="builder-row">
                         <Select 
                             options={SEARCH_FIELDS} 
@@ -293,8 +374,13 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                 <Input 
                                     size="sm"
                                     value={currentValue() || ""} 
-                                    onInput={(e) => setCurrentValue(e.currentTarget.value)} 
+                                    onInput={(e) => {
+                                        setCurrentValue(e.currentTarget.value);
+                                        if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                    }} 
                                     placeholder="Value..."
+                                    error={!!validationErrors().value}
+                                    errorMessage={validationErrors().value}
                                 />
                             </Show>
                             <Show when={selectedField()?.type === 'number'}>
@@ -303,8 +389,13 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                         type="number" 
                                         size="sm"
                                         value={currentValue() || ""} 
-                                        onInput={(e) => setCurrentValue(Number(e.currentTarget.value))} 
+                                        onInput={(e) => {
+                                            setCurrentValue(Number(e.currentTarget.value));
+                                            if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                        }} 
                                         placeholder={currentOperator() === 'between' ? "From..." : "Value..."}
+                                        error={!!validationErrors().value}
+                                        errorMessage={validationErrors().value}
                                     />
                                     <Show when={currentOperator() === 'between'}>
                                         <span class="range-separator">to</span>
@@ -312,8 +403,13 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                             type="number" 
                                             size="sm"
                                             value={currentValue2() || ""} 
-                                            onInput={(e) => setCurrentValue2(Number(e.currentTarget.value))} 
+                                            onInput={(e) => {
+                                                setCurrentValue2(Number(e.currentTarget.value));
+                                                if (validationErrors().value2) setValidationErrors(prev => ({ ...prev, value2: "" }));
+                                            }} 
                                             placeholder="To..."
+                                            error={!!validationErrors().value2}
+                                            errorMessage={validationErrors().value2}
                                         />
                                     </Show>
                                     <Show when={currentKey() === 'size'}>
@@ -332,8 +428,13 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                         size="sm"
                                         mask="99/99/9999"
                                         value={currentValue() || ""} 
-                                        onInput={setCurrentValue} 
+                                        onInput={(val) => {
+                                            setCurrentValue(val);
+                                            if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                        }} 
                                         placeholder={currentOperator() === 'between' ? "From DD/MM/YYYY" : "DD/MM/YYYY"}
+                                        error={!!validationErrors().value}
+                                        errorMessage={validationErrors().value}
                                     />
                                     <Show when={currentOperator() === 'between'}>
                                         <span class="range-separator">to</span>
@@ -341,8 +442,13 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                             size="sm"
                                             mask="99/99/9999"
                                             value={currentValue2() || ""} 
-                                            onInput={setCurrentValue2} 
+                                            onInput={(val) => {
+                                                setCurrentValue2(val);
+                                                if (validationErrors().value2) setValidationErrors(prev => ({ ...prev, value2: "" }));
+                                            }} 
                                             placeholder="To DD/MM/YYYY"
+                                            error={!!validationErrors().value2}
+                                            errorMessage={validationErrors().value2}
                                         />
                                     </Show>
                                 </div>
@@ -352,9 +458,14 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                     <Select 
                                         options={hierarchicalTags()}
                                         value={String(currentValue() || "")}
-                                        onValueChange={(val) => setCurrentValue(val)}
+                                        onValueChange={(val) => {
+                                            setCurrentValue(val);
+                                            if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                        }}
                                         placeholder="Select Tag..."
                                         searchable
+                                        error={!!validationErrors().value}
+                                        errorMessage={validationErrors().value}
                                     />
                                 </div>
                             </Show>
@@ -363,9 +474,14 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                     <Select 
                                         options={hierarchicalFolders()}
                                         value={String(currentValue() || "")}
-                                        onValueChange={(val) => setCurrentValue(Number(val))}
+                                        onValueChange={(val) => {
+                                            setCurrentValue(Number(val));
+                                            if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                        }}
                                         placeholder="Select Folder..."
                                         searchable
+                                        error={!!validationErrors().value}
+                                        errorMessage={validationErrors().value}
                                     />
                                 </div>
                             </Show>
@@ -373,29 +489,43 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                 <Select 
                                     options={[0,1,2,3,4,5].map(v => ({ value: String(v), label: `${v} Stars` }))}
                                     value={String(currentValue() || "0")}
-                                    onValueChange={(val) => setCurrentValue(Number(val))}
+                                    onValueChange={(val) => {
+                                        setCurrentValue(Number(val));
+                                        if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                    }}
+                                    error={!!validationErrors().value}
+                                    errorMessage={validationErrors().value}
                                 />
                             </Show>
                             <Show when={selectedField()?.type === 'select'}>
                                 <Select 
                                     options={(fileFormats as FileFormat[]).map(f => ({ value: f.extension, label: `${f.extension.toUpperCase()} - ${f.name}` }))}
                                     value={currentValue() || ""}
-                                    onValueChange={setCurrentValue}
+                                    onValueChange={(val) => {
+                                        setCurrentValue(val);
+                                        if (validationErrors().value) setValidationErrors(prev => ({ ...prev, value: "" }));
+                                    }}
                                     searchable
+                                    error={!!validationErrors().value}
+                                    errorMessage={validationErrors().value}
                                 />
                             </Show>
                         </div>
 
-                        <Button variant="ghost" size="icon" onClick={handleAddCriteria} disabled={currentValue() === null || currentValue() === ""}>
-                            <Plus size={18} />
-                        </Button>
+                        <div class="builder-actions">
+                            <Button variant="ghost" size="icon" onClick={handleAddCriteria} class="add-button">
+                                <Plus size={18} />
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="query-editor-section">
-                    <div class="section-title">
-                        Query Editor <HelpCircle size={12} />
-                    </div>
+                    <Tooltip content="Review and manage your active criteria. You can edit values in-line or remove them. All criteria work together based on the 'Any' or 'All' match mode below.">
+                        <div class="section-title">
+                            Query Editor <CircleQuestionMark size={12} />
+                        </div>
+                    </Tooltip>
                     <div class="criteria-list">
                         <Show when={criteria().length === 0}>
                             <div class="empty-query-info">
@@ -407,39 +537,107 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                             </div>
                         </Show>
                         <For each={criteria()}>
-                            {(item, index) => (
-                                <div class="criterion-item">
-                                    <span class="criterion-index">{index() + 1}</span>
-                                    <span class="criterion-field">
-                                        {SEARCH_FIELDS.find(f => f.value === item.key)?.label || item.key}
-                                    </span>
-                                    <span class="criterion-operator">
-                                        {availableOperators().find(o => o.value === item.operator)?.label || item.operator}
-                                    </span>
-                                    <span class="criterion-value">
-                                        {Array.isArray(item.value) 
-                                            ? item.key === 'size'
-                                                ? `${(Number(item.value[0]) / 1024 / 1024).toFixed(2)} MB to ${(Number(item.value[1]) / 1024 / 1024).toFixed(2)} MB`
-                                                : `${item.value[0]} to ${item.value[1]}` 
-                                            : item.key === 'folder' 
-                                                ? metadata.locations.find(l => l.id === item.value)?.name || item.value
-                                                : item.key === 'tags'
-                                                    ? metadata.tags.find(t => t.id === Number(item.value))?.name || item.value
-                                                    : item.key === 'size'
-                                                        ? `${(Number(item.value) / 1024 / 1024).toFixed(2)} MB`
-                                                        : String(item.value)
-                                        }
-                                    </span>
-                                    <Button variant="ghost" size="icon" class="edit-criterion-btn">
-                                        {/* Edit logic omitted for brevity in first version */}
-                                        <ChevronRight size={14} />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" class="remove-criterion-btn" onClick={() => handleRemoveCriteria(item.id)}>
-                                        <Trash2 size={14} color="var(--danger-color)" />
-                                    </Button>
-                                </div>
-                            )}
+                            {(item, index) => {
+                                const field = createMemo(() => SEARCH_FIELDS.find(f => f.value === item.key));
+                                const isEditing = () => editingId() === item.id;
+
+                                return (
+                                    <div class={cn("criterion-item", isEditing() && "editing")}>
+                                        <span class="criterion-index">{index() + 1}</span>
+                                        <span class="criterion-field">
+                                            {field()?.label || item.key}
+                                        </span>
+                                        <span class="criterion-operator">
+                                            {OPERATORS_FOR_TYPE[field()?.type || '']?.find(o => o.value === item.operator)?.label || item.operator}
+                                        </span>
+                                        <span class="criterion-value">
+                                            <Show when={!isEditing()} fallback={
+                                                <div class="edit-inputs">
+                                                    <Show when={field()?.type === 'text'}>
+                                                        <Input size="sm" value={editingValue() || ""} onInput={(e) => setEditingValue(e.currentTarget.value)} />
+                                                    </Show>
+                                                    <Show when={field()?.type === 'number' || item.key === 'size'}>
+                                                        <div class="horizontal-inputs">
+                                                            <Input type="number" size="sm" value={editingValue() || ""} onInput={(e) => setEditingValue(Number(e.currentTarget.value))} />
+                                                            <Show when={item.operator === 'between'}>
+                                                                <span>to</span>
+                                                                <Input type="number" size="sm" value={editingValue2() || ""} onInput={(e) => setEditingValue2(Number(e.currentTarget.value))} />
+                                                            </Show>
+                                                            <Show when={item.key === 'size'}>
+                                                                <span class="unit-text">MB</span>
+                                                            </Show>
+                                                        </div>
+                                                    </Show>
+                                                    <Show when={field()?.type === 'date'}>
+                                                        <div class="horizontal-inputs">
+                                                            <MaskedInput size="sm" mask="99/99/9999" value={editingValue() || ""} onInput={setEditingValue} />
+                                                            <Show when={item.operator === 'between'}>
+                                                                <span>to</span>
+                                                                <MaskedInput size="sm" mask="99/99/9999" value={editingValue2() || ""} onInput={setEditingValue2} />
+                                                            </Show>
+                                                        </div>
+                                                    </Show>
+                                                    <Show when={field()?.type === 'tags'}>
+                                                        <Select options={hierarchicalTags()} value={String(editingValue() || "")} onValueChange={setEditingValue} searchable />
+                                                    </Show>
+                                                    <Show when={field()?.type === 'folder'}>
+                                                        <Select options={hierarchicalFolders()} value={String(editingValue() || "")} onValueChange={(val) => setEditingValue(Number(val))} searchable />
+                                                    </Show>
+                                                    <Show when={field()?.type === 'rating'}>
+                                                        <Select options={[0,1,2,3,4,5].map(v => ({ value: String(v), label: `${v} Stars` }))} value={String(editingValue() || "0")} onValueChange={(val) => setEditingValue(Number(val))} />
+                                                    </Show>
+                                                    <Show when={field()?.type === 'select'}>
+                                                        <Select options={(fileFormats as FileFormat[]).map(f => ({ value: f.extension, label: f.extension.toUpperCase() }))} value={editingValue() || ""} onValueChange={setEditingValue} searchable />
+                                                    </Show>
+                                                </div>
+                                            }>
+                                                {Array.isArray(item.value) 
+                                                    ? item.key === 'size'
+                                                        ? `${(Number(item.value[0]) / 1024 / 1024).toFixed(2)} MB to ${(Number(item.value[1]) / 1024 / 1024).toFixed(2)} MB`
+                                                        : `${item.value[0]} to ${item.value[1]}` 
+                                                    : item.key === 'folder' 
+                                                        ? metadata.locations.find(l => l.id === item.value)?.name || item.value
+                                                        : item.key === 'tags'
+                                                            ? metadata.tags.find(t => t.id === Number(item.value))?.name || item.value
+                                                            : item.key === 'size'
+                                                                ? `${(Number(item.value) / 1024 / 1024).toFixed(2)} MB`
+                                                                : String(item.value)
+                                                }
+                                            </Show>
+                                        </span>
+                                        <Show when={!isEditing()} fallback={
+                                            <Button variant="ghost" size="icon" onClick={handleConfirmEdit}>
+                                                <Check size={16} />
+                                            </Button>
+                                        }>
+                                            <Button variant="ghost" size="icon" onClick={() => handleStartEdit(item)}>
+                                                <Pencil size={14} />
+                                            </Button>
+                                        </Show>
+                                        <Button variant="ghost-destructive" size="icon" onClick={() => handleRemoveCriteria(item.id)}>
+                                            <Trash2 size={14} />
+                                        </Button>
+                                    </div>
+                                );
+                            }}
                         </For>
+                    </div>
+
+                    <div class="match-mode-section">
+                        <Tooltip content="Choose how to combine your criteria. 'All' requires every condition to be met, while 'Any' matches if at least one condition is met.">
+                            <div class="section-title">
+                                Match Mode <CircleQuestionMark size={12} />
+                            </div>
+                        </Tooltip>
+                        <RadioGroup 
+                            value={matchMode()} 
+                            onValueChange={(val) => setMatchMode(val as LogicalOperator)}
+                            orientation="horizontal"
+                            class="match-radio-horizontal"
+                        >
+                            <RadioGroupItem value="or" label="Any (OR)" />
+                            <RadioGroupItem value="and" label="All (AND)" />
+                        </RadioGroup>
                     </div>
                 </div>
             </div>

@@ -99,6 +99,16 @@
   color: var(--text-primary);
 }
 
+.ui-btn-ghost-destructive {
+  background-color: transparent;
+  color: var(--text-destructive);
+}
+
+.ui-btn-ghost-destructive:hover:not(:disabled) {
+  background-color: var(--bg-destructive);
+  color: var(--text-inverse);
+}
+
 .ui-btn-outline {
   background-color: transparent;
   border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
