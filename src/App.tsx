@@ -12,13 +12,39 @@ import { listen } from "@tauri-apps/api/event";
 import { dndRegistry, TagDropStrategy, ImageDropStrategy, currentDragItem, setDropTargetId } from "./core/dnd";
 import { Sonner } from "./components/ui/Sonner";
 import { Loader } from "./components/ui/Loader";
-import { useKeyboardShortcuts } from "./core/hooks/useKeyboardShortcuts";
+// Input System
+import { InputProvider, useShortcuts } from "./core/input";
+import { useSelection, useLibrary } from "./core/hooks";
 
 function App() {
   const system = useSystem();
   const notification = useNotification();
+  const selection = useSelection();
+  const lib = useLibrary();
   
-  useKeyboardShortcuts();
+  // Global shortcuts via Input Service
+  useShortcuts([
+    {
+      keys: 'Meta+KeyA',
+      name: 'Select All',
+      action: () => {
+        const allIds = lib.items.map(i => i.id);
+        selection.select(allIds);
+      },
+    },
+    {
+      keys: 'Escape',
+      name: 'Deselect / Blur',
+      action: () => {
+        const active = document.activeElement;
+        if (active && ['INPUT', 'TEXTAREA'].includes(active.tagName)) {
+          (active as HTMLElement).blur();
+        } else {
+          selection.select([]);
+        }
+      },
+    },
+  ]);
 
   // Root-level DND cleanup
   createEffect(() => {
@@ -91,4 +117,13 @@ function App() {
   );
 }
 
-export default App;
+function AppWithProvider() {
+  return (
+    <InputProvider>
+      <App />
+    </InputProvider>
+  );
+}
+
+export default AppWithProvider;
+

@@ -1,11 +1,15 @@
-import { Component, createSignal, createMemo, Show, onMount, onCleanup } from "solid-js";
+import { Component, createSignal, createMemo, Show } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { ItemViewToolbar } from "./ItemViewToolbar";
+import { createInputScope, useShortcuts } from "../../../core/input";
 import "./item-view.css";
 
 export const ItemView: Component = () => {
     const viewport = useViewport();
     const lib = useLibrary();
+    
+    // Push image-viewer scope when this component is mounted
+    createInputScope('image-viewer');
     
     // Zoom 0 means "Fit Screen"
     const [zoom, setZoom] = createSignal(0); 
@@ -19,12 +23,45 @@ export const ItemView: Component = () => {
 
     const item = createMemo(() => lib.items.find(i => i.id.toString() === viewport.activeItemId()));
 
+    // Navigation helper
+    const navigate = (direction: number) => {
+        const items = lib.items;
+        const currentId = viewport.activeItemId();
+        const currentIndex = items.findIndex(i => i.id.toString() === currentId);
+        
+        if (currentIndex !== -1) {
+            const nextIndex = (currentIndex + direction + items.length) % items.length;
+            viewport.openItem(items[nextIndex].id.toString());
+            // Reset position on navigation
+            setPosition({ x: 0, y: 0 });
+            setRotation(0);
+        }
+    };
+    
+    // Zoom helpers
+    const zoomIn = () => setZoom(Math.min((zoom() === 0 ? 100 : zoom()) + 10, 500));
+    const zoomOut = () => setZoom(Math.max((zoom() === 0 ? 100 : zoom()) - 10, 10));
+    const fitToScreen = () => setZoom(0);
+    const originalSize = () => setZoom(100);
+
+    // Register keyboard shortcuts for image-viewer scope
+    useShortcuts([
+        { keys: 'Escape', name: 'Close Viewer', scope: 'image-viewer', action: () => viewport.closeItem() },
+        { keys: 'Equal', name: 'Zoom In', scope: 'image-viewer', action: zoomIn },
+        { keys: 'Minus', name: 'Zoom Out', scope: 'image-viewer', action: zoomOut },
+        { keys: 'Meta+Digit0', name: 'Fit to Screen', scope: 'image-viewer', action: fitToScreen },
+        { keys: 'Meta+Digit1', name: 'Original Size', scope: 'image-viewer', action: originalSize },
+        { keys: 'KeyH', name: 'Pan Tool', scope: 'image-viewer', action: () => setTool("pan") },
+        { keys: 'KeyR', name: 'Rotate Tool', scope: 'image-viewer', action: () => setTool("rotate") },
+        { keys: 'ArrowLeft', name: 'Previous Image', scope: 'image-viewer', action: () => navigate(-1) },
+        { keys: 'ArrowRight', name: 'Next Image', scope: 'image-viewer', action: () => navigate(1) },
+    ]);
+
     const handleMouseDown = (e: MouseEvent) => {
         if (tool() === "pan") {
             setIsDragging(true);
             setStartPos({ x: e.clientX - position().x, y: e.clientY - position().y });
         } else if (tool() === "rotate") {
-            // Rotate tool could be click to rotate 90 deg?
             setRotation(prev => (prev + 90) % 360);
         }
     };
@@ -43,22 +80,12 @@ export const ItemView: Component = () => {
     };
 
     const handleWheel = (e: WheelEvent) => {
-        // Zoom on Ctrl+Wheel or just Wheel
         e.preventDefault();
         const delta = e.deltaY > 0 ? -10 : 10;
         const currentZoom = zoom() === 0 ? 100 : zoom();
         const nextZoom = Math.max(10, Math.min(500, currentZoom + delta));
         setZoom(nextZoom);
     };
-
-    // Reset position when item changes
-    onMount(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") viewport.closeItem();
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
-    });
 
     return (
         <div class="item-view-overlay" onWheel={handleWheel}>
@@ -97,3 +124,4 @@ export const ItemView: Component = () => {
         </div>
     );
 };
+
