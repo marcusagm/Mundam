@@ -4,3 +4,4 @@ export * from "./useMetadata";
 export * from "./useSelection";
 export * from "./useSystem";
 export * from "./useViewport";
+export * from "./useNotification";

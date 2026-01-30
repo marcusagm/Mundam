@@ -1,6 +1,6 @@
 import { Component, createMemo, createResource } from "solid-js";
 import { Tag as TagIcon } from "lucide-solid";
-import { useMetadata, useSelection } from "../../../core/hooks";
+import { useMetadata, useSelection, useNotification } from "../../../core/hooks";
 import { tagService } from "../../../lib/tags";
 import { TagInput, TagOption } from "../../ui/TagInput";
 import { AccordionItem } from "../../ui/Accordion";
@@ -9,19 +9,8 @@ import "./inspector.css";
 export const InspectorTags: Component = () => {
     const metadata = useMetadata();
     const selection = useSelection();
+    const notification = useNotification();
 
-    // Active item logic (single or multi?)
-    // For now, let's assume we handle the active selection logic inside here or pass it as props?
-    // The plan says "Orchestration". So maybe this component should receive the selection?
-    // But `FileInspector` has the `activeItem`.
-    // Multi-selection logic is more complex.
-    
-    // Let's rely on the store's selection for now to determine "active".
-    // If multiple items, we might need to show common tags or mixed state.
-    // For simple start, let's handle the single active item as per current FileInspector logic, 
-    // or upgrade to multi-selection handling if we are ready.
-    // The previous implementation used `state.selection`.
-    
     const activeId = createMemo(() => {
         if (selection.selectedIds.length === 0) return null;
         return selection.selectedIds[selection.selectedIds.length - 1]; // Last selected
@@ -59,34 +48,52 @@ export const InspectorTags: Component = () => {
         const sel = selection.selectedIds;
         if (sel.length === 0) return;
 
-        // Added items
-        const added = newTags.filter(t => !currentIds.has(Number(t.id)));
-        if (added.length > 0) {
-            await tagService.addTagsToImagesBatch([...sel], added.map(t => Number(t.id)));
-        }
-
-        // Removed items
-        const removed = current.filter(t => !newIds.has(t.id));
-        for (const t of removed) {
-            for (const itemId of sel) {
-               await tagService.removeTagFromImage(itemId, t.id);
+        try {
+            // Added items
+            const added = newTags.filter(t => !currentIds.has(Number(t.id)));
+            if (added.length > 0) {
+                await tagService.addTagsToImagesBatch([...sel], added.map(t => Number(t.id)));
+                const tagNames = added.map(t => t.label).join(", ");
+                notification.success("Tags Applied", `Added "${tagNames}" to ${sel.length} item(s)`);
             }
+
+            // Removed items
+            const removed = current.filter(t => !newIds.has(t.id));
+            if (removed.length > 0) {
+                for (const t of removed) {
+                    for (const itemId of sel) {
+                       await tagService.removeTagFromImage(itemId, t.id);
+                    }
+                }
+                const tagNames = removed.map(t => t.name).join(", ");
+                notification.success("Tags Removed", `Removed "${tagNames}" from ${sel.length} item(s)`);
+            }
+            
+            metadata.notifyTagUpdate();
+            refetchTags();
+        } catch (err) {
+            console.error(err);
+            notification.error("Failed to Update Tags");
         }
-        
-        metadata.notifyTagUpdate();
-        refetchTags();
     };
 
     const handleCreateTag = async (name: string) => {
         const sel = selection.selectedIds;
         if (sel.length === 0) return;
         
-        const newTagId = await tagService.createTag(name);
-        await metadata.loadTags(); 
-        
-        await tagService.addTagsToImagesBatch([...sel], [newTagId]);
-        metadata.notifyTagUpdate();
-        refetchTags();
+        try {
+            const newTagId = await tagService.createTag(name);
+            await metadata.loadTags(); 
+            
+            await tagService.addTagsToImagesBatch([...sel], [newTagId]);
+            notification.success("Tag Created & Applied", `Created "${name}" and applied to ${sel.length} item(s)`);
+            
+            metadata.notifyTagUpdate();
+            refetchTags();
+        } catch (err) {
+            console.error(err);
+            notification.error("Failed to Create Tag");
+        }
     };
 
     return (

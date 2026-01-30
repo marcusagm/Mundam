@@ -1,36 +1,32 @@
-import { Component, createSignal } from "solid-js";
+import { Component } from "solid-js";
 import { ConfirmModal } from "../../ui/Modal";
 import { invoke } from "@tauri-apps/api/core";
+import { useMetadata, useNotification } from "../../../core/hooks";
 import "./folder-delete-modal.css";
-
-interface Location {
-    id: number;
-    path: string;
-    name: string;
-}
 
 interface FolderDeleteModalProps {
     isOpen: boolean;
     onClose: () => void;
-    location: Location | null;
-    onDeleted: () => void;
+    folderId: number | null;
+    folderName: string;
 }
 
 export const FolderDeleteModal: Component<FolderDeleteModalProps> = (props) => {
-    const [isDeleting, setIsDeleting] = createSignal(false);
+    const { loadLocations, loadStats } = useMetadata();
+    const notification = useNotification();
 
     const handleConfirm = async () => {
-        const loc = props.location;
-        if (!loc) return;
-
-        setIsDeleting(true);
+        if (props.folderId === null) return;
+        
         try {
-            await invoke("remove_location", { locationId: loc.id });
-            props.onDeleted();
+            await invoke("remove_location", { locationId: props.folderId });
+            await loadLocations();
+            await loadStats();
+            notification.success("Folder Removed", `Stopped monitoring "${props.folderName}"`);
         } catch (err) {
-            console.error("Failed to delete folder:", err);
+            console.error("Failed to remove folder:", err);
+            notification.error("Failed to Remove Folder");
         } finally {
-            setIsDeleting(false);
             props.onClose();
         }
     };
@@ -42,15 +38,12 @@ export const FolderDeleteModal: Component<FolderDeleteModalProps> = (props) => {
             onConfirm={handleConfirm}
             title="Remove Folder"
             kind="danger"
-            confirmText={isDeleting() ? "Removing..." : "Remove"}
+            confirmText="Remove"
             message=""
         >
             <div class="folder-delete-modal-content">
                 <p>
-                    Are you sure you want to remove <strong>"{props.location?.name}"</strong> from the library?
-                </p>
-                <p class="folder-delete-path">
-                    {props.location?.path}
+                    Are you sure you want to remove <strong>"{props.folderName}"</strong> from the library?
                 </p>
                 <p class="folder-delete-warning">
                     This will remove all images from this folder from the library and delete their thumbnails.

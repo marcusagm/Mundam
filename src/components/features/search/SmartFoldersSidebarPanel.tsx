@@ -1,6 +1,6 @@
 import { Component, For, Show, createSignal } from "solid-js";
 import { FolderHeart } from "lucide-solid";
-import { useMetadata, useFilters } from "../../../core/hooks";
+import { useMetadata, useFilters, useNotification } from "../../../core/hooks";
 import { SidebarPanel } from "../../ui/SidebarPanel";
 import { SmartFolderContextMenu } from "./SmartFolderContextMenu";
 import { AdvancedSearchModal } from "./AdvancedSearchModal";
@@ -13,6 +13,7 @@ import "./smart-folders.css";
 export const SmartFoldersSidebarPanel: Component = () => {
     const metadata = useMetadata();
     const filters = useFilters();
+    const notification = useNotification();
 
     // Context Menu State
     const [contextMenuOpen, setContextMenuOpen] = createSignal(false);
@@ -124,7 +125,14 @@ export const SmartFoldersSidebarPanel: Component = () => {
                     initialId={folderToEdit()?.id}
                     initialName={folderToEdit()?.name}
                     initialQuery={folderToEdit() ? JSON.parse(folderToEdit()!.query_json) : undefined}
-                    onSave={(name, query, id) => metadata.saveSmartFolder(name, query, id)}
+                    onSave={async (name, query, id) => {
+                        try {
+                            await metadata.saveSmartFolder(name, query, id);
+                            notification.success(id ? "Smart Folder Updated" : "Smart Folder Created", `Saved "${name}"`);
+                        } catch (err) {
+                            notification.error("Failed to Save Smart Folder");
+                        }
+                    }}
                 />
             </Show>
         </SidebarPanel>

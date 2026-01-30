@@ -1,7 +1,7 @@
 import { Component } from "solid-js";
 import { ConfirmModal } from "../../ui/Modal";
 import { SmartFolder } from "../../../core/store/metadataStore";
-import { useMetadata } from "../../../core/hooks";
+import { useMetadata, useNotification } from "../../../core/hooks";
 
 interface SmartFolderDeleteModalProps {
     isOpen: boolean;
@@ -11,14 +11,18 @@ interface SmartFolderDeleteModalProps {
 
 export const SmartFolderDeleteModal: Component<SmartFolderDeleteModalProps> = (props) => {
     const metadata = useMetadata();
+    const notification = useNotification();
 
     const handleConfirm = async () => {
         if (!props.folder) return;
 
+        const folderName = props.folder.name;
         try {
             await metadata.deleteSmartFolder(props.folder.id);
+            notification.success("Smart Folder Deleted", `Removed "${folderName}"`);
         } catch (err) {
             console.error("Delete failed:", err);
+            notification.error("Failed to Delete Smart Folder");
         } finally {
             props.onClose();
         }

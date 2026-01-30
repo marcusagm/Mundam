@@ -1,6 +1,7 @@
 import { DropStrategy, DragItem } from "../dnd-core";
 import { tagService } from "../../../lib/tags";
 import { metadataActions, metadataState } from "../../store/metadataStore";
+import { toast } from "../../../components/ui/Sonner";
 
 // Strategy: Dropping anything ONTO a Tag
 export const TagDropStrategy: DropStrategy = {
@@ -34,8 +35,14 @@ export const TagDropStrategy: DropStrategy = {
             try {
                 await tagService.addTagsToImagesBatch(imageIds, [targetTagId]);
                 metadataActions.notifyTagUpdate();
+                
+                const tagName = metadataState.tags.find(t => t.id === targetTagId)?.name || "Tag";
+                toast.success("Tag Applied", { 
+                    description: `Added "${tagName}" to ${imageIds.length} item(s)`
+                });
             } catch (err) {
                 console.error("Failed to assign tag:", err);
+                toast.error("Failed to Apply Tag");
             }
         }
 

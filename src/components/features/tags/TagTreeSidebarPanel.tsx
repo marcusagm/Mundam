@@ -1,6 +1,6 @@
 import { Component, createMemo, createSignal, onMount } from "solid-js";
 import { Tag, Plus } from "lucide-solid";
-import { useMetadata, useFilters } from "../../../core/hooks";
+import { useMetadata, useFilters, useNotification } from "../../../core/hooks";
 import { TreeView, TreeNode } from "../../ui/TreeView";
 import { SidebarPanel } from "../../ui/SidebarPanel";
 import { Button } from "../../ui/Button";
@@ -13,6 +13,7 @@ import { TagDeleteModal } from "./TagDeleteModal";
 export const TagTreeSidebarPanel: Component = () => {
   const metadata = useMetadata();
   const filters = useFilters();
+  const notification = useNotification();
   const [isTagHeaderDragOver, setIsTagHeaderDragOver] = createSignal(false);
   
   // Context Menu State
@@ -105,7 +106,10 @@ export const TagTreeSidebarPanel: Component = () => {
           const id = await tagService.createTag(name);
           await metadata.loadTags();
           setEditingId(id);
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+          console.error(err);
+          notification.error("Failed to Create Tag");
+      }
   };
 
   const handleCreateChildTag = async (parentId: number) => {
@@ -115,7 +119,10 @@ export const TagTreeSidebarPanel: Component = () => {
           const id = await tagService.createTag(name, parentId);
           await metadata.loadTags();
           setEditingId(id);
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+          console.error(err);
+          notification.error("Failed to Create Child Tag");
+      }
   };
 
   const handleRename = async (node: TreeNode, newName: string) => {
@@ -123,10 +130,21 @@ export const TagTreeSidebarPanel: Component = () => {
           setEditingId(null);
           return;
       }
+      const oldName = node.label;
+      const isPlaceholder = /^New Tag( \(\d+\))?$/.test(oldName);
       try {
           await tagService.updateTag(Number(node.id), newName);
           await metadata.loadTags();
-      } catch (err) { console.error(err); }
+          
+          if (isPlaceholder) {
+              notification.success("Tag Created", `Created tag "${newName}"`);
+          } else {
+              notification.success("Tag Renamed", `Changed "${oldName}" to "${newName}"`);
+          }
+      } catch (err) { 
+          console.error(err);
+          notification.error("Failed to Rename Tag");
+      }
       setEditingId(null);
   };
 

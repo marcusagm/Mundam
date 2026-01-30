@@ -1,6 +1,6 @@
 import { Component, createMemo, createSignal, onMount } from "solid-js";
 import { Folder, FolderOpen, Plus } from "lucide-solid";
-import { useMetadata, useFilters } from "../../../core/hooks";
+import { useMetadata, useFilters, useNotification } from "../../../core/hooks";
 import { TreeView, TreeNode } from "../../ui/TreeView";
 import { SidebarPanel } from "../../ui/SidebarPanel";
 import { Button } from "../../ui/Button";
@@ -9,7 +9,7 @@ import { FolderDeleteModal } from "./FolderDeleteModal";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { libraryActions } from "../../../core/store/libraryStore";
+// import { libraryActions } from "../../../core/store/libraryStore";
 import "./folder-tree-sidebar-panel.css";
 
 interface FolderNodeData {
@@ -22,6 +22,7 @@ interface FolderNodeData {
 export const FolderTreeSidebarPanel: Component = () => {
     const metadata = useMetadata();
     const filters = useFilters();
+    const notification = useNotification();
     
     const [expandedIds, setExpandedIds] = createSignal<Set<string | number>>(new Set());
     const [deleteModalOpen, setDeleteModalOpen] = createSignal(false);
@@ -109,9 +110,11 @@ export const FolderTreeSidebarPanel: Component = () => {
                 await invoke("add_location", { path: selected });
                 await metadata.loadLocations();
                 await metadata.loadStats();
+                notification.success("Folder Linked", `Monitoring "${selected.split(/[\\/]/).pop()}"`);
             }
         } catch (err) {
             console.error("Failed to add folder:", err);
+            notification.error("Failed to Link Folder");
         }
     };
     
@@ -127,14 +130,14 @@ export const FolderTreeSidebarPanel: Component = () => {
         setContextMenuOpen(true);
     };
 
-    const handleDeleted = async () => {
-        await metadata.loadLocations();
-        await metadata.loadStats();
-        if (filters.selectedFolderId === folderToDelete()?.folderId) {
-            filters.setFolder(null);
-        }
-        libraryActions.refreshImages(true);
-    };
+    // const handleDeleted = async () => {
+    //     await metadata.loadLocations();
+    //     await metadata.loadStats();
+    //     if (filters.selectedFolderId === folderToDelete()?.folderId) {
+    //         filters.setFolder(null);
+    //     }
+    //     libraryActions.refreshImages(true);
+    // };
     
     // Get selected IDs for tree
     const selectedIds = createMemo(() => {
@@ -182,12 +185,8 @@ export const FolderTreeSidebarPanel: Component = () => {
             <FolderDeleteModal 
                 isOpen={deleteModalOpen()}
                 onClose={() => setDeleteModalOpen(false)}
-                location={folderToDelete() ? {
-                    id: folderToDelete()!.folderId,
-                    name: folderToDelete()!.name,
-                    path: folderToDelete()!.path
-                } : null}
-                onDeleted={handleDeleted}
+                folderId={folderToDelete()?.folderId ?? null}
+                folderName={folderToDelete()?.name ?? ""}
             />
             
             <FolderContextMenu 

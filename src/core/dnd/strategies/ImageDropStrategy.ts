@@ -1,6 +1,7 @@
 import { DropStrategy, DragItem } from "../dnd-core";
 import { tagService } from "../../../lib/tags";
-import { metadataActions } from "../../store/metadataStore";
+import { metadataActions, metadataState } from "../../store/metadataStore";
+import { toast } from "../../../components/ui/Sonner";
 
 import { selectionState } from "../../store/selectionStore";
 
@@ -29,8 +30,14 @@ export const ImageDropStrategy: DropStrategy = {
 
                 await tagService.addTagsToImagesBatch(targetIds, [tagId]);
                 metadataActions.notifyTagUpdate();
+                
+                const tagName = metadataState.tags.find(t => t.id === tagId)?.name || "Tag";
+                toast.success("Tag Applied", { 
+                    description: `Added "${tagName}" to ${targetIds.length} item(s)`
+                });
             } catch (err) {
                 console.error("Failed to assign tag to image:", err);
+                toast.error("Failed to Apply Tag");
             }
         }
     },

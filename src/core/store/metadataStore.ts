@@ -1,6 +1,7 @@
 import { createStore } from "solid-js/store";
 import { Tag, tagService } from "../../lib/tags";
 import { getLocations } from "../../lib/db";
+import { toast } from "../../components/ui/Sonner";
 
 interface FolderNode {
   id: number;
@@ -68,6 +69,7 @@ export const metadataActions = {
       await metadataActions.loadSmartFolders();
     } catch (err) {
       console.error("Failed to save smart folder:", err);
+      throw err;
     }
   },
 
@@ -78,8 +80,10 @@ export const metadataActions = {
       await metadataActions.loadSmartFolders();
     } catch (err) {
       console.error("Failed to delete smart folder:", err);
+      throw err;
     }
   },
+
   notifyTagUpdate: () => {
     setMetadataState("tagUpdateVersion", v => v + 1);
     metadataActions.loadStats();
@@ -154,6 +158,20 @@ export const metadataActions = {
 
       if (payload.needs_refresh) {
           needsRefresh = true;
+      }
+
+      const addedCount = payload.added?.length || 0;
+      const removedCount = payload.removed?.length || 0;
+      const updatedCount = payload.updated?.length || 0;
+
+      if (addedCount > 0) {
+          toast.success("Library Sync", { description: addedCount === 1 ? "1 image added" : `${addedCount} images added` });
+      }
+      if (removedCount > 0) {
+          toast.info("Library Sync", { description: removedCount === 1 ? "1 image removed" : `${removedCount} images removed` });
+      }
+      if (updatedCount > 0) {
+          toast.info("Library Sync", { description: updatedCount === 1 ? "1 image updated" : `${updatedCount} images updated` });
       }
 
       if (payload.added) {

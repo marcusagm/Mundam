@@ -3,7 +3,7 @@ import "./tag-delete-modal.css";
 import { ConfirmModal } from "../../ui/Modal";
 import { TreeNode } from "../../ui/TreeView";
 import { tagService } from "../../../lib/tags";
-import { useMetadata } from "../../../core/hooks";
+import { useMetadata, useNotification } from "../../../core/hooks";
 
 interface TagDeleteModalProps {
     isOpen: boolean;
@@ -12,7 +12,9 @@ interface TagDeleteModalProps {
 }
 
 export const TagDeleteModal: Component<TagDeleteModalProps> = (props) => {
-    const { loadTags } = useMetadata();
+    const { loadTags, tags } = useMetadata();
+    const notification = useNotification();
+
     const getAllDescendants = (node: TreeNode): number[] => {
         let ids: number[] = [];
         if (node.children) {
@@ -28,6 +30,10 @@ export const TagDeleteModal: Component<TagDeleteModalProps> = (props) => {
         const node = props.node;
         if (!node) return;
 
+        const tagName = node.label;
+        const parentId = (node.data as any)?.parent_id;
+        const color = (node.data as any)?.color;
+
         try {
             const descendantIds = getAllDescendants(node);
             for (const childId of descendantIds) {
@@ -35,8 +41,22 @@ export const TagDeleteModal: Component<TagDeleteModalProps> = (props) => {
             }
             await tagService.deleteTag(Number(node.id));
             await loadTags();
+            
+            notification.success("Tag Deleted", `Removed "${tagName}"`, {
+                label: "Undo",
+                onClick: async () => {
+                    try {
+                        await tagService.createTag(tagName, parentId, color);
+                        await loadTags();
+                        notification.success("Restored", `Tag "${tagName}" restored`);
+                    } catch (e) {
+                        notification.error("Failed to restore tag");
+                    }
+                }
+            });
         } catch (err) {
             console.error("Delete failed:", err);
+            notification.error("Failed to Delete Tag");
         } finally {
             props.onClose();
         }
