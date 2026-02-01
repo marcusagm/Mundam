@@ -1,4 +1,4 @@
-import { Component, JSX, createSignal, Show, createContext, useContext, Accessor } from "solid-js";
+import { Component, JSX, createSignal, createContext, useContext, Accessor } from "solid-js";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/Resizable";
 
 // Context for Statusbar to control Shell
@@ -96,18 +96,18 @@ export const AppShell: Component<AppShellProps> = (props) => {
         onLayout={handleLayoutChange}
       >
         {/* Left Sidebar */}
-        <Show when={isSidebarOpen()}>
-            <ResizablePanel 
-              id="shell-sidebar" 
-              defaultSize={sidebarSize} 
-              minSize={12} 
-              maxSize={35} 
-              class="shell-sidebar"
-            >
-              {props.sidebar}
-            </ResizablePanel>
-            <ResizableHandle />
-        </Show>
+        <ResizablePanel 
+          id="shell-sidebar" 
+          defaultSize={sidebarSize} 
+          minSize={12} 
+          maxSize={35} 
+          class="shell-sidebar"
+          classList={{ "collapsed": !isSidebarOpen() }}
+        >
+          {props.sidebar}
+        </ResizablePanel>
+        
+        <ResizableHandle classList={{ "collapsed": !isSidebarOpen() }} />
 
         {/* Central Viewport */}
         <ResizablePanel 
@@ -120,19 +120,19 @@ export const AppShell: Component<AppShellProps> = (props) => {
           {props.children}
         </ResizablePanel>
 
-        <Show when={isInspectorOpen()}>
-            <ResizableHandle />
-            {/* Right Inspector */}
-            <ResizablePanel 
-              id="shell-inspector" 
-              defaultSize={inspectorSize} 
-              minSize={15} 
-              maxSize={40} 
-              class="shell-inspector"
-            >
-              {props.inspector}
-            </ResizablePanel>
-        </Show>
+        <ResizableHandle classList={{ "collapsed": !isInspectorOpen() }} />
+        
+        {/* Right Inspector */}
+        <ResizablePanel 
+          id="shell-inspector" 
+          defaultSize={inspectorSize} 
+          minSize={15} 
+          maxSize={40} 
+          class="shell-inspector"
+          classList={{ "collapsed": !isInspectorOpen() }}
+        >
+          {props.inspector}
+        </ResizablePanel>
       </ResizablePanelGroup>
 
       {/* Footer / Statusbar */}

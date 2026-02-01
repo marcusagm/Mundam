@@ -166,6 +166,7 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
       window.removeEventListener("pointerup", handlePointerUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      if (containerRef) containerRef.classList.remove("is-resizing");
       
       if (local.onLayout) {
         const sizes = panels.map(id => panelSizes().get(id) ?? 0);
@@ -177,6 +178,7 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     window.addEventListener("pointerup", handlePointerUp);
     document.body.style.cursor = isHorizontal ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
+    if (containerRef) containerRef.classList.add("is-resizing");
   };
 
   const setPanelSize = (id: string, newSize: number) => {
