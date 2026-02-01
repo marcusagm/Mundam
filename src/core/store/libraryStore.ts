@@ -59,6 +59,20 @@ export const libraryActions = {
       setLibraryState("items", reconcile(fresh, { key: "id" }));
       currentOffset = BATCH_SIZE;
     }
+
+    // Refresh Total Count
+    if (anyFilter) {
+      tagService.getImagesFilteredCount(
+         filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, advancedQuery, filterState.searchQuery
+      ).then(count => {
+         setLibraryState("totalItems", count);
+      });
+    } else {
+       // Total Library Count (no filters)
+       tagService.getImagesFilteredCount([], true, undefined, undefined, false, undefined, undefined).then(count => {
+          setLibraryState("totalItems", count);
+       });
+    }
   },
 
   loadMore: async () => {

@@ -116,6 +116,7 @@ pub fn run() {
             tag_commands::get_tags_for_image,
             tag_commands::add_tags_to_images_batch,
             tag_commands::get_images_filtered,
+            tag_commands::get_image_count_filtered,
             tag_commands::update_image_rating,
             tag_commands::update_image_notes,
             metadata_commands::get_image_exif,

@@ -108,6 +108,22 @@ pub async fn get_images_filtered(
 }
 
 #[tauri::command]
+pub async fn get_image_count_filtered(
+    db: State<'_, Arc<Db>>,
+    tag_ids: Vec<i64>,
+    match_all: bool,
+    untagged: Option<bool>,
+    folder_id: Option<i64>,
+    recursive: bool,
+    advanced_query: Option<String>,
+    search_query: Option<String>,
+) -> Result<i64, String> {
+    db.get_image_count_filtered(tag_ids, match_all, untagged, folder_id, recursive, advanced_query, search_query)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn update_image_rating(
     db: State<'_, Arc<Db>>,
     id: i64,

@@ -77,6 +77,26 @@ export const tagService = {
     });
   },
 
+  getImagesFilteredCount: async (
+    tagIds: number[], 
+    matchAll: boolean = true,
+    untagged?: boolean,
+    folderId?: number,
+    recursive: boolean = false,
+    advanced_query?: string,
+    search_query?: string
+  ): Promise<number> => {
+    return await invoke("get_image_count_filtered", { 
+      tagIds, 
+      matchAll,
+      untagged,
+      folderId,
+      recursive,
+      advancedQuery: advanced_query,
+      searchQuery: search_query
+    });
+  },
+
   updateImageRating: async (id: number, rating: number): Promise<void> => {
     return await invoke("update_image_rating", { id, rating });
   },

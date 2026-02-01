@@ -3,6 +3,26 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overflow: hidden;
+}
+
+.sidebar-logo-area {
+    padding: var(--space-4) var(--space-4) var(--space-2) var(--space-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity var(--transition-normal);
+}
+
+.sidebar-logo-area:hover {
+    opacity: 1;
+}
+
+.sidebar-logo-area img {
+    height: 32px; /* Discreet and elegant */
+    width: auto;
+    object-contain: contain;
 }
 
 .library-sidebar .ui-resizable-panel {

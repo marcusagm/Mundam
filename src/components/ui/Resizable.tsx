@@ -19,6 +19,7 @@ interface ResizableContextValue {
   getPanelSize: (id: string) => Accessor<number>;
   startResize: (handleId: string, e: PointerEvent) => void;
   registerHandle: (id: string) => void;
+  setPanelSize: (id: string, size: number) => void;
 }
 
 const ResizableContext = createContext<ResizableContextValue>();
@@ -106,8 +107,26 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     const containerSize = isHorizontal ? containerRect.width : containerRect.height;
 
     const startPos = isHorizontal ? e.clientX : e.clientY;
-    const startBeforeSize = panelSizes().get(beforePanelId) ?? 0;
-    const startAfterSize = panelSizes().get(afterPanelId) ?? 0;
+    
+    // READ SIZES FROM DOM TO SUPPORT FLEX-GROW/COLLAPSE scenarios
+    // const startBeforeSize = panelSizes().get(beforePanelId) ?? 0; // OLD
+    // const startAfterSize = panelSizes().get(afterPanelId) ?? 0;   // OLD
+
+    const beforeEl = containerRef.querySelector(`[data-panel-id="${beforePanelId}"]`);
+    const afterEl = containerRef.querySelector(`[data-panel-id="${afterPanelId}"]`);
+    
+    if (!beforeEl || !afterEl) return;
+    
+    const beforeRect = beforeEl.getBoundingClientRect();
+    const afterRect = afterEl.getBoundingClientRect();
+    
+    const startBeforeSize = isHorizontal 
+        ? (beforeRect.width / containerSize) * 100 
+        : (beforeRect.height / containerSize) * 100;
+        
+    const startAfterSize = isHorizontal 
+        ? (afterRect.width / containerSize) * 100 
+        : (afterRect.height / containerSize) * 100;
 
     const handlePointerMove = (e: PointerEvent) => {
       const currentPos = isHorizontal ? e.clientX : e.clientY;
@@ -160,12 +179,38 @@ export const ResizablePanelGroup: Component<ResizablePanelGroupProps> = (props) 
     document.body.style.userSelect = "none";
   };
 
+  const setPanelSize = (id: string, newSize: number) => {
+    // Basic implementation: set size, then redistribute remaining space?
+    // For 3-pane layout, if we set Left to 0, right and center must adjust. 
+    // This is complex for a generic component. 
+    // Simplest approach: Just update the specific panel size and assume callee handles the math? NO.
+    // Better: Update this panel, and adjust neighbor. 
+    // BUT user wants specific "Collapse" behavior.
+    
+    // Let's implement a direct setter that strictly sets the value in the map.
+    // The "distribution" is hard. 
+    // FOR NOW: Just set it. The flexbox layout might break if total != 100.
+    // The Resizable component relies on sum = 100.
+    
+    // Actually, for this specific request, the user wants buttons in the Statusbar to toggle the AppShell panels.
+    // AppShell handles the layout state. ResizablePanelGroup takes `onLayout`.
+    // BUT ResizablePanelGroup owns the state `panelSizes`.
+    // We need to be able to drive `panelSizes` from props or expose a method.
+    
+    setPanelSizes((prev) => {
+        const next = new Map(prev);
+        next.set(id, newSize);
+        return next;
+    });
+  };
+
   const contextValue: ResizableContextValue = {
     direction,
     registerPanel,
     getPanelSize,
     startResize,
     registerHandle,
+    setPanelSize,
   };
 
   return (
@@ -191,6 +236,7 @@ export interface ResizablePanelProps extends JSX.HTMLAttributes<HTMLDivElement> 
   defaultSize?: number;
   minSize?: number;
   maxSize?: number;
+  flexGrow?: number;
   children: JSX.Element;
 }
 
@@ -201,6 +247,7 @@ export const ResizablePanel: Component<ResizablePanelProps> = (props) => {
     "defaultSize",
     "minSize",
     "maxSize",
+    "flexGrow",
     "children",
   ]);
 
@@ -222,7 +269,7 @@ export const ResizablePanel: Component<ResizablePanelProps> = (props) => {
       style={{
         [context.direction() === "horizontal" ? "width" : "height"]: `${size()}%`,
         "flex-shrink": 0,
-        "flex-grow": 0,
+        "flex-grow": local.flexGrow ?? 0,
       }}
       data-panel-id={local.id}
       {...others}

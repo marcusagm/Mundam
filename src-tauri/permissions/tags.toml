@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-image-count-filtered"
+description = "Allows fetching filtered image counts"
+commands.allow = ["get_image_count_filtered"]

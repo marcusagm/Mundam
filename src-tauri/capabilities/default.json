@@ -23,6 +23,7 @@
     "allow-get-tags-for-image",
     "allow-add-tags-to-images-batch",
     "allow-get-images-filtered",
+    "allow-get-image-count-filtered",
     "allow-get-library-stats",
     "allow-update-image-rating",
     "allow-update-image-notes",

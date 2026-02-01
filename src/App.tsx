@@ -1,7 +1,6 @@
 import { onMount, onCleanup, Show, createEffect, createSignal } from "solid-js";
 import { useSystem, useNotification } from "./core/hooks";
 import { AppShell } from "./layouts/AppShell";
-import { PrimaryHeader } from "./components/layout/PrimaryHeader";
 import { LibrarySidebar } from "./components/layout/LibrarySidebar";
 import { FileInspector } from "./components/layout/FileInspector";
 import { GlobalStatusbar } from "./components/layout/GlobalStatusbar";
@@ -119,7 +118,6 @@ function App() {
         }
       >
         <AppShell
-            header={<PrimaryHeader />}
             sidebar={<LibrarySidebar />}
             inspector={<FileInspector />}
             statusbar={<GlobalStatusbar />}

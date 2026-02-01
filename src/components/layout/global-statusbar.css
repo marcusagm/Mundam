@@ -1,19 +1,102 @@
 .global-statusbar {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  padding: 0 12px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  letter-spacing: 0.3px;
+    height: 32px;
+    width: 100%;
+    background-color: var(--bg-surface);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-base);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.statusbar-left, .statusbar-center, .statusbar-right {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    border-right: 1px solid var(--border-color);
+    padding: 0 var(--space-2);
+}
+
+.statusbar-left, .statusbar-right {
+    flex-shrink: 0;
+    gap: var(--space-1);
+}
+
+.statusbar-center {
+    flex-grow: 1;
+    justify-content: left;
+    overflow: hidden; /* Prevent push-out */
 }
 
 .statusbar-section {
-  display: flex;
-  gap: 16px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.statusbar-divider {
+    width: 1px;
+    height: 14px;
+    background-color: var(--border-color);
 }
 
 .statusbar-selected {
-  color: var(--accent-color);
+    color: var(--text-info);
+    font-weight: 500;
+}
+
+.statusbar-messages {
+    opacity: 0.7;
+}
+
+.system-indicator {
+    display: flex;
+    align-items: center;
+}
+
+.status-btn {
+    height: 24px;
+    width: 24px;
+    color: var(--text-muted);
+}
+.status-btn:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+.status-btn.success-text {
+    color: var(--text-success);
+}
+
+/* Popover rudimentary style */
+.system-popover {
+    position: absolute;
+    bottom: 36px;
+    right: 10px;
+    width: 300px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    padding: var(--space-2);
+}
+
+.popover-header {
+    font-weight: 600;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--space-2);
+}
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
 }
