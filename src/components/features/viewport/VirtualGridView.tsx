@@ -1,5 +1,6 @@
-import { Component, createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
+import { Component, createSignal, onMount, onCleanup, For, createMemo, Show } from "solid-js";
 import { AssetCard } from "./AssetCard";
+import { EmptyState } from "./EmptyState";
 import {
   useLibrary,
   useAssetCardActions,
@@ -51,6 +52,9 @@ export const VirtualGridView: Component = () => {
     };
   };
 
+  // Track last width sent to Worker to prevent loops
+  let lastReportedWidth = 0;
+
   onMount(() => {
     if (!scrollContainer) return;
 
@@ -63,8 +67,12 @@ export const VirtualGridView: Component = () => {
         const height = entry.contentRect.height;
 
         setContainerHeight(height);
-        if (width > 0 && Math.abs(width - containerWidth()) > 1) {
+        
+        // Only resize if change is significant (> 5px)
+        // This prevents loops caused by scrollbar appearing/disappearing
+        if (width > 0 && Math.abs(width - lastReportedWidth) > 5) {
           setContainerWidth(width);
+          lastReportedWidth = width;
           viewport.handleResize(width);
         }
       });
@@ -77,6 +85,7 @@ export const VirtualGridView: Component = () => {
     if (rect.width > 0) {
       setContainerWidth(rect.width);
       setContainerHeight(rect.height);
+      lastReportedWidth = rect.width;
       viewport.handleResize(rect.width);
     }
 
@@ -115,6 +124,12 @@ export const VirtualGridView: Component = () => {
       aria-label="Image gallery - grid layout"
       tabIndex={0}
     >
+      <Show when={lib.items.length > 0} fallback={
+        <EmptyState 
+          title="No images found"
+          description="Try adjusting your filters or add images to your library."
+        />
+      }>
       <div
         class="grid-view-track"
         role="rowgroup"
@@ -160,6 +175,7 @@ export const VirtualGridView: Component = () => {
           }}
         </For>
       </div>
+      </Show>
     </div>
   );
 };

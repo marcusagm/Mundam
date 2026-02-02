@@ -1,7 +1,8 @@
 .grid-view-container {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    /* Force scrollbar to always be visible to prevent layout oscillation */
+    overflow-y: scroll;
     background-color: var(--bg-color);
     position: relative;
     padding: var(--space-2);

@@ -33,8 +33,9 @@ export const useFilters = () => {
     setSearch: withRefresh(filterActions.setSearch),
     setSortBy: withRefresh(filterActions.setSortBy),
     setSortOrder: withRefresh(filterActions.setSortOrder),
-    setLayout: withRefresh(filterActions.setLayout),
-    setThumbSize: withRefresh(filterActions.setThumbSize),
+    // UI-only settings - don't trigger data refresh
+    setLayout: filterActions.setLayout,
+    setThumbSize: filterActions.setThumbSize,
     setAdvancedSearch: withRefresh(filterActions.setAdvancedSearch),
     clearAll: withRefresh(filterActions.clearAll),
     

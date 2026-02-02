@@ -120,7 +120,10 @@ export class ViewportController implements IViewportController {
    */
   handleResize(width: number): void {
     if (this.disposed) return;
-    if (Math.abs(this.config.containerWidth - width) <= 1) return;
+    // Ignore small changes (< 5px) - prevents scrollbar-related thrashing
+    // Typical scrollbar is 15-17px, but we use 5px as threshold to catch
+    // sub-pixel rounding differences while still responding to real resizes
+    if (Math.abs(this.config.containerWidth - width) <= 5) return;
 
     this.config.containerWidth = width;
     

@@ -1,5 +1,6 @@
-import { createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
+import { createSignal, onMount, onCleanup, For, createMemo, Show } from "solid-js";
 import { AssetCard } from "./AssetCard";
+import { EmptyState } from "./EmptyState";
 import { type ImageItem } from "../../../types";
 import {
   useLibrary,
@@ -52,6 +53,9 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
   };
 
   // Handle resize and scroll
+  // Track last width sent to Worker to prevent loops
+  let lastReportedWidth = 0;
+  
   onMount(() => {
     if (!scrollContainer) return;
 
@@ -64,8 +68,12 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
         const height = entry.contentRect.height;
 
         setContainerHeight(height);
-        if (width > 0 && Math.abs(width - containerWidth()) > 1) {
+        
+        // Only resize if change is significant (> 5px)
+        // This prevents loops caused by scrollbar appearing/disappearing
+        if (width > 0 && Math.abs(width - lastReportedWidth) > 5) {
           setContainerWidth(width);
+          lastReportedWidth = width;
           viewport.handleResize(width);
         }
       });
@@ -78,11 +86,13 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
     if (rect.width > 0) {
       setContainerWidth(rect.width);
       setContainerHeight(rect.height);
+      lastReportedWidth = rect.width;
       viewport.handleResize(rect.width);
     } else {
       const estimated = window.innerWidth - 80;
       if (estimated > 0) {
         setContainerWidth(estimated);
+        lastReportedWidth = estimated;
         viewport.handleResize(estimated);
       }
     }
@@ -120,6 +130,12 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
       aria-label="Image gallery - masonry layout"
       tabIndex={0}
     >
+      <Show when={props.items.length > 0} fallback={
+        <EmptyState 
+          title="No images found"
+          description="Try adjusting your filters or add images to your library."
+        />
+      }>
       <div
         class="virtual-track"
         role="rowgroup"
@@ -162,6 +178,7 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
           }}
         </For>
       </div>
+      </Show>
     </div>
   );
 }
