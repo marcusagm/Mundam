@@ -2,6 +2,7 @@ import { JSX, createSignal, createMemo, onMount, onCleanup, For, Show, splitProp
 import { ChevronUp, ChevronDown, ChevronsUpDown, Inbox } from "lucide-solid";
 import type { LucideProps } from "lucide-solid";
 import { cn } from "../../lib/utils";
+import { shortcutStore } from "../../core/input/store/shortcutStore";
 import "./table.css";
 
 export interface Column<T> {
@@ -146,42 +147,74 @@ export function Table<T>(props: TableProps<T>) {
   };
 
   // Keyboard Navigation Manager
+  // Standardized with Keyboad Shortcuts Store
+  const isCommand = (e: KeyboardEvent, command: string, defaultKey: string): boolean => {
+    const shortcut = shortcutStore.getByCommand(command);
+    if (!shortcut) return e.key === defaultKey;
+    
+    const keysArray = Array.isArray(shortcut.keys) ? shortcut.keys : [shortcut.keys];
+    
+    return keysArray.some((k: string) => 
+      k === e.key || 
+      k === e.code || 
+      k.toLowerCase() === e.key.toLowerCase() ||
+      k.replace('Key', '') === e.key.toUpperCase()
+    );
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     const dataLen = local.data.length;
     if (dataLen === 0) return;
 
     let nextIndex = focusedIndex();
+    let handled = false;
 
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        nextIndex = Math.min(dataLen - 1, nextIndex + 1);
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        nextIndex = Math.max(0, nextIndex - 1);
-        break;
-      case "Home":
-        e.preventDefault();
-        nextIndex = 0;
-        break;
-      case "End":
-        e.preventDefault();
-        nextIndex = dataLen - 1;
-        break;
-      case "Enter":
-      case " ":
-        e.preventDefault();
-        if (nextIndex >= 0) {
-          const item = local.data[nextIndex];
-          local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey);
-        }
-        return;
-      default:
+    // Ignore input fields unless explicitly allowed
+    if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
         return;
     }
 
-    if (nextIndex !== focusedIndex()) {
+    if (isCommand(e, 'viewport:move-down', 'ArrowDown')) {
+      handled = true;
+      e.preventDefault();
+      nextIndex = Math.min(dataLen - 1, nextIndex + 1);
+    } 
+    else if (isCommand(e, 'viewport:move-up', 'ArrowUp')) {
+      handled = true;
+      e.preventDefault();
+      nextIndex = Math.max(0, nextIndex - 1);
+    }
+    else if (isCommand(e, 'viewport:home', 'Home')) {
+      handled = true;
+      e.preventDefault();
+      nextIndex = 0;
+    }
+    else if (isCommand(e, 'viewport:end', 'End')) {
+      handled = true;
+      e.preventDefault();
+      nextIndex = dataLen - 1;
+    }
+    else if (isCommand(e, 'viewport:open', 'Enter')) {
+      // Enter opens the item
+      handled = true;
+      e.preventDefault();
+      if (nextIndex >= 0) {
+        const item = local.data[nextIndex];
+        local.onRowDoubleClick?.(item);
+      }
+    }
+    else if (isCommand(e, 'viewport:toggle-select', ' ')) {
+      // Space toggles selection
+      handled = true;
+      e.preventDefault();
+      if (nextIndex >= 0) {
+        const item = local.data[nextIndex];
+        // Shift+Space = add to selection, Space alone = toggle
+        local.onRowClick?.(item, e.shiftKey, false);
+      }
+    }
+
+    if (handled && nextIndex !== focusedIndex()) {
       setFocusedIndex(nextIndex);
       // Ensure the focused row is visible (scroll management)
       const rHeight = rowHeight();
@@ -314,7 +347,11 @@ export function Table<T>(props: TableProps<T>) {
                     height: `${rowHeight()}px`, 
                     transform: `translate3d(0, ${HEADER_HEIGHT + realIndex() * rowHeight()}px, 0)` 
                   }}
-                  onClick={(e) => local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey)}
+                  onClick={(e) => {
+                    setFocusedIndex(realIndex());
+                    local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey);
+                    gridContainer?.focus({ preventScroll: true });
+                  }}
                   onDblClick={() => local.onRowDoubleClick?.(item)}
                   role="row"
                   aria-rowindex={realIndex() + 2} // +1 for index and +1 for header

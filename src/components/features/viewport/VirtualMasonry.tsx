@@ -7,6 +7,8 @@ import {
   useAssetCardActions,
   useVirtualViewport,
   toLayoutItems,
+  useGridKeyboardNav,
+  useSelection,
 } from "../../../core/hooks";
 import "./viewport.css";
 
@@ -24,12 +26,18 @@ interface VirtualMasonryProps {
  * Supports two modes:
  * - masonry-v: Vertical masonry (Pinterest-style) - fixed column width, variable height
  * - masonry-h: Horizontal masonry (Flickr-style) - fixed row height, variable width
+ * 
+ * Features:
+ * - Keyboard navigation (Arrow keys, Home, End)
+ * - Scroll-to-focus when navigating
+ * - Space to select, Enter to open
  */
 export function VirtualMasonry(props: VirtualMasonryProps) {
   const lib = useLibrary();
   const actions = useAssetCardActions();
-
-  let scrollContainer: HTMLDivElement | undefined;
+  const selection = useSelection();
+  
+  const [scrollContainer, setScrollContainer] = createSignal<HTMLDivElement>();
 
   const [_containerWidth, setContainerWidth] = createSignal(0);
   const [containerHeight, setContainerHeight] = createSignal(0);
@@ -48,6 +56,25 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
     return map;
   });
 
+  // Keyboard navigation
+  const keyboardNav = useGridKeyboardNav({
+    visibleItems: viewport.visibleItems,
+    allItems: () => props.items,
+    containerHeight,
+    scrollContainer, // Pass accessor
+    onSelect: (id: number, multi: boolean) => selection.toggle(id, multi),
+    onOpen: (id) => actions.handleOpen(id),
+    isSelected: actions.isSelected,
+    getSelectedIds: actions.getSelectedIds,
+    getItemRect: (id) => viewport.getItemPosition(id),
+  });
+
+  // Wrap select to sync focus
+  const handleSelectWithFocus = (id: number, multi: boolean) => {
+    keyboardNav.syncFocusWithClick(id);
+    actions.handleSelect(id, multi);
+  };
+
   // DnD helper: get item info by ID (used by drag source for ghost creation)
   const getItemInfo = (id: number) => {
     const item = itemsById().get(id);
@@ -63,7 +90,8 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
   let lastReportedWidth = 0;
   
   onMount(() => {
-    if (!scrollContainer) return;
+    const el = scrollContainer();
+    if (!el) return;
 
     const observer = new ResizeObserver((entries) => {
       requestAnimationFrame(() => {
@@ -85,10 +113,10 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
       });
     });
 
-    observer.observe(scrollContainer);
+    observer.observe(el);
 
     // Initial measure
-    const rect = scrollContainer.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
     if (rect.width > 0) {
       setContainerWidth(rect.width);
       setContainerHeight(rect.height);
@@ -104,37 +132,39 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
     }
 
     const handleScroll = () => {
-      if (!scrollContainer) return;
-      const currentScrollTop = scrollContainer.scrollTop;
+      const el = scrollContainer();
+      if (!el) return;
+      const currentScrollTop = el.scrollTop;
 
       // Notify Worker of scroll position
       viewport.handleScroll(currentScrollTop, containerHeight());
 
       // Load more when near bottom
-      const { scrollTop: sTop, scrollHeight, clientHeight } = scrollContainer;
+      const { scrollTop: sTop, scrollHeight, clientHeight } = el;
       if (sTop + clientHeight >= scrollHeight - 500) {
         lib.loadMore();
       }
     };
 
-    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    el.addEventListener("scroll", handleScroll, { passive: true });
 
     // Initial scroll notification
     viewport.handleScroll(0, containerHeight());
 
     onCleanup(() => {
       observer.disconnect();
-      scrollContainer?.removeEventListener("scroll", handleScroll);
+      el.removeEventListener("scroll", handleScroll);
     });
   });
 
   return (
     <div 
-      ref={scrollContainer} 
+      ref={setScrollContainer} 
       class="virtual-scroll-container"
       role="grid"
       aria-label="Image gallery - masonry layout"
       tabIndex={0}
+      onKeyDown={keyboardNav.handleKeyDown}
     >
       <Show when={props.items.length > 0} fallback={
         <EmptyState 
@@ -155,6 +185,8 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
             const item = itemsById().get(pos.id);
             if (!item) return null;
 
+            const isFocused = () => keyboardNav.focusedId() === item.id;
+
             return (
               <AssetCard
                 // Identity
@@ -167,6 +199,7 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
                 height={item.height}
                 // State
                 isSelected={actions.isSelected(item.id)}
+                isFocused={isFocused()}
                 style={{
                   position: "absolute",
                   transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
@@ -174,7 +207,7 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
                   height: `${pos.height}px`,
                 }}
                 // Callbacks
-                onSelect={actions.handleSelect}
+                onSelect={handleSelectWithFocus}
                 onOpen={actions.handleOpen}
                 // DnD - drag source only (drop handled at container level)
                 getSelectedIds={actions.getSelectedIds}

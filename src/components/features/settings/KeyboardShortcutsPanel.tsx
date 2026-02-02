@@ -29,6 +29,7 @@ type ScopeGroup = {
 const SCOPE_LABELS: Record<string, string> = {
   global: 'Global',
   'image-viewer': 'Image Viewer',
+  viewport: 'Viewport',
   search: 'Search',
   modal: 'Modal',
 };
@@ -52,7 +53,7 @@ export const KeyboardShortcutsPanel: Component = () => {
     }
     
     // Sort groups by priority
-    const order = ['global', 'image-viewer', 'search', 'modal'];
+    const order = ['global', 'image-viewer', 'viewport', 'search', 'modal'];
     const result: ScopeGroup[] = [];
     
     for (const scope of order) {

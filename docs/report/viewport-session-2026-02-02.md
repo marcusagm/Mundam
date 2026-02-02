@@ -255,12 +255,94 @@ const viewport = useVirtualViewport(layoutMode, layoutItems);
 
 ---
 
-## 5. Próximos Passos (Sugeridos)
+## 5. Nova Feature: Keyboard Navigation
 
-1. **Keyboard Navigation** - Setas para navegar entre imagens no grid
-2. **Lazy Loading Otimizado** - Priorizar imagens no centro da viewport
-3. **Animações de Transição** - Suavizar troca entre modos de layout
-4. **Persistência de Scroll** - Manter posição ao trocar de modo
+### 5.1 Visão Geral
+
+Implementada navegação por teclado consistente em **todos os viewports** (Masonry, Grid, List):
+
+| Tecla | Ação |
+|-------|------|
+| `↑` `↓` `←` `→` | Navegar entre itens |
+| `Home` | Ir para primeiro item |
+| `End` | Ir para último item |
+| `Space` | Selecionar/deselecionar item focado |
+| `Enter` | Abrir item focado |
+| `Shift + Arrow` | Seleção em range |
+
+### 5.2 Implementação
+
+**Novo hook: `useGridKeyboardNav.ts`**
+- Navegação espacial baseada em posição visual
+- Scroll automático para manter item focado visível
+- Suporte a seleção múltipla com Shift
+- **Integração com `shortcutStore`:** Permite personalização das teclas via Settings
+
+### 5.3 Padronização do VirtualListView (Table.tsx)
+O componente `Table.tsx` (base para `VirtualListView`) foi refatorado para alinhar comportamento:
+- Implementou suporte centralizado a atalhos (via `shortcutStore`)
+- Sincronização de foco ao clicar: `onClick` agora foca o container e atualiza o estado visual
+- Comandos consistentes para `ArrowUp/Down`, `Space` (select), `Enter` (open)
+- `Shift+Click` e `Cmd+Click` funcionam identicamente ao Grid/Masonry
+
+### 5.4 Scroll-to-Focus Robusto (WIP -> Finalizado)
+Implementada comunicação bidirecional com o Worker para scroll preciso:
+1. **Problema:** Ao navegar para itens não visíveis, o hook tentava "estimar" a posição, frequentemente errando em layouts Masonry.
+2. **Solução:**
+   - Adicionada mensagem `QUERY_POSITION` ao protocolo do Worker.
+   - Implementado método `getItemPosition(id)` no `ViewportController` (retorna Promise).
+   - Hook `useGridKeyboardNav` agora faz query assíncrona se o item não estiver visível.
+   - **Correção Crítica 1:** O `scrollContainer` no Grid/Masonry agora é passado como um Signal Accessor. Anteriormente, a ref `let` era passada como `undefined` durante a inicialização do hook, impedindo qualquer scroll subsequente.
+   - **Correção Crítica 2:** Corrigido nome da classe CSS no `VirtualMasonry` (de `virtual-masonry-container` para `virtual-scroll-container`), restaurando `overflow-y: scroll` que havia sido perdido.
+
+**Integração:**
+```tsx
+// VirtualMasonry.tsx
+const [scrollContainer, setScrollContainer] = createSignal<HTMLDivElement>();
+// ...
+const keyboardNav = useGridKeyboardNav({
+  // ...
+  scrollContainer, // Accessor, not variable
+  getItemRect: (id) => viewport.getItemPosition(id),
+});
+```
+
+**Correções de Comportamento:**
+- Separação clara entre `Space` (selecionar) e `Enter` (abrir)
+- `Shift + Arrow` desabilitado para seleção (apenas movimento)
+- Sincronização de foco ao clicar (focando elemento DOM via `createEffect` no `AssetCard`)
+- `Table.tsx` padronizado para usar o mesmo sistema de atalhos e lógica de foco.
+- Adicionados atalhos padrão ao `shortcutStore` (Categoria: Viewport)
+
+### 5.5 Visual Feedback
+
+**CSS para estado focused:**
+```css
+.virtual-masonry-item.focused {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  z-index: 6;
+}
+```
+
+### 5.4 Arquivos Criados/Modificados
+
+| Arquivo | Tipo | Descrição |
+|---------|------|-----------|
+| `src/core/hooks/useGridKeyboardNav.ts` | Novo | Hook de navegação por teclado |
+| `src/core/hooks/index.ts` | Mod | Export do novo hook |
+| `src/components/features/viewport/VirtualMasonry.tsx` | Mod | Integração do hook |
+| `src/components/features/viewport/VirtualGridView.tsx` | Mod | Integração do hook |
+| `src/components/features/viewport/AssetCard.tsx` | Mod | Prop `isFocused` |
+| `src/components/features/viewport/viewport.css` | Mod | Estilos de focus |
+
+---
+
+## 6. Próximos Passos (Sugeridos)
+
+1. **Lazy Loading Otimizado** - Priorizar imagens no centro da viewport
+2. **Animações de Transição** - Suavizar troca entre modos de layout
+3. **Persistência de Scroll** - Manter posição ao trocar de modo
 
 ---
 

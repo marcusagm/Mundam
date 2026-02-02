@@ -5,6 +5,8 @@ import {
   useLibrary,
   useAssetCardActions,
   useVirtualViewport,
+  useGridKeyboardNav,
+  useSelection,
 } from "../../../core/hooks";
 import type { LayoutItemInput } from "../../../core/viewport";
 import "./grid-view.css";
@@ -14,14 +16,20 @@ import "./grid-view.css";
  *
  * Uses a Web Worker for layout calculations and Spatial Grid for O(1) visibility queries.
  * Grid layout uses uniform square cells, so aspectRatio is always 1.
+ * 
+ * Features:
+ * - Keyboard navigation (Arrow keys, Home, End)
+ * - Scroll-to-focus when navigating
+ * - Space to select, Enter to open
  */
 export const VirtualGridView: Component = () => {
   const lib = useLibrary();
   const actions = useAssetCardActions();
+  const selection = useSelection();
 
-  let scrollContainer: HTMLDivElement | undefined;
+  const [scrollContainer, setScrollContainer] = createSignal<HTMLDivElement>();
 
-  const [containerWidth, setContainerWidth] = createSignal(0);
+  const [_containerWidth, setContainerWidth] = createSignal(0);
   const [containerHeight, setContainerHeight] = createSignal(0);
 
   // For grid, all items have aspectRatio = 1 (square cells)
@@ -42,6 +50,25 @@ export const VirtualGridView: Component = () => {
     return map;
   });
 
+  // Keyboard navigation
+  const keyboardNav = useGridKeyboardNav({
+    visibleItems: viewport.visibleItems,
+    allItems: () => lib.items,
+    containerHeight,
+    scrollContainer, // Pass accessor
+    onSelect: (id: number, multi: boolean) => selection.toggle(id, multi),
+    onOpen: (id) => actions.handleOpen(id),
+    isSelected: actions.isSelected,
+    getSelectedIds: actions.getSelectedIds,
+    getItemRect: (id) => viewport.getItemPosition(id),
+  });
+
+  // Wrap select to sync focus
+  const handleSelectWithFocus = (id: number, multi: boolean) => {
+    keyboardNav.syncFocusWithClick(id);
+    actions.handleSelect(id, multi);
+  };
+
   // DnD helper: get item info by ID (used by drag source for ghost creation)
   const getItemInfo = (id: number) => {
     const item = itemsById().get(id);
@@ -56,7 +83,8 @@ export const VirtualGridView: Component = () => {
   let lastReportedWidth = 0;
 
   onMount(() => {
-    if (!scrollContainer) return;
+    const el = scrollContainer();
+    if (!el) return;
 
     const observer = new ResizeObserver((entries) => {
       requestAnimationFrame(() => {
@@ -78,10 +106,10 @@ export const VirtualGridView: Component = () => {
       });
     });
 
-    observer.observe(scrollContainer);
+    observer.observe(el);
 
     // Initial measure
-    const rect = scrollContainer.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
     if (rect.width > 0) {
       setContainerWidth(rect.width);
       setContainerHeight(rect.height);
@@ -90,39 +118,42 @@ export const VirtualGridView: Component = () => {
     }
 
     const handleScroll = () => {
-      if (!scrollContainer) return;
-      const currentScrollTop = scrollContainer.scrollTop;
+      const el = scrollContainer();
+      if (!el) return;
+      const currentScrollTop = el.scrollTop;
 
       // Notify Worker of scroll position
       viewport.handleScroll(currentScrollTop, containerHeight());
 
       // Load more when near bottom
+      const { scrollTop, scrollHeight, clientHeight } = el;
       if (
-        scrollContainer.scrollTop + scrollContainer.clientHeight >=
-        scrollContainer.scrollHeight - 500
+        scrollTop + clientHeight >=
+        scrollHeight - 500
       ) {
         lib.loadMore();
       }
     };
 
-    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    el.addEventListener("scroll", handleScroll, { passive: true });
 
     // Initial scroll notification
     viewport.handleScroll(0, containerHeight());
 
     onCleanup(() => {
       observer.disconnect();
-      scrollContainer?.removeEventListener("scroll", handleScroll);
+      el.removeEventListener("scroll", handleScroll);
     });
   });
 
   return (
     <div 
-      ref={scrollContainer} 
+      ref={setScrollContainer} 
       class="grid-view-container"
       role="grid"
       aria-label="Image gallery - grid layout"
       tabIndex={0}
+      onKeyDown={keyboardNav.handleKeyDown}
     >
       <Show when={lib.items.length > 0} fallback={
         <EmptyState 
@@ -144,6 +175,8 @@ export const VirtualGridView: Component = () => {
             const item = itemsById().get(pos.id);
             if (!item) return null;
 
+            const isFocused = () => keyboardNav.focusedId() === item.id;
+
             return (
               <AssetCard
                 // Identity
@@ -156,6 +189,7 @@ export const VirtualGridView: Component = () => {
                 height={item.height}
                 // State
                 isSelected={actions.isSelected(item.id)}
+                isFocused={isFocused()}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -165,7 +199,7 @@ export const VirtualGridView: Component = () => {
                   height: `${pos.height}px`,
                 }}
                 // Callbacks
-                onSelect={actions.handleSelect}
+                onSelect={handleSelectWithFocus}
                 onOpen={actions.handleOpen}
                 // DnD - drag source only (drop handled at container level)
                 getSelectedIds={actions.getSelectedIds}

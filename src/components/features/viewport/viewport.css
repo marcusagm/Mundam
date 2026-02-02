@@ -61,6 +61,16 @@
   z-index: 5;
 }
 
+.virtual-masonry-item.focused {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  z-index: 6;
+}
+
+.virtual-masonry-item.focused.selected {
+  outline-color: var(--accent-light, var(--accent-color));
+}
+
 /* Legacy/CSS-only Masonry (CSS Columns) */
 .masonry-grid {
   columns: 4 280px;

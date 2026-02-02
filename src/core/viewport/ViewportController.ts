@@ -58,7 +58,11 @@ export class ViewportController implements IViewportController {
   // Store last known scroll position to re-query visibility after layout changes
   private lastScroll: { scrollTop: number; viewportHeight: number } = { scrollTop: 0, viewportHeight: 800 };
   // Debounce resize for smoother performance
+  // Debounce resize for smoother performance
   private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  
+  // Pending position queries
+  private pendingQueries = new Map<string, (pos: ItemPosition | null) => void>();
 
   constructor(initialConfig: Partial<LayoutConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...initialConfig };
@@ -165,6 +169,28 @@ export class ViewportController implements IViewportController {
   }
 
   /**
+   * Queries the exact position of an item from the worker.
+   * Useful for scrolling to specific items not currently visible.
+   */
+  getItemPosition(id: number): Promise<ItemPosition | null> {
+    if (this.disposed) return Promise.resolve(null);
+    
+    return new Promise((resolve) => {
+      const requestId = Math.random().toString(36).substr(2, 9);
+      this.pendingQueries.set(requestId, resolve);
+      this.postMessage({ type: "QUERY_POSITION", payload: { id, requestId } });
+      
+      // Timeout fallback
+      setTimeout(() => {
+        if (this.pendingQueries.has(requestId)) {
+          this.pendingQueries.delete(requestId);
+          resolve(null);
+        }
+      }, 500);
+    });
+  }
+
+  /**
    * Cleans up worker and cancels pending operations.
    * Call this when the component unmounts.
    */
@@ -220,6 +246,15 @@ export class ViewportController implements IViewportController {
         case "ERROR":
           console.error("[ViewportController] Worker error:", payload.message);
           this._isCalculating[1](false);
+          break;
+
+        case "POSITION_RESULT":
+          // Handle async position query response
+          const callback = this.pendingQueries.get(payload.requestId);
+          if (callback) {
+            this.pendingQueries.delete(payload.requestId);
+            callback(payload.position);
+          }
           break;
       }
     };

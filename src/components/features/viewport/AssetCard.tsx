@@ -1,4 +1,4 @@
-import { Component, JSX, createSignal } from "solid-js";
+import { Component, JSX, createSignal, createEffect } from "solid-js";
 import { ReferenceImage } from "./ReferenceImage";
 import { assetDragSource, dndRegistry, currentDragItem, setDropTargetId, currentDropTargetId } from "../../../core/dnd";
 
@@ -21,6 +21,7 @@ export interface AssetCardProps {
 
   // State (controlled externally)
   isSelected: boolean;
+  isFocused?: boolean;
   style: JSX.CSSProperties;
   className?: string;
 
@@ -48,6 +49,14 @@ assetDragSource;
  */
 export const AssetCard: Component<AssetCardProps> = (props) => {
   const [dragCounter, setDragCounter] = createSignal(0);
+  let ref: HTMLDivElement | undefined;
+
+  // Sync native focus when virtual focus changes
+  createEffect(() => {
+    if (props.isFocused && ref) {
+      ref.focus({ preventScroll: true });
+    }
+  });
 
   // Check if this card is the current drop target
   const isDropTarget = () => currentDropTargetId() === props.id;
@@ -117,6 +126,7 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
 
   return (
     <div
+      ref={ref}
       use:assetDragSource={{
         id: props.id,
         path: props.path,
@@ -125,13 +135,13 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
         getSelectedIds: props.getSelectedIds,
         getItemInfo: props.getItemInfo,
       }}
-      class={`virtual-item virtual-masonry-item ${props.isSelected ? "selected" : ""} ${isDropTarget() ? "drop-target-active" : ""} ${props.className || ""}`}
+      class={`virtual-item virtual-masonry-item ${props.isSelected ? "selected" : ""} ${props.isFocused ? "focused" : ""} ${isDropTarget() ? "drop-target-active" : ""} ${props.className || ""}`}
       style={props.style}
       // Accessibility
       role="gridcell"
       aria-selected={props.isSelected}
       aria-label={`Image: ${props.filename}`}
-      tabIndex={-1}
+      tabIndex={props.isFocused ? 0 : -1}
       // Events
       onClick={(e) => {
         e.stopPropagation();
@@ -139,12 +149,6 @@ export const AssetCard: Component<AssetCardProps> = (props) => {
       }}
       onDblClick={() => props.onOpen(props.id)}
       onContextMenu={(e) => props.onContextMenu?.(e, props.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          props.onOpen(props.id);
-        }
-      }}
       // Drop handlers for Tag-to-Image
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}

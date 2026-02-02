@@ -64,6 +64,72 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     ignoreInputs: false,
   },
   
+  // Viewport Interaction
+  {
+    name: 'Move Up',
+    description: 'Navigate up in grid/list',
+    keys: 'ArrowUp',
+    scope: 'viewport',
+    command: 'viewport:move-up',
+    category: 'Navigation',
+  },
+  {
+    name: 'Move Down',
+    description: 'Navigate down in grid/list',
+    keys: 'ArrowDown',
+    scope: 'viewport',
+    command: 'viewport:move-down',
+    category: 'Navigation',
+  },
+  {
+    name: 'Move Left',
+    description: 'Navigate left in grid',
+    keys: 'ArrowLeft',
+    scope: 'viewport',
+    command: 'viewport:move-left',
+    category: 'Navigation',
+  },
+  {
+    name: 'Move Right',
+    description: 'Navigate right in grid',
+    keys: 'ArrowRight',
+    scope: 'viewport',
+    command: 'viewport:move-right',
+    category: 'Navigation',
+  },
+  {
+    name: 'Go to Start',
+    description: 'Navigate to first item',
+    keys: 'Home',
+    scope: 'viewport',
+    command: 'viewport:home',
+    category: 'Navigation',
+  },
+  {
+    name: 'Go to End',
+    description: 'Navigate to last item',
+    keys: 'End',
+    scope: 'viewport',
+    command: 'viewport:end',
+    category: 'Navigation',
+  },
+  {
+    name: 'Toggle Selection',
+    description: 'Select/deselect focused item',
+    keys: 'Space',
+    scope: 'viewport',
+    command: 'viewport:toggle-select',
+    category: 'Selection',
+  },
+  {
+    name: 'Open Item',
+    description: 'Open focused item',
+    keys: 'Enter',
+    scope: 'viewport',
+    command: 'viewport:open',
+    category: 'Navigation',
+  },
+
   // Image Viewer scope
   {
     name: 'Close Viewer',

@@ -75,6 +75,12 @@ self.onmessage = (e: MessageEvent<WorkerInMessage>) => {
       case "INVALIDATE":
         recalculateLayout();
         break;
+
+      case "QUERY_POSITION":
+        const { id, requestId } = msg.payload;
+        const pos = positions.get(id) || null;
+        respond({ type: "POSITION_RESULT", payload: { requestId, position: pos } });
+        break;
     }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : "Unknown error";

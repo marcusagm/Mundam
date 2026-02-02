@@ -30,6 +30,8 @@ export interface VirtualViewportResult {
   handleScroll: (scrollTop: number, viewportHeight: number) => void;
   /** Force a layout recalculation */
   invalidate: () => void;
+  /** Query item position */
+  getItemPosition: (id: number) => Promise<ItemPosition | null>;
 }
 
 /**
@@ -101,6 +103,7 @@ export function useVirtualViewport(
     handleResize: (width) => controller.handleResize(width),
     handleScroll: (scrollTop, viewportHeight) => controller.handleScroll(scrollTop, viewportHeight),
     invalidate: () => controller.setConfig({}), // Empty config triggers recalculation
+    getItemPosition: (id) => controller.getItemPosition(id),
   };
 }
 

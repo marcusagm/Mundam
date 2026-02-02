@@ -73,7 +73,8 @@ export type WorkerInMessage =
   | { type: "CONFIGURE"; payload: LayoutConfig }
   | { type: "RESIZE"; payload: { width: number } }
   | { type: "SCROLL"; payload: { scrollTop: number; viewportHeight: number } }
-  | { type: "INVALIDATE" }; // Force recalculation
+  | { type: "INVALIDATE" } // Force recalculation
+  | { type: "QUERY_POSITION"; payload: { id: number; requestId: string } };
 
 /**
  * Messages sent FROM worker TO main thread.
@@ -81,7 +82,8 @@ export type WorkerInMessage =
 export type WorkerOutMessage =
   | { type: "LAYOUT_COMPLETE"; payload: { totalHeight: number } }
   | { type: "VISIBLE_UPDATE"; payload: ItemPosition[] }
-  | { type: "ERROR"; payload: { message: string } };
+  | { type: "ERROR"; payload: { message: string } }
+  | { type: "POSITION_RESULT"; payload: { requestId: string; position: ItemPosition | null } };
 
 // ============================================================================
 // Controller Types
@@ -101,6 +103,7 @@ export interface IViewportController {
   setConfig(config: Partial<LayoutConfig>): void;
   handleResize(width: number): void;
   handleScroll(scrollTop: number, viewportHeight: number): void;
+  getItemPosition(id: number): Promise<ItemPosition | null>;
   dispose(): void;
 }
 

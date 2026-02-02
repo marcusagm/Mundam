@@ -16,6 +16,11 @@
     -ms-user-select: none;
 }
 
+.global-statusbar .empty-state {
+    height: 32px;
+    min-height: 32px;
+}
+
 .statusbar-left, .statusbar-center, .statusbar-right {
     display: flex;
     align-items: center;
@@ -99,4 +104,10 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
+}
+
+.task-row .loader-container {
+    width: 24px;
+    height: 24px;
+    margin: 0 var(--space-2, 8px);
 }
