@@ -26,6 +26,7 @@ query_builder.push_bind(format!("%{}%", c.value.as_str().unwrap_or("")));
 * **A Solução Recomendada:** Implementar **FTS5 (Full-Text Search)** do SQLite.
 1. Criar uma tabela virtual: `CREATE VIRTUAL TABLE images_fts USING fts5(filename, notes, content='images', content_rowid='id');`
 2. Alterar a query Rust para usar o operador `MATCH`. Isso reduzirá o tempo de busca de centenas de milissegundos para microsegundos.
+**✅ STATUS: CONCLUÍDO (Implemented FTS5 + Triggers + Match Query)**
 
 
 
@@ -40,9 +41,8 @@ O schema define índices para chaves estrangeiras (`folder_id`, `parent_id`) e `
 ```sql
 CREATE INDEX idx_images_rating ON images(rating DESC, created_at DESC);
 CREATE INDEX idx_images_modified ON images(modified_at DESC);
-
 ```
-
+**✅ STATUS: CONCLUÍDO (Added Indices for rating, size, created, modified)**
 
 
 ### 🟡 Code Smell: Construção de Query "Frágil"
@@ -60,6 +60,7 @@ _ => { query_builder.push(" i."); query_builder.push(&c.key); query_builder.push
 
 Isso retorna *todos* os registros se houver um erro de digitação no frontend ou uma chave nova não implementada no backend, confundindo o usuário ou o desenvolvedor.
 * **Melhoria:** Retornar um `Result::Err` ou logar um aviso explícito de "Critério de busca desconhecido/ignorado".
+**✅ STATUS: CONCLUÍDO (Added Warning Logs)**
 
 ---
 
@@ -116,6 +117,7 @@ A tabela define `path TEXT NOT NULL UNIQUE`.
 * Escute eventos de `Rename`/`Move`.
 * Atualize o banco atomicamente.
 * Execute uma rotina de "Sanity Check" na inicialização para limpar registros de arquivos inexistentes.
+**✅ STATUS: CONCLUÍDO (Indexer contains robust notify watcher)**
 
 
 
@@ -123,9 +125,9 @@ A tabela define `path TEXT NOT NULL UNIQUE`.
 
 ## 4. Resumo de Bugs Potenciais (Backend)
 
-1. **Date Parsing:** Em `search_logic.rs`, o código tenta converter datas manualmente: `let parts: Vec<&str> = raw_val.split('/').collect();`. Isso assume formato `DD/MM/YYYY`. Se o frontend enviar `MM/DD/YYYY` (locale US) ou ISO `YYYY-MM-DD`, a busca falhará ou retornará dados errados. **Correção:** Padronizar tudo para ISO-8601 (`YYYY-MM-DD`) na comunicação JSON.
-2. **Case Sensitivity no SQL:** O uso de `LIKE` no SQLite é *case-insensitive* para caracteres ASCII, mas depende de configuração para UTF-8 (acentos, etc.). Pode haver inconsistência ao buscar "Araçá" vs "araçá".
-3. **Recursividade Infinita:** A query recursiva para pastas (`WITH RECURSIVE subfolders`) em `search_logic.rs` não tem limite de profundidade. Em uma estrutura de pastas circular (symlinks maliciosos ou erro de lógica), isso poderia causar travamento.
+1.  **Date Parsing:** Em `search_logic.rs`, o código tenta converter datas manualmente: `let parts: Vec<&str> = raw_val.split('/').collect();`. Isso assume formato `DD/MM/YYYY`. Se o frontend enviar `MM/DD/YYYY` (locale US) ou ISO `YYYY-MM-DD`, a busca falhará ou retornará dados errados. **Correção:** Padronizar tudo para ISO-8601 (`YYYY-MM-DD`) na comunicação JSON. **✅ STATUS: CONCLUÍDO**
+2.  **Case Sensitivity no SQL:** O uso de `LIKE` no SQLite é *case-insensitive* para caracteres ASCII, mas depende de configuração para UTF-8 (acentos, etc.). Pode haver inconsistência ao buscar "Araçá" vs "araçá".
+3.  **Recursividade Infinita:** A query recursiva para pastas (`WITH RECURSIVE subfolders`) em `search_logic.rs` não tem limite de profundidade. Em uma estrutura de pastas circular (symlinks maliciosos ou erro de lógica), isso poderia causar travamento. **✅ STATUS: CONCLUÍDO (Added depth limit)**
 
 ---
 
@@ -169,6 +171,7 @@ return items.filter(item => {
 * **A Solução:**
 1. **Binning Espacial:** Durante o cálculo do layout, agrupe os IDs dos itens em "buckets" verticais (ex: chunks de 1000px de altura).
 2. No scroll, consulte apenas os buckets que interceptam a viewport, reduzindo a busca de O(N) para O(1) ou O(K) (onde K é o número de itens na tela).
+**✅ STATUS: CONCLUÍDO (Worker uses Spatial Grid / Buckets)**
 
 
 
@@ -178,6 +181,7 @@ return items.filter(item => {
 
 * **O Problema:** A função `calculateMasonryLayout` é chamada dentro de um `createMemo`. Embora o SolidJS seja eficiente, recalcular a posição (x,y) de 50.000 itens de uma vez na thread principal vai congelar a interface por segundos sempre que a janela for redimensionada ou o zoom (colunas) mudar.
 * **A Solução:** Mover a lógica de `calculateMasonryLayout` para um **Web Worker**. O worker recebe a lista de alturas e a largura do container, devolve um Map de posições, e a UI atualiza sem travar.
+**✅ STATUS: CONCLUÍDO (Moved to layout.worker.ts)**
 
 ### 🟡 Code Smell: Renderização Condicional "Suja"
 
@@ -211,6 +215,7 @@ const viewport = useViewport();
 
 * **O Problema:** Isso torna o `AssetCard` impossível de reutilizar em outros contextos (ex: num modal de seleção, num plugin ou storybook) sem "mockar" toda a store global. Ele deveria ser um componente "burro" (dumb component) que recebe `isSelected`, `onSelect`, `onOpen` via props.
 * **Impacto:** Dificulta testes unitários e refatorações futuras onde talvez você queira mostrar um card de imagem fora do contexto da biblioteca principal.
+**✅ STATUS: CONCLUÍDO (Decoupled AssetCard)**
 
 ### 🟡 Inconsistência no Acesso ao Estado
 
@@ -243,6 +248,7 @@ use:assetDnD={{
 
 
 * **Correção:** A diretiva de DnD deveria receber apenas o ID do item. A lógica global de "quem está sendo arrastado" deve residir no gerenciador central de DnD, não injetada em cada instância.
+**✅ STATUS: CONCLUÍDO (Fixed in AssetCard)**
 
 ---
 
@@ -262,6 +268,7 @@ Não vi tratamento explícito (Guard Clause) no `MultiInspector` para caso `prop
 
 1. **Race Condition no Resize:** No `VirtualMasonry`, `setContainerWidth` dispara um novo layout. Se a mudança de layout alterar a altura total e fizer a barra de rolagem aparecer/desaparecer, a largura muda novamente. Isso cria um loop infinito de Resize -> Layout -> Resize (Layout Thrashing).
 * *Correção:* Usar `scrollbar-gutter: stable` no CSS ou lógica de detecção de loop no JS.
+**✅ STATUS: CONCLUÍDO (Fixed with threshold check)**
 
 
 2. **Hardcoded Values:**

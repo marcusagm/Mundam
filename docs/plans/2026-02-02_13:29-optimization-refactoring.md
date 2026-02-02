@@ -67,7 +67,7 @@ Work covers both:
 | B-4 | Robust Date Parsing | `DD/MM/YYYY` strings | ISO-8601 internal logic | Search allows different date formats |
 | B-5 | Limit Recursion | Infinite loop risk | `WHERE depth < 50` | Circular links don't crash app |
 
-### Phase 3: Integrity & Polish (⚠️ Pending)
+### Phase 3: Integrity & Polish (✅ Completed)
 | ID | Task | Input | Output | Verify |
 |----|------|-------|--------|--------|
 | I-1 | File Watcher Integration | `notify` crate | Auto-sync DB on external move | Rename file in Explorer -> DB updates |
@@ -88,4 +88,4 @@ Work covers both:
 -   [x] **SQL:** No redundant `LIKE` wildcards where FTS can be used.
 
 ### Next Steps
--   Proceed to **Option B** (Data Integrity / File Watcher) or **Option C** (UI Polish) as determined in conversation.
+-   Start **Code Review Part 3** to audit new frontend code or other pending modules.

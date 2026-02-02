@@ -12,7 +12,7 @@ interface TagDeleteModalProps {
 }
 
 export const TagDeleteModal: Component<TagDeleteModalProps> = (props) => {
-    const { loadTags, tags } = useMetadata();
+    const { loadTags } = useMetadata();
     const notification = useNotification();
 
     const getAllDescendants = (node: TreeNode): number[] => {

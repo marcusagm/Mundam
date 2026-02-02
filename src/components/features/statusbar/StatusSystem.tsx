@@ -1,12 +1,12 @@
-import { Component, Show, createSignal, onMount, onCleanup } from "solid-js";
+import { Component, Show, createSignal } from "solid-js";
 import { useSystem } from "../../../core/hooks";
 import { Loader } from "../../ui/Loader";
-import { CircleCheck, CircleAlert, Settings, List } from "lucide-solid";
+import { CircleCheck, Settings } from "lucide-solid";
 import { Button } from "../../ui/Button";
 
 export const StatusSystem: Component = () => {
     const system = useSystem();
-    const [thumbnailQueue, setThumbnailQueue] = createSignal(0);
+    const [thumbnailQueue] = createSignal(0);
     const [isPopoverOpen, setIsPopoverOpen] = createSignal(false);
 
     // TODO: Wire up to real backend event "thumbnail:queue-status"
