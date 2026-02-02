@@ -1,9 +1,11 @@
-import { Component, createMemo } from "solid-js";
+import { Component, createMemo, Show } from "solid-js";
 import { Table, Column } from "../../ui/Table";
 import { useLibrary, useSelection, useViewport, useFilters } from "../../../core/hooks";
 import { ImageItem } from "../../../types";
 import { formatFileSize, formatDate } from "../../../utils/format";
 import { assetDnD } from "../../../core/dnd";
+import { ImageOff } from "lucide-solid";
+import { EmptyState } from "./EmptyState";
 
 export const VirtualListView: Component = () => {
     const lib = useLibrary();
@@ -130,26 +132,37 @@ export const VirtualListView: Component = () => {
 
     return (
         <div class="virtual-list-view">
-            <Table
-                data={lib.items}
-                columns={columns()}
-                height="100%"
-                rowHeight={rowHeight()}
-                selectedIds={selection.selectedIds}
-                sortKey={filters.sortBy}
-                sortOrder={filters.sortOrder as "asc" | "desc"}
-                onSort={handleSort}
-                onScroll={handleScroll}
-                onRowClick={(item, multi) => selection.toggle(item.id, multi)}
-                onRowDoubleClick={(item) => viewport.openItem(item.id.toString())}
-                onRowMount={(el, item) => assetDnD(el, () => ({ 
-                    item, 
-                    selected: selection.selectedIds.includes(item.id),
-                    selectedIds: selection.selectedIds,
-                    allItems: lib.items
-                }))}
-                keyField="id"
-            />
+            <Show when={lib.items.length > 0} fallback={
+                <EmptyState 
+                    title="No images found"
+                    description="Try adjusting your filters or add images to your library."
+                />
+            }>
+                <Table
+                    data={lib.items}
+                    columns={columns()}
+                    height="100%"
+                    rowHeight={rowHeight()}
+                    selectedIds={selection.selectedIds}
+                    sortKey={filters.sortBy}
+                    sortOrder={filters.sortOrder as "asc" | "desc"}
+                    onSort={handleSort}
+                    onScroll={handleScroll}
+                    onRowClick={(item, multi) => selection.toggle(item.id, multi)}
+                    onRowDoubleClick={(item) => viewport.openItem(item.id.toString())}
+                    onRowMount={(el, item) => assetDnD(el, () => ({ 
+                        item, 
+                        selected: selection.selectedIds.includes(item.id),
+                        selectedIds: selection.selectedIds,
+                        allItems: lib.items
+                    }))}
+                    keyField="id"
+                    label="Image library list view"
+                    emptyMessage="No images found"
+                    emptyDescription="Try adjusting your filters or add images to your library."
+                    emptyIcon={ImageOff}
+                />
+            </Show>
         </div>
     );
 };

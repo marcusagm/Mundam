@@ -1,5 +1,6 @@
-import { JSX, createSignal, createMemo, onMount, onCleanup, For, Show, splitProps } from "solid-js";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-solid";
+import { JSX, createSignal, createMemo, onMount, onCleanup, For, Show, splitProps, Component } from "solid-js";
+import { ChevronUp, ChevronDown, ChevronsUpDown, Inbox } from "lucide-solid";
+import type { LucideProps } from "lucide-solid";
 import { cn } from "../../lib/utils";
 import "./table.css";
 
@@ -57,6 +58,12 @@ export interface TableProps<T> {
   height?: string | number;
   /** ARIA label for the grid */
   label?: string;
+  /** Message to display when table is empty */
+  emptyMessage?: string;
+  /** Description for empty state */
+  emptyDescription?: string;
+  /** Custom icon for empty state (lucide-solid icon component) */
+  emptyIcon?: Component<LucideProps>;
 }
 
 /**
@@ -80,7 +87,10 @@ export function Table<T>(props: TableProps<T>) {
     "keyField",
     "class",
     "height",
-    "label"
+    "label",
+    "emptyMessage",
+    "emptyDescription",
+    "emptyIcon"
   ]);
 
   let gridContainer: HTMLDivElement | undefined;
@@ -265,54 +275,74 @@ export function Table<T>(props: TableProps<T>) {
           </For>
         </div>
 
-        {/* Dynamic Rows */}
-        <For each={local.data.slice(visibleRange().start, visibleRange().end)}>
-          {(item, index) => {
-            const realIndex = createMemo(() => visibleRange().start + index());
-            const id = (item[keyField()] as any);
-            const isSelected = createMemo(() => selectedIds().includes(id));
-            const isFocused = createMemo(() => focusedIndex() === realIndex());
-
+        {/* Dynamic Rows or Empty State */}
+        <Show 
+          when={local.data.length > 0} 
+          fallback={(() => {
+            const Icon = local.emptyIcon || Inbox;
             return (
-              <div 
-                ref={(el) => local.onRowMount?.(el, item)}
-                class={cn(
-                  "ui-table-grid-row",
-                  isSelected() && "ui-table-grid-row-selected",
-                  isFocused() && "ui-table-grid-row-focused"
-                )}
-                style={{ 
-                  height: `${rowHeight()}px`, 
-                  transform: `translate3d(0, ${HEADER_HEIGHT + realIndex() * rowHeight()}px, 0)` 
-                }}
-                onClick={(e) => local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey)}
-                onDblClick={() => local.onRowDoubleClick?.(item)}
-                role="row"
-                aria-rowindex={realIndex() + 2} // +1 for index and +1 for header
-                aria-selected={isSelected()}
-              >
-                <For each={visibleColumns()}>
-                  {(col) => (
-                    <div 
-                      class="ui-table-grid-cell"
-                      style={{ 
-                        width: typeof col.width === 'number' ? `${col.width}px` : col.width || '150px', 
-                        flex: col.width ? '0 0 auto' : '1 1 0',
-                        "justify-content": col.align === 'center' ? 'center' : col.align === 'right' ? 'flex-end' : 'flex-start'
-                      }}
-                      role="gridcell"
-                      aria-colindex={visibleColumns().indexOf(col) + 1}
-                    >
-                      <div class="ui-table-grid-cell-content">
-                        {col.cell ? col.cell(item) : (item[col.accessorKey as keyof T] as any)}
-                      </div>
-                    </div>
-                  )}
-                </For>
+              <div class="ui-table-empty-state" role="row" aria-rowindex="2">
+                <div class="ui-table-empty-icon">
+                  <Icon size={48} />
+                </div>
+                <div class="ui-table-empty-message">
+                  {local.emptyMessage || "No items to display"}
+                </div>
+                <div class="ui-table-empty-description">
+                  {local.emptyDescription || "Adjust your filters or add items to see data here."}
+                </div>
               </div>
             );
-          }}
-        </For>
+          })()}
+        >
+          <For each={local.data.slice(visibleRange().start, visibleRange().end)}>
+            {(item, index) => {
+              const realIndex = createMemo(() => visibleRange().start + index());
+              const id = (item[keyField()] as any);
+              const isSelected = createMemo(() => selectedIds().includes(id));
+              const isFocused = createMemo(() => focusedIndex() === realIndex());
+
+              return (
+                <div 
+                  ref={(el) => local.onRowMount?.(el, item)}
+                  class={cn(
+                    "ui-table-grid-row",
+                    isSelected() && "ui-table-grid-row-selected",
+                    isFocused() && "ui-table-grid-row-focused"
+                  )}
+                  style={{ 
+                    height: `${rowHeight()}px`, 
+                    transform: `translate3d(0, ${HEADER_HEIGHT + realIndex() * rowHeight()}px, 0)` 
+                  }}
+                  onClick={(e) => local.onRowClick?.(item, e.ctrlKey || e.metaKey, e.shiftKey)}
+                  onDblClick={() => local.onRowDoubleClick?.(item)}
+                  role="row"
+                  aria-rowindex={realIndex() + 2} // +1 for index and +1 for header
+                  aria-selected={isSelected()}
+                >
+                  <For each={visibleColumns()}>
+                    {(col) => (
+                      <div 
+                        class="ui-table-grid-cell"
+                        style={{ 
+                          width: typeof col.width === 'number' ? `${col.width}px` : col.width || '150px', 
+                          flex: col.width ? '0 0 auto' : '1 1 0',
+                          "justify-content": col.align === 'center' ? 'center' : col.align === 'right' ? 'flex-end' : 'flex-start'
+                        }}
+                        role="gridcell"
+                        aria-colindex={visibleColumns().indexOf(col) + 1}
+                      >
+                        <div class="ui-table-grid-cell-content">
+                          {col.cell ? col.cell(item) : (item[col.accessorKey as keyof T] as any)}
+                        </div>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              );
+            }}
+          </For>
+        </Show>
       </div>
     </div>
   );
