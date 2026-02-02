@@ -2,7 +2,20 @@ use std::path::Path;
 use fast_image_resize as fr;
 use zune_jpeg::JpegDecoder;
 
-/// Fast path using zune-jpeg for JPEG decode and webp crate for encode
+/// Generates a thumbnail using native Rust libraries.
+///
+/// Optimized for performance using:
+/// - `zune-jpeg` for fast JPEG decoding (SIMD-optimized).
+/// - `fast_image_resize` for high-performance resizing (SIMD: SSE2, AVX2, NEON, WASM).
+/// - `webp` crate for native encoding.
+/// - **Buffered Reader** for efficient file IO.
+/// - **Bilinear Filter** for resize speed (vs Lanczos3).
+///
+/// # Arguments
+///
+/// * `input_path` - Path to the image file.
+/// * `output_path` - Destination path for the WebP thumbnail.
+/// * `size_px` - Target size in pixels.
 pub fn generate_thumbnail_fast(
     input_path: &Path,
     output_path: &Path,

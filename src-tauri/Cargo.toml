@@ -50,5 +50,5 @@ zip = "2.1"
 # But we are using the standalone 'webp' crate for encoding? Yes.
 
 # OPTIMIZATION: Compile heavy dependencies with optimizations even in debug mode
-[profile.dev.package."*"]
-opt-level = 3
+# [profile.dev.package."*"]
+# opt-level = 3

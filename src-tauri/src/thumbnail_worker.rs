@@ -31,7 +31,7 @@ impl ThumbnailWorker {
             loop {
                 // Fetch valid batch size (e.g., 5) to maximize responsiveness
                 // println!("DEBUG: Fetching images needing thumbnails...");
-                match db.get_images_needing_thumbnails(5).await {
+                match db.get_images_needing_thumbnails(6).await {
                     Ok(images) => {
                         if images.is_empty() {
                             // println!("DEBUG: No images need thumbnails. Sleeping.");
@@ -48,42 +48,51 @@ impl ThumbnailWorker {
                         let thumb_dir_clone = thumb_dir.clone();
 
                         // Use a blocking thread for CPU-intensive work
-                        // Limit parallelism to 2 threads to reduce CPU usage
+                        // Limit parallelism to 4 threads (since we leverage FFmpeg external processes mostly)
                         let db_updates = tauri::async_runtime::spawn_blocking(move || {
-                            // Process sequentially to avoid CPU spikes (150%+ usage) with fast_image_resize
-                            // The resize operation is already optimized and multi-threaded where appropriate.
-                            images
-                                .iter()
-                                .filter_map(|(id, img_path)| {
-                                    let input_path = Path::new(&img_path);
-                                    if !input_path.exists() {
-                                        // println!("DEBUG: Image path not found: {:?}", input_path);
-                                        return None;
-                                    }
-
-                                    let thumb_name = get_thumbnail_filename(&img_path);
-                                    let output_path = thumb_dir_clone.join(&thumb_name);
-
-                                    // Generate thumbnail
-                                    match generate_thumbnail(input_path, &output_path, 300) {
-                                        Ok(_) => {
-                                            let filename_only = output_path
-                                                .file_name()
-                                                .unwrap_or_default()
-                                                .to_string_lossy()
-                                                .to_string();
-                                            Some((*id, filename_only))
+                            use rayon::prelude::*;
+                            use rayon::ThreadPoolBuilder;
+                            
+                            // Create a limited thread pool
+                            let pool = ThreadPoolBuilder::new()
+                                .num_threads(2)
+                                .build()
+                                .unwrap();
+                            
+                            pool.install(|| {
+                                images
+                                    .par_iter()
+                                    .filter_map(|(id, img_path)| {
+                                        let input_path = Path::new(&img_path);
+                                        if !input_path.exists() {
+                                            // println!("DEBUG: Image path not found: {:?}", input_path);
+                                            return None;
                                         }
-                                        Err(e) => {
-                                            eprintln!(
-                                                "Error generating thumbnail for {:?}: {}",
-                                                input_path, e
-                                            );
-                                            None
+    
+                                        let thumb_name = get_thumbnail_filename(&img_path);
+                                        let output_path = thumb_dir_clone.join(&thumb_name);
+    
+                                        // Generate thumbnail
+                                        match generate_thumbnail(input_path, &output_path, 300) {
+                                            Ok(_) => {
+                                                let filename_only = output_path
+                                                    .file_name()
+                                                    .unwrap_or_default()
+                                                    .to_string_lossy()
+                                                    .to_string();
+                                                Some((*id, filename_only))
+                                            }
+                                            Err(e) => {
+                                                eprintln!(
+                                                    "Error generating thumbnail for {:?}: {}",
+                                                    input_path, e
+                                                );
+                                                None
+                                            }
                                         }
-                                    }
-                                })
-                                .collect::<Vec<_>>()
+                                    })
+                                    .collect::<Vec<_>>()
+                            }) // Close pool.install
                         })
                         .await
                         .unwrap_or_else(|e| {
