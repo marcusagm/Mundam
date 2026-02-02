@@ -60,18 +60,39 @@ pub fn build_where_clause<'a>(group: &'a SearchGroup, query_builder: &mut sqlx::
 fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::QueryBuilder<'a, sqlx::Sqlite>) {
     match c.key.as_str() {
         "filename" | "notes" | "format" => {
+            let is_fts_target = (c.key == "filename" || c.key == "notes");
+            
             match c.operator.as_str() {
                 "contains" => {
-                    query_builder.push(" i.");
-                    query_builder.push(&c.key);
-                    query_builder.push(" LIKE ");
-                    query_builder.push_bind(format!("%{}%", c.value.as_str().unwrap_or("")));
+                    if is_fts_target {
+                        // Use FTS5 Trigram MATCH
+                        query_builder.push(" i.id IN (SELECT rowid FROM images_fts WHERE ");
+                        query_builder.push(&c.key);
+                        query_builder.push(" MATCH ");
+                        // Trigram EXACT match on the string finds it as substring
+                        query_builder.push_bind(format!("\"{}\"", c.value.as_str().unwrap_or("")));
+                        query_builder.push(") ");
+                    } else {
+                        // Fallback for 'format'
+                        query_builder.push(" i.");
+                        query_builder.push(&c.key);
+                        query_builder.push(" LIKE ");
+                        query_builder.push_bind(format!("%{}%", c.value.as_str().unwrap_or("")));
+                    }
                 },
                 "not_contains" => {
-                    query_builder.push(" i.");
-                    query_builder.push(&c.key);
-                    query_builder.push(" NOT LIKE ");
-                    query_builder.push_bind(format!("%{}%", c.value.as_str().unwrap_or("")));
+                     if is_fts_target {
+                        query_builder.push(" i.id NOT IN (SELECT rowid FROM images_fts WHERE ");
+                        query_builder.push(&c.key);
+                        query_builder.push(" MATCH ");
+                        query_builder.push_bind(format!("\"{}\"", c.value.as_str().unwrap_or("")));
+                        query_builder.push(") ");
+                     } else {
+                        query_builder.push(" i.");
+                        query_builder.push(&c.key);
+                        query_builder.push(" NOT LIKE ");
+                        query_builder.push_bind(format!("%{}%", c.value.as_str().unwrap_or("")));
+                     }
                 },
                 "equals" | "eq" => {
                     if c.key == "format" {
@@ -118,9 +139,8 @@ fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::
                     }
                 },
                 _ => { 
-                    query_builder.push(" i.");
-                    query_builder.push(&c.key);
-                    query_builder.push(" = 1 "); 
+                    println!("WARN: Unknown operator '{}' for key '{}'", c.operator, c.key);
+                    query_builder.push(" 1=1 "); 
                 },
             }
         },
@@ -173,9 +193,18 @@ fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::
             // Frontend sends DD/MM/YYYY, we should probably convert to YYYY-MM-DD on frontend or backend.
             // Assuming DD/MM/YYYY for now and trying to convert.
             let raw_val = c.value.as_str().unwrap_or("");
-            let parts: Vec<&str> = raw_val.split('/').collect();
-            let final_val = if parts.len() == 3 {
-                format!("{}-{}-{}", parts[2], parts[1], parts[0])
+            
+            // Try to normalize date.
+            // If it matches DD/MM/YYYY, convert to YYYY-MM-DD
+            // If it matches YYYY-MM-DD, keep it.
+            // Simplified logic: Check for '/'
+            let final_val = if raw_val.contains('/') {
+                 let parts: Vec<&str> = raw_val.split('/').collect();
+                 if parts.len() == 3 {
+                    format!("{}-{}-{}", parts[2], parts[1], parts[0])
+                 } else {
+                    raw_val.to_string()
+                 }
             } else {
                 raw_val.to_string()
             };
@@ -253,14 +282,17 @@ fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::
                     query_builder.push_bind(c.value.as_i64().unwrap_or(0));
                 },
                 "in" => {
-                     // Recursive
-                     query_builder.push(" i.folder_id IN (WITH RECURSIVE subfolders AS (SELECT id FROM folders WHERE id = ");
+                     // Recursive with depth limit to prevent infinite loops (max 50)
+                     query_builder.push(" i.folder_id IN (WITH RECURSIVE subfolders AS (SELECT id, 0 as depth FROM folders WHERE id = ");
                      query_builder.push_bind(c.value.as_i64().unwrap_or(0));
-                     query_builder.push(" UNION ALL SELECT f.id FROM folders f JOIN subfolders s ON f.parent_id = s.id) SELECT id FROM subfolders) ");
+                     query_builder.push(" UNION ALL SELECT f.id, s.depth + 1 FROM folders f JOIN subfolders s ON f.parent_id = s.id WHERE s.depth < 50) SELECT id FROM subfolders) ");
                 },
                 _ => { query_builder.push(" 1=1 "); },
             }
         },
-        _ => { query_builder.push(" 1=1 "); },
+        _ => { 
+            println!("WARN: Unknown search criteria key: '{}'", c.key);
+            query_builder.push(" 1=1 "); 
+        },
     }
 }
