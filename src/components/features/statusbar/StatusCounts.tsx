@@ -30,7 +30,7 @@ export const StatusCounts: Component = () => {
                 </span>
                 <Button 
                     variant="ghost" 
-                    size="icon-sm" 
+                    size="icon-xs" 
                     class="status-btn" 
                     title="Clear selection (Esc)"
                     onClick={(e) => {

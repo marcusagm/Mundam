@@ -134,10 +134,6 @@ export function ReferenceImage(props: ReferenceImageProps) {
           class={loaded() ? "loaded" : "loading"}
         />
       </Show>
-      
-      <Show when={thumbUrl() && loaded() && !localError()}>
-         <div class="badge-thumbnail">HD</div>
-      </Show>
     </div>
   );
 }
