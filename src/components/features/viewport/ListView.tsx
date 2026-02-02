@@ -23,7 +23,7 @@ export const ListView: Component = () => {
                         <VirtualListView />
                     </Match>
                     <Match when={filters.layout === "masonry-v" || filters.layout === "masonry-h"}>
-                        <VirtualMasonry items={lib.items} />
+                        <VirtualMasonry items={lib.items} mode={filters.layout as "masonry-v" | "masonry-h"} />
                     </Match>
                 </Switch>
             </div>

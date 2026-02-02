@@ -6,8 +6,9 @@
  * Offloads all layout calculations to a separate thread.
  * Uses a Spatial Grid for O(1) visibility queries.
  * 
- * Supports two layout modes:
- * - Masonry: Variable height based on aspect ratio, shortest column placement
+ * Supports three layout modes:
+ * - Masonry-V: Vertical masonry - fixed column width, variable height (Pinterest-style)
+ * - Masonry-H: Horizontal masonry - fixed row height, variable width (Flickr/Google Photos-style)
  * - Grid: Uniform square cells, simple row/column calculation
  */
 
@@ -95,22 +96,30 @@ function recalculateLayout(): void {
     return;
   }
 
-  if (config.mode === "masonry") {
-    calculateMasonryLayout();
-  } else {
-    calculateGridLayout();
+  switch (config.mode) {
+    case "masonry":
+    case "masonry-v":
+      calculateMasonryVerticalLayout();
+      break;
+    case "masonry-h":
+      calculateMasonryHorizontalLayout();
+      break;
+    case "grid":
+      calculateGridLayout();
+      break;
   }
 
   respond({ type: "LAYOUT_COMPLETE", payload: { totalHeight } });
 }
 
 /**
- * Masonry Layout Algorithm
+ * Masonry Vertical Layout Algorithm (Pinterest-style)
  * 
+ * Fixed column widths, variable heights.
  * Places each item in the shortest column, creating a Pinterest-style layout.
  * Items have variable heights based on their aspect ratio.
  */
-function calculateMasonryLayout(): void {
+function calculateMasonryVerticalLayout(): void {
   const { containerWidth, itemSize, gap } = config;
 
   // Calculate number of columns that fit
@@ -155,6 +164,89 @@ function calculateMasonryLayout(): void {
 
   // Total height is the tallest column
   totalHeight = Math.max(...columnHeights);
+}
+
+/**
+ * Masonry Horizontal Layout Algorithm (Flickr/Google Photos-style)
+ * 
+ * Fixed row heights, variable widths.
+ * Groups items into rows, then justifies each row to fill the container width.
+ * Creates a clean edge on both left and right sides.
+ */
+function calculateMasonryHorizontalLayout(): void {
+  const { containerWidth, itemSize: targetRowHeight, gap } = config;
+
+  let currentY = 0;
+  let rowStart = 0;
+
+  while (rowStart < items.length) {
+    // Build a row by adding items until we exceed container width
+    let rowWidth = 0;
+    let rowEnd = rowStart;
+    const rowItems: Array<{ item: LayoutItemInput; scaledWidth: number }> = [];
+
+    while (rowEnd < items.length) {
+      const item = items[rowEnd];
+      const aspectRatio = item.aspectRatio > 0 ? item.aspectRatio : 1;
+      // Width when scaled to target row height
+      const scaledWidth = targetRowHeight * aspectRatio;
+      const widthWithGap = scaledWidth + (rowItems.length > 0 ? gap : 0);
+
+      // Check if adding this item would exceed container width
+      // Allow at least one item per row
+      if (rowItems.length > 0 && rowWidth + widthWithGap > containerWidth) {
+        break;
+      }
+
+      rowItems.push({ item, scaledWidth });
+      rowWidth += widthWithGap;
+      rowEnd++;
+    }
+
+    // Calculate scale factor to justify row to container width
+    // For the last row, don't stretch if it would make images too large
+    const isLastRow = rowEnd >= items.length;
+    const totalScaledWidth = rowItems.reduce((sum, r) => sum + r.scaledWidth, 0);
+    const totalGaps = (rowItems.length - 1) * gap;
+    const availableWidth = containerWidth - totalGaps;
+    
+    // Scale factor: how much to multiply each width to fill the row
+    let scaleFactor = availableWidth / totalScaledWidth;
+    
+    // For last row, cap the scale factor to prevent oversized images
+    if (isLastRow && scaleFactor > 1.2) {
+      scaleFactor = 1.0; // Don't stretch last row
+    }
+
+    // Calculate actual row height based on scale
+    const actualRowHeight = targetRowHeight * scaleFactor;
+
+    // Position items in the row
+    let currentX = 0;
+    for (const { item, scaledWidth } of rowItems) {
+      const width = scaledWidth * scaleFactor;
+      const height = actualRowHeight;
+
+      const pos: ItemPosition = { 
+        id: item.id, 
+        x: currentX, 
+        y: currentY, 
+        width, 
+        height 
+      };
+      positions.set(item.id, pos);
+
+      // Add to spatial grid
+      addToSpatialGrid(item.id, currentY, currentY + height);
+
+      currentX += width + gap;
+    }
+
+    currentY += actualRowHeight + gap;
+    rowStart = rowEnd;
+  }
+
+  totalHeight = currentY;
 }
 
 /**

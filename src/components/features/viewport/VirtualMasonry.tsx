@@ -12,6 +12,7 @@ import "./viewport.css";
 
 interface VirtualMasonryProps {
   items: ImageItem[];
+  mode?: "masonry-v" | "masonry-h";
 }
 
 /**
@@ -19,6 +20,10 @@ interface VirtualMasonryProps {
  *
  * Uses a Web Worker for layout calculations and Spatial Grid for O(1) visibility queries.
  * The main thread only renders items that are currently visible in the viewport.
+ * 
+ * Supports two modes:
+ * - masonry-v: Vertical masonry (Pinterest-style) - fixed column width, variable height
+ * - masonry-h: Horizontal masonry (Flickr-style) - fixed row height, variable width
  */
 export function VirtualMasonry(props: VirtualMasonryProps) {
   const lib = useLibrary();
@@ -26,14 +31,15 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
 
   let scrollContainer: HTMLDivElement | undefined;
 
-  const [containerWidth, setContainerWidth] = createSignal(0);
+  const [_containerWidth, setContainerWidth] = createSignal(0);
   const [containerHeight, setContainerHeight] = createSignal(0);
 
   // Convert items to Worker-friendly format (minimal data)
   const layoutItems = createMemo(() => toLayoutItems(props.items));
 
-  // Connect to the layout Worker
-  const viewport = useVirtualViewport("masonry", layoutItems);
+  // Connect to the layout Worker with the specified mode (as accessor for reactivity)
+  const layoutMode = () => props.mode || "masonry-v";
+  const viewport = useVirtualViewport(layoutMode, layoutItems);
 
   // Create item lookup Map for O(1) access during render
   const itemsById = createMemo(() => {

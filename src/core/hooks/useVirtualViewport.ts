@@ -35,12 +35,12 @@ export interface VirtualViewportResult {
 /**
  * Creates a virtualized viewport connected to the layout Worker.
  * 
- * @param mode - "masonry" or "grid" layout mode
+ * @param mode - Layout mode (can be a string or accessor for reactive updates)
  * @param items - Reactive accessor for the items array
  * @param options - Optional configuration
  */
 export function useVirtualViewport(
-  mode: LayoutMode,
+  mode: LayoutMode | (() => LayoutMode),
   items: () => LayoutItemInput[],
   options: UseVirtualViewportOptions = {}
 ): VirtualViewportResult {
@@ -48,12 +48,26 @@ export function useVirtualViewport(
   // Increased buffer to reduce flickering on minimal scroll
   const { gap = 16, buffer = 1500 } = options;
 
-  // Create controller instance
-  const controller = createViewportController(mode, {
+  // Normalize mode to always be an accessor
+  const getMode = typeof mode === "function" ? mode : () => mode;
+
+  // Create controller instance with initial mode
+  const controller = createViewportController(getMode(), {
     gap,
     buffer,
     itemSize: filters.thumbSize || 280,
   });
+
+  // Sync mode when it changes (for masonry-v ↔ masonry-h switching)
+  createEffect(
+    on(
+      getMode,
+      (newMode) => {
+        controller.setConfig({ mode: newMode });
+      },
+      { defer: true }
+    )
+  );
 
   // Sync config when thumbSize changes
   createEffect(

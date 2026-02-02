@@ -20,10 +20,12 @@ export interface LayoutItemInput {
 
 /**
  * Layout mode determines the algorithm used.
- * - masonry: Variable height items, shortest column placement
+ * - masonry-v: Vertical masonry - fixed column width, variable height (Pinterest-style)
+ * - masonry-h: Horizontal masonry - fixed row height, variable width (Flickr-style)
  * - grid: Uniform square items, simple row/column calculation
+ * - masonry: Alias for masonry-v (backwards compatibility)
  */
-export type LayoutMode = "masonry" | "grid";
+export type LayoutMode = "masonry" | "masonry-v" | "masonry-h" | "grid";
 
 /**
  * Configuration for layout calculation.
