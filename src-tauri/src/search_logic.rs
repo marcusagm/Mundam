@@ -60,7 +60,7 @@ pub fn build_where_clause<'a>(group: &'a SearchGroup, query_builder: &mut sqlx::
 fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::QueryBuilder<'a, sqlx::Sqlite>) {
     match c.key.as_str() {
         "filename" | "notes" | "format" => {
-            let is_fts_target = (c.key == "filename" || c.key == "notes");
+            let is_fts_target = c.key == "filename" || c.key == "notes";
             
             match c.operator.as_str() {
                 "contains" => {

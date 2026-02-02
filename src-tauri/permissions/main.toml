@@ -131,3 +131,8 @@ commands.allow = ["get_setting"]
 identifier = "allow-set-setting"
 description = "Enables set_setting"
 commands.allow = ["set_setting"]
+
+[[permission]]
+identifier = "allow-get-library-supported-formats"
+description = "Enables get_library_supported_formats"
+commands.allow = ["get_library_supported_formats"]

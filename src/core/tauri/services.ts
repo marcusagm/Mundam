@@ -23,4 +23,13 @@ export const tauriService = {
    * Example wrapper for other commands...
    */
   // stopIndexing: async () => invoke("stop_indexing"),
+  
+  getLibrarySupportedFormats: async (): Promise<any[]> => {
+      try {
+          return await invoke("get_library_supported_formats");
+      } catch (error) {
+          console.error("Failed to load formats:", error);
+          return [];
+      }
+  }
 };

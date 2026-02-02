@@ -35,6 +35,9 @@ mime_guess = "2.0"
 percent-encoding = "2.3"
 rayon = "1.8"
 rexif = "0.7"
+infer = "0.15"       # Magic bytes detection
+strum = { version = "0.26", features = ["derive"] } # Enum iteration
+strum_macros = "0.26"
 
 # Thumbnail optimization - Fast path
 zune-jpeg = "0.4"
@@ -42,3 +45,10 @@ webp = "0.3"
 zip = "2.1"
 
 
+
+# Limit the webp encoder version if needed or just rely on image feature
+# But we are using the standalone 'webp' crate for encoding? Yes.
+
+# OPTIMIZATION: Compile heavy dependencies with optimizations even in debug mode
+[profile.dev.package."*"]
+opt-level = 3

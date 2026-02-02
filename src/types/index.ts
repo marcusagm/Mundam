@@ -14,3 +14,10 @@ export interface ImageItem {
   added_at: string;
   folder_id: number;
 }
+
+export interface FileFormat {
+    name: string;
+    extensions: string[];
+    mimeTypes: string[];
+    typeCategory: 'Image' | 'Video' | 'Audio' | 'Project' | 'Archive' | 'Model3D' | 'Font' | 'Unknown';
+}

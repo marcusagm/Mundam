@@ -1,5 +1,5 @@
 import { Component, createSignal, Show, For, createMemo, createEffect } from "solid-js";
-import fileFormats from "../../../core/constants/fileFormats.json";
+import { supportedFormats } from "../../../core/store/systemStore";
 import { 
     Plus, 
     Trash2, 
@@ -23,12 +23,7 @@ import { MaskedInput } from "../../ui/MaskedInput";
 import { cn } from "../../../lib/utils";
 import "./advanced-search-modal.css";
 
-interface FileFormat {
-    extension: string;
-    name: string;
-    description: string;
-    tier: number;
-}
+
 
 interface AdvancedSearchModalProps {
     isOpen: boolean;
@@ -507,7 +502,7 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                             </Show>
                             <Show when={selectedField()?.type === 'select'}>
                                 <Select 
-                                    options={(fileFormats as FileFormat[]).map(f => ({ value: f.extension, label: `${f.extension.toUpperCase()} - ${f.name}` }))}
+                                    options={supportedFormats().flatMap(f => f.extensions.map(ext => ({ value: ext, label: `${ext.toUpperCase()} - ${f.name}` })))}
                                     value={currentValue() || ""}
                                     onValueChange={(val) => {
                                         setCurrentValue(val);
@@ -595,7 +590,7 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                                                         <Select options={[0,1,2,3,4,5].map(v => ({ value: String(v), label: `${v} Stars` }))} value={String(editingValue() || "0")} onValueChange={(val) => setEditingValue(Number(val))} />
                                                     </Show>
                                                     <Show when={field()?.type === 'select'}>
-                                                        <Select options={(fileFormats as FileFormat[]).map(f => ({ value: f.extension, label: f.extension.toUpperCase() }))} value={editingValue() || ""} onValueChange={setEditingValue} searchable />
+                                                        <Select options={supportedFormats().flatMap(f => f.extensions.map(ext => ({ value: ext, label: ext.toUpperCase() })))} value={editingValue() || ""} onValueChange={setEditingValue} searchable />
                                                     </Show>
                                                 </div>
                                             }>

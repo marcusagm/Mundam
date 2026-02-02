@@ -400,9 +400,18 @@ impl Db {
         }
 
         // 3. True New File
+        // Use ON CONFLICT to handle race conditions between Indexer and Watcher
         let res = sqlx::query(
             "INSERT INTO images (folder_id, path, filename, width, height, size, format, created_at, modified_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET 
+                folder_id = excluded.folder_id,
+                filename = excluded.filename,
+                width = excluded.width,
+                height = excluded.height,
+                size = excluded.size,
+                format = excluded.format,
+                modified_at = excluded.modified_at"
         )
         .bind(folder_id)
         .bind(&img.path)

@@ -15,6 +15,8 @@ import "./viewport.css";
 interface VirtualMasonryProps {
   items: ImageItem[];
   mode?: "masonry-v" | "masonry-h";
+  gap?: number;
+  buffer?: number;
 }
 
 /**
@@ -47,7 +49,10 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
 
   // Connect to the layout Worker with the specified mode (as accessor for reactivity)
   const layoutMode = () => props.mode || "masonry-v";
-  const viewport = useVirtualViewport(layoutMode, layoutItems);
+  const viewport = useVirtualViewport(layoutMode, layoutItems, {
+      gap: props.gap,
+      buffer: props.buffer
+  });
 
   // Create item lookup Map for O(1) access during render
   const itemsById = createMemo(() => {

@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { FileFormat } from "../../types";
 import { listen } from "@tauri-apps/api/event";
 import { addLocation, initDb } from "../../lib/db";
 import { tauriService } from "../tauri/services";
@@ -14,6 +15,7 @@ const [loading, setLoading] = createSignal(true);
 const [progress, setProgress] = createSignal<ProgressPayload | null>(null);
 const [rootPath, setRootPath] = createSignal<string | null>(null);
 const [initialized, setInitialized] = createSignal(false);
+const [supportedFormats, setSupportedFormats] = createSignal<FileFormat[]>([]);
 
 export const systemActions = {
   initialize: async () => {
@@ -25,6 +27,11 @@ export const systemActions = {
       await metadataActions.loadLocations();
       await metadataActions.loadTags();
       await metadataActions.loadSmartFolders();
+      
+      const formats = await tauriService.getLibrarySupportedFormats();
+      setSupportedFormats(formats);
+      console.log(`[System] Loaded ${formats.length} supported formats.`);
+
       
       // Auto-select root path if locations exist
       import("./metadataStore").then(({ metadataState }) => {
@@ -114,4 +121,4 @@ export const systemActions = {
   }
 };
 
-export { loading, progress, rootPath };
+export { loading, progress, rootPath, supportedFormats };

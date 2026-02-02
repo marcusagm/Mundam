@@ -1114,6 +1114,7 @@ dependencies = [
  "fast_image_resize",
  "image",
  "imagesize",
+ "infer 0.15.0",
  "mime_guess",
  "notify",
  "percent-encoding",
@@ -1122,6 +1123,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "strum",
+ "strum_macros",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2236,6 +2239,15 @@ dependencies = [
  "hashbrown 0.16.1",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "infer"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb33622da908807a06f9513c19b3c1ad50fab3e4137d82a78107d502075aa199"
+dependencies = [
+ "cfb",
 ]
 
 [[package]]
@@ -4980,6 +4992,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5414,7 +5448,7 @@ dependencies = [
  "glob",
  "html5ever",
  "http",
- "infer",
+ "infer 0.19.0",
  "json-patch",
  "kuchikiki",
  "log",

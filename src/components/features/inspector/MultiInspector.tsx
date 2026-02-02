@@ -10,6 +10,10 @@ interface MultiInspectorProps {
 }
 
 export const MultiInspector: Component<MultiInspectorProps> = (props) => {
+    if (!props.items || props.items.length === 0) {
+        return <div class="inspector-content empty">No selection</div>;
+    }
+
     // Deck logic
     const previewItems = () => props.items.slice(0, 3).reverse();
 
