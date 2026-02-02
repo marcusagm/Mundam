@@ -1,12 +1,4 @@
-Com base na análise do seu projeto (`elleven-library`) e do projeto de referência (`allusion-app`), elaborei um **Plano de Refatoração Definitivo para o Sistema de Viewport (Masonry)**.
-
-O projeto `allusion-app` utiliza uma arquitetura extremamente robusta: ele compila código **Rust para WebAssembly (WASM)** para calcular o layout, e executa isso dentro de um **Web Worker**. Isso garante que o cálculo matemático pesado nunca bloqueie a thread principal da UI.
-
-Para atingir o nível de "Excelência em Arquitetura" solicitado, não faremos apenas um patch; proporei uma reescrita do subsistema de visualização seguindo os princípios de **Off-Main-Thread Architecture (OMTA)** e **Spatial Partitioning**.
-
-Como o plano é extenso, dividi em **duas partes**.
-
----
+# Plano de Refatoração Definitivo para o Sistema de Viewport (Masonry)
 
 # Parte 1: Arquitetura, Contratos de Dados e Desacoplamento
 

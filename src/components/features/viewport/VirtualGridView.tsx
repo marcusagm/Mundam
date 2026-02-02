@@ -1,126 +1,165 @@
 import { Component, createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
 import { AssetCard } from "./AssetCard";
-import { useLibrary, useSelection, useFilters } from "../../../core/hooks";
+import {
+  useLibrary,
+  useAssetCardActions,
+  useVirtualViewport,
+} from "../../../core/hooks";
+import type { LayoutItemInput } from "../../../core/viewport";
 import "./grid-view.css";
 
+/**
+ * VirtualGridView - Worker-based Virtualized Grid Layout
+ *
+ * Uses a Web Worker for layout calculations and Spatial Grid for O(1) visibility queries.
+ * Grid layout uses uniform square cells, so aspectRatio is always 1.
+ */
 export const VirtualGridView: Component = () => {
-    const lib = useLibrary();
-    const selection = useSelection();
-    const filters = useFilters();
-    
-    let scrollContainer: HTMLDivElement | undefined;
-    
-    const [containerWidth, setContainerWidth] = createSignal(0);
-    const [scrollTop, setScrollTop] = createSignal(0);
-    const [containerHeight, setContainerHeight] = createSignal(0);
+  const lib = useLibrary();
+  const actions = useAssetCardActions();
 
-    const itemBaseSize = createMemo(() => filters.thumbSize);
-    const gap = 16;
-    
-    const cols = createMemo(() => {
-        const width = containerWidth();
-        if (width <= 0) return 4;
-        return Math.max(1, Math.floor((width + gap) / (itemBaseSize() + gap)));
+  let scrollContainer: HTMLDivElement | undefined;
+
+  const [containerWidth, setContainerWidth] = createSignal(0);
+  const [containerHeight, setContainerHeight] = createSignal(0);
+
+  // For grid, all items have aspectRatio = 1 (square cells)
+  const layoutItems = createMemo((): LayoutItemInput[] =>
+    lib.items.map((item) => ({
+      id: item.id,
+      aspectRatio: 1, // Grid uses uniform squares
+    }))
+  );
+
+  // Connect to the layout Worker in grid mode
+  const viewport = useVirtualViewport("grid", layoutItems);
+
+  // Create item lookup Map for O(1) access during render
+  const itemsById = createMemo(() => {
+    const map = new Map<number, (typeof lib.items)[0]>();
+    lib.items.forEach((item) => map.set(item.id, item));
+    return map;
+  });
+
+  // DnD helper: get item info by ID (used by drag source for ghost creation)
+  const getItemInfo = (id: number) => {
+    const item = itemsById().get(id);
+    if (!item) return undefined;
+    return {
+      path: item.path,
+      thumbnail_path: item.thumbnail_path,
+    };
+  };
+
+  onMount(() => {
+    if (!scrollContainer) return;
+
+    const observer = new ResizeObserver((entries) => {
+      requestAnimationFrame(() => {
+        const entry = entries[0];
+        if (!entry) return;
+
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+
+        setContainerHeight(height);
+        if (width > 0 && Math.abs(width - containerWidth()) > 1) {
+          setContainerWidth(width);
+          viewport.handleResize(width);
+        }
+      });
     });
 
-    const fittedItemSize = createMemo(() => {
-        const width = containerWidth();
-        const c = cols();
-        if (width <= 0) return itemBaseSize();
-        return Math.floor((width - (gap * (c - 1))) / c);
+    observer.observe(scrollContainer);
+
+    // Initial measure
+    const rect = scrollContainer.getBoundingClientRect();
+    if (rect.width > 0) {
+      setContainerWidth(rect.width);
+      setContainerHeight(rect.height);
+      viewport.handleResize(rect.width);
+    }
+
+    const handleScroll = () => {
+      if (!scrollContainer) return;
+      const currentScrollTop = scrollContainer.scrollTop;
+
+      // Notify Worker of scroll position
+      viewport.handleScroll(currentScrollTop, containerHeight());
+
+      // Load more when near bottom
+      if (
+        scrollContainer.scrollTop + scrollContainer.clientHeight >=
+        scrollContainer.scrollHeight - 500
+      ) {
+        lib.loadMore();
+      }
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Initial scroll notification
+    viewport.handleScroll(0, containerHeight());
+
+    onCleanup(() => {
+      observer.disconnect();
+      scrollContainer?.removeEventListener("scroll", handleScroll);
     });
+  });
 
-    onMount(() => {
-        if (!scrollContainer) return;
-        
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (entry) {
-                setContainerWidth(entry.contentRect.width);
-                setContainerHeight(entry.contentRect.height);
-            }
-        });
-        
-        observer.observe(scrollContainer);
-        setContainerWidth(scrollContainer.clientWidth);
-        setContainerHeight(scrollContainer.clientHeight);
-        
-        const handleScroll = () => {
-            if (!scrollContainer) return;
-            setScrollTop(scrollContainer.scrollTop);
-            
-            if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 500) {
-                lib.loadMore();
-            }
-        };
-        
-        scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
-        
-        onCleanup(() => {
-            observer.disconnect();
-            scrollContainer?.removeEventListener("scroll", handleScroll);
-        });
-    });
+  return (
+    <div 
+      ref={scrollContainer} 
+      class="grid-view-container"
+      role="grid"
+      aria-label="Image gallery - grid layout"
+      tabIndex={0}
+    >
+      <div
+        class="grid-view-track"
+        role="rowgroup"
+        style={{
+          height: `${viewport.totalHeight()}px`,
+          position: "relative",
+        }}
+      >
+        <For each={viewport.visibleItems()}>
+          {(pos) => {
+            // O(1) lookup from our Map
+            const item = itemsById().get(pos.id);
+            if (!item) return null;
 
-    const totalRows = createMemo(() => Math.ceil(lib.items.length / cols()));
-    const totalHeight = createMemo(() => totalRows() * (fittedItemSize() + gap));
-
-    const visibleRange = createMemo(() => {
-        const sTop = scrollTop();
-        const cHeight = containerHeight();
-        const rowH = fittedItemSize() + gap;
-        
-        const startRow = Math.max(0, Math.floor(sTop / rowH) - 4);
-        const visibleRows = Math.ceil(cHeight / rowH) + 8;
-        const endRow = Math.min(totalRows(), startRow + visibleRows);
-        
-        return {
-            start: startRow * cols(),
-            end: endRow * cols(),
-            startRow
-        };
-    }, undefined, { 
-        equals: (a, b) => a.start === b.start && a.end === b.end 
-    });
-
-    return (
-        <div ref={scrollContainer} class="grid-view-container">
-            <div 
-                class="grid-view-track" 
-                style={{ 
-                    height: `${totalHeight()}px`,
-                    position: "relative"
+            return (
+              <AssetCard
+                // Identity
+                id={item.id}
+                filename={item.filename}
+                path={item.path}
+                // Display
+                thumbnailPath={item.thumbnail_path}
+                width={item.width}
+                height={item.height}
+                // State
+                isSelected={actions.isSelected(item.id)}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+                  width: `${pos.width}px`,
+                  height: `${pos.height}px`,
                 }}
-            >
-                <For each={lib.items.slice(visibleRange().start, visibleRange().end)}>
-                    {(item, index) => {
-                        const globalIndex = createMemo(() => visibleRange().start + index());
-                        const row = createMemo(() => Math.floor(globalIndex() / cols()));
-                        const col = createMemo(() => globalIndex() % cols());
-                        const x = createMemo(() => col() * (fittedItemSize() + gap));
-                        const y = createMemo(() => row() * (fittedItemSize() + gap));
-
-                        return (
-                            <AssetCard
-                                item={item}
-                                selected={selection.selectedIds.includes(item.id)}
-                                style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    transform: `translate3d(${x()}px, ${y()}px, 0)`,
-                                    width: `${fittedItemSize()}px`,
-                                    height: `${fittedItemSize()}px`
-                                }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    selection.toggle(item.id, e.metaKey || e.ctrlKey);
-                                }}
-                            />
-                        );
-                    }}
-                </For>
-            </div>
-        </div>
-    );
+                // Callbacks
+                onSelect={actions.handleSelect}
+                onOpen={actions.handleOpen}
+                // DnD - drag source only (drop handled at container level)
+                getSelectedIds={actions.getSelectedIds}
+                getItemInfo={getItemInfo}
+              />
+            );
+          }}
+        </For>
+      </div>
+    </div>
+  );
 };

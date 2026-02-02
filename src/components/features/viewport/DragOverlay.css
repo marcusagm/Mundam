@@ -1,0 +1,21 @@
+/* DragOverlay styles */
+
+.drag-overlay-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Animation for the glow effect */
+@keyframes drag-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.drag-overlay-indicator {
+  animation: drag-glow 1s ease-in-out infinite;
+}

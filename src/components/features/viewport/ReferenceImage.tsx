@@ -10,6 +10,27 @@ import {
 } from "../../../core/store/thumbnailStore";
 import "./reference-image.css";
 
+// ============================================================================
+// Global Image Cache
+// ============================================================================
+// Tracks which thumbnail URLs have been successfully loaded.
+// This persists across component recycling during virtualization.
+const loadedThumbnails = new Set<string>();
+
+// Add a loaded thumbnail to cache
+function markThumbnailLoaded(url: string) {
+  loadedThumbnails.add(url);
+}
+
+// Check if thumbnail was previously loaded
+function isThumbnailLoaded(url: string | undefined): boolean {
+  return url ? loadedThumbnails.has(url) : false;
+}
+
+// ============================================================================
+// Component
+// ============================================================================
+
 interface ReferenceImageProps {
   id: number;
   src: string;
@@ -20,7 +41,6 @@ interface ReferenceImageProps {
 }
 
 export function ReferenceImage(props: ReferenceImageProps) {
-  const [loaded, setLoaded] = createSignal(false);
   const [localError, setLocalError] = createSignal(false);
   const [localThumbnail, setLocalThumbnail] = createSignal<string | null>(null);
   
@@ -32,7 +52,6 @@ export function ReferenceImage(props: ReferenceImageProps) {
       console.log(`Thumbnail ready for image ID: ${props.id}, path: ${path}`);
       setLocalThumbnail(path);
       setLocalError(false);
-      setLoaded(false);
     });
   });
   
@@ -81,6 +100,12 @@ export function ReferenceImage(props: ReferenceImageProps) {
     return thumbUrl();
   });
 
+  // Check if this thumbnail was already loaded (from cache)
+  const isAlreadyLoaded = createMemo(() => isThumbnailLoaded(thumbUrl()));
+  
+  // Track loaded state - initialize from cache
+  const [loaded, setLoaded] = createSignal(false);
+  
   // Calculate aspect ratio for stability
   const aspectRatio = createMemo(() => {
     if (props.width && props.height) {
@@ -88,6 +113,14 @@ export function ReferenceImage(props: ReferenceImageProps) {
     }
     return undefined;
   });
+
+  const handleLoad = () => {
+    const url = thumbUrl();
+    if (url) {
+      markThumbnailLoaded(url);
+    }
+    setLoaded(true);
+  };
 
   const handleError = () => {
     const thumb = thumbUrl();
@@ -112,13 +145,27 @@ export function ReferenceImage(props: ReferenceImageProps) {
       .catch(err => console.error(`Failed to request regeneration:`, err));
   };
 
+  // Determine if we should show placeholder
+  // Don't show if image was already loaded from cache
+  const showPlaceholder = createMemo(() => {
+    // No source to display
+    if (!displaySrc()) return true;
+    // Has error
+    if (localError()) return true;
+    // Already loaded from cache - don't show placeholder
+    if (isAlreadyLoaded()) return false;
+    // Not yet loaded
+    if (!loaded()) return true;
+    return false;
+  });
+
   return (
     <div 
       class="reference-image-container" 
       style={{ "aspect-ratio": aspectRatio() }}
       data-id={props.id}
     >
-      <Show when={!displaySrc() || !loaded() || localError()}>
+      <Show when={showPlaceholder()}>
         <div class="image-placeholder">
            <Loader size="sm" />
         </div>
@@ -129,9 +176,9 @@ export function ReferenceImage(props: ReferenceImageProps) {
           src={displaySrc()}
           alt={props.alt}
           draggable={false}
-          onLoad={() => setLoaded(true)}
+          onLoad={handleLoad}
           onError={handleError}
-          class={loaded() ? "loaded" : "loading"}
+          class={loaded() || isAlreadyLoaded() ? "loaded" : "loading"}
         />
       </Show>
     </div>

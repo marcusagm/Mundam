@@ -1,118 +1,114 @@
 import { createSignal, onMount, onCleanup, For, createMemo } from "solid-js";
 import { AssetCard } from "./AssetCard";
-import { calculateMasonryLayout } from "../../../utils/masonryLayout";
 import { type ImageItem } from "../../../types";
-import { useLibrary, useSelection, useFilters } from "../../../core/hooks";
+import {
+  useLibrary,
+  useAssetCardActions,
+  useVirtualViewport,
+  toLayoutItems,
+} from "../../../core/hooks";
 import "./viewport.css";
 
 interface VirtualMasonryProps {
   items: ImageItem[];
 }
 
+/**
+ * VirtualMasonry - Worker-based Virtualized Masonry Layout
+ *
+ * Uses a Web Worker for layout calculations and Spatial Grid for O(1) visibility queries.
+ * The main thread only renders items that are currently visible in the viewport.
+ */
 export function VirtualMasonry(props: VirtualMasonryProps) {
   const lib = useLibrary();
-  const selection = useSelection();
+  const actions = useAssetCardActions();
+
   let scrollContainer: HTMLDivElement | undefined;
-  
+
   const [containerWidth, setContainerWidth] = createSignal(0);
-  const [scrollTop, setScrollTop] = createSignal(0);
   const [containerHeight, setContainerHeight] = createSignal(0);
-  
-  const filters = useFilters();
-  
-  // Configuration
-  const minColWidth = createMemo(() => filters.thumbSize || 280);
-  const gap = 16;
-  
-  // 1. Initial columns calculation based on width
-  const columns = createMemo(() => {
-    const width = containerWidth();
-    if (width <= 0) return 4; // Default
-    return Math.max(1, Math.floor((width + gap) / (minColWidth() + gap)));
+
+  // Convert items to Worker-friendly format (minimal data)
+  const layoutItems = createMemo(() => toLayoutItems(props.items));
+
+  // Connect to the layout Worker
+  const viewport = useVirtualViewport("masonry", layoutItems);
+
+  // Create item lookup Map for O(1) access during render
+  const itemsById = createMemo(() => {
+    const map = new Map<number, ImageItem>();
+    props.items.forEach((item) => map.set(item.id, item));
+    return map;
   });
 
-  // 2. Synchronous layout calculation
-  // Using createMemo ensures layout is always in sync with width/items
-  const layout = createMemo(() => {
-    return calculateMasonryLayout({
-      items: props.items,
-      columns: columns(),
-      containerWidth: containerWidth(),
-      gap
-    });
-  });
+  // DnD helper: get item info by ID (used by drag source for ghost creation)
+  const getItemInfo = (id: number) => {
+    const item = itemsById().get(id);
+    if (!item) return undefined;
+    return {
+      path: item.path,
+      thumbnail_path: item.thumbnail_path,
+    };
+  };
 
-  // 3. Handle resize immediately (no debounce to prevent sync issues)
+  // Handle resize and scroll
   onMount(() => {
     if (!scrollContainer) return;
 
     const observer = new ResizeObserver((entries) => {
-      // Use requestAnimationFrame to avoid "ResizeObserver loop completed with undelivered notifications"
       requestAnimationFrame(() => {
-          const entry = entries[0];
-          if (!entry) return;
-          
-          const width = entry.contentRect.width;
-          const height = entry.contentRect.height;
-          
-          setContainerHeight(height);
-          if (width > 0 && Math.abs(width - containerWidth()) > 1) {
-            setContainerWidth(width);
-          }
+        const entry = entries[0];
+        if (!entry) return;
+
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+
+        setContainerHeight(height);
+        if (width > 0 && Math.abs(width - containerWidth()) > 1) {
+          setContainerWidth(width);
+          viewport.handleResize(width);
+        }
       });
     });
-    
+
     observer.observe(scrollContainer);
-    
+
     // Initial measure
     const rect = scrollContainer.getBoundingClientRect();
     if (rect.width > 0) {
       setContainerWidth(rect.width);
       setContainerHeight(rect.height);
+      viewport.handleResize(rect.width);
     } else {
-        // Fallback: Estimate width if rect is 0 (e.g. hidden initially)
-        // Sidebar is 80px fixed.
-        const estimated = window.innerWidth - 80;
-        if (estimated > 0) setContainerWidth(estimated);
+      const estimated = window.innerWidth - 80;
+      if (estimated > 0) {
+        setContainerWidth(estimated);
+        viewport.handleResize(estimated);
+      }
     }
-    
+
     const handleScroll = () => {
       if (!scrollContainer) return;
-      setScrollTop(scrollContainer.scrollTop);
-      
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      // Load more when user scrolls to within 500px of bottom
-      if (scrollTop + clientHeight >= scrollHeight - 500) {
+      const currentScrollTop = scrollContainer.scrollTop;
+
+      // Notify Worker of scroll position
+      viewport.handleScroll(currentScrollTop, containerHeight());
+
+      // Load more when near bottom
+      const { scrollTop: sTop, scrollHeight, clientHeight } = scrollContainer;
+      if (sTop + clientHeight >= scrollHeight - 500) {
         lib.loadMore();
       }
     };
-    
+
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
-    
+
+    // Initial scroll notification
+    viewport.handleScroll(0, containerHeight());
+
     onCleanup(() => {
       observer.disconnect();
       scrollContainer?.removeEventListener("scroll", handleScroll);
-    });
-  });
-  
-  // 4. Determine visible items
-  // Optimized to only depend on layout and scroll
-  const visibleItems = createMemo(() => {
-    const sTop = scrollTop();
-    const vHeight = containerHeight();
-    const currentLayout = layout();
-    const items = props.items;
-    
-    if (currentLayout.positions.size === 0 || items.length === 0) return [];
-
-    const buffer = 1000; // Pixel buffer
-    const rangeStart = sTop - buffer;
-    const rangeEnd = sTop + vHeight + buffer;
-
-    return items.filter(item => {
-      const pos = currentLayout.positions.get(item.id);
-      if (!pos) return false;
-      return (pos.y + pos.height > rangeStart) && (pos.y < rangeEnd);
     });
   });
 
@@ -120,39 +116,47 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
     <div 
       ref={scrollContainer} 
       class="virtual-scroll-container"
+      role="grid"
+      aria-label="Image gallery - masonry layout"
+      tabIndex={0}
     >
-      <div 
-        class="virtual-track" 
-        style={{ 
-          height: `${layout().height}px`, 
+      <div
+        class="virtual-track"
+        role="rowgroup"
+        style={{
+          height: `${viewport.totalHeight()}px`,
         }}
       >
-        <For each={visibleItems()}>
-          {(item) => {
-            // Access position derived from the SAME layout version as visibleItems
-            // This prevents "tearing" where visibleItems updates but layout() hasn't
-            const currentLayout = layout();
-            const pos = currentLayout.positions.get(item.id);
-            
-            // Fallback for safety, though mapped correctly above
-            if (!pos) return null;
+        <For each={viewport.visibleItems()}>
+          {(pos) => {
+            // O(1) lookup from our Map
+            const item = itemsById().get(pos.id);
+            if (!item) return null;
 
             return (
               <AssetCard
-                item={item}
-                selected={selection.selectedIds.includes(item.id)}
+                // Identity
+                id={item.id}
+                filename={item.filename}
+                path={item.path}
+                // Display
+                thumbnailPath={item.thumbnail_path}
+                width={item.width}
+                height={item.height}
+                // State
+                isSelected={actions.isSelected(item.id)}
                 style={{
                   position: "absolute",
-                  display: layout().positions.get(item.id) ? "block" : "none",
-                  transform: `translate3d(${layout().positions.get(item.id)?.x ?? 0}px, ${layout().positions.get(item.id)?.y ?? 0}px, 0)`,
-                  width: `${layout().positions.get(item.id)?.width ?? 0}px`,
-                  height: `${layout().positions.get(item.id)?.height ?? 0}px`,
-                  "margin-bottom": "0"
+                  transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+                  width: `${pos.width}px`,
+                  height: `${pos.height}px`,
                 }}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    selection.toggle(item.id, e.metaKey || e.ctrlKey);
-                }}
+                // Callbacks
+                onSelect={actions.handleSelect}
+                onOpen={actions.handleOpen}
+                // DnD - drag source only (drop handled at container level)
+                getSelectedIds={actions.getSelectedIds}
+                getItemInfo={getItemInfo}
               />
             );
           }}
