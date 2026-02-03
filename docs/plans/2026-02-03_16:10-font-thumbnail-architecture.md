@@ -81,4 +81,27 @@ Implement the core logic.
 - **Custom Text**: Allow user configuration for preview text.
 
 ---
-**Status**: Ready for Implementation
+
+## 6. Implementation Log - WOFF/WOFF2 Support (2026-02-03)
+
+### The Challenge
+Standard `.ttf` and `.otf` files are natively supported by `fontdb` (and consequentially `resvg`). However, web-optimized formats (`.woff`, `.woff2`) are compressed containers that `fontdb` (via `ttf-parser`) does not support natively in the version we are using, or they require specific features to be enabled.
+
+### The Solution: Hybrid Decoding
+To support `woff` and `woff2` without complex C++ bindings or heavy external tools, we implemented a hybrid decoding step in Rust using the `wuff` crate.
+
+1.  **WOFF (v1) & WOFF2 (v2)**:
+    - We added the `wuff` crate (v0.2.3) dependency.
+    - Before loading the font into `fontdb`, we detect if the file extension is `woff` or `woff2`.
+    - If detected, we read the file into memory and use `wuff::decompress_woff1` or `wuff::decompress_woff2` to extract the underlying SFNT (TTF/OTF) data.
+    - The raw decompressed binary is then passed to `fontdb.load_font_source(Source::Binary(...))`.
+    - This allows `resvg` to render the font preview transparently, as it thinks it's dealing with a standard TTF.
+
+### Code Changes
+- **`src-tauri/Cargo.toml`**: Added `wuff = "0.2.3"`.
+- **`src-tauri/src/thumbnails/font.rs`**: Added import `wuff`. Added conditional logic to decompress WOFF/WOFF2 files before loading.
+- **`src-tauri/src/formats.rs`**: Updated `ThumbnailStrategy` for "Web Open Font Format" and "Web Open Font Format 2" from `Icon` to `Font`.
+
+### Result
+All major font formats (`ttf`, `otf`, `ttc`, `woff`, `woff2`) now generate high-quality visual previews (thumbnails) instead of generic icons.
+

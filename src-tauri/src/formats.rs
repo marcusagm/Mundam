@@ -349,14 +349,14 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["woff"],
         mime_types: &["font/woff"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon, // fontdb doesn't support WOFF
+        strategy: ThumbnailStrategy::Font, // fontdb doesn't support WOFF
     },
     FileFormat {
         name: "Web Open Font Format 2",
         extensions: &["woff2"],
         mime_types: &["font/woff2"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon, // fontdb doesn't support WOFF2
+        strategy: ThumbnailStrategy::Font, // fontdb doesn't support WOFF2
     },
     // FileFormat {
     //     name: "Embedded OpenType",

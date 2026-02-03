@@ -18,9 +18,25 @@ pub fn generate_font_thumbnail(
     output_path: &Path,
     size_px: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Setup FontDB and load the specific font file
+    // 1. Setup FontDB
     let mut fontdb = usvg::fontdb::Database::new();
-    fontdb.load_font_file(input_path).map_err(|e| format!("Failed to load font file: {}", e))?;
+    
+    // Check if it's WOFF/WOFF2 and decode it using `wuff`
+    let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    
+    if ext == "woff" {
+        let data = std::fs::read(input_path)?;
+        let decoded = wuff::decompress_woff1(&data)
+            .map_err(|e| format!("WOFF1 decode failed: {:?}", e))?;
+        fontdb.load_font_source(usvg::fontdb::Source::Binary(Arc::new(decoded)));
+    } else if ext == "woff2" {
+        let data = std::fs::read(input_path)?;
+        let decoded = wuff::decompress_woff2(&data)
+            .map_err(|e| format!("WOFF2 decode failed: {:?}", e))?;
+        fontdb.load_font_source(usvg::fontdb::Source::Binary(Arc::new(decoded)));
+    } else {
+         fontdb.load_font_file(input_path).map_err(|e| format!("Failed to load font file: {}", e))?;
+    }
 
     // 2. Identify the font family name
     // We take the last face added (or the first one found in the file).
