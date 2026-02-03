@@ -24,6 +24,7 @@ pub enum ThumbnailStrategy {
     Webview,     // SVG, HTML
     ZipPreview,  // Affinity, OpenOffice etc
     Model3D,     // Uses Assimp to convert to GLB
+    Font,        // Resvg with custom font loading
     Icon,        // Fallback for files without preview
     None,
 }
@@ -327,29 +328,57 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["ttf"],
         mime_types: &["font/ttf"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Font,
     },
     FileFormat {
         name: "OpenType Font",
         extensions: &["otf"],
         mime_types: &["font/otf"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Font,
+    },
+    FileFormat {
+        name: "TrueType Collection",
+        extensions: &["ttc"],
+        mime_types: &["font/collection", "font/ttc"],
+        type_category: MediaType::Font,
+        strategy: ThumbnailStrategy::Font,
     },
     FileFormat {
         name: "Web Open Font Format",
         extensions: &["woff"],
         mime_types: &["font/woff"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Icon, // fontdb doesn't support WOFF
     },
     FileFormat {
         name: "Web Open Font Format 2",
         extensions: &["woff2"],
         mime_types: &["font/woff2"],
         type_category: MediaType::Font,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Icon, // fontdb doesn't support WOFF2
     },
+    // FileFormat {
+    //     name: "Embedded OpenType",
+    //     extensions: &["eot"],
+    //     mime_types: &["application/vnd.ms-fontobject"],
+    //     type_category: MediaType::Font,
+    //     strategy: ThumbnailStrategy::Icon,
+    // },
+    // FileFormat {
+    //     name: "Windows Font",
+    //     extensions: &["fon"],
+    //     mime_types: &["application/x-font-fon"],
+    //     type_category: MediaType::Font,
+    //     strategy: ThumbnailStrategy::Icon,
+    // },
+    // FileFormat {
+    //     name: "Generic Font",
+    //     extensions: &["fnt"],
+    //     mime_types: &["application/x-font-fnt"],
+    //     type_category: MediaType::Font,
+    //     strategy: ThumbnailStrategy::Icon,
+    // },
 
     // --- ZIP PREVIEW FORMATS ---
     FileFormat {

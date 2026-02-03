@@ -32,7 +32,7 @@ fn get_icon_category(path: &Path) -> IconCategory {
         }
         
         // Font formats
-        "ttf" | "otf" | "woff" | "woff2" | "eot" | "fon" | "fnt" => {
+        "ttf" | "otf" | "ttc" | "woff" | "woff2" | "eot" | "fon" | "fnt" => {
             IconCategory::Font
         }
         

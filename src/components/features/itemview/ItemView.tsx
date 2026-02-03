@@ -20,7 +20,7 @@ const getMediaType = (filename: string): 'image' | 'video' | 'audio' | 'font' | 
     const imageExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'bmp', 'ico', 'svg', 'avif']; 
     const videoExts = ['mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv'];
     const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'];
-    const fontExts = ['ttf', 'otf', 'woff', 'woff2'];
+    const fontExts = ['ttf', 'otf', 'ttc', 'woff', 'woff2'];
     const modelExts = ['blend', 'fbx', 'obj', 'glb', 'gltf', 'stl', 'dae', '3ds', 'dxf', 'lwo', 'lws'];
 
     if (imageExts.includes(ext)) return 'image';

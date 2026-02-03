@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use crate::thumbnails::icon;
-use tauri::Manager;
+// use tauri::Manager;
 
 /// Entry point for 3D model thumbnail generation.
 /// 
