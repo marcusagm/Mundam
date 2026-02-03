@@ -20,6 +20,7 @@ pub fn generate_thumbnail_fast(
     input_path: &Path,
     output_path: &Path,
     size_px: u32,
+    open_file: Option<&mut std::fs::File>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let start_total = std::time::Instant::now();
     
@@ -37,7 +38,18 @@ pub fn generate_thumbnail_fast(
         _ => {
             // Fallback to image crate for other formats
             // Use BufReader for potentially better IO performance
-            let file = std::fs::File::open(input_path)?;
+            let file = if let Some(f) = open_file {
+                // Rewind just in case
+                let _ = std::io::Seek::seek(f, std::io::SeekFrom::Start(0));
+                // We must clone the handle or use reference, but image::load consumes reader.
+                // Since we passed Option<File>, and we are in a block, we can't easily consume it if we want to support the 'None' case cleanly without duplication.
+                // However, File requires strict ownership for BufReader if we return it.
+                // Actually, let's just use try_clone() which is cheap for file descriptors.
+                f.try_clone()?
+            } else {
+                std::fs::File::open(input_path)?
+            };
+            
             let reader = std::io::BufReader::new(file);
             let img = image::load(reader, image::ImageFormat::from_path(input_path).unwrap_or(image::ImageFormat::Png))?;
             

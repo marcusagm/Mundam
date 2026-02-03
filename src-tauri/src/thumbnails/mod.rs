@@ -43,55 +43,64 @@ pub fn get_thumbnail_strategy(path: &Path) -> ThumbnailStrategy {
 /// * `output_path` - Path where the resulting WebP thumbnail will be saved.
 /// * `size_px` - The target maximum dimension (width or height) in pixels.
 ///
-/// # Returns
+/// Returns
 ///
-/// * `Result<(), Box<dyn std::error::Error>>` - Ok if successful, Err otherwise.
+/// * `Result<String, Box<dyn std::error::Error>>` - The filename (relative to thumb root) of the generated/used thumbnail.
 pub fn generate_thumbnail(
     input_path: &Path,
-    output_path: &Path,
+    thumbnails_dir: &Path,
+    hashed_filename: &str,
     size_px: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let strategy = get_thumbnail_strategy(input_path);
+) -> Result<String, Box<dyn std::error::Error>> {
+    let output_path = thumbnails_dir.join(hashed_filename);
+    
+    // OPTIMIZATION: Open file handle ONCE here to avoid re-opening in detection and native generation
+    let mut open_file = std::fs::File::open(input_path).ok();
+    
+    let strategy = if let Some(ref mut file) = open_file {
+        FileFormat::detect_header(file, input_path)
+            .map(|f| f.strategy.clone())
+            .unwrap_or(ThumbnailStrategy::Icon)
+    } else {
+        get_thumbnail_strategy(input_path)
+    };
+
     let start = std::time::Instant::now();
     
-    // Debug log
-    // println!("THUMB: {:?} | {:?} | {:?}", strategy, size_px, input_path.file_name().unwrap_or_default());
-    
     // OPTIMIZATION: Try external FFmpeg FIRST if available for Image/Video
-    // This offloads the decoding to an external process, which is often faster and safer for large files
     let ffmpeg_available = crate::ffmpeg::is_ffmpeg_available();
     
-    // AND it's a media type (Image/Video/Project which might be PS, AI, EPS)
+    // Note: If we use FFmpeg, the open_file handle is ignored (FFmpeg opens its own).
+    // Shared read locks should be fine on most OSs.
     if ffmpeg_available && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage) {
-         // println!("DEBUG: Trying FFmpeg for strategy {:?}", strategy);
-         if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, output_path, size_px) {
+         if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
-             return Ok(());
+             return Ok(hashed_filename.to_string());
          }
          println!("THUMB (FFmpeg Priority): FAILED - Falling back to Native");
     }
 
     let result = match strategy {
         ThumbnailStrategy::Ffmpeg => {
-            // We already tried and failed above.
-            // Explicitly log the failure before returning error to understand why AI files might be failing silently
             println!("THUMB: Ffmpeg Strategy Final Failure for {:?}", input_path.file_name());
             Err("FFmpeg strategy failed or unavailable".into())
         },
-        ThumbnailStrategy::NativeImage => native::generate_thumbnail_fast(input_path, output_path, size_px),
-        ThumbnailStrategy::ZipPreview => archive::generate_thumbnail_zip_preview(input_path, output_path, size_px),
-        ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, output_path, size_px), 
-        ThumbnailStrategy::Icon | ThumbnailStrategy::None => icon::generate_thumbnail_icon(input_path, output_path, size_px),
+        ThumbnailStrategy::NativeImage => native::generate_thumbnail_fast(input_path, &output_path, size_px, open_file.as_mut()).map(|_| hashed_filename.to_string()),
+        ThumbnailStrategy::ZipPreview => archive::generate_thumbnail_zip_preview(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
+        ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()), 
+        ThumbnailStrategy::Icon | ThumbnailStrategy::None => {
+            // Use the shared icon generator logic
+            icon::get_or_generate_icon(input_path, thumbnails_dir, size_px)
+        },
     };
     
     let final_result = match result {
-        Ok(_) => Ok(()),
+        Ok(path) => Ok(path),
         Err(e) => {
-             // eprintln!("Primary strategy {:?} failed: {}", strategy, e);
              // Fallback attempt: If not already Icon, try Icon
              if !matches!(strategy, ThumbnailStrategy::Icon) {
-                  icon::generate_thumbnail_icon(input_path, output_path, size_px)
+                  icon::get_or_generate_icon(input_path, thumbnails_dir, size_px)
              } else {
                   Err(e)
              }
@@ -99,7 +108,6 @@ pub fn generate_thumbnail(
     };
     
     let elapsed = start.elapsed();
-    // Only log if it took significantly long (e100ms)
     if elapsed.as_millis() > 100 {
         println!("THUMB: {:?} | {:?} | {:?}", strategy, elapsed, input_path.file_name().unwrap_or_default());
     }

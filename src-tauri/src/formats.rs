@@ -41,25 +41,45 @@ impl FileFormat {
     /// Detects the real format of the file.
     /// Priority: 1. Magic Bytes (infer) -> 2. Extension (mime_guess/fallback) -> 3. None
     pub fn detect(path: &Path) -> Option<&'static FileFormat> {
-        // 1. Try reading first bytes (Header)
-        let mut buffer = [0u8; 8192]; // 8KB is enough for most magic bytes
+        // Optimization: Open file once if possible.
+        // For simple usage, we just wrap detect_header.
         if let Ok(mut file) = File::open(path) {
-            if file.read(&mut buffer).is_ok() {
-                if let Some(kind) = infer::get(&buffer) {
-                    // Check registry for the MIME returned by infer
-                    if let Some(fmt) = SUPPORTED_FORMATS.iter().find(|f| f.mime_types.contains(&kind.mime_type())) {
-                        return Some(fmt);
-                    }
+            return Self::detect_header(&mut file, path);
+        }
+        
+        // Fallback if file open fails (locked?) - rely on extension only
+        Self::detect_extension(path)
+    }
+
+    /// Detects format from an open file handle (reads header and rewinds).
+    /// Used to avoid re-opening files in high-performance loops.
+    pub fn detect_header(file: &mut File, path_fallback: &Path) -> Option<&'static FileFormat> {
+        // 1. Try reading first bytes (Header)
+        // 1024 bytes is enough for almost all magic bytes (infer usually needs < 300)
+        let mut buffer = [0u8; 1024]; 
+        
+        // Read header
+        if file.read(&mut buffer).is_ok() {
+            // Rewind file for subsequent use!
+            let _ = std::io::Seek::seek(file, std::io::SeekFrom::Start(0));
+
+            if let Some(kind) = infer::get(&buffer) {
+                // Check registry for the MIME returned by infer
+                if let Some(fmt) = SUPPORTED_FORMATS.iter().find(|f| f.mime_types.contains(&kind.mime_type())) {
+                    return Some(fmt);
                 }
             }
         }
 
-        // 2. Fallback: Extension (if file is locked or infer fails)
+        // 2. Fallback: Extension
+        Self::detect_extension(path_fallback)
+    }
+
+    fn detect_extension(path: &Path) -> Option<&'static FileFormat> {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             let ext_lower = ext.to_lowercase();
             return SUPPORTED_FORMATS.iter().find(|f| f.extensions.contains(&ext_lower.as_str()));
         }
-
         None
     }
 }

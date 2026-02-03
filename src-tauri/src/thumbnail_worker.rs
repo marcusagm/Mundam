@@ -69,17 +69,12 @@ impl ThumbnailWorker {
                                         }
     
                                         let thumb_name = get_thumbnail_filename(&img_path);
-                                        let output_path = thumb_dir_clone.join(&thumb_name);
+
     
                                         // Generate thumbnail
-                                        match generate_thumbnail(input_path, &output_path, 300) {
-                                            Ok(_) => {
-                                                let filename_only = output_path
-                                                    .file_name()
-                                                    .unwrap_or_default()
-                                                    .to_string_lossy()
-                                                    .to_string();
-                                                (*id, Ok(filename_only))
+                                        match generate_thumbnail(input_path, &thumb_dir_clone, &thumb_name, 300) {
+                                            Ok(generated_filename) => {
+                                                (*id, Ok(generated_filename))
                                             }
                                             Err(e) => {
                                                 // Capture the error

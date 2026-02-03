@@ -67,7 +67,7 @@ The goal is to consolidate the "Unified Media Detection System (UMDS)" and ensur
 ### Phase 4: Performance Polish
 *Focus: Speed and Maintenance.*
 
-*   [ ] **Header Optimization (Deferred):**
+*   [x] **Header Optimization (Implemented):**
     *   Review `FileFormat::detect`. If possible, pass the open `File` handle to the decoder to avoid re-opening (requires significant refactoring of traits).
     *   *Alternative:* Just ensure `detect` reads the absolute minimum (header only).
 *   [x] **DB Maintenance Task:**
@@ -78,10 +78,10 @@ The goal is to consolidate the "Unified Media Detection System (UMDS)" and ensur
 
 ## 4. Verification Checklist
 
-- [ ] **Resilience Test:** Corrupt a file (zero bytes or random garbage) renamed to `.jpg`. Ensure Worker tries 3 times and then ignores it.
-- [ ] **UMDS Test:** Rename a `.png` file to `.jpg`. Indexer should detect it as "PNG Image" (via magic bytes) despite the extension.
-- [ ] **SVG Test:** Import a complex `.svg`. Verify a real thumbnail is generated (not an icon).
-- [ ] **Performance Monitor:** Check logs to ensure files aren't being double-read unnecessarily (or accept strict separation for now if refactor is too deep).
+- [x] **Resilience Test:** Corrupt a file (zero bytes or random garbage) renamed to `.jpg`. Ensure Worker tries 3 times and then ignores it.
+- [x] **UMDS Test:** Rename a `.png` file to `.jpg`. Indexer should detect it as "PNG Image" (via magic bytes) despite the extension.
+- [x] **SVG Test:** Import a complex `.svg`. Verify a real thumbnail is generated (not an icon).
+- [x] **Performance Monitor:** Check logs to ensure files aren't being double-read unnecessarily (or accept strict separation for now if refactor is too deep).
 
 ---
 
