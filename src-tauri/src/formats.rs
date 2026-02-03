@@ -211,7 +211,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["ai", "eps"],
         mime_types: &["application/postscript", "application/illustrator"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Icon, // AI preview extraction is hard
+        strategy: ThumbnailStrategy::Ffmpeg, // Attempt to extract PDF preview stream
     },
 
     // --- 3D MODELS ---

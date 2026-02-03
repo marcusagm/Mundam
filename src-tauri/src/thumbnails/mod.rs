@@ -3,7 +3,9 @@ use crate::formats::{FileFormat, ThumbnailStrategy};
 
 pub mod native;
 pub mod archive;
+
 pub mod icon;
+pub mod svg;
 
 /// Determines the best strategy for generating a thumbnail based on file detection.
 ///
@@ -59,9 +61,9 @@ pub fn generate_thumbnail(
     // This offloads the decoding to an external process, which is often faster and safer for large files
     let ffmpeg_available = crate::ffmpeg::is_ffmpeg_available();
     
-    // Only try FFmpeg first if the assigned strategy is NOT Icon/Zip (we know ffmpeg can't do those)
-    // AND it's a media type (Image/Video/Project which might be PS)
+    // AND it's a media type (Image/Video/Project which might be PS, AI, EPS)
     if ffmpeg_available && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage) {
+         // println!("DEBUG: Trying FFmpeg for strategy {:?}", strategy);
          if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, output_path, size_px) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
@@ -72,13 +74,14 @@ pub fn generate_thumbnail(
 
     let result = match strategy {
         ThumbnailStrategy::Ffmpeg => {
-            // We already tried and failed above, or logic missed it.
-            // If we are here, it means the PRIMARY strategy is forced to Ffmpeg but it failed/not available?
+            // We already tried and failed above.
+            // Explicitly log the failure before returning error to understand why AI files might be failing silently
+            println!("THUMB: Ffmpeg Strategy Final Failure for {:?}", input_path.file_name());
             Err("FFmpeg strategy failed or unavailable".into())
         },
         ThumbnailStrategy::NativeImage => native::generate_thumbnail_fast(input_path, output_path, size_px),
         ThumbnailStrategy::ZipPreview => archive::generate_thumbnail_zip_preview(input_path, output_path, size_px),
-        ThumbnailStrategy::Webview => icon::generate_thumbnail_icon(input_path, output_path, size_px), 
+        ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, output_path, size_px), 
         ThumbnailStrategy::Icon | ThumbnailStrategy::None => icon::generate_thumbnail_icon(input_path, output_path, size_px),
     };
     

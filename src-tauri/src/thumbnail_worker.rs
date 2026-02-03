@@ -62,11 +62,10 @@ impl ThumbnailWorker {
                             pool.install(|| {
                                 images
                                     .par_iter()
-                                    .filter_map(|(id, img_path)| {
+                                    .map(|(id, img_path)| {
                                         let input_path = Path::new(&img_path);
                                         if !input_path.exists() {
-                                            // println!("DEBUG: Image path not found: {:?}", input_path);
-                                            return None;
+                                            return (*id, Err("File not found".to_string()));
                                         }
     
                                         let thumb_name = get_thumbnail_filename(&img_path);
@@ -80,14 +79,11 @@ impl ThumbnailWorker {
                                                     .unwrap_or_default()
                                                     .to_string_lossy()
                                                     .to_string();
-                                                Some((*id, filename_only))
+                                                (*id, Ok(filename_only))
                                             }
                                             Err(e) => {
-                                                eprintln!(
-                                                    "Error generating thumbnail for {:?}: {}",
-                                                    input_path, e
-                                                );
-                                                None
+                                                // Capture the error
+                                                (*id, Err(e.to_string()))
                                             }
                                         }
                                     })
@@ -105,12 +101,6 @@ impl ThumbnailWorker {
                             db_updates.len()
                         );
 
-                        // Define payload struct locally or import it.
-                        // Since we can't easily add a struct outside in replace_file_content without context,
-                        // we'll use an ad-hoc tuple or a serde_json::json! macro if available, or just a simple struct.
-                        // Let's use a struct defined inside the async block or just a JSON object if tauri supports it directly...
-                        // Tauri's emit takes any Serialize type.
-
                         #[derive(serde::Serialize, Clone)]
                         struct ThumbnailPayload {
                             id: i64,
@@ -118,16 +108,25 @@ impl ThumbnailWorker {
                         }
 
                         // Perform DB updates sequentially (async)
-                        for (id, filename) in db_updates {
-                            if let Err(e) = db.update_thumbnail_path(id, &filename).await {
-                                eprintln!("Error updating DB for thumbnail: {}", e);
-                            } else {
-                                // println!("DEBUG: Thumbs saved: ID {}", id);
-                                let payload = ThumbnailPayload {
-                                    id,
-                                    path: filename.clone(),
-                                };
-                                let _ = app.emit("thumbnail:ready", payload);
+                        for (id, result) in db_updates {
+                            match result {
+                                Ok(filename) => {
+                                    if let Err(e) = db.update_thumbnail_path(id, &filename).await {
+                                        eprintln!("Error updating DB for thumbnail: {}", e);
+                                    } else {
+                                        let payload = ThumbnailPayload {
+                                            id,
+                                            path: filename.clone(),
+                                        };
+                                        let _ = app.emit("thumbnail:ready", payload);
+                                    }
+                                }
+                                Err(err_msg) => {
+                                    eprintln!("Thumbnail error for ID {}: {}", id, err_msg);
+                                    if let Err(e) = db.record_thumbnail_error(id, err_msg).await {
+                                        eprintln!("Failed to record thumbnail error in DB: {}", e);
+                                    }
+                                }
                             }
                         }
                     }

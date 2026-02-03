@@ -31,5 +31,14 @@ export const tauriService = {
           console.error("Failed to load formats:", error);
           return [];
       }
+  },
+
+  runDbMaintenance: async (): Promise<void> => {
+      try {
+          await invoke("run_db_maintenance");
+      } catch (error) {
+          console.error("Failed to run DB maintenance:", error);
+          throw error;
+      }
   }
 };

@@ -135,6 +135,7 @@ pub fn run() {
             smart_folder_commands::delete_smart_folder,
             settings_commands::get_setting,
             settings_commands::set_setting,
+            settings_commands::run_db_maintenance,
 
             format_commands::get_library_supported_formats
         ])

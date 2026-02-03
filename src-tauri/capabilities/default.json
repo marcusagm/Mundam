@@ -41,6 +41,7 @@
     "allow-delete-smart-folder",
     "allow-get-setting",
     "allow-set-setting",
+    "allow-run-db-maintenance",
     "allow-get-library-supported-formats"
   ]
 }

@@ -22,6 +22,7 @@ Transforma o navegador em uma ferramenta de coleta ativa de referências.
 
 
 * [ ] **Captura de URLs e Referências:**
+* [x] **Thumbnails Optimization:** Geração paralela e eficiente de miniaturas (Native/FFmpeg/Rayon).
 * [ ] **Bookmarks Visuais:** Salva o link com miniatura gerada automaticamente.
 * [ ] **Mapeamento de Metadados:** Captura automática do Título, URL de origem e metadados de plataformas como Pinterest, ArtStation, Behance e Dribbble.
 
@@ -33,16 +34,16 @@ Integração profunda com os arquivos locais e outros softwares de design.
 
 * **Monitoramento e Importação:**
 * [x] **Monitoramento em Tempo Real (Folder Watching/Auto-import):** Vigia diretórios específicos e importa novos arquivos automaticamente.
-* **Mapeamento de Estrutura:** Opção de replicar a hierarquia original de pastas durante a importação.
-* **Detecção de Alterações:** Sincronização automática para remoções e renomeações de arquivos no disco.
+* [x] **Mapeamento de Estrutura:** Opção de replicar a hierarquia original de pastas durante a importação.
+* [x] **Detecção de Alterações:** Sincronização automática para remoções e renomeações de arquivos no disco.
 
 
-* **Integração via Clipboard (Área de Transferência):**
-* **Colagem Direta:** Detecta imagens ou arquivos copiados e cria o ativo via `Ctrl/Cmd + V`.
+* [ ] **Integração via Clipboard (Área de Transferência):**
+* [ ] **Colagem Direta:** Detecta imagens ou arquivos copiados e cria o ativo via `Ctrl/Cmd + V`.
 
 
-* **Captura de Sistema:**
-* **Atalhos Globais:** Captura de tela independente do navegador para registrar outros softwares (Photoshop, Figma, etc.).
+* [ ] **Captura de Sistema:**
+* [ ] **Atalhos Globais:** Captura de tela independente do navegador para registrar outros softwares (Photoshop, Figma, etc.).
 
 
 
@@ -66,8 +67,9 @@ Permite a separação lógica e física de grandes volumes de ativos.
 * [ ] **Modelo Multi-Biblioteca:** Suporte para criar e alternar rapidamente entre diferentes "containers" ou bases de dados independentes.
 * [ ] **Consolidação (Merge):** Capacidade de unir duas ou mais bibliotecas em uma estrutura única.
 * [ ] **Segurança de Acesso:** Opção para proteger pastas ou bibliotecas específicas com senha.
-* [ ] **Hierarquia de Pastas Clássica:**
-* [ ] **Pastas e Subpastas:** Suporte a múltiplos níveis de profundidade para categorias fixas.
+* [x] **Hierarquia de Pastas Clássica:**
+* [x] **Pastas e Subpastas:** Suporte a múltiplos níveis de profundidade para categorias fixas.
+* [x] **Visualização Recursiva:** Alternância entre visualização plana (apenas arquivos da pasta) e recursiva (incluindo subpastas).
 * [ ] **Customização Visual:** Atribuição de cores e ícones para identificação rápida de pastas.
 * [ ] **Agrupamento Virtual:** Recurso para agrupar pastas relacionadas sem alterar o caminho físico no disco.
 
@@ -90,40 +92,43 @@ Um sistema flexível que permite múltiplas camadas de classificação.
 * [ ] **Edição em Lote (Bulk Tagging):** Vinculação de etiquetas a múltiplos arquivos simultaneamente.
 
 
-
 ### 2.3 Pastas Inteligentes e Filtros Dinâmicos
 
 Unidades de organização automatizada baseadas em regras lógicas.
 
-* **Lógica Booleana e Operadores:** Suporte a filtros complexos utilizando "E" (AND), "OU" (OR) e "NÃO" (NOT).
-* **Critérios de Automação:** Agrupamento automático de ativos que atendam a critérios como:
-* Nome do arquivo, extensões ou URLs de origem.
-* Presença ou ausência de tags específicas.
-* Intervalos de datas (criação, importação ou modificação).
-* Dimensões, proporção (aspect ratio) e tamanho do arquivo.
-* Cores predominantes e avaliações (ratings).
+* [x] **Lógica Booleana e Operadores:** Suporte a filtros complexos utilizando "E" (AND), "OU" (OR) e "NÃO" (NOT).
+* [x] **Critérios de Automação:** Agrupamento automático de ativos que atendam a critérios como:
+* [x] Nome do arquivo
+* [x] extensões
+* [ ] URLs de origem.
+* [x] Presença ou ausência de tags específicas.
+* [x] Intervalos de datas (criação, importação ou modificação).
+* [ ] Dimensões, proporção (aspect ratio)
+* [x] tamanho do arquivo.
+* [ ] Cores predominantes
+* [x] Avaliações (ratings).
 
 
-* **Atualização em Tempo Real (Auto-Update):** Novos ativos são incluídos na pasta inteligente assim que satisfazem as regras definidas.
+* [x] **Atualização em Tempo Real (Auto-Update):** Novos ativos são incluídos na pasta inteligente assim que satisfazem as regras definidas.
 
 ### 2.4 Análise Cromática e Inspeção Visual
 
 Processamento automatizado para busca estética.
 
-* **Extração Automática de Cores:** Identificação das cores principais (5 a 10 tons) de cada imagem ou vídeo importado.
-* **Busca por Proximidade:** Localização de ativos através de um seletor visual de cores ou inserção de códigos HEX.
-* **Ajuste de Tolerância:** Controle de sensibilidade para expandir ou restringir a precisão da cor pesquisada.
+* [ ] **Extração Automática de Cores:** Identificação das cores principais (5 a 10 tons) de cada imagem ou vídeo importado.
+* [ ] **Busca por Proximidade:** Localização de ativos através de um seletor visual de cores ou inserção de códigos HEX.
+* [ ] **Ajuste de Tolerância:** Controle de sensibilidade para expandir ou restringir a precisão da cor pesquisada.
 
 ### 2.5 Metadados e Propriedades Personalizadas
 
 Expansão da informação técnica associada a cada ativo.
 
-* **Integração Standard (EXIF/IPTC):** Leitura automática de dados de câmera, ISO, abertura, localização e data original.
-* **Propriedades Personalizadas (Extra Properties):** Criação de campos de dados definidos pelo usuário (texto, seleção, etc.) para catalogação técnica detalhada.
-* **Anotações e Comentários:**
-* **Anotações em Área:** Capacidade de "desenhar" retângulos sobre regiões específicas da imagem para comentários focais.
-* **Notas de Ativo:** Campo de texto livre para descrições longas ou documentação técnica.
-* **Avaliação por Estrelas:** Sistema de rating de 1 a 5 para priorização de qualidade.
+* [ ] **Integração Standard (EXIF/IPTC):** Leitura automática de dados de câmera, ISO, abertura, localização e data original.
+* [ ] **Propriedades Personalizadas (Extra Properties):** Criação de campos de dados definidos pelo usuário (texto, seleção, etc.) para catalogação técnica detalhada.
+* [ ] **Anotações e Comentários:**
+* [ ] **Anotações em Área:** Capacidade de "desenhar" retângulos sobre regiões específicas da imagem para comentários focais.
+* [x] **Notas de Ativo:** Campo de texto livre para descrições longas ou documentação técnica.
+* [x] **Avaliação por Estrelas:** Sistema de rating de 1 a 5 para priorização de qualidade.
 
 ## 3. Visualização, Inspeção e Suporte a Formatos
 
@@ -144,9 +149,9 @@ Capacidade de exibir e processar uma vasta gama de ativos com alta fidelidade.
 Diferentes modos de visualização para se adaptar ao fluxo de trabalho do usuário.
 
 * [x] **Layout Masonry de Alta Performance:** Organização otimizada de imagens com proporções variadas, utilizando processamento via **Wasm/Rust** para garantir fluidez.
-* [ ] **Layouts de Grade e Lista:** Opções de visualização simétrica tradicional ou detalhada com metadados em colunas.
-* [ ] **Modo de Inspeção (Slide Mode):** Visualização em tela cheia com navegação por gestos ou teclado.
-* [ ] **Zoom Dinâmico e Pan:** Ferramentas para inspeção de detalhes em alta resolução e navegação dentro de arquivos grandes.
+* [x] **Layouts de Grade e Lista:** Opções de visualização simétrica tradicional ou detalhada com metadados em colunas.
+* [x] **Modo de Inspeção (Slide Mode):** Visualização em tela cheia com navegação por gestos ou teclado.
+* [x] **Zoom Dinâmico e Pan:** Ferramentas para inspeção de detalhes em alta resolução e navegação dentro de arquivos grandes.
 
 ### 3.3 Inspeção Técnica de Vídeo, Áudio e Animação
 
@@ -194,7 +199,7 @@ Este módulo garante que a recuperação da informação seja instantânea e que
 
 Algoritmos avançados para localização de ativos por contexto ou texto.
 
-* [ ] **Busca por Texto Completo (Fuzzy Search):** Pesquisa em nomes de arquivos, extensões, tags, notas e até URLs de origem.
+* [x] **Busca por Texto Completo (Fuzzy Search):** Pesquisa em nomes de arquivos, extensões, tags, notas e até URLs de origem.
 * [ ] **Tolerância a Erros (Fuzzy Matching):** Algoritmo que encontra resultados aproximados mesmo com termos incompletos ou pequenos erros de digitação.
 * [ ] **Busca por Fonte e Origem:** Localiza imagens através do link original do site onde foram capturadas ou caminhos relativos de armazenamento.
 * [ ] **Busca por Paleta de Cores:** Filtro visual que permite localizar ativos através de tons específicos selecionados em um seletor.
@@ -205,10 +210,10 @@ Interface para consultas complexas baseadas em propriedades físicas e metadados
 
 * [ ] **Lógica Booleana Completa:** Suporte a operadores lógicos **E** (AND), **OU** (OR) e **NÃO** (NOT) para combinar critérios de busca.
 * [ ] **Critérios de Refinamento Técnico:**
-* [ ] **Resolução e Proporção:** Filtros por dimensões exatas (largura/altura) ou proporções de tela (Retrato, Paisagem, Quadrado).
-* [ ] **Atributos de Arquivo:** Filtragem por extensão (formato), tamanho do arquivo e datas (criação, modificação ou importação).
-* [ ] **Qualidade e Status:** Busca por ativos com ou sem tags/anotações e por classificação (estrelas).
-* [ ] **Consultas Salvas (Saved Searches):** Capacidade de salvar critérios complexos para acesso rápido, com atualização dinâmica dos resultados conforme novos ativos entram na biblioteca.
+* [x] **Resolução e Proporção:** Filtros por dimensões exatas (largura/altura) ou proporções de tela (Retrato, Paisagem, Quadrado).
+* [x] **Atributos de Arquivo:** Filtragem por extensão (formato), tamanho do arquivo e datas (criação, modificação ou importação).
+* [x] **Qualidade e Status:** Busca por ativos com ou sem tags/anotações e por classificação (estrelas).
+* [x] **Consultas Salvas (Saved Searches):** (Implementado via Pastas Inteligentes).
 
 ### 4.3 Processamento e Ações em Lote (Batch Processing)
 
@@ -266,6 +271,8 @@ Ajuste da ferramenta ao gosto visual e à produtividade do usuário.
 * [ ] **Gerenciamento de Aparência (Themes):** Suporte a temas **Escuro, Claro, Cinza e Monocromático**.
 * [ ] **Personalização Avançada:** Opção para aplicação de **CSS customizado** por usuários avançados.
 * [ ] **Gestão de Atalhos (Hotkeys):** Configuração total de teclas rápidas para navegação, classificação e disparar ações de automação.
+* [x] **Settings Modal:** Painel de configurações unificado e modular.
+* [x] **Status Bar Toggles:** Alternância rápida de painéis laterais.
 * [ ] **Preferências de Inicialização:** Configuração do comportamento ao abrir (abrir última pesquisa, mostrar biblioteca vazia) e definição de formatos suportados.
 
 ### 5.5 Infraestrutura Técnica e Performance
@@ -274,9 +281,9 @@ Mecanismos de fundo que garantem a velocidade e a integridade dos arquivos.
 
 * [ ] **Paradigma Local-First:** Toda a inteligência de busca e visualização é processada na máquina do usuário, utilizando arquivos JSON e estruturas de pastas locais.
 * [ ] **Motor de Alta Performance (Rust/Wasm):** Uso de WebAssembly e Rust para processamento de layouts complexos e decodificação de formatos pesados com velocidade nativa.
-* [ ] **Geração Assíncrona de Miniaturas:** Worker dedicado em threads separadas para criar previews de arquivos profissionais (PSD, TIFF, HDR) sem travar a interface.
+* [x] **Geração Assíncrona de Miniaturas:** Worker dedicado em threads separadas para criar previews de arquivos profissionais (PSD, TIFF, HDR) sem travar a interface.
 * [ ] **Agendamento de Backups:** Criação automática de cópias de segurança da base de dados com sistema de rotação para economizar disco.
-* [ ] **Arquitetura de Dados:** Otimização interna utilizando **SQLite ou TypeORM** para garantir consultas rápidas em bases massivas.
+* [x] **Arquitetura de Dados:** Otimização interna utilizando **SQLite ou TypeORM** para garantir consultas rápidas em bases massivas.
 
 ### 5.6 Diferenciais e Limitações Identificadas
 

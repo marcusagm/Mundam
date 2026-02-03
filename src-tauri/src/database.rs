@@ -45,6 +45,14 @@ impl Db {
             pool.execute("ALTER TABLE images ADD COLUMN added_at DATETIME DEFAULT CURRENT_TIMESTAMP").await?;
             pool.execute("UPDATE images SET added_at = created_at WHERE added_at IS NULL").await?;
         }
+        if !column_names.contains(&"thumbnail_attempts".to_string()) {
+            println!("DEBUG: Migration - Adding 'thumbnail_attempts' column to images table");
+            pool.execute("ALTER TABLE images ADD COLUMN thumbnail_attempts INTEGER DEFAULT 0").await?;
+        }
+        if !column_names.contains(&"thumbnail_last_error".to_string()) {
+            println!("DEBUG: Migration - Adding 'thumbnail_last_error' column to images table");
+            pool.execute("ALTER TABLE images ADD COLUMN thumbnail_last_error TEXT").await?;
+        }
 
         Ok(Self { pool })
     }
@@ -165,11 +173,22 @@ impl Db {
         limit: i32,
     ) -> Result<Vec<(i64, String)>, sqlx::Error> {
         let rows: Vec<(i64, String)> =
-            sqlx::query_as("SELECT id, path FROM images WHERE thumbnail_path IS NULL LIMIT ?")
+            sqlx::query_as("SELECT id, path FROM images WHERE thumbnail_path IS NULL AND thumbnail_attempts < 3 LIMIT ?")
                 .bind(limit)
                 .fetch_all(&self.pool)
                 .await?;
         Ok(rows)
+    }
+
+    pub async fn record_thumbnail_error(&self, image_id: i64, error: String) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE images SET thumbnail_attempts = thumbnail_attempts + 1, thumbnail_last_error = ? WHERE id = ?"
+        )
+        .bind(error)
+        .bind(image_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn update_thumbnail_path(
@@ -647,6 +666,13 @@ impl Db {
         .await?;
         
         Ok(rows)
+    }
+
+    pub async fn run_maintenance(&self) -> Result<(), sqlx::Error> {
+        println!("DEBUG: DB - Running Maintenance (VACUUM + ANALYZE)");
+        sqlx::query("VACUUM").execute(&self.pool).await?;
+        sqlx::query("ANALYZE").execute(&self.pool).await?;
+        Ok(())
     }
 }
 

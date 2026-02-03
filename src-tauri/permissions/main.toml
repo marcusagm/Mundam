@@ -136,3 +136,7 @@ commands.allow = ["set_setting"]
 identifier = "allow-get-library-supported-formats"
 description = "Enables get_library_supported_formats"
 commands.allow = ["get_library_supported_formats"]
+[[permission]]
+identifier = "allow-run-db-maintenance"
+description = "Enables run_db_maintenance"
+commands.allow = ["run_db_maintenance"]

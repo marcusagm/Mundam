@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS images (
     created_at DATETIME NOT NULL,
     modified_at DATETIME NOT NULL,
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    thumbnail_attempts INTEGER DEFAULT 0,
+    thumbnail_last_error TEXT,
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
 );
 

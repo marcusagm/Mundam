@@ -43,17 +43,9 @@ pub fn get_image_metadata(path: &Path) -> Option<ImageMetadata> {
         Err(_) => (None, None),
     };
 
-    let format = match std::fs::File::open(path) {
-        Ok(mut file) => {
-            use std::io::Read;
-            let mut buffer = [0u8; 1024];
-            let _ = file.read(&mut buffer);
-            match imagesize::image_type(&buffer) {
-                Ok(t) => format!("{:?}", t).to_lowercase(),
-                Err(_) => extension,
-            }
-        }
-        Err(_) => extension,
+    let format = match crate::formats::FileFormat::detect(path) {
+        Some(fmt) => fmt.extensions[0].to_string(),
+        None => extension,
     };
 
     Some(ImageMetadata {
