@@ -1,12 +1,14 @@
 import { Component, createMemo, Show, Switch, Match, createEffect, onCleanup, onMount } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
-import { ItemViewToolbar } from "./ItemViewToolbar";
 import { useShortcuts, createConditionalScope } from "../../../core/input";
-import { ViewportProvider, useViewportContext, FlipState } from "./ViewportContext";
-import { ImageViewer } from "./renderers/ImageViewer";
-import { VideoPlayer } from "./renderers/VideoPlayer";
-import { FontPreview } from "./renderers/FontPreview";
-import { ModelViewer } from "./renderers/ModelViewer";
+import { ItemViewProvider, useItemViewContext, FlipState } from "./ItemViewContext";
+import { BaseToolbar } from "./common/BaseToolbar";
+import { ImageToolbar } from "./renderers/image/ImageToolbar";
+import { FontToolbar } from "./renderers/font/FontToolbar";
+import { ImageViewer } from "./renderers/image/ImageViewer";
+import { VideoPlayer } from "./renderers/video/VideoPlayer";
+import { FontView } from "./renderers/font/FontView";
+import { ModelViewer } from "./renderers/model/ModelViewer";
 import "./item-view.css";
 
 // Helper to determine media type from extension
@@ -31,9 +33,9 @@ const getMediaType = (filename: string): 'image' | 'video' | 'audio' | 'font' | 
 
 export const ItemView: Component = () => {
     return (
-        <ViewportProvider>
+        <ItemViewProvider>
             <ItemViewContent />
-        </ViewportProvider>
+        </ItemViewProvider>
     );
 };
 
@@ -41,12 +43,12 @@ const ItemViewContent: Component = () => {
     const viewport = useViewport();
     const lib = useLibrary();
     const { 
-        reset, setMediaType, 
+        reset, setMediaType, mediaType,
         slideshowPlaying, slideshowDuration, setSlideshowPlaying,
         zoom, setZoom,
         setTool,
         setFlip
-    } = useViewportContext();
+    } = useItemViewContext();
     
     let overlayRef: HTMLDivElement | undefined;
     let previousFocus: HTMLElement | null = null;
@@ -139,7 +141,16 @@ const ItemViewContent: Component = () => {
             role="dialog"
             aria-modal="true"
         >
-            <ItemViewToolbar />
+            <BaseToolbar>
+                <Switch>
+                    <Match when={mediaType() === 'image' || mediaType() === 'unknown' || mediaType() === 'model'}>
+                        <ImageToolbar />
+                    </Match>
+                    <Match when={mediaType() === 'font'}>
+                        <FontToolbar />
+                    </Match>
+                </Switch>
+            </BaseToolbar>
             
             <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>
                 <Switch fallback={<div class="item-error">Unsupported format</div>}>
@@ -162,8 +173,8 @@ const ItemViewContent: Component = () => {
                             type="audio"
                         />
                     </Match>
-                    <Match when={getMediaType(item()!.filename) === 'font'}>
-                        <FontPreview 
+                    <Match when={mediaType() === 'font'}>
+                        <FontView 
                             src={`orig://localhost/${item()!.path}`} 
                             fontName={item()!.filename}
                         />

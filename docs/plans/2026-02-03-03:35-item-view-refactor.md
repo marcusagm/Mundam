@@ -7,14 +7,14 @@ Refactor the `ItemView` component into a modular "Orchestrator" that delegates r
 **WEB** (Tauri/SolidJS)
 
 ## Success Criteria
-- [ ] `ItemView` acts as a container/switcher, not a monolithic renderer.
-- [ ] Zoom displays exact percentage (0% to 200%+) and starts at "Fit" logic correctly.
-- [ ] Rotation tool allows free rotation (mouse drag) and resets correctly.
-- [ ] New "Flip" tool (Horizontal/Vertical) implemented for images.
-- [ ] Support for **Video/Audio** playback with native controls.
-- [ ] Support for **Font** preview (custom text rendering).
-- [ ] Support for **3D Models** (GLB/GLTF) using `<model-viewer>` or similar.
-- [ ] UI Controls in `ItemViewToolbar` adapt or disable based on the active media type.
+- [x] `ItemView` acts as a container/switcher, not a monolithic renderer.
+- [x] Zoom displays exact percentage (0% to 200%+) and starts at "Fit" logic correctly.
+- [x] Rotation tool allows free rotation (mouse drag) and resets correctly.
+- [x] New "Flip" tool (Horizontal/Vertical) implemented for images.
+- [x] Support for **Video/Audio** playback with native controls.
+- [x] Support for **Font** preview (custom text rendering).
+- [x] Support for **3D Models** (GLB/GLTF) using `<model-viewer>` or similar.
+- [x] UI Controls in `ItemViewToolbar` adapt or disable based on the active media type.
 
 ## Tech Stack
 - **SolidJS**: Core framework.
@@ -86,11 +86,11 @@ src/components/features/viewport/
   **Verify:** Opening different file types authenticates the correct renderer.
 
 ## Phase X: Verification
-- [ ] **Lint Check:** `npm run lint` matches standards.
-- [ ] **Type Check:** No `any` types in new Context/Renderers.
-- [ ] **Manual UX:**
-    - [ ] Zoom slider shows real %.
-    - [ ] Rotate is smooth and resets.
-    - [ ] Video plays.
-    - [ ] Font loads.
-    - [ ] 3D model loads (if sample available).
+- [x] **Lint Check:** `npm run lint` matches standards.
+- [x] **Type Check:** No `any` types in new Context/Renderers.
+- [x] **Manual UX:**
+    - [x] Zoom slider shows real %.
+    - [x] Rotate is smooth and resets.
+    - [x] Video plays.
+    - [x] Font loads.
+    - [x] 3D model loads (if sample available).

@@ -1,5 +1,5 @@
 import { Component, createSignal } from "solid-js";
-import "./renderers.css";
+import "../renderers.css";
 
 interface VideoPlayerProps {
     src: string;

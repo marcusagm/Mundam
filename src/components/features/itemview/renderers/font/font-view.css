@@ -1,0 +1,207 @@
+/* Font View Container */
+.font-view-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.font-content {
+    flex: 1;
+    overflow: auto;
+    padding: var(--space-6);
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    /* Colors handled by inline style for dynamic preview */
+}
+
+.font-inner-wrapper {
+    max-width: 1024px;
+    width: 100%;
+}
+
+/* Tabs */
+.font-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 80px 0 var(--space-4) 0;
+    flex-shrink: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Tabs Styles */
+.font-tab-preview {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.font-preview-textarea {
+    width: 100%;
+    height: 100%;
+    min-height: 600px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: var(--space-4);
+    font-family: inherit; /* Dynamic */
+    color: inherit;
+}
+
+/* Waterfall */
+.font-waterfall-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    width: 100%;
+    padding: var(--space-4);
+    user-select: text;
+}
+
+.font-waterfall-item {
+    display: flex;
+    gap: var(--space-4);
+    align-items: baseline;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: var(--space-2);
+}
+
+.font-waterfall-label {
+    width: 48px;
+    font-size: var(--font-size-sm);
+    opacity: 0.4;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.font-waterfall-text {
+    word-break: break-word;
+    width: 100%;
+}
+
+/* Glyphs */
+.font-glyphs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--space-4);
+    width: 100%;
+    padding: var(--space-4);
+}
+
+.font-glyph-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast);
+}
+
+.font-glyph-item:hover {
+    background-color: var(--bg-subtle);
+}
+
+.font-glyph-code {
+    font-size: var(--font-size-xs);
+    opacity: 0.3;
+    margin-top: var(--space-2);
+    user-select: none;
+}
+
+/* Info Tab */
+.font-info-container {
+    padding: var(--space-6);
+    width: 100%;
+    max-width: 672px; /* 2xl */
+    margin: 0 auto;
+}
+
+.font-info-title {
+    font-size: 20px; /* Custom size not in standard tokens yet, keep or add */
+    font-weight: 500;
+    margin-bottom: var(--space-5);
+}
+
+.font-info-row {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.font-info-label {
+    width: 128px;
+    opacity: 0.5;
+}
+
+.font-info-value {
+    user-select: text;
+}
+
+.font-info-value.uppercase {
+    text-transform: uppercase;
+}
+
+/* Toolbar Controls */
+.font-control-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+}
+
+.font-control-label {
+    width: 120px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.font-control-label input[type="range"] {
+    flex: 1;
+}
+
+.font-control-value {
+    font-size: var(--font-size-xs);
+    width: 24px;
+    text-align: right;
+    opacity: 0.7;
+}
+
+.font-icon {
+    opacity: 0.5;
+}
+
+.font-color-popover {
+    width: 300px;
+    padding: var(--space-2);
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+}
+
+.font-color-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 32px;
+    padding: 0 var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+}
+
+.font-color-preview {
+    width: 16px;
+    height: 16px;
+    margin-right: var(--space-2);
+    border-radius: 50%; /* or 4px depending on usage */
+    border: 1px solid var(--border-subtle);
+}

@@ -5,6 +5,7 @@ import {
   onCleanup,
   For, 
   splitProps,
+  createEffect,
 } from "solid-js";
 import { cn } from "../../lib/utils";
 import "./color-picker.css";
@@ -62,6 +63,8 @@ export interface ColorPickerProps {
   showInput?: boolean;
   /** Additional CSS class */
   class?: string;
+  /** Allow selecting no color (transparent) */
+  allowNoColor?: boolean;
 }
 
 const DEFAULT_PRESETS = [
@@ -71,15 +74,6 @@ const DEFAULT_PRESETS = [
   "#ffffff", "#94a3b8", "#64748b", "#475569", "#1e293b", "#000000",
 ];
 
-/**
- * ColorPicker component for selecting colors.
- * Supports saturation/brightness picker, hue slider, presets, and hex input.
- * 
- * @example
- * const [color, setColor] = createSignal("#0ea5e9");
- * 
- * <ColorPicker color={color()} onChange={setColor} />
- */
 export const ColorPicker: Component<ColorPickerProps> = (props) => {
   const [local] = splitProps(props, [
     "color",
@@ -87,6 +81,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
     "presets",
     "showInput",
     "class",
+    "allowNoColor",
   ]);
 
   const [hsb, setHsb] = createSignal({ h: 0, s: 100, b: 100 });
@@ -99,12 +94,29 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
 
   const presets = () => local.presets ?? DEFAULT_PRESETS;
   const showInput = () => local.showInput ?? true;
+  const allowNoColor = () => local.allowNoColor ?? false;
 
   // Initialize from props
   onMount(() => {
-    const initialHsb = hexToHsb(local.color || "#ff0000");
-    setHsb(initialHsb);
-    setHexInput(local.color);
+    if (local.color === "transparent") {
+        setHsb({ h: 0, s: 0, b: 100 }); // Default white-ish if returning from transparent
+        setHexInput("transparent");
+    } else {
+        const initialHsb = hexToHsb(local.color || "#ff0000");
+        setHsb(initialHsb);
+        setHexInput(local.color);
+    }
+  });
+
+  createEffect(() => {
+      // Sync external color changes back to input if needed (optional)
+      if (local.color === "transparent") {
+          setHexInput("transparent");
+      } else if (isValidHex(local.color) && local.color !== hexInput()) {
+        if (!isDraggingSB() && !isDraggingHue()) { // Avoid fighting user input
+             // setHexInput(local.color); // This might cause loop or cursor jump. Let's rely on updateColor.
+        }
+      }
   });
 
   const updateColor = (newHsb: { h: number; s: number; b: number }) => {
@@ -113,6 +125,14 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
     setHexInput(hex);
     local.onChange(hex);
   };
+
+  const setTransparent = () => {
+      local.onChange("transparent");
+      setHexInput("transparent");
+      // keep HSB as is or reset? Keep as is so if they pick color again it starts somewhat reasonable.
+  };
+
+  // ... (Interaction Handlers remain same, but check hexToHsb safety if needed)
 
   // SB Area interaction
   const handleSbMove = (e: MouseEvent | PointerEvent) => {
@@ -165,6 +185,10 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
 
   const handleHexInputChange = (value: string) => {
     setHexInput(value);
+    if (allowNoColor() && value.toLowerCase() === "transparent") {
+        local.onChange("transparent");
+        return;
+    }
     if (isValidHex(value)) {
       const newHsb = hexToHsb(value);
       setHsb(newHsb);
@@ -172,47 +196,27 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
     }
   };
 
-  // Keyboard support for SB area
-  const handleSbKeyDown = (e: KeyboardEvent) => {
+  // Keyboard Support
+  const handleSbKey = (e: KeyboardEvent) => {
     const step = e.shiftKey ? 10 : 1;
     const current = hsb();
-
     switch (e.key) {
-      case "ArrowRight":
-        e.preventDefault();
-        updateColor({ ...current, s: Math.min(100, current.s + step) });
-        break;
-      case "ArrowLeft":
-        e.preventDefault();
-        updateColor({ ...current, s: Math.max(0, current.s - step) });
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        updateColor({ ...current, b: Math.min(100, current.b + step) });
-        break;
-      case "ArrowDown":
-        e.preventDefault();
-        updateColor({ ...current, b: Math.max(0, current.b - step) });
-        break;
+      case "ArrowRight": e.preventDefault(); updateColor({ ...current, s: Math.min(100, current.s + step) }); break;
+      case "ArrowLeft": e.preventDefault(); updateColor({ ...current, s: Math.max(0, current.s - step) }); break;
+      case "ArrowUp": e.preventDefault(); updateColor({ ...current, b: Math.min(100, current.b + step) }); break;
+      case "ArrowDown": e.preventDefault(); updateColor({ ...current, b: Math.max(0, current.b - step) }); break;
     }
   };
 
-  // Keyboard support for hue slider
-  const handleHueKeyDown = (e: KeyboardEvent) => {
+  const handleHueKey = (e: KeyboardEvent) => {
     const step = e.shiftKey ? 10 : 1;
     const current = hsb();
-
     switch (e.key) {
-      case "ArrowRight":
-        e.preventDefault();
-        updateColor({ ...current, h: (current.h + step) % 360 });
-        break;
-      case "ArrowLeft":
-        e.preventDefault();
-        updateColor({ ...current, h: (current.h - step + 360) % 360 });
-        break;
+      case "ArrowRight": e.preventDefault(); updateColor({ ...current, h: (current.h + step) % 360 }); break;
+      case "ArrowLeft": e.preventDefault(); updateColor({ ...current, h: (current.h - step + 360) % 360 }); break;
     }
   };
+
 
   onCleanup(() => {
     document.removeEventListener("mousemove", handleGlobalMove);
@@ -230,7 +234,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
         class="ui-color-picker-sb"
         style={{ "background-color": `hsl(${hsb().h}, 100%, 50%)` }}
         onMouseDown={startDragSB}
-        onKeyDown={handleSbKeyDown}
+        onKeyDown={handleSbKey}
         tabindex={0}
         role="slider"
         aria-label="Saturation and brightness"
@@ -243,6 +247,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
           style={{
             left: `${hsb().s}%`,
             top: `${100 - hsb().b}%`,
+            display: local.color === "transparent" ? "none" : "block"
           }}
         />
       </div>
@@ -252,7 +257,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
         ref={hueRef}
         class="ui-color-picker-hue"
         onMouseDown={startDragHue}
-        onKeyDown={handleHueKeyDown}
+        onKeyDown={handleHueKey}
         tabindex={0}
         role="slider"
         aria-label="Hue"
@@ -262,7 +267,10 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
       >
         <div
           class="ui-color-picker-hue-thumb"
-          style={{ left: `${(hsb().h / 360) * 100}%` }}
+          style={{ 
+              left: `${(hsb().h / 360) * 100}%`,
+              display: local.color === "transparent" ? "none" : "block"
+           }}
         />
       </div>
 
@@ -271,7 +279,12 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
         <div class="ui-color-picker-controls">
           <div
             class="ui-color-picker-preview"
-            style={{ "background-color": local.color }}
+            style={{ 
+                "background-color": local.color === "transparent" ? "transparent" : local.color,
+                "background-image": local.color === "transparent" ? "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)" : "none",
+                "background-size": "8px 8px", 
+                "background-position": "0 0, 0 4px, 4px -4px, -4px 0px"
+            }}
             aria-label={`Selected color: ${local.color}`}
           />
           <input
@@ -279,7 +292,7 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
             class="ui-color-picker-input"
             value={hexInput()}
             onInput={(e) => handleHexInputChange(e.currentTarget.value)}
-            maxLength={7}
+            maxLength={11} 
             spellcheck={false}
             aria-label="Hex color value"
           />
@@ -288,6 +301,21 @@ export const ColorPicker: Component<ColorPickerProps> = (props) => {
 
       {/* Presets */}
       <div class="ui-color-picker-presets" role="listbox" aria-label="Color presets">
+        {allowNoColor() && (
+             <button
+               type="button"
+               class={cn(
+                 "ui-color-picker-preset",
+                 "ui-color-picker-preset-transparent",
+                 local.color === "transparent" && "ui-color-picker-preset-selected"
+               )}
+               onClick={setTransparent}
+               title="No Color"
+               role="option"
+               aria-selected={local.color === "transparent"}
+               aria-label="Transparent"
+             />
+        )}
         <For each={presets()}>
           {(color) => (
             <button

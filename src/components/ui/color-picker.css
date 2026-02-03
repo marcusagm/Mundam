@@ -5,11 +5,13 @@
 .ui-color-picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3, 12px);
-  padding: var(--space-2, 8px);
-  background-color: var(--bg-elevated, #2d2d2d);
-  border-radius: var(--radius-md, 6px);
+  gap: var(--space-3);
+  padding: var(--space-2);
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-md);
   min-width: 220px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
 }
 
 /* Saturation/Brightness Area */
@@ -17,13 +19,14 @@
   position: relative;
   width: 100%;
   height: 150px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   cursor: crosshair;
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
 }
 
 .ui-color-picker-sb:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
@@ -49,7 +52,7 @@
   transform: translate(-50%, -50%);
   border: 2px solid white;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
 
@@ -58,7 +61,7 @@
   position: relative;
   width: 100%;
   height: 14px;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px; /* Pill shape */
   background: linear-gradient(
     to right,
     #f00 0%,
@@ -70,10 +73,11 @@
     #f00 100%
   );
   cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
 }
 
 .ui-color-picker-hue:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
@@ -86,7 +90,7 @@
   background: white;
   border: 2px solid white;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
 
@@ -94,33 +98,36 @@
 .ui-color-picker-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .ui-color-picker-preview {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-sm, 4px);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .ui-color-picker-input {
   flex: 1;
   height: 36px;
-  padding: 0 var(--space-3, 12px);
-  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-sm, 4px);
-  font-family: monospace;
-  font-size: var(--font-size-sm, 14px);
+  padding: 0 var(--space-3);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   text-transform: uppercase;
+  transition: border-color var(--transition-fast);
 }
 
 .ui-color-picker-input:focus {
   outline: none;
-  border-color: var(--accent-primary, #0ea5e9);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
 }
 
 /* Presets */
@@ -135,21 +142,47 @@
   height: 22px;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.1s ease;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
 }
 
 .ui-color-picker-preset:hover {
   transform: scale(1.15);
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
 }
 
 .ui-color-picker-preset:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
 .ui-color-picker-preset-selected {
   border-color: white;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.ui-color-picker-preset-transparent {
+    background-image: 
+        linear-gradient(45deg, #ccc 25%, transparent 25%), 
+        linear-gradient(-45deg, #ccc 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #ccc 75%), 
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+    background-color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.ui-color-picker-preset-transparent::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background-color: var(--text-destructive);
+    transform: translate(-50%, -50%) rotate(45deg);
 }

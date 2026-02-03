@@ -14,7 +14,7 @@ export type ViewportTool = "pan" | "rotate";
 
 export type MediaType = 'image' | 'video' | 'audio' | 'font' | 'model' | 'unknown';
 
-interface ViewportContextState {
+interface ItemViewContextState {
     zoom: Accessor<number>;
     setZoom: Setter<number>;
     rotation: Accessor<number>;
@@ -32,12 +32,27 @@ interface ViewportContextState {
     setSlideshowPlaying: Setter<boolean>;
     slideshowDuration: Accessor<number>;
     setSlideshowDuration: Setter<number>;
+
+    // Font Settings
+    fontSettings: Accessor<FontSettings>;
+    setFontSettings: Setter<FontSettings>;
+
     reset: () => void;
 }
 
-const ViewportContext = createContext<ViewportContextState>();
+export interface FontSettings {
+    color: string;
+    backgroundColor: string;
+    fontSize: number; // PX
+    fontWeight: string;
+    lineHeight: number;
+    letterSpacing: number;
+    variableAxes?: Record<string, number>;
+}
 
-export const ViewportProvider: ParentComponent = (props) => {
+const ItemViewContext = createContext<ItemViewContextState>();
+
+export const ItemViewProvider: ParentComponent = (props) => {
     // Zoom agora armazena a porcentagem real (ex: 100 = 100%).
     // O valor inicial pode ser sobrescrito pelo renderizador (ex: ImageViewer setando Fit on load).
     const [zoom, setZoom] = createSignal(100); 
@@ -51,6 +66,16 @@ export const ViewportProvider: ParentComponent = (props) => {
     const [slideshowPlaying, setSlideshowPlaying] = createSignal(false);
     const [slideshowDuration, setSlideshowDuration] = createSignal(5); // seconds
 
+    // Font Settings (Defaults)
+    const [fontSettings, setFontSettings] = createSignal<FontSettings>({
+        color: '#ffffff',
+        backgroundColor: 'transparent',
+        fontSize: 48,
+        fontWeight: '400',
+        lineHeight: 1.5,
+        letterSpacing: 0
+    });
+
     const reset = () => {
         setZoom(100);
         setRotation(0);
@@ -58,10 +83,19 @@ export const ViewportProvider: ParentComponent = (props) => {
         setPosition({ x: 0, y: 0 });
         setTool("pan");
         setMediaType('unknown');
+        // Reset Font Settings
+        setFontSettings({
+            color: '#ffffff',
+            backgroundColor: 'transparent',
+            fontSize: 48,
+            fontWeight: '400',
+            lineHeight: 1.5,
+            letterSpacing: 0
+        });
         // Do NOT reset slideshow state here, as it should persist across item changes
     };
 
-    const value: ViewportContextState = {
+    const value: ItemViewContextState = {
         zoom, setZoom,
         rotation, setRotation,
         flip, setFlip,
@@ -70,20 +104,21 @@ export const ViewportProvider: ParentComponent = (props) => {
         mediaType, setMediaType,
         slideshowPlaying, setSlideshowPlaying,
         slideshowDuration, setSlideshowDuration,
+        fontSettings, setFontSettings,
         reset
     };
 
     return (
-        <ViewportContext.Provider value={value}>
+        <ItemViewContext.Provider value={value}>
             {props.children}
-        </ViewportContext.Provider>
+        </ItemViewContext.Provider>
     );
 };
 
-export const useViewportContext = () => {
-    const context = useContext(ViewportContext);
+export const useItemViewContext = () => {
+    const context = useContext(ItemViewContext);
     if (!context) {
-        throw new Error("useViewportContext must be used within a ViewportProvider");
+        throw new Error("useItemViewContext must be used within a ItemViewProvider");
     }
     return context;
 };

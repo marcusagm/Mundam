@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import "./renderers.css";
+import "../renderers.css";
 
 interface ModelViewerProps {
     src: string;

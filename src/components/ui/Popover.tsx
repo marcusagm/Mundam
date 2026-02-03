@@ -81,7 +81,7 @@ export const Popover: Component<PopoverProps> = (props) => {
           <div 
             ref={contentRef} 
             class={cn("ui-popover-content", props.class)}
-            style={{ position: "fixed", "z-index": 1000 }}
+            style={{ position: "fixed", "z-index": 10000 }}
           >
             {props.children}
           </div>

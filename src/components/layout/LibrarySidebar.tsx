@@ -5,7 +5,7 @@ import { FolderTreeSidebarPanel } from "../features/library/FolderTreeSidebarPan
 import { TagTreeSidebarPanel } from "../features/tags/TagTreeSidebarPanel";
 import { SmartFoldersSidebarPanel } from "../features/search/SmartFoldersSidebarPanel";
 import "./library-sidebar.css";
-import LogoColor from "../../assets/logo-color.svg";
+// import LogoColor from "../../assets/logo-color.svg";
 
 export const LibrarySidebar: Component = () => {
     const STORAGE_KEY = "sidebar-layout-v2"; // Increment version since we added a panel
@@ -32,9 +32,9 @@ export const LibrarySidebar: Component = () => {
 
     return (
         <aside class="library-sidebar">
-            <div class="sidebar-logo-area">
+            {/* <div class="sidebar-logo-area">
                 <img src={LogoColor} alt="Mundam" />
-            </div>
+            </div> */}
             <ResizablePanelGroup direction="vertical" onLayout={handleLayoutChange}>
                 <ResizablePanel id="sidebar-library" defaultSize={librarySize} minSize={10} class="panel-lib">
                     <LibrarySidebarPanel />

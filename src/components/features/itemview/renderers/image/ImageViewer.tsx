@@ -1,5 +1,5 @@
 import { Component, onMount, createSignal, onCleanup } from "solid-js";
-import { useViewportContext } from "../ViewportContext";
+import { useItemViewContext } from "../../ItemViewContext";
 
 interface ImageViewerProps {
     src: string;
@@ -14,7 +14,7 @@ export const ImageViewer: Component<ImageViewerProps> = (props) => {
         tool,
         position, setPosition,
         reset 
-    } = useViewportContext();
+    } = useItemViewContext();
 
     let imgRef: HTMLImageElement | undefined;
     let containerRef: HTMLDivElement | undefined;
