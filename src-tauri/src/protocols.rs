@@ -69,6 +69,8 @@ pub fn thumb_handler(
     let decoded_filename = percent_decode_str(path_part).decode_utf8_lossy();
     let full_path = thumb_dir.join(decoded_filename.as_ref());
 
+    println!("PROTOCOL: uri={} part={} full={:?} exists={}", uri, path_part, full_path, full_path.exists());
+
     match serve_file(&full_path) {
         Ok(res) => res,
         Err(res) => res,

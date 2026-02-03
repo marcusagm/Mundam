@@ -19,8 +19,9 @@ export const VirtualListView: Component = () => {
 
     const getThumbUrl = (path: string | null) => {
         if (!path) return undefined;
-        const filename = path.split(/[\\/]/).pop();
-        return `thumb://localhost/${filename}`;
+        // Don't just take the filename! 'extensions/icon_xxx.webp' needs the full path.
+        const normalizedPath = path.replace(/\\/g, '/');
+        return `thumb://localhost/${normalizedPath}`;
     };
 
     const listThumbWidth = createMemo(() => Math.floor(filters.thumbSize / 5));

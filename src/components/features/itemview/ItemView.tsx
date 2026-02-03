@@ -20,7 +20,7 @@ const getMediaType = (filename: string): 'image' | 'video' | 'audio' | 'font' | 
     const videoExts = ['mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv'];
     const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'];
     const fontExts = ['ttf', 'otf', 'woff', 'woff2'];
-    const modelExts = ['blend', 'fbx', 'obj', 'glb', 'gltf', 'stl'];
+    const modelExts = ['blend', 'fbx', 'obj', 'glb', 'gltf', 'stl', 'dae', '3ds', 'dxf', 'lwo', 'lws'];
 
     if (imageExts.includes(ext)) return 'image';
     if (videoExts.includes(ext)) return 'video';
@@ -183,6 +183,7 @@ const ItemViewContent: Component = () => {
                         <ModelViewer 
                             src={`orig://localhost/${item()!.path}`} 
                             filename={item()!.filename}
+                            thumbnail={item()!.thumbnail_path}
                         />
                     </Match>
                 </Switch>

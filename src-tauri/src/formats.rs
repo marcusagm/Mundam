@@ -23,6 +23,7 @@ pub enum ThumbnailStrategy {
     Ffmpeg,      // Video and complex formats
     Webview,     // SVG, HTML
     ZipPreview,  // Affinity, OpenOffice etc
+    Model3D,     // Uses Assimp to convert to GLB
     Icon,        // Fallback for files without preview
     None,
 }
@@ -247,21 +248,77 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["blend"],
         mime_types: &["application/x-blender"],
         type_category: MediaType::Model3D,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Model3D,
     },
     FileFormat {
         name: "FBX Model",
         extensions: &["fbx"],
         mime_types: &["application/octet-stream"], // Often generic
         type_category: MediaType::Model3D,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Model3D,
     },
     FileFormat {
         name: "OBJ Model",
         extensions: &["obj"],
         mime_types: &["model/obj", "text/plain"],
         type_category: MediaType::Model3D,
-        strategy: ThumbnailStrategy::Icon,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "GL Transmission Format",
+        extensions: &["gltf"],
+        mime_types: &["model/gltf+json"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D, 
+    },
+    FileFormat {
+        name: "Binary GLTF",
+        extensions: &["glb"],
+        mime_types: &["model/gltf-binary"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "Collada Model",
+        extensions: &["dae"],
+        mime_types: &["model/vnd.collada+xml"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "Stereolithography",
+        extensions: &["stl"],
+        mime_types: &["model/stl", "application/vnd.ms-pki.stl"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "3D Studio",
+        extensions: &["3ds"],
+        mime_types: &["application/x-3ds"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "AutoCAD DXF",
+        extensions: &["dxf"],
+        mime_types: &["image/vnd.dxf"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "LightWave Object",
+        extensions: &["lwo"],
+        mime_types: &["image/x-lwo"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
+    },
+    FileFormat {
+        name: "LightWave Scene",
+        extensions: &["lws"],
+        mime_types: &["image/x-lws"],
+        type_category: MediaType::Model3D,
+        strategy: ThumbnailStrategy::Model3D,
     },
 
     // --- FONTS ---
@@ -272,10 +329,24 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Icon,
     },
-     FileFormat {
+    FileFormat {
         name: "OpenType Font",
         extensions: &["otf"],
         mime_types: &["font/otf"],
+        type_category: MediaType::Font,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Web Open Font Format",
+        extensions: &["woff"],
+        mime_types: &["font/woff"],
+        type_category: MediaType::Font,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Web Open Font Format 2",
+        extensions: &["woff2"],
+        mime_types: &["font/woff2"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Icon,
     },

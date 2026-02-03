@@ -33,7 +33,7 @@ Este relatório exclui itens já implementados e consolida todas as pendências 
 *   [ ] **Fuzzy Search:** Tolerância a erros de digitação na busca.
 
 ### Visualização e Inspeção
-*   [ ] **Visualização 3D Real:** Renderização interativa de `.obj`, `.fbx`.
+*   [x] **Visualização 3D Real:** Renderização interativa de múltiplos formatos (.obj, .fbx, .blend, .dae, etc).
 *   [x] **Preview de Fontes:** Digitação de texto customizado para testar fontes.
 *   [ ] **Video Player Avançado:** Scrubbing (hover), playback speed, anotações.
 

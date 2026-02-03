@@ -33,7 +33,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "ffmpeg/*": "ffmpeg/"
+      "ffmpeg/*": "ffmpeg/",
+      "assimp/*": "assimp/"
     }
   }
 }

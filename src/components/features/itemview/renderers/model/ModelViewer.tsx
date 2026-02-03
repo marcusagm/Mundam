@@ -1,25 +1,66 @@
-import { Component } from "solid-js";
+import { Component, createMemo, Show } from "solid-js";
+import "@google/model-viewer";
 import "../renderers.css";
+
+declare module "solid-js" {
+    namespace JSX {
+        interface IntrinsicElements {
+            "model-viewer": any;
+        }
+    }
+}
 
 interface ModelViewerProps {
     src: string;
     filename: string;
+    thumbnail?: string | null;
 }
 
 export const ModelViewer: Component<ModelViewerProps> = (props) => {
-    // Ideally we would use <model-viewer> or Three.js
-    // Since we don't have dependencies, we will show a placeholder
-    // suggesting what to do, or try to use a CDN based approach (not recommended for offline app)
-    // or just a nice UI saying "3D Preview not available"
+    // Determine the path to the cached GLB content
+    const glbUrl = createMemo(() => {
+        // Strategy: We rely on the backend pipeline which generates a .glb 
+        // with the same hash name as the thumbnail (.webp).
+        if (!props.thumbnail) return null;
+        
+        const filename = props.thumbnail.split(/[\\/]/).pop();
+        if (!filename) return null;
+        
+        const stem = filename.replace(/\.[^/.]+$/, "");
+        return `thumb://localhost/${stem}.glb`;
+    });
 
     return (
-        <div class="model-viewer-placeholder">
-            <div class="model-icon">🧊</div>
-            <h2>3D Model Preview</h2>
-            <p>{props.filename}</p>
-            <p class="model-subtitle">
-                Interaction for .blend/fbx/obj files requires a specialized 3D renderer.
-            </p>
+        <div class="model-viewer-container">
+            <Show when={glbUrl()} fallback={
+                <div class="model-placeholder">
+                     <div class="model-icon">🧊</div>
+                     <p>Preview pending or unavailable</p>
+                </div>
+            }>
+                {/* @ts-ignore */}
+                <model-viewer
+                    src={glbUrl()!}
+                    poster={props.thumbnail ? `thumb://localhost/${props.thumbnail}` : undefined}
+                    alt={`3D model: ${props.filename}`}
+                    shadow-intensity="1"
+                    camera-controls
+                    auto-rotate
+                    ar-status="not-presenting"
+                    style={{ 
+                        width: "100%", 
+                        height: "100%", 
+                        "--poster-color": "transparent",
+                        "--progress-bar-color": "#eab308", 
+                        "--progress-bar-height": "4px"
+                    }}
+                >
+                    <div slot="poster" class="model-loading-overlay">
+                        <div class="model-loader-spinner"></div>
+                        <span>Loading 3D Scene...</span>
+                    </div>
+                </model-viewer>
+            </Show>
         </div>
     );
 };

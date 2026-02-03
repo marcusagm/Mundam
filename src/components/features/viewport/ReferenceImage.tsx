@@ -89,8 +89,11 @@ export function ReferenceImage(props: ReferenceImageProps) {
   const thumbUrl = createMemo(() => {
     const path = effectiveThumbnail();
     if (!path || path === "") return undefined;
-    const filename = path.split(/[\\/]/).pop();
-    return `thumb://localhost/${filename}`;
+    
+    // Validate path is not absolute (sanity check)
+    // Normalize backslashes to forward slashes for URL
+    const normalizedPath = path.replace(/\\/g, '/');
+    return `thumb://localhost/${normalizedPath}`;
   });
 
   // Se não houver thumbnail, ou erro, ou pendente, não mostramos a imagem

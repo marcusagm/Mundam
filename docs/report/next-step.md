@@ -34,7 +34,12 @@ Priorizado por Impacto/Esforço:
 
 
 
-### 3. Resumo Executivo Final
+### 3. Status Atual (Fevereiro 2026)
+*   [x] **Suporte 3D:** Pipeline completa usando Assimp CLI Bundle + ModelViewer Frontend.
+    *   **Formatos verificados:** `.blend`, `.fbx`, `.obj`, `.gltf`, `.glb`, `.dae`, `.stl`, `.3ds`, `.dxf`, `.lwo`, `.lws`.
+    *   **Arquitetura:** Conversão automática para GLB no cache + Ícone de fallback.
+
+### 4. Resumo Executivo Final
 
 Estou pronto para iniciar a implementação. O projeto possui uma arquitetura sólida separando **Tauri/Rust** (performance bruta, banco, I/O) e **SolidJS** (estado reativo, UI virtualizada). O schema de banco de dados e as stores do frontend estão bem alinhados.
 **Informação útil:** Para implementar novos recursos, precisarei saber se devo priorizar a lógica no Rust (para velocidade) ou TypeScript (para flexibilidade), mas o padrão atual privilegia Rust para dados pesados e TypeScript para estado de UI, o que seguirei.

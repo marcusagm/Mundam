@@ -6,6 +6,7 @@ pub mod archive;
 
 pub mod icon;
 pub mod svg;
+pub mod model;
 
 /// Determines the best strategy for generating a thumbnail based on file detection.
 ///
@@ -88,7 +89,8 @@ pub fn generate_thumbnail(
         },
         ThumbnailStrategy::NativeImage => native::generate_thumbnail_fast(input_path, &output_path, size_px, open_file.as_mut()).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::ZipPreview => archive::generate_thumbnail_zip_preview(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
-        ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()), 
+        ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
+        ThumbnailStrategy::Model3D => model::generate_model_preview(input_path, thumbnails_dir, hashed_filename, size_px), 
         ThumbnailStrategy::Icon | ThumbnailStrategy::None => {
             // Use the shared icon generator logic
             icon::get_or_generate_icon(input_path, thumbnails_dir, size_px)

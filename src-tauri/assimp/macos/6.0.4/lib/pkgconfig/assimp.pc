@@ -1,0 +1,9 @@
+libdir=/usr/local/Cellar/assimp/6.0.4/lib
+includedir=/usr/local/Cellar/assimp/6.0.4/include
+
+Name: Assimp
+Description: Import various well-known 3D model formats in an uniform manner.
+Version: 6.0.4
+Libs: -L${libdir} -lassimp
+Libs.private:  -loptimized;/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/usr/lib/libz.tbd;debug;/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/usr/lib/libz.tbd
+Cflags: -I${includedir}
