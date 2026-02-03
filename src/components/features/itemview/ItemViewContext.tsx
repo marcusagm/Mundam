@@ -37,6 +37,11 @@ interface ItemViewContextState {
     fontSettings: Accessor<FontSettings>;
     setFontSettings: Setter<FontSettings>;
 
+    // Model Settings
+    modelSettings: Accessor<ModelSettings>;
+    setModelSettings: Setter<ModelSettings>;
+
+    resetTrigger: Accessor<number>;
     reset: () => void;
 }
 
@@ -48,6 +53,12 @@ export interface FontSettings {
     lineHeight: number;
     letterSpacing: number;
     variableAxes?: Record<string, number>;
+}
+
+export interface ModelSettings {
+    autoRotate: boolean;
+    showGrid: boolean;
+    backgroundColor: string;
 }
 
 const ItemViewContext = createContext<ItemViewContextState>();
@@ -66,7 +77,7 @@ export const ItemViewProvider: ParentComponent = (props) => {
     const [slideshowPlaying, setSlideshowPlaying] = createSignal(false);
     const [slideshowDuration, setSlideshowDuration] = createSignal(5); // seconds
 
-    // Font Settings (Defaults)
+    // Font Settings
     const [fontSettings, setFontSettings] = createSignal<FontSettings>({
         color: '#ffffff',
         backgroundColor: 'transparent',
@@ -76,14 +87,24 @@ export const ItemViewProvider: ParentComponent = (props) => {
         letterSpacing: 0
     });
 
+    // Model Settings
+    const [modelSettings, setModelSettings] = createSignal<ModelSettings>({
+        autoRotate: true,
+        showGrid: false,
+        backgroundColor: '#111111'
+    });
+
+    const [resetTrigger, setResetTrigger] = createSignal(0);
+
     const reset = () => {
         setZoom(100);
         setRotation(0);
         setFlip({ horizontal: false, vertical: false });
         setPosition({ x: 0, y: 0 });
         setTool("pan");
-        setMediaType('unknown');
-        // Reset Font Settings
+        // DO NOT reset mediaType here
+        
+        // Reset Settings
         setFontSettings({
             color: '#ffffff',
             backgroundColor: 'transparent',
@@ -92,7 +113,13 @@ export const ItemViewProvider: ParentComponent = (props) => {
             lineHeight: 1.5,
             letterSpacing: 0
         });
-        // Do NOT reset slideshow state here, as it should persist across item changes
+        setModelSettings({
+            autoRotate: true,
+            showGrid: false,
+            backgroundColor: '#111111'
+        });
+        // Signal renderers to reset internal state
+        setResetTrigger(t => t + 1);
     };
 
     const value: ItemViewContextState = {
@@ -105,6 +132,8 @@ export const ItemViewProvider: ParentComponent = (props) => {
         slideshowPlaying, setSlideshowPlaying,
         slideshowDuration, setSlideshowDuration,
         fontSettings, setFontSettings,
+        modelSettings, setModelSettings,
+        resetTrigger, 
         reset
     };
 

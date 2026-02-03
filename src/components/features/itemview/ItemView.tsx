@@ -9,6 +9,7 @@ import { ImageViewer } from "./renderers/image/ImageViewer";
 import { VideoPlayer } from "./renderers/video/VideoPlayer";
 import { FontView } from "./renderers/font/FontView";
 import { ModelViewer } from "./renderers/model/ModelViewer";
+import { ModelToolbar } from "./renderers/model/ModelToolbar";
 import "./item-view.css";
 
 // Helper to determine media type from extension
@@ -143,11 +144,14 @@ const ItemViewContent: Component = () => {
         >
             <BaseToolbar>
                 <Switch>
-                    <Match when={mediaType() === 'image' || mediaType() === 'unknown' || mediaType() === 'model'}>
+                    <Match when={mediaType() === 'image' || mediaType() === 'unknown'}>
                         <ImageToolbar />
                     </Match>
                     <Match when={mediaType() === 'font'}>
                         <FontToolbar />
+                    </Match>
+                    <Match when={mediaType() === 'model'}>
+                        <ModelToolbar />
                     </Match>
                 </Switch>
             </BaseToolbar>
