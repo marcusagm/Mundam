@@ -82,7 +82,14 @@ impl FileFormat {
         }
         None
     }
+    
+    /// Checks if the file extension is supported by the library.
+    /// This is a fast check for indexer traversing.
+    pub fn is_supported_extension(path: &Path) -> bool {
+        Self::detect_extension(path).is_some()
+    }
 }
+
 
 // THE MASTER REGISTRY
 pub const SUPPORTED_FORMATS: &[FileFormat] = &[
