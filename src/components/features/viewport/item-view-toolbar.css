@@ -72,3 +72,41 @@
     font-size: 11px;
     font-weight: 600;
 }
+
+.timer-select-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin-left: 4px;
+}
+
+.timer-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding-right: 2px;
+}
+
+.timer-select:focus {
+    outline: none;
+    text-decoration: underline;
+}
+
+/* Hide default arrow if possible or style it */
+.timer-select::-ms-expand {
+    display: none;
+}
+
+.text-primary {
+    color: var(--accent-primary) !important;
+}
+
+.timer-icon {
+    margin-right: 4px;
+    opacity: 0.5;
+}

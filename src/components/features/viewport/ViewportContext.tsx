@@ -27,6 +27,11 @@ interface ViewportContextState {
     setPosition: Setter<Position>;
     mediaType: Accessor<MediaType>;
     setMediaType: Setter<MediaType>;
+    // Slideshow
+    slideshowPlaying: Accessor<boolean>;
+    setSlideshowPlaying: Setter<boolean>;
+    slideshowDuration: Accessor<number>;
+    setSlideshowDuration: Setter<number>;
     reset: () => void;
 }
 
@@ -41,6 +46,10 @@ export const ViewportProvider: ParentComponent = (props) => {
     const [tool, setTool] = createSignal<ViewportTool>("pan");
     const [position, setPosition] = createSignal<Position>({ x: 0, y: 0 });
     const [mediaType, setMediaType] = createSignal<MediaType>('unknown');
+    
+    // Timer / Slideshow
+    const [slideshowPlaying, setSlideshowPlaying] = createSignal(false);
+    const [slideshowDuration, setSlideshowDuration] = createSignal(5); // seconds
 
     const reset = () => {
         setZoom(100);
@@ -49,6 +58,7 @@ export const ViewportProvider: ParentComponent = (props) => {
         setPosition({ x: 0, y: 0 });
         setTool("pan");
         setMediaType('unknown');
+        // Do NOT reset slideshow state here, as it should persist across item changes
     };
 
     const value: ViewportContextState = {
@@ -58,6 +68,8 @@ export const ViewportProvider: ParentComponent = (props) => {
         tool, setTool,
         position, setPosition,
         mediaType, setMediaType,
+        slideshowPlaying, setSlideshowPlaying,
+        slideshowDuration, setSlideshowDuration,
         reset
     };
 

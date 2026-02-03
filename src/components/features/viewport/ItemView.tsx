@@ -1,8 +1,8 @@
-import { Component, createMemo, Show, Switch, Match, createEffect } from "solid-js";
+import { Component, createMemo, Show, Switch, Match, createEffect, onCleanup } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { ItemViewToolbar } from "./ItemViewToolbar";
 import { createInputScope, useShortcuts } from "../../../core/input";
-import { ViewportProvider, useViewportContext } from "./ViewportContext";
+import { ViewportProvider, useViewportContext, FlipState } from "./ViewportContext";
 import { ImageViewer } from "./renderers/ImageViewer";
 import { VideoPlayer } from "./renderers/VideoPlayer";
 import { FontPreview } from "./renderers/FontPreview";
@@ -15,10 +15,6 @@ const getMediaType = (filename: string): 'image' | 'video' | 'audio' | 'font' | 
     if (!ext) return 'unknown';
 
     const imageExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'bmp', 'ico', 'svg', 'avif']; 
-    // Browser supported images. For others (psd, tif), we might need a different strategy, 
-    // but for now sticking to the plan of "implementations for formats". 
-    // If it's a RAW/PSD, ImageViewer will try to load it.
-
     const videoExts = ['mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv'];
     const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'];
     const fontExts = ['ttf', 'otf', 'woff', 'woff2'];
@@ -44,7 +40,13 @@ export const ItemView: Component = () => {
 const ItemViewContent: Component = () => {
     const viewport = useViewport();
     const lib = useLibrary();
-    const { reset, setMediaType } = useViewportContext();
+    const { 
+        reset, setMediaType, 
+        slideshowPlaying, slideshowDuration, setSlideshowPlaying,
+        zoom, setZoom,
+        tool, setTool,
+        flip, setFlip
+    } = useViewportContext();
     
     // Push image-viewer scope
     createInputScope('image-viewer', undefined, true);
@@ -72,11 +74,44 @@ const ItemViewContent: Component = () => {
         }
     };
 
+    // Slideshow Timer Logic
+    createEffect(() => {
+        if (slideshowPlaying() && item()) {
+            const durationMs = slideshowDuration() * 1000;
+            const interval = setInterval(() => {
+                navigate(1);
+            }, durationMs);
+
+            onCleanup(() => clearInterval(interval));
+        }
+    });
+    
+    // Stop slideshow on unmount (closing viewer)
+    onCleanup(() => {
+        setSlideshowPlaying(false);
+    });
+
+    const zoomIn = () => setZoom(Math.min(zoom() + 10, 500));
+    const zoomOut = () => setZoom(Math.max(zoom() - 10, 5));
+    const fitToScreen = () => window.dispatchEvent(new CustomEvent('viewport:fit'));
+    const originalSize = () => setZoom(100);
+    const toggleFlipH = () => setFlip((f: FlipState) => ({ ...f, horizontal: !f.horizontal }));
+    const toggleFlipV = () => setFlip((f: FlipState) => ({ ...f, vertical: !f.vertical }));
+
     // Global navigation shortcuts (ItemView level)
     useShortcuts([
         { keys: 'Escape', name: 'Close Viewer', scope: 'image-viewer', action: () => viewport.closeItem() },
+        { keys: 'Equal', name: 'Zoom In', scope: 'image-viewer', action: zoomIn },
+        { keys: 'Minus', name: 'Zoom Out', scope: 'image-viewer', action: zoomOut },
+        { keys: 'Meta+Digit0', name: 'Fit to Screen', scope: 'image-viewer', action: fitToScreen },
+        { keys: 'Meta+Digit1', name: 'Original Size', scope: 'image-viewer', action: originalSize },
+        { keys: 'KeyH', name: 'Pan Tool', scope: 'image-viewer', action: () => setTool("pan") },
+        { keys: 'KeyR', name: 'Rotate Tool', scope: 'image-viewer', action: () => setTool("rotate") },
         { keys: 'ArrowLeft', name: 'Previous Item', scope: 'image-viewer', action: () => navigate(-1) },
         { keys: 'ArrowRight', name: 'Next Item', scope: 'image-viewer', action: () => navigate(1) },
+        { keys: 'Space', name: 'Play/Pause Slideshow', scope: 'image-viewer', action: () => setSlideshowPlaying(!slideshowPlaying()) },
+        { keys: 'Shift+KeyH', name: 'Flip Horizontal', scope: 'image-viewer', action: toggleFlipH },
+        { keys: 'Shift+KeyV', name: 'Flip Vertical', scope: 'image-viewer', action: toggleFlipV },
     ]);
 
     return (

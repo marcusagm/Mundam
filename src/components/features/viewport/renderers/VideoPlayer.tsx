@@ -1,4 +1,5 @@
-import { Component, createSignal, onCleanup, onMount } from "solid-js";
+import { Component, createSignal } from "solid-js";
+import "./renderers.css";
 
 interface VideoPlayerProps {
     src: string;
@@ -10,14 +11,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
     const [error, setError] = createSignal<string | null>(null);
 
     return (
-        <div class="video-player-container" style={{
-            "width": "100%",
-            "height": "100%",
-            "display": "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            "background": "#000"
-        }}>
+        <div class="video-player-container">
             {error() ? (
                 <div class="video-error">{error()}</div>
             ) : props.type === 'audio' ? (
@@ -25,8 +19,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
                     src={props.src} 
                     controls 
                     autoplay
-                    style={{ "max-width": "100%", "width": "500px" }}
-                    onError={(e) => setError("Failed to load audio")}
+                    class="audio-element"
+                    onError={() => setError("Failed to load audio")}
                 >
                     Your browser does not support the audio tag.
                 </audio>
@@ -36,8 +30,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
                     src={props.src} 
                     controls 
                     autoplay
-                    style={{ "max-width": "100%", "max-height": "100%" }}
-                    onError={(e) => setError("Failed to load video")}
+                    class="video-element"
+                    onError={() => setError("Failed to load video")}
                 >
                     Your browser does not support the video tag.
                 </video>

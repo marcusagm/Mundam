@@ -1,4 +1,5 @@
 import { Component } from "solid-js";
+import "./renderers.css";
 
 interface ModelViewerProps {
     src: string;
@@ -12,18 +13,11 @@ export const ModelViewer: Component<ModelViewerProps> = (props) => {
     // or just a nice UI saying "3D Preview not available"
 
     return (
-        <div class="model-viewer-placeholder" style={{
-            "display": "flex",
-            "flex-direction": "column",
-            "align-items": "center",
-            "justify-content": "center",
-            "height": "100%",
-            "color": "var(--text-muted)"
-        }}>
-            <div style={{ "font-size": "3rem", "margin-bottom": "1rem" }}>🧊</div>
+        <div class="model-viewer-placeholder">
+            <div class="model-icon">🧊</div>
             <h2>3D Model Preview</h2>
             <p>{props.filename}</p>
-            <p style={{ "margin-top": "1rem", "opacity": 0.7 }}>
+            <p class="model-subtitle">
                 Interaction for .blend/fbx/obj files requires a specialized 3D renderer.
             </p>
         </div>

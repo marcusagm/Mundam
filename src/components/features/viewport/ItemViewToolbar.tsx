@@ -1,6 +1,7 @@
 import { Component, Show } from "solid-js";
 import { 
-    X, Minus, Plus, Maximize, RotateCw, Hand, ChevronLeft, ChevronRight 
+    X, Minus, Plus, Maximize, RotateCw, Hand, ChevronLeft, ChevronRight,
+    Play, Pause, Clock
 } from "lucide-solid";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { Button } from "../../ui/Button";
@@ -19,7 +20,9 @@ export const ItemViewToolbar: Component = () => {
         zoom, setZoom, 
         tool, setTool,
         flip, setFlip,
-        mediaType
+        mediaType,
+        slideshowPlaying, setSlideshowPlaying,
+        slideshowDuration, setSlideshowDuration
     } = useViewportContext();
 
     // Lógica básica para navegar entre itens da lib
@@ -115,6 +118,34 @@ export const ItemViewToolbar: Component = () => {
                     </ToggleGroup>
                 </div>
             </Show>
+
+            <div class="toolbar-group">
+                <div class="toolbar-label">Timer</div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setSlideshowPlaying(!slideshowPlaying())}
+                    title={slideshowPlaying() ? "Pause Slideshow" : "Start Slideshow"}
+                    class={slideshowPlaying() ? "text-primary" : ""}
+                >
+                    {slideshowPlaying() ? <Pause size={16} /> : <Play size={16} />}
+                </Button>
+                
+                <div class="timer-select-wrapper">
+                    <Clock size={14} style={{ "margin-right": "4px", "opacity": 0.5 }}/>
+                     <select 
+                        class="timer-select"
+                        value={slideshowDuration()} 
+                        onChange={(e) => setSlideshowDuration(parseInt(e.currentTarget.value))}
+                    >
+                        <option value={2}>2s</option>
+                        <option value={5}>5s</option>
+                        <option value={10}>10s</option>
+                        <option value={30}>30s</option>
+                        <option value={60}>1m</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="toolbar-group">
                 <ButtonGroup>

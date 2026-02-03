@@ -1,5 +1,6 @@
 import { Component, createSignal, onCleanup, onMount } from "solid-js";
 import { useViewportContext } from "../ViewportContext";
+import "./renderers.css";
 
 interface FontPreviewProps {
     src: string;
@@ -44,36 +45,21 @@ export const FontPreview: Component<FontPreviewProps> = (props) => {
     const currentFontSize = () => Math.round(BASE_SIZE * (zoom() / 100));
 
     return (
-        <div class="font-preview-container" style={{
-            "width": "100%",
-            "height": "100%",
-            "display": "flex",
-            "flex-direction": "column",
-            "padding": "2rem",
-            "overflow": "hidden",
-            "background": "var(--bg-secondary, #1a1a1a)",
-            "color": "var(--text-primary, #fff)"
-        }}>
-            <div class="font-controls" style={{ "margin-bottom": "1rem", "display": "flex", "gap": "1rem" }}>
+        <div class="font-preview-container">
+            <div class="font-controls">
                 <span>{currentFontSize()}px ({Math.round(zoom())}%)</span>
             </div>
 
             {error() ? (
-                <div class="error">{error()}</div>
+                <div class="font-error">{error()}</div>
             ) : !loaded() ? (
-                <div class="loading">Loading font...</div>
+                <div class="font-loading">Loading font...</div>
             ) : (
                 <textarea 
+                    class="font-textarea"
                     style={{
                         "font-family": fontFamily(),
                         "font-size": `${currentFontSize()}px`,
-                        "flex": 1,
-                        "width": "100%",
-                        "background": "transparent",
-                        "border": "none",
-                        "resize": "none",
-                        "color": "currentColor",
-                        "outline": "none"
                     }}
                     value={text()}
                     onInput={(e) => setText(e.currentTarget.value)}
