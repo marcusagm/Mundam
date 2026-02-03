@@ -1,7 +1,13 @@
-import { Component, Show } from "solid-js";
+import { Component, Show, For } from "solid-js";
 import { 
-    X, Minus, Plus, Maximize, RotateCw, Hand, ChevronLeft, ChevronRight,
-    Play, Pause, Clock
+    X, RotateCw, Hand, ChevronLeft, ChevronRight,
+    Play, Pause, Clock,
+    FlipVertical2,
+    FlipHorizontal2,
+    ZoomIn,
+    ZoomOut,
+    Fullscreen,
+    Maximize2
 } from "lucide-solid";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { Button } from "../../ui/Button";
@@ -9,9 +15,34 @@ import { Slider } from "../../ui/Slider";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
 import { ButtonGroup } from "../../ui/ButtonGroup";
 import { useViewportContext, FlipState } from "./ViewportContext";
+import { Tooltip } from "../../ui/Tooltip";
+import { Kbd } from "../../ui/Kbd";
+import { shortcutStore } from "../../../core/input";
+import { getShortcutDisplayParts } from "../../../core/input/normalizer";
 import "./item-view-toolbar.css";
-// Props removed as we use context now
 
+const ShortcutHint: Component<{ name: string; scope?: string }> = (props) => {
+    const shortcut = () => shortcutStore.getByNameAndScope(props.name, props.scope || 'image-viewer');
+    const parts = () => {
+        const s = shortcut();
+        if (!s) return [];
+        const keys = Array.isArray(s.keys) ? s.keys[0] : s.keys;
+        return getShortcutDisplayParts(keys);
+    };
+    
+    return (
+        <div class="flex items-center gap-3">
+            <span>{props.name}</span>
+            <Show when={parts().length > 0}>
+                <div class="flex gap-1">
+                    <For each={parts()}>
+                        {part => <Kbd class="text-[10px] h-5 px-1.5 min-w-[20px]">{part}</Kbd>}
+                    </For>
+                </div>
+            </Show>
+        </div>
+    );
+};
 
 export const ItemViewToolbar: Component = () => {
     const viewport = useViewport();
@@ -51,16 +82,20 @@ export const ItemViewToolbar: Component = () => {
     return (
         <div class="item-view-toolbar">
             <div class="toolbar-group">
-                <Button variant="ghost" size="icon" onClick={() => viewport.closeItem()} title="Close (Esc)">
-                    <X size={18} />
-                </Button>
+                <Tooltip position="bottom" content={<ShortcutHint name="Close Viewer" />}>
+                    <Button variant="ghost" size="icon" onClick={() => viewport.closeItem()}>
+                        <X size={18} />
+                    </Button>
+                </Tooltip>
             </div>
 
             <Show when={showZoom()}>
                 <div class="toolbar-group zoom-controls">
-                    <Button variant="ghost" size="icon" onClick={() => setZoom(Math.max(zoom() - 10, 5))}>
-                        <Minus size={16} />
-                    </Button>
+                    <Tooltip position="bottom" content={<ShortcutHint name="Zoom Out" />}>
+                        <Button variant="ghost" size="icon" onClick={() => setZoom(Math.max(zoom() - 10, 5))}>
+                            <ZoomOut size={16} />
+                        </Button>
+                    </Tooltip>
                     
                     <div class="zoom-display" style={{ "min-width": "40px", "text-align": "center", "font-size": "12px" }}>
                         {Math.round(zoom())}%
@@ -73,19 +108,25 @@ export const ItemViewToolbar: Component = () => {
                         onValueChange={(val) => setZoom(val)}
                         class="zoom-slider"
                     />
-                    <Button variant="ghost" size="icon" onClick={() => setZoom(Math.min(zoom() + 10, 500))}>
-                        <Plus size={16} />
-                    </Button>
+                    <Tooltip position="bottom" content={<ShortcutHint name="Zoom In" />}>
+                        <Button variant="ghost" size="icon" onClick={() => setZoom(Math.min(zoom() + 10, 500))}>
+                            <ZoomIn size={16} />
+                        </Button>
+                    </Tooltip>
                     
                     <div class="toolbar-separator" />
                     
-                    <Button variant="ghost" size="sm" onClick={() => setZoom(100)} class="zoom-btn" title="Original Size (Cmd+1)">
-                        1:1
-                    </Button>
-                    <Show when={mediaType() === 'image' || mediaType() === 'unknown'}>
-                        <Button variant="ghost" size="icon" onClick={triggerFit} title="Fit Screen (Cmd+0)">
-                            <Maximize size={16} />
+                    <Tooltip position="bottom" content={<ShortcutHint name="Original Size" />}>
+                        <Button variant="ghost" size="icon" onClick={() => setZoom(100)} class="zoom-btn">
+                            <Maximize2 size={16} />
                         </Button>
+                    </Tooltip>
+                    <Show when={mediaType() === 'image' || mediaType() === 'unknown'}>
+                        <Tooltip position="bottom" content={<ShortcutHint name="Fit to Screen" />}>
+                            <Button variant="ghost" size="icon" onClick={triggerFit}>
+                                <Fullscreen size={16} />
+                            </Button>
+                        </Tooltip>
                     </Show>
                 </div>
             </Show>
@@ -98,38 +139,47 @@ export const ItemViewToolbar: Component = () => {
                         value={tool()} 
                         onValueChange={(val) => val && setTool(val as "pan" | "rotate")}
                     >
-                        <ToggleGroupItem value="pan" title="Pan Tool (H)">
-                            <Hand size={16} />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="rotate" title="Rotate Tool (R)">
-                            <RotateCw size={16} />
-                        </ToggleGroupItem>
+                        <Tooltip position="bottom" content={<ShortcutHint name="Pan Tool" />}>
+                            <ToggleGroupItem value="pan">
+                                <Hand size={16} />
+                            </ToggleGroupItem>
+                        </Tooltip>
+                        <Tooltip position="bottom" content={<ShortcutHint name="Rotate Tool" />}>
+                            <ToggleGroupItem value="rotate">
+                                <RotateCw size={16} />
+                            </ToggleGroupItem>
+                        </Tooltip>
                     </ToggleGroup>
 
                     <div class="toolbar-separator" />
 
                     <ToggleGroup type="multiple" value={[]}> 
-                        <ToggleGroupItem value="flipH" onClick={toggleFlipH} title="Flip Horizontal" data-state={flip().horizontal ? 'on' : 'off'}>
-                            <FlipHorizontalIcon />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="flipV" onClick={toggleFlipV} title="Flip Vertical" data-state={flip().vertical ? 'on' : 'off'}>
-                            <FlipVerticalIcon />
-                        </ToggleGroupItem>
+                        <Tooltip position="bottom" content={<ShortcutHint name="Flip Horizontal" />}>
+                            <ToggleGroupItem value="flipH" onClick={toggleFlipH} data-state={flip().horizontal ? 'on' : 'off'}>
+                                <FlipHorizontal2 size={16} />
+                            </ToggleGroupItem>
+                        </Tooltip>
+                        <Tooltip position="bottom" content={<ShortcutHint name="Flip Vertical" />}>
+                            <ToggleGroupItem value="flipV" onClick={toggleFlipV} data-state={flip().vertical ? 'on' : 'off'}>
+                                <FlipVertical2 size={16} />
+                            </ToggleGroupItem>
+                        </Tooltip>
                     </ToggleGroup>
                 </div>
             </Show>
 
             <div class="toolbar-group">
                 <div class="toolbar-label">Timer</div>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setSlideshowPlaying(!slideshowPlaying())}
-                    title={slideshowPlaying() ? "Pause Slideshow" : "Start Slideshow"}
-                    class={slideshowPlaying() ? "text-primary" : ""}
-                >
-                    {slideshowPlaying() ? <Pause size={16} /> : <Play size={16} />}
-                </Button>
+                <Tooltip position="bottom" content={<ShortcutHint name="Play/Pause Slideshow" />}>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setSlideshowPlaying(!slideshowPlaying())}
+                        class={slideshowPlaying() ? "text-primary" : ""}
+                    >
+                        {slideshowPlaying() ? <Pause size={16} /> : <Play size={16} />}
+                    </Button>
+                </Tooltip>
                 
                 <div class="timer-select-wrapper">
                     <Clock size={14} style={{ "margin-right": "4px", "opacity": 0.5 }}/>
@@ -149,31 +199,18 @@ export const ItemViewToolbar: Component = () => {
 
             <div class="toolbar-group">
                 <ButtonGroup>
-                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)} title="Previous">
-                        <ChevronLeft size={18} />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => navigate(1)} title="Next">
-                        <ChevronRight size={18} />
-                    </Button>
+                    <Tooltip position="bottom" content={<ShortcutHint name="Previous Item" />}>
+                        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                            <ChevronLeft size={18} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip position="bottom" content={<ShortcutHint name="Next Item" />}>
+                        <Button variant="ghost" size="icon" onClick={() => navigate(1)}>
+                            <ChevronRight size={18} />
+                        </Button>
+                    </Tooltip>
                 </ButtonGroup>
             </div>
         </div>
     );
 };
-
-// Simple Icon Components for cleaner code
-const FlipHorizontalIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
-        <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
-        <path d="M12 3v18" />
-    </svg>
-);
-
-const FlipVerticalIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 8v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" />
-        <path d="M21 16v-3a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3" />
-        <path d="M21 12H3" />
-    </svg>
-);

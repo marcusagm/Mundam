@@ -228,24 +228,6 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     command: 'viewer:flip-v',
     category: 'Viewer',
   },
-  {
-    name: 'Block Scroll Up',
-    description: 'Prevent background scrolling',
-    keys: 'ArrowUp',
-    scope: 'image-viewer',
-    command: 'viewer:block-up',
-    category: 'Viewer',
-    hidden: true,
-  },
-  {
-    name: 'Block Scroll Down',
-    description: 'Prevent background scrolling',
-    keys: 'ArrowDown',
-    scope: 'image-viewer',
-    command: 'viewer:block-down',
-    category: 'Viewer',
-    hidden: true,
-  },
   
   // Modal scope
   {

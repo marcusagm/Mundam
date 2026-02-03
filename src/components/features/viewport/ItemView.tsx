@@ -1,4 +1,4 @@
-import { Component, createMemo, Show, Switch, Match, createEffect, onCleanup } from "solid-js";
+import { Component, createMemo, Show, Switch, Match, createEffect, onCleanup, onMount } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { ItemViewToolbar } from "./ItemViewToolbar";
 import { useShortcuts, createConditionalScope } from "../../../core/input";
@@ -47,6 +47,22 @@ const ItemViewContent: Component = () => {
         setTool,
         setFlip
     } = useViewportContext();
+    
+    let overlayRef: HTMLDivElement | undefined;
+    let previousFocus: HTMLElement | null = null;
+
+    onMount(() => {
+        previousFocus = document.activeElement as HTMLElement;
+        // Focus the overlay to trap keyboard events and prevent background scrolling
+        requestAnimationFrame(() => {
+            overlayRef?.focus();
+        });
+    });
+
+    onCleanup(() => {
+        // Restore focus to the grid/list item
+        previousFocus?.focus();
+    });
     
     // Push image-viewer scope with blocking enabled (isolates input)
     createConditionalScope('image-viewer', () => true, undefined, true);
@@ -112,13 +128,17 @@ const ItemViewContent: Component = () => {
         { keys: 'Space', name: 'Play/Pause Slideshow', scope: 'image-viewer', action: () => setSlideshowPlaying(!slideshowPlaying()) },
         { keys: 'Shift+KeyH', name: 'Flip Horizontal', scope: 'image-viewer', action: toggleFlipH },
         { keys: 'Shift+KeyV', name: 'Flip Vertical', scope: 'image-viewer', action: toggleFlipV },
-        // Block background scrolling
-        { keys: 'ArrowUp', name: 'Block Scroll Up', scope: 'image-viewer', action: () => {} },
-        { keys: 'ArrowDown', name: 'Block Scroll Down', scope: 'image-viewer', action: () => {} },
     ]);
 
     return (
-        <div class="item-view-overlay">
+        <div 
+            ref={overlayRef} 
+            class="item-view-overlay"
+            tabIndex={-1}
+            style={{ outline: "none" }}
+            role="dialog"
+            aria-modal="true"
+        >
             <ItemViewToolbar />
             
             <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>

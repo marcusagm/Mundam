@@ -6,7 +6,8 @@ import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
 import { Popover } from "../../ui/Popover";
 import { AdvancedSearchModal } from "./AdvancedSearchModal";
-import { createInputScope, useShortcuts } from "../../../core/input";
+import { createInputScope, useShortcuts, shortcutStore } from "../../../core/input";
+import { formatShortcutForDisplay } from "../../../core/input/normalizer";
 import { cn } from "../../../lib/utils";
 import "./search-toolbar.css";
 
@@ -19,9 +20,20 @@ export const SearchToolbar: Component = () => {
     // Input System
     createInputScope('search');
     
+    const focusSearchShortcut = createMemo(() => 
+        shortcutStore.getByNameAndScope('Focus Search', 'global')
+    );
+    
+    const shortcutLabel = createMemo(() => {
+        const s = focusSearchShortcut();
+        if (!s) return "Cmd+K";
+        const keys = Array.isArray(s.keys) ? s.keys[0] : s.keys;
+        return formatShortcutForDisplay(keys);
+    });
+    
     useShortcuts([
         {
-            keys: 'Meta+KeyK',
+            keys: focusSearchShortcut()?.keys || 'Meta+KeyK',
             name: 'Focus Search',
             action: (e) => {
                 e?.preventDefault();
@@ -109,7 +121,7 @@ export const SearchToolbar: Component = () => {
             <div class="search-input-wrapper">
                 <Input 
                     ref={inputRef}
-                    placeholder="Search references (Ctrl+K)" 
+                    placeholder={`Search references (${shortcutLabel()})`} 
                     value={filters.searchQuery}
                     onInput={(e) => filters.setSearch(e.currentTarget.value)}
                     leftIcon={<Search size={14} />}
