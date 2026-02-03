@@ -1,7 +1,7 @@
 import { Component, createMemo, Show, Switch, Match, createEffect, onCleanup } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { ItemViewToolbar } from "./ItemViewToolbar";
-import { createInputScope, useShortcuts } from "../../../core/input";
+import { useShortcuts, createConditionalScope } from "../../../core/input";
 import { ViewportProvider, useViewportContext, FlipState } from "./ViewportContext";
 import { ImageViewer } from "./renderers/ImageViewer";
 import { VideoPlayer } from "./renderers/VideoPlayer";
@@ -44,12 +44,12 @@ const ItemViewContent: Component = () => {
         reset, setMediaType, 
         slideshowPlaying, slideshowDuration, setSlideshowPlaying,
         zoom, setZoom,
-        tool, setTool,
-        flip, setFlip
+        setTool,
+        setFlip
     } = useViewportContext();
     
-    // Push image-viewer scope
-    createInputScope('image-viewer', undefined, true);
+    // Push image-viewer scope with blocking enabled (isolates input)
+    createConditionalScope('image-viewer', () => true, undefined, true);
     
     const item = createMemo(() => lib.items.find(i => i.id.toString() === viewport.activeItemId()));
 
@@ -112,6 +112,9 @@ const ItemViewContent: Component = () => {
         { keys: 'Space', name: 'Play/Pause Slideshow', scope: 'image-viewer', action: () => setSlideshowPlaying(!slideshowPlaying()) },
         { keys: 'Shift+KeyH', name: 'Flip Horizontal', scope: 'image-viewer', action: toggleFlipH },
         { keys: 'Shift+KeyV', name: 'Flip Vertical', scope: 'image-viewer', action: toggleFlipV },
+        // Block background scrolling
+        { keys: 'ArrowUp', name: 'Block Scroll Up', scope: 'image-viewer', action: () => {} },
+        { keys: 'ArrowDown', name: 'Block Scroll Down', scope: 'image-viewer', action: () => {} },
     ]);
 
     return (

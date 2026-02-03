@@ -153,7 +153,6 @@ export const VirtualGridView: Component = () => {
       role="grid"
       aria-label="Image gallery - grid layout"
       tabIndex={0}
-      onKeyDown={keyboardNav.handleKeyDown}
     >
       <Show when={lib.items.length > 0} fallback={
         <EmptyState 

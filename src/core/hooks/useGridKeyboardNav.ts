@@ -14,7 +14,7 @@
  */
 
 import { createSignal, createEffect, on, Accessor } from "solid-js";
-import { shortcutStore } from "../input/store/shortcutStore";
+import { useShortcuts, createConditionalScope } from "../input";
 import type { ItemPosition } from "../viewport";
 
 export interface GridKeyboardNavOptions {
@@ -43,8 +43,6 @@ export interface GridKeyboardNavResult {
   focusedId: Accessor<number | null>;
   /** Set focused item */
   setFocusedId: (id: number | null) => void;
-  /** Handle keydown events */
-  handleKeyDown: (e: KeyboardEvent) => void;
   /** Sync focus with click selection */
   syncFocusWithClick: (id: number) => void;
 }
@@ -53,6 +51,9 @@ export function useGridKeyboardNav(
   options: GridKeyboardNavOptions
 ): GridKeyboardNavResult {
   const [focusedId, setFocusedId] = createSignal<number | null>(null);
+
+  // Activate viewport scope when items exist
+  createConditionalScope('viewport', () => options.allItems().length > 0);
 
   // Find item's position in allItems array
   const getItemIndex = (id: number): number => {
@@ -104,34 +105,36 @@ export function useGridKeyboardNav(
         case "up":
           if (posCenterY < centerY - 10) {
             isValidDirection = true;
-            // Prefer items directly above (smaller X distance)
-            score = Math.abs(posCenterX - centerX) + (centerY - posCenterY) * 0.1;
+            // Primary score: strictly geometric distance
+            // Weight Y distance more heavily for column retention
+            score = Math.abs(posCenterX - centerX) * 2 + Math.abs(centerY - posCenterY);
           }
           break;
         case "down":
           if (posCenterY > centerY + 10) {
             isValidDirection = true;
-            score = Math.abs(posCenterX - centerX) + (posCenterY - centerY) * 0.1;
+            score = Math.abs(posCenterX - centerX) * 2 + Math.abs(posCenterY - centerY);
           }
           break;
         case "left":
           if (posCenterX < centerX - 10) {
             isValidDirection = true;
-            // Prefer items on same row (smaller Y distance)
-            score = Math.abs(posCenterY - centerY) + (centerX - posCenterX) * 0.1;
+            score = Math.abs(posCenterY - centerY) * 2 + Math.abs(centerX - posCenterX);
           }
           break;
         case "right":
           if (posCenterX > centerX + 10) {
             isValidDirection = true;
-            score = Math.abs(posCenterY - centerY) + (posCenterX - centerX) * 0.1;
+            score = Math.abs(posCenterY - centerY) * 2 + Math.abs(posCenterX - centerX);
           }
           break;
       }
 
-      if (isValidDirection && score < bestScore) {
-        bestScore = score;
-        bestCandidate = pos;
+      if (isValidDirection) {
+          if (score < bestScore) {
+              bestScore = score;
+              bestCandidate = pos;
+          }
       }
     }
 
@@ -218,92 +221,69 @@ export function useGridKeyboardNav(
     }, { defer: true })
   );
 
-  // match helper
-  const isCommand = (e: KeyboardEvent, command: string, defaultKey: string): boolean => {
-    const shortcut = shortcutStore.getByCommand(command);
-    // Fallback to default check if no shortcut configured (though registration ensures default)
-    if (!shortcut) return e.key === defaultKey;
-    
-    // If keys is an array, check if any match
-    const keysArray = Array.isArray(shortcut.keys) ? shortcut.keys : [shortcut.keys];
-    
-    // Basic check for exact key match (handling case insensitivity for letters)
-    // This allows simple remapping like ArrowUp -> w or k
-    return keysArray.some(k => 
-      k === e.key || 
-      k === e.code || // Check e.code (Important for Space: key=" ", code="Space")
-      k.toLowerCase() === e.key.toLowerCase() ||
-      k.replace('Key', '') === e.key.toUpperCase()
-    );
-  };
+  // --- ACTIONS ---
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Ignore input fields unless explicitly allowed
-    if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
-        return;
-    }
-
+  const move = (direction: 'up' | 'down' | 'left' | 'right') => {
     const allItems = options.allItems();
     if (allItems.length === 0) return;
 
-    const currentFocused = focusedId();
-    let nextId: number | null = null;
-    let handled = false;
-
-    if (isCommand(e, 'viewport:move-up', 'ArrowUp')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused === null) nextId = allItems[0].id;
-      else nextId = findAdjacentItem(currentFocused, "up") ?? currentFocused;
-    }
-    else if (isCommand(e, 'viewport:move-down', 'ArrowDown')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused === null) nextId = allItems[0].id;
-      else nextId = findAdjacentItem(currentFocused, "down") ?? currentFocused;
-    }
-    else if (isCommand(e, 'viewport:move-left', 'ArrowLeft')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused === null) nextId = allItems[0].id;
-      else nextId = findAdjacentItem(currentFocused, "left") ?? currentFocused;
-    }
-    else if (isCommand(e, 'viewport:move-right', 'ArrowRight')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused === null) nextId = allItems[0].id;
-      else nextId = findAdjacentItem(currentFocused, "right") ?? currentFocused;
-    }
-    else if (isCommand(e, 'viewport:home', 'Home')) {
-      handled = true;
-      e.preventDefault();
-      nextId = allItems[0].id;
-    }
-    else if (isCommand(e, 'viewport:end', 'End')) {
-      handled = true;
-      e.preventDefault();
-      nextId = allItems[allItems.length - 1].id;
-    }
-    else if (isCommand(e, 'viewport:open', 'Enter')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused !== null) options.onOpen(currentFocused);
-    }
-    else if (isCommand(e, 'viewport:toggle-select', ' ')) {
-      handled = true;
-      e.preventDefault();
-      if (currentFocused !== null) options.onSelect(currentFocused, e.shiftKey);
+    const current = focusedId();
+    if (current === null) {
+        setFocusedId(allItems[0].id);
+        return;
     }
 
-    if (handled && nextId !== null && nextId !== currentFocused) {
-      setFocusedId(nextId);
+    const next = findAdjacentItem(current, direction);
+    if (next !== null && next !== current) {
+        setFocusedId(next);
     }
   };
+
+  const actions = {
+      moveUp: () => move('up'),
+      moveDown: () => move('down'),
+      moveLeft: () => move('left'),
+      moveRight: () => move('right'),
+      
+      home: () => {
+          const allItems = options.allItems();
+          if (allItems.length > 0) setFocusedId(allItems[0].id);
+      },
+      
+      end: () => {
+           const allItems = options.allItems();
+           if (allItems.length > 0) setFocusedId(allItems[allItems.length - 1].id);
+      },
+      
+      open: () => {
+          const current = focusedId();
+          if (current !== null) options.onOpen(current);
+      },
+      
+      toggleSelect: (e?: Event | null) => {
+          const current = focusedId();
+          if (current !== null) {
+              const multi = e && (e as KeyboardEvent).shiftKey ? (e as KeyboardEvent).shiftKey : false;
+              options.onSelect(current, multi);
+          }
+      }
+  };
+
+  // Register Shortcuts
+  useShortcuts([
+      { keys: 'ArrowUp', name: 'Move Up', scope: 'viewport', action: actions.moveUp },
+      { keys: 'ArrowDown', name: 'Move Down', scope: 'viewport', action: actions.moveDown },
+      { keys: 'ArrowLeft', name: 'Move Left', scope: 'viewport', action: actions.moveLeft },
+      { keys: 'ArrowRight', name: 'Move Right', scope: 'viewport', action: actions.moveRight },
+      { keys: 'Home', name: 'Go to Start', scope: 'viewport', action: actions.home },
+      { keys: 'End', name: 'Go to End', scope: 'viewport', action: actions.end },
+      { keys: 'Space', name: 'Toggle Selection', scope: 'viewport', action: actions.toggleSelect },
+      { keys: 'Enter', name: 'Open Item', scope: 'viewport', action: actions.open },
+  ]);
 
   return {
     focusedId,
     setFocusedId,
-    handleKeyDown,
     syncFocusWithClick,
   };
 }

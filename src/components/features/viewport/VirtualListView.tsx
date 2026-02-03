@@ -6,12 +6,16 @@ import { formatFileSize, formatDate } from "../../../utils/format";
 import { assetDnD } from "../../../core/dnd";
 import { ImageOff } from "lucide-solid";
 import { EmptyState } from "./EmptyState";
+import { createConditionalScope } from "../../../core/input";
 
 export const VirtualListView: Component = () => {
     const lib = useLibrary();
     const selection = useSelection();
     const viewport = useViewport();
     const filters = useFilters();
+
+    // Register viewport scope
+    createConditionalScope('viewport', () => lib.items.length > 0);
 
     const getThumbUrl = (path: string | null) => {
         if (!path) return undefined;
@@ -129,6 +133,12 @@ export const VirtualListView: Component = () => {
             lib.loadMore();
         }
     };
+
+    // Navigation logic for Table is currently internal or via Table props. 
+    // Table component needs to expose a way to be driven by external shortcuts OR use shortcuts internally.
+    // Assuming Table handles its own focus/navigation, we just need to ensure it respects scopes?
+    // If Table uses native onKeyDown, it won't respect our 'image-viewer' scope which blocks.
+    // So Table MUST be refactored to use useShortcuts "viewport" scope.
 
     return (
         <div class="virtual-list-view">

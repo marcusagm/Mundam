@@ -1,6 +1,5 @@
-import { Component, createEffect, onMount, createSignal, onCleanup } from "solid-js";
+import { Component, onMount, createSignal, onCleanup } from "solid-js";
 import { useViewportContext } from "../ViewportContext";
-import { useShortcuts } from "../../../../core/input";
 
 interface ImageViewerProps {
     src: string;
@@ -11,8 +10,8 @@ export const ImageViewer: Component<ImageViewerProps> = (props) => {
     const { 
         zoom, setZoom, 
         rotation, setRotation, 
-        flip, setFlip,
-        tool, setTool,
+        flip,
+        tool,
         position, setPosition,
         reset 
     } = useViewportContext();
@@ -57,15 +56,6 @@ export const ImageViewer: Component<ImageViewerProps> = (props) => {
         window.addEventListener('viewport:fit', handleFit);
         onCleanup(() => window.removeEventListener('viewport:fit', handleFit));
     });
-
-    // Keyboard Shortcuts specific to Image Viewer
-    useShortcuts([
-        { keys: 'KeyH', name: 'Pan Tool', scope: 'image-viewer', action: () => setTool("pan") },
-        { keys: 'KeyR', name: 'Rotate Tool', scope: 'image-viewer', action: () => setTool("rotate") },
-        { keys: 'KeyF', name: 'Fit to Screen', scope: 'image-viewer', action: fitToScreen },
-        { keys: 'Meta+Digit0', name: 'Fit to Screen', scope: 'image-viewer', action: fitToScreen },
-        { keys: 'Meta+Digit1', name: 'Original Size', scope: 'image-viewer', action: () => setZoom(100) },
-    ]);
 
     // Mouse Interaction
     const handleMouseDown = (e: MouseEvent) => {

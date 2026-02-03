@@ -169,7 +169,6 @@ export function VirtualMasonry(props: VirtualMasonryProps) {
       role="grid"
       aria-label="Image gallery - masonry layout"
       tabIndex={0}
-      onKeyDown={keyboardNav.handleKeyDown}
     >
       <Show when={props.items.length > 0} fallback={
         <EmptyState 

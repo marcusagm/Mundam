@@ -144,6 +144,8 @@ export interface ShortcutDefinition {
   enabledWhen?: () => boolean;
   /** Category for grouping in settings UI */
   category?: string;
+  /** Whether the shortcut is hidden from the settings UI */
+  hidden?: boolean;
   /** Whether this is a default shortcut (not user-customized) */
   isDefault?: boolean;
 }
