@@ -325,11 +325,33 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
     },
-     FileFormat {
+    // --- PROFESSIONAL VIDEO & CGI ---
+    FileFormat {
         name: "QuickTime Video",
         extensions: &["mov", "qt"],
         mime_types: &["video/quicktime"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "Material Exchange Format",
+        extensions: &["mxf"],
+        mime_types: &["application/mxf", "video/mxf"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "OpenEXR Image",
+        extensions: &["exr"],
+        mime_types: &["image/x-exr"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::Ffmpeg, 
+    },
+    FileFormat {
+        name: "Radiance HDR",
+        extensions: &["hdr"],
+        mime_types: &["image/vnd.radiance"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::Ffmpeg, 
     },
 ];
