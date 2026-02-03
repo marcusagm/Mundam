@@ -1,29 +1,66 @@
-import { Component, createSignal, createMemo, Show } from "solid-js";
+import { Component, createMemo, Show, Switch, Match, createEffect } from "solid-js";
 import { useViewport, useLibrary } from "../../../core/hooks";
 import { ItemViewToolbar } from "./ItemViewToolbar";
 import { createInputScope, useShortcuts } from "../../../core/input";
+import { ViewportProvider, useViewportContext } from "./ViewportContext";
+import { ImageViewer } from "./renderers/ImageViewer";
+import { VideoPlayer } from "./renderers/VideoPlayer";
+import { FontPreview } from "./renderers/FontPreview";
+import { ModelViewer } from "./renderers/ModelViewer";
 import "./item-view.css";
 
+// Helper to determine media type from extension
+const getMediaType = (filename: string): 'image' | 'video' | 'audio' | 'font' | 'model' | 'unknown' => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (!ext) return 'unknown';
+
+    const imageExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'bmp', 'ico', 'svg', 'avif']; 
+    // Browser supported images. For others (psd, tif), we might need a different strategy, 
+    // but for now sticking to the plan of "implementations for formats". 
+    // If it's a RAW/PSD, ImageViewer will try to load it.
+
+    const videoExts = ['mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv'];
+    const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'];
+    const fontExts = ['ttf', 'otf', 'woff', 'woff2'];
+    const modelExts = ['blend', 'fbx', 'obj', 'glb', 'gltf', 'stl'];
+
+    if (imageExts.includes(ext)) return 'image';
+    if (videoExts.includes(ext)) return 'video';
+    if (audioExts.includes(ext)) return 'audio';
+    if (fontExts.includes(ext)) return 'font';
+    if (modelExts.includes(ext)) return 'model';
+    
+    return 'unknown';
+};
+
 export const ItemView: Component = () => {
+    return (
+        <ViewportProvider>
+            <ItemViewContent />
+        </ViewportProvider>
+    );
+};
+
+const ItemViewContent: Component = () => {
     const viewport = useViewport();
     const lib = useLibrary();
+    const { reset, setMediaType } = useViewportContext();
     
-    // Push image-viewer scope when this component is mounted
+    // Push image-viewer scope
     createInputScope('image-viewer', undefined, true);
     
-    // Zoom 0 means "Fit Screen"
-    const [zoom, setZoom] = createSignal(0); 
-    const [tool, setTool] = createSignal<"pan" | "rotate">("pan");
-    const [rotation, setRotation] = createSignal(0);
-    const [position, setPosition] = createSignal({ x: 0, y: 0 });
-    
-    // Drag state
-    const [isDragging, setIsDragging] = createSignal(false);
-    const [startPos, setStartPos] = createSignal({ x: 0, y: 0 });
-
     const item = createMemo(() => lib.items.find(i => i.id.toString() === viewport.activeItemId()));
 
-    // Navigation helper
+    // Reset view state when item changes
+    createEffect(() => {
+        const i = item();
+        if (i) {
+            reset();
+            const type = getMediaType(i.filename);
+            setMediaType(type);
+        }
+    });
+
     const navigate = (direction: number) => {
         const items = lib.items;
         const currentId = viewport.activeItemId();
@@ -32,96 +69,55 @@ export const ItemView: Component = () => {
         if (currentIndex !== -1) {
             const nextIndex = (currentIndex + direction + items.length) % items.length;
             viewport.openItem(items[nextIndex].id.toString());
-            // Reset position on navigation
-            setPosition({ x: 0, y: 0 });
-            setRotation(0);
         }
     };
-    
-    // Zoom helpers
-    const zoomIn = () => setZoom(Math.min((zoom() === 0 ? 100 : zoom()) + 10, 500));
-    const zoomOut = () => setZoom(Math.max((zoom() === 0 ? 100 : zoom()) - 10, 10));
-    const fitToScreen = () => setZoom(0);
-    const originalSize = () => setZoom(100);
 
-    // Register keyboard shortcuts for image-viewer scope
+    // Global navigation shortcuts (ItemView level)
     useShortcuts([
         { keys: 'Escape', name: 'Close Viewer', scope: 'image-viewer', action: () => viewport.closeItem() },
-        { keys: 'Equal', name: 'Zoom In', scope: 'image-viewer', action: zoomIn },
-        { keys: 'Minus', name: 'Zoom Out', scope: 'image-viewer', action: zoomOut },
-        { keys: 'Meta+Digit0', name: 'Fit to Screen', scope: 'image-viewer', action: fitToScreen },
-        { keys: 'Meta+Digit1', name: 'Original Size', scope: 'image-viewer', action: originalSize },
-        { keys: 'KeyH', name: 'Pan Tool', scope: 'image-viewer', action: () => setTool("pan") },
-        { keys: 'KeyR', name: 'Rotate Tool', scope: 'image-viewer', action: () => setTool("rotate") },
-        { keys: 'ArrowLeft', name: 'Previous Image', scope: 'image-viewer', action: () => navigate(-1) },
-        { keys: 'ArrowRight', name: 'Next Image', scope: 'image-viewer', action: () => navigate(1) },
+        { keys: 'ArrowLeft', name: 'Previous Item', scope: 'image-viewer', action: () => navigate(-1) },
+        { keys: 'ArrowRight', name: 'Next Item', scope: 'image-viewer', action: () => navigate(1) },
     ]);
 
-    const handleMouseDown = (e: MouseEvent) => {
-        if (tool() === "pan") {
-            setIsDragging(true);
-            setStartPos({ x: e.clientX - position().x, y: e.clientY - position().y });
-        } else if (tool() === "rotate") {
-            setRotation(prev => (prev + 90) % 360);
-        }
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-        if (isDragging() && tool() === "pan") {
-            setPosition({
-                x: e.clientX - startPos().x,
-                y: e.clientY - startPos().y
-            });
-        }
-    };
-
-    const handleMouseUp = () => {
-        setIsDragging(false);
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -10 : 10;
-        const currentZoom = zoom() === 0 ? 100 : zoom();
-        const nextZoom = Math.max(10, Math.min(500, currentZoom + delta));
-        setZoom(nextZoom);
-    };
-
     return (
-        <div class="item-view-overlay" onWheel={handleWheel}>
-            <ItemViewToolbar 
-                zoom={zoom() === 0 ? 100 : zoom()} 
-                setZoom={setZoom} 
-                tool={tool()} 
-                setTool={setTool}
-            />
+        <div class="item-view-overlay">
+            <ItemViewToolbar />
             
-            <div 
-                class="item-view-viewport"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                style={{ cursor: tool() === "pan" ? (isDragging() ? "grabbing" : "grab") : "crosshair" }}
-            >
-                <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>
-                    <div class="viewer-container">
-                        <img 
+            <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>
+                <Switch fallback={<div class="item-error">Unsupported format</div>}>
+                    <Match when={getMediaType(item()!.filename) === 'image' || getMediaType(item()!.filename) === 'unknown'}>
+                       {/* Defaulting unknown to image for now, or maybe project/raw files */}
+                        <ImageViewer 
                             src={`orig://localhost/${item()!.path}`} 
                             alt={item()!.filename}
-                            class="viewer-image"
-                            style={{
-                                transform: `translate(-50%, -50%) translate(${position().x}px, ${position().y}px) scale(${zoom() === 0 ? 1 : zoom() / 100}) rotate(${rotation()}deg)`,
-                                "max-width": zoom() === 0 ? "90%" : "none",
-                                "max-height": zoom() === 0 ? "90%" : "none",
-                                "object-fit": "contain"
-                            }}
-                            draggable={false}
                         />
-                    </div>
-                </Show>
-            </div>
+                    </Match>
+                    <Match when={getMediaType(item()!.filename) === 'video'}>
+                        <VideoPlayer 
+                            src={`orig://localhost/${item()!.path}`} 
+                            type="video"
+                        />
+                    </Match>
+                    <Match when={getMediaType(item()!.filename) === 'audio'}>
+                        <VideoPlayer 
+                            src={`orig://localhost/${item()!.path}`} 
+                            type="audio"
+                        />
+                    </Match>
+                    <Match when={getMediaType(item()!.filename) === 'font'}>
+                        <FontPreview 
+                            src={`orig://localhost/${item()!.path}`} 
+                            fontName={item()!.filename}
+                        />
+                    </Match>
+                    <Match when={getMediaType(item()!.filename) === 'model'}>
+                        <ModelViewer 
+                            src={`orig://localhost/${item()!.path}`} 
+                            filename={item()!.filename}
+                        />
+                    </Match>
+                </Switch>
+            </Show>
         </div>
     );
 };
-

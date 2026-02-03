@@ -13,16 +13,60 @@
     box-shadow: var(--shadow-lg);
     z-index: 1000;
     backdrop-filter: blur(12px);
+    /* -webkit-backdrop-filter: blur(12px); Removed to match original */
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    position: relative;
+}
+
+/* Add separator between groups if needed, but original used gap: 16px */
+/* We successfully grouped items, let's keep the gap but maybe not the hard lines if they weren't there. 
+   User said "anterior era bonito". Anterior didn't have groups logic visible in CSS, likely just one flex container.
+   I will adapt the group separator to be subtle using variables. */
+
+.toolbar-group:not(:last-child)::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-subtle);
+    margin-left: 8px;
+    margin-right: 4px;
+}
+
+.toolbar-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-right: 6px;
+    font-weight: 500;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 16px;
+    background-color: var(--border-subtle);
+    margin: 0 8px;
 }
 
 .zoom-controls {
-    min-width: 240px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .zoom-slider {
     width: 100px !important;
     margin: 0 8px;
 }
+
+/* Remove forced overrides to let Button component control style via variants and theme vars */
 
 .zoom-btn {
     font-size: 11px;
