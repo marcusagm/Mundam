@@ -9,14 +9,16 @@ pub struct ThumbnailWorker {
     db: Arc<Db>,
     thumbnails_dir: PathBuf,
     app_handle: AppHandle,
+    config: crate::config::AppConfig,
 }
 
 impl ThumbnailWorker {
-    pub fn new(db: Arc<Db>, thumbnails_dir: PathBuf, app_handle: AppHandle) -> Self {
+    pub fn new(db: Arc<Db>, thumbnails_dir: PathBuf, app_handle: AppHandle, config: crate::config::AppConfig) -> Self {
         Self {
             db,
             thumbnails_dir,
             app_handle,
+            config,
         }
     }
 
@@ -24,14 +26,15 @@ impl ThumbnailWorker {
         let db = self.db.clone();
         let app = self.app_handle.clone();
         let thumb_dir = self.thumbnails_dir.clone();
+        let config = self.config.clone();
 
         // println!("DEBUG: Thumbnail worker started. Dir: {:?}", thumb_dir);
 
         tauri::async_runtime::spawn(async move {
             loop {
-                // Fetch valid batch size (e.g., 5) to maximize responsiveness
+                // Fetch valid batch size from config
                 // println!("DEBUG: Fetching images needing thumbnails...");
-                match db.get_images_needing_thumbnails(6).await {
+                match db.get_images_needing_thumbnails(config.indexer_batch_size).await {
                     Ok(images) => {
                         if images.is_empty() {
                             // println!("DEBUG: No images need thumbnails. Sleeping.");
@@ -46,16 +49,17 @@ impl ThumbnailWorker {
 
                         // Clone thumb_dir for the move closure
                         let thumb_dir_clone = thumb_dir.clone();
+                        let num_threads = config.thumbnail_threads;
 
                         // Use a blocking thread for CPU-intensive work
-                        // Limit parallelism to 4 threads (since we leverage FFmpeg external processes mostly)
+                        // Limit parallelism to configured threads (since we leverage FFmpeg external processes mostly)
                         let db_updates = tauri::async_runtime::spawn_blocking(move || {
                             use rayon::prelude::*;
                             use rayon::ThreadPoolBuilder;
                             
                             // Create a limited thread pool
                             let pool = ThreadPoolBuilder::new()
-                                .num_threads(2)
+                                .num_threads(num_threads)
                                 .build()
                                 .unwrap();
                             

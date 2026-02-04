@@ -25,30 +25,6 @@
   gap: var(--space-5);
 }
 
-.shortcuts-group {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.shortcuts-group-title {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  background-color: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border-color);
-}
-
-/* Shortcut List */
-.shortcuts-list {
-  display: flex;
-  flex-direction: column;
-}
-
 /* Shortcut Row */
 .shortcut-row {
   display: flex;

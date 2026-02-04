@@ -1,0 +1,39 @@
+/**
+ * SectionGroup Styles
+ */
+
+.section-group {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--bg-surface);
+}
+
+.section-group-header {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-group-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.section-group-description {
+    margin: 4px 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.section-group-content {
+  display: flex;
+  flex-direction: column;
+}

@@ -12,7 +12,9 @@ interface LibraryState {
   totalItems: number; // useful for knowing if we reached end
 }
 
-const BATCH_SIZE = 100;
+import { APP_CONFIG } from "../../config/constants";
+
+const BATCH_SIZE = APP_CONFIG.BATCH_SIZE;
 let currentOffset = 0;
 
 const [libraryState, setLibraryState] = createStore<LibraryState>({

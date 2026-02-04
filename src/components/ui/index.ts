@@ -40,6 +40,7 @@ export type { TreeViewProps, TreeNode } from "./TreeView";
 export { ProgressBar } from "./ProgressBar";
 export type { ProgressBarProps, ProgressBarSize } from "./ProgressBar";
 export { Loader } from "./Loader";
+export { SectionGroup } from "./SectionGroup";
 
 // Feedback
 export { Alert, AlertTitle, AlertDescription } from "./Alert";

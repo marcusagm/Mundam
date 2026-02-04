@@ -40,5 +40,23 @@ export const tauriService = {
           console.error("Failed to run DB maintenance:", error);
           throw error;
       }
+  },
+
+  getSetting: async (key: string): Promise<any> => {
+      try {
+          return await invoke("get_setting", { key });
+      } catch (error) {
+          console.error(`Failed to get setting ${key}:`, error);
+          return null;
+      }
+  },
+
+  setSetting: async (key: string, value: any): Promise<void> => {
+      try {
+          await invoke("set_setting", { key, value });
+      } catch (error) {
+          console.error(`Failed to set setting ${key}:`, error);
+          throw error;
+      }
   }
 };

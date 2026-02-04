@@ -1,0 +1,43 @@
+/**
+ * General Panel Styles
+ */
+
+.general-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.general-panel .section-group {
+    margin-bottom: var(--space-5);
+}
+
+.general-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.general-setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.setting-note {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin-top: var(--space-2);
+    padding: 0 var(--space-4) var(--space-3);
+}
+
+.setting-action-row {
+    padding: var(--space-3) var(--space-4);
+    background-color: var(--bg-color);
+}

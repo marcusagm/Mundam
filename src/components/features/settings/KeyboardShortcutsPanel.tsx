@@ -18,6 +18,7 @@ import { formatShortcutForDisplay, buildCanonicalId } from '../../../core/input/
 import type { RegisteredShortcut, ModifierKey } from '../../../core/input/types';
 import { Button } from '../../ui/Button';
 import { Kbd } from '../../ui/Kbd';
+import { SectionGroup } from '../../ui/SectionGroup';
 import './keyboard-shortcuts-panel.css';
 
 type ScopeGroup = {
@@ -143,9 +144,7 @@ export const KeyboardShortcutsPanel: Component = () => {
       <div class="shortcuts-groups">
         <For each={groupedShortcuts()}>
           {(group) => (
-            <section class="shortcuts-group">
-              <h3 class="shortcuts-group-title">{group.label}</h3>
-              <div class="shortcuts-list">
+            <SectionGroup title={group.label}>
                 <For each={group.shortcuts}>
                   {(shortcut) => (
                     <ShortcutRow
@@ -161,8 +160,7 @@ export const KeyboardShortcutsPanel: Component = () => {
                     />
                   )}
                 </For>
-              </div>
-            </section>
+            </SectionGroup>
           )}
         </For>
       </div>

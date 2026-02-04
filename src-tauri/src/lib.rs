@@ -17,6 +17,7 @@ mod db_settings;
 mod settings_commands;
 pub mod formats;
 mod format_commands;
+mod config;
 
 
 use crate::database::Db;
@@ -69,13 +70,19 @@ pub fn run() {
                         let db_arc = std::sync::Arc::new(db);
                         let watcher_registry = std::sync::Arc::new(tokio::sync::Mutex::new(crate::indexer::WatcherRegistry::default()));
                         
+                        // Load Config
+                        let app_config = crate::config::load_config(&db_arc).await;
+                        let config_state = crate::config::ConfigState(std::sync::Mutex::new(app_config.clone()));
+
                         handle.manage(db_arc.clone());
                         handle.manage(watcher_registry.clone());
+                        handle.manage(config_state);
 
                         let worker = crate::thumbnail_worker::ThumbnailWorker::new(
                             db_arc.clone(),
                             thumbnails_dir,
                             handle.clone(),
+                            app_config,
                         );
                         worker.start().await;
 
