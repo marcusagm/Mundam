@@ -1,6 +1,6 @@
 .ui-switch-wrapper {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--p-space-s);
   cursor: pointer;
   user-select: none;
@@ -37,45 +37,46 @@
 
 /* Sizes */
 .ui-switch-sm {
-  width: var(--p-space-l);
-  height: var(--p-space-m);
+  width: 2rem;       /* 32px */
+  height: 1.25rem;   /* 20px */
 }
 
 .ui-switch-md {
-  width: var(--p-space-xl);
-  height: var(--p-space-l);
+  width: 2.75rem;    /* 44px */
+  height: 1.5rem;    /* 24px */
 }
 
 .ui-switch-lg {
-  width: var(--p-space-2xl);
-  height: var(--p-space-xl);
+  width: 3.5rem;     /* 56px */
+  height: 1.75rem;   /* 28px */
 }
 
 /* Thumb */
 .ui-switch-thumb {
   position: absolute;
-  left: var(--p-space-xxs);
+  left: 2px;
   
   background-color: var(--text-secondary);
   border-radius: 50%;
   
-  transition: transform var(--transition-fast), background-color var(--transition-fast);
+  transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.2s;
   will-change: transform;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .ui-switch-sm .ui-switch-thumb {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 1rem;       /* 16px */
+  height: 1rem;
 }
 
 .ui-switch-md .ui-switch-thumb {
-  width: var(--p-space-m);
-  height: var(--p-space-m);
+  width: 1.25rem;    /* 20px */
+  height: 1.25rem;
 }
 
 .ui-switch-lg .ui-switch-thumb {
-  width:  1.25rem;
-  height:  1.25rem;
+  width: 1.5rem;     /* 24px */
+  height: 1.5rem;
 }
 
 /* Checked state */
@@ -86,26 +87,72 @@
 
 .ui-switch-checked .ui-switch-thumb {
   background-color: var(--text-inverse);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
+/* 
+   Calculation: 
+   Track Width - Thumb Width - Left Offset (2px) - Right Offset (2px) = Translate X 
+   
+   sm: 32 - 16 - 4 = 12px (0.75rem)
+   md: 44 - 20 - 4 = 20px (1.25rem)
+   lg: 56 - 24 - 4 = 28px (1.75rem)
+*/
+
 .ui-switch-sm.ui-switch-checked .ui-switch-thumb {
-  transform: translateX(12px);
+  transform: translateX(0.75rem);
 }
 
 .ui-switch-md.ui-switch-checked .ui-switch-thumb {
-  transform: translateX(16px);
+  transform: translateX(1.25rem);
 }
 
 .ui-switch-lg.ui-switch-checked .ui-switch-thumb {
-  transform: translateX(20px);
+  transform: translateX(1.75rem);
 }
 
-/* Label */
+/* Content */
+.ui-switch-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-xxs);
+  padding-top: var(--p-space-xxs);
+}
+
 .ui-switch-label {
   font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   line-height: 1;
 }
+
+.ui-switch-description {
+  font-size: var(--p-font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Label Sizes */
+.ui-switch-label-sm {
+  font-size: var(--p-font-size-s);
+}
+.ui-switch-description-sm {
+  font-size: var(--p-font-size-xs);
+}
+
+.ui-switch-label-md {
+  font-size: var(--p-font-size-m);
+}
+.ui-switch-description-md {
+  font-size: var(--p-font-size-s);
+}
+
+.ui-switch-label-lg {
+  font-size: var(--p-font-size-l);
+}
+.ui-switch-description-lg {
+  font-size: var(--p-font-size-m);
+}
+
 
 /* Hidden input */
 .ui-switch-input {

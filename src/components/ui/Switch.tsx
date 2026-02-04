@@ -1,4 +1,4 @@
-import { Component, JSX, splitProps, createMemo } from "solid-js";
+import { Component, JSX, splitProps, createMemo, Show } from "solid-js";
 import { cn } from "../../lib/utils";
 import { createControllableSignal } from "../../lib/primitives";
 import { createId } from "../../lib/primitives/createId";
@@ -9,6 +9,7 @@ export interface SwitchProps extends Omit<JSX.InputHTMLAttributes<HTMLInputEleme
   defaultChecked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   label?: string;
+  description?: string;
   size?: "sm" | "md" | "lg";
 }
 
@@ -31,12 +32,14 @@ export const Switch: Component<SwitchProps> = (props) => {
     "defaultChecked",
     "onCheckedChange",
     "label",
+    "description",
     "size",
     "id",
     "disabled",
   ]);
 
   const id = createMemo(() => local.id || createId("switch"));
+  const descriptionId = createMemo(() => local.description ? `${id()}-desc` : undefined);
   
   const { value: isChecked, setValue: setChecked } = createControllableSignal({
     value: () => local.checked,
@@ -77,13 +80,26 @@ export const Switch: Component<SwitchProps> = (props) => {
         )}
         aria-checked={isChecked()}
         aria-disabled={local.disabled}
+        aria-describedby={descriptionId()}
         disabled={local.disabled}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
         <span class="ui-switch-thumb" />
       </button>
-      {local.label && <span class="ui-switch-label">{local.label}</span>}
+      
+      <Show when={local.label || local.description}>
+        <div class="ui-switch-content">
+          <Show when={local.label}>
+            <span class={cn("ui-switch-label", `ui-switch-label-${local.size || "md"}`)}>{local.label}</span>
+          </Show>
+          <Show when={local.description}>
+            <span id={descriptionId()} class={cn("ui-switch-description", `ui-switch-description-${local.size || "md"}`)}>
+              {local.description}
+            </span>
+          </Show>
+        </div>
+      </Show>
       
       {/* Hidden input for form submission */}
       <input

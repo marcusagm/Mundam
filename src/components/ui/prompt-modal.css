@@ -1,21 +1,21 @@
 /**
- * Modal Component Styles
+ * PromptModal Component Styles
  */
 
 /* Overlay */
-.ui-modal-overlay {
+.ui-prompt-modal-overlay {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.6);
   z-index: 9998;
-  animation: ui-modal-overlay-in 0.2s ease;
+  animation: ui-prompt-modal-overlay-in 0.2s ease;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   -moz-backdrop-filter: blur(8px);
   -ms-backdrop-filter: blur(8px);
 }
 
-@keyframes ui-modal-overlay-in {
+@keyframes ui-prompt-modal-overlay-in {
   from {
     opacity: 0;
   }
@@ -25,7 +25,7 @@
 }
 
 /* Container */
-.ui-modal-container {
+.ui-prompt-modal-container {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -33,16 +33,18 @@
   display: flex;
   flex-direction: column;
   max-height: 90vh;
+  width: 90%;
+  max-width: 400px; /* Standard size for prompts */
   background-color: var(--bg-surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-m);
   box-shadow: 0 var(--p-space-m) var(--p-space-s) rgba(0, 0, 0, 0.4);
   z-index: 9999;
   outline: none;
-  animation: ui-modal-in 0.2s ease;
+  animation: ui-prompt-modal-in 0.2s ease;
 }
 
-@keyframes ui-modal-in {
+@keyframes ui-prompt-modal-in {
   from {
     opacity: 0;
     transform: translate(-50%, -48%);
@@ -53,50 +55,23 @@
   }
 }
 
-/* Size variants */
-.ui-modal-sm {
-  width: 90%;
-  max-width: 400px;
-}
-
-.ui-modal-md {
-  width: 90%;
-  max-width: 550px;
-}
-
-.ui-modal-lg {
-  width: 90%;
-  max-width: 7 1.25rem;
-}
-
-.ui-modal-xl {
-  width: 90%;
-  max-width: 900px;
-}
-
-.ui-modal-full {
-  width: 95%;
-  height: 90vh;
-  max-width: none;
-}
-
 /* Header */
-.ui-modal-header {
+.ui-prompt-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--p-space-m) var(--p-space-l);
+  padding: var(--p-space-m) var(--p-space-s);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.ui-modal-title {
+.ui-prompt-modal-title {
   margin: 0;
   font-size: var(--p-font-size-l);
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.ui-modal-close {
+.ui-prompt-modal-close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,18 +86,18 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.ui-modal-close:hover {
+.ui-prompt-modal-close:hover {
   background-color: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
-.ui-modal-close:focus-visible {
+.ui-prompt-modal-close:focus-visible {
   outline: var(--p-space-xxs) solid var(--action-primary-bg);
   outline-offset: var(--p-space-xxs);
 }
 
 /* Body */
-.ui-modal-body {
+.ui-prompt-modal-body {
   flex: 1;
   padding: var(--p-space-l);
   overflow-y: auto;
@@ -132,7 +107,7 @@
   background-color: var(--bg-surface-1);
 }
 
-.ui-modal-description {
+.ui-prompt-modal-description {
   margin-top: 0;
   margin-bottom: var(--p-space-m);
   color: var(--text-secondary);
@@ -141,7 +116,7 @@
 }
 
 /* Footer */
-.ui-modal-footer {
+.ui-prompt-modal-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -150,25 +125,4 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-/* Scrollbar */
-.ui-modal-body::-webkit-scrollbar {
-  width: var(--p-space-s);
-}
 
-.ui-modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ui-modal-body::-webkit-scrollbar-thumb {
-  background-color: var(--bg-surface-3);
-  border-radius: var(--radius-s);
-}
-
-.ui-modal-body::-webkit-scrollbar-thumb:hover {
-  background-color: var(--bg-active, rgba(255, 255, 255, 0.15));
-}
-
-/* Body scroll lock */
-body:has(.ui-modal-overlay) {
-  overflow: hidden;
-}

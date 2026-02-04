@@ -73,10 +73,13 @@ export const Popover: Component<PopoverProps> = (props) => {
   });
 
   return (
-    <div class="ui-popover-wrapper" style={{ display: "inline-block" }}>
-      <div ref={triggerRef} onClick={toggle}>
-        {props.trigger}
-      </div>
+    <div 
+      ref={triggerRef} 
+      onClick={toggle} 
+      class="ui-popover-wrapper" 
+      style={{ display: "inline-block" }}
+    >
+      {props.trigger}
       <Show when={isOpen()}>
         <Portal>
           <div 

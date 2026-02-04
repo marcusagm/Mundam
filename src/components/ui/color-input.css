@@ -1,0 +1,190 @@
+/**
+ * ColorInput Component Styles
+ * Standalone implementation matching Input styles
+ */
+
+.ui-color-input-wrapper {
+  width: 100%;
+}
+
+.ui-color-input-label {
+  display: block;
+  margin-bottom: var(--p-space-s);
+  font-size: var(--p-font-size-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ui-color-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* Height is set by size variant, default fallback */
+  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-s);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-color-input-container:focus-within {
+  border-color: var(--action-primary-bg);
+  box-shadow: 0 0 0 var(--p-space-xxs) rgba(14, 165, 233, 0.15);
+}
+
+.ui-color-input-container.ui-color-input-error {
+  border-color: var(--p-error-500);
+}
+
+.ui-color-input-container.ui-color-input-error:focus-within {
+  box-shadow: 0 0 0 var(--p-space-xxs) rgba(239, 68, 68, 0.15);
+}
+
+/* Size variants */
+.ui-color-input-sm {
+  height: var(--p-space-xl);
+}
+
+.ui-color-input-sm .ui-color-input-field {
+  font-size: var(--p-font-size-xs);
+}
+
+/* SVG icons usually inherit or are sized by the icon component, but we can enforce wrapper sizing if needed.
+   Input.css targets svg in .ui-input-icon.
+*/
+.ui-color-input-sm .ui-color-input-icon-right svg {
+  width: var(--p-font-size-m);
+  height: var(--p-font-size-m);
+}
+
+.ui-color-input-md {
+  height: 2.5rem;
+}
+
+.ui-color-input-md .ui-color-input-field {
+  font-size: var(--p-font-size-m);
+}
+
+.ui-color-input-md .ui-color-input-icon-right svg {
+  width: var(--p-font-size-xl);
+  height: var(--p-font-size-xl);
+}
+
+.ui-color-input-lg {
+  height: var(--p-space-2xl);
+}
+
+.ui-color-input-lg .ui-color-input-field {
+  font-size: var(--p-font-size-xl);
+}
+
+.ui-color-input-lg .ui-color-input-icon-right svg {
+  width: var(--p-font-size-2xl);
+  height: var(--p-font-size-2xl);
+}
+
+.ui-color-input-container.ui-color-input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-color-input-field {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  /* Padding logic:
+     Since we ALWAYS have a left icon (swatch), left padding is 0.
+     Default right padding is 0.75rem.
+     If right icon exists, right padding becomes 0 via modifier class.
+  */
+  padding: 0 0.75rem 0 0; 
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-family: inherit;
+  /* Font size set by variant */
+  color: var(--text-primary);
+}
+
+.ui-color-input-container.ui-color-input-has-right .ui-color-input-field {
+  padding-right: 0;
+}
+
+.ui-color-input-field:disabled {
+  cursor: not-allowed;
+}
+
+.ui-color-input-field::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Icon containers */
+.ui-color-input-icon-left,
+.ui-color-input-icon-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.ui-color-input-icon-left {
+  padding-left: 0.75rem;
+  padding-right: var(--p-space-s);
+}
+
+.ui-color-input-icon-right {
+  padding-left: var(--p-space-s);
+  padding-right: 0.75rem;
+}
+
+/* Error message */
+.ui-color-input-error-message {
+  display: block;
+  margin-top: var(--p-space-xs);
+  font-size: var(--p-font-size-xs);
+  color: var(--p-error-500);
+}
+
+/* Swatch Trigger Button */
+.ui-color-input-swatch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-s);
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+  min-width: 1.25rem;
+  flex-shrink: 0;
+}
+
+.ui-color-input-swatch-btn:hover:not(:disabled) {
+  border-color: var(--border-default);
+}
+
+.ui-color-input-swatch-btn:disabled {
+  cursor: not-allowed;
+  /* Opacity handled by container mostly, but safety check */
+}
+
+/* The actual color swatch div */
+.ui-color-input-swatch {
+  width: 100%;
+  height: 100%;
+}
+
+/* Popover Content Wrapper */
+.ui-color-input-popover {
+  width: 300px;
+  padding: 0;
+}
+.ui-color-input-popover .ui-color-picker {
+  padding: var(--p-space-s);
+}

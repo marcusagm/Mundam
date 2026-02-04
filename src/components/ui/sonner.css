@@ -97,6 +97,27 @@
   pointer-events: none;
 }
 
+/* GAP FILLER: Keeps the stack expanded when moving mouse between toasts */
+.ui-toaster[data-expanded="true"] .ui-toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(var(--gap) * 3); /* Large enough to cover the gap */
+  z-index: -1;
+  pointer-events: auto; /* Ensure it captures mouse events */
+}
+
+/* For bottom toasters (expanding up), fill below */
+.ui-toaster[class*="bottom"][data-expanded="true"] .ui-toast::before {
+  top: 100%;
+}
+
+/* For top toasters (expanding down), fill above */
+.ui-toaster[class*="top"][data-expanded="true"] .ui-toast::before {
+  bottom: 100%;
+}
+
 /* Entering/Exiting Animations */
 @keyframes toast-enter {
   from {
@@ -144,6 +165,7 @@
   background: transparent; border: none;
   color: var(--text-tertiary); cursor: pointer;
   border-radius: var(--radius-s);
+  color: var(--text-primary);
 }
 .ui-toast-close:hover { background: var(--bg-surface-3); color: var(--text-primary); }
 
@@ -154,6 +176,7 @@
 
 .ui-toast-success {
   border-color: var(--p-success-500);
+  background-color: var(--bg-success);
 }
 
 .ui-toast-success .ui-toast-icon {
@@ -162,6 +185,7 @@
 
 .ui-toast-error {
   border-color: var(--text-destructive);
+  background-color: var(--bg-error);
 }
 
 .ui-toast-error .ui-toast-icon {
@@ -170,6 +194,7 @@
 
 .ui-toast-warning {
   border-color: var(--p-warning-500);
+  background-color: var(--bg-warning);
 }
 
 .ui-toast-warning .ui-toast-icon {
@@ -178,6 +203,7 @@
 
 .ui-toast-info {
   border-color: var(--action-primary-bg);
+  background-color: var(--bg-info);
 }
 
 .ui-toast-info .ui-toast-icon {

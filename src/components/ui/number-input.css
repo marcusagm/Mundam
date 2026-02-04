@@ -1,0 +1,44 @@
+/* Hide native spinners */
+.ui-number-input::-webkit-outer-spin-button,
+.ui-number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ui-number-input {
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;
+  text-align: center; /* Center the number since buttons are on sides */
+}
+
+.ui-number-input-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-s);
+  background-color: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ui-number-input-btn:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-number-input-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Adjust wrapper to ensure buttons fit */
+.ui-number-input-wrapper .ui-input-icon {
+    /* Ensure icon container doesn't block clicks */
+    pointer-events: auto; 
+    cursor: default;
+}

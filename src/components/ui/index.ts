@@ -1,6 +1,8 @@
 // Layout & Containers
-export { Modal, ModalHeader, ModalBody, ModalFooter, PromptModal, ConfirmModal } from "./Modal";
-export type { ModalProps, ModalSize, PromptModalProps, ConfirmModalProps } from "./Modal";
+export { Modal, ModalHeader, ModalBody, ModalFooter, ConfirmModal } from "./Modal";
+export { PromptModal } from "./PromptModal";
+export type { ModalProps, ModalSize, ConfirmModalProps } from "./Modal";
+export type { PromptModalProps } from "./PromptModal";
 export { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./Resizable";
 export type { ResizablePanelGroupProps, ResizablePanelProps, ResizableHandleProps } from "./Resizable";
 
@@ -61,6 +63,18 @@ export { Kbd } from "./Kbd";
 export type { KbdProps } from "./Kbd";
 export { ColorPicker } from "./ColorPicker";
 export type { ColorPickerProps } from "./ColorPicker";
+export { ColorInput } from "./ColorInput";
+export type { ColorInputProps } from "./ColorInput";
+export { MaskedInput } from "./MaskedInput";
+export type { MaskedInputProps } from "./MaskedInput";
+export { NumberInput } from "./NumberInput";
+export type { NumberInputProps } from "./NumberInput";
+export { DateInput } from "./DateInput";
+export type { DateInputProps } from "./DateInput";
+export { DatePicker } from "./DatePicker";
+export type { DatePickerProps } from "./DatePicker";
+export { Popover } from "./Popover";
+export type { PopoverProps } from "./Popover";
 export { TagInput } from "./TagInput";
 export type { TagInputProps, TagOption } from "./TagInput";
 export { SidebarPanel } from "./SidebarPanel";

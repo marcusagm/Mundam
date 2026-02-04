@@ -187,6 +187,31 @@
   opacity: 1;
 }
 
+
+/* Ticks */
+.ui-slider-tick {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background-color: var(--text-tertiary);
+  border-radius: 50%;
+  pointer-events: none;
+  /* Center the tick on the value position */
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+.ui-slider-horizontal .ui-slider-tick {
+  top: 50%;
+  height: 4px; /* A bit taller for visibility */
+}
+
+.ui-slider-vertical .ui-slider-tick {
+  left: 50%;
+  width: 4px; /* A bit wider for visibility */
+  transform: translate(-50%, 50%);
+}
+
 /* Hidden input */
 .ui-slider-input {
   position: absolute;

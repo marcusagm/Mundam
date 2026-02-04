@@ -65,7 +65,7 @@ export const Input: Component<InputProps> = (props) => {
         )}
       >
         <Show when={local.leftIcon}>
-          <span class="ui-input-icon ui-input-icon-left" aria-hidden="true">
+          <span class="ui-input-icon ui-input-icon-left">
             {local.leftIcon}
           </span>
         </Show>
@@ -78,7 +78,7 @@ export const Input: Component<InputProps> = (props) => {
         />
 
         <Show when={local.rightIcon}>
-          <span class="ui-input-icon ui-input-icon-right" aria-hidden="true">
+          <span class="ui-input-icon ui-input-icon-right">
             {local.rightIcon}
           </span>
         </Show>

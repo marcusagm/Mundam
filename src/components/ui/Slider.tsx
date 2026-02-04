@@ -1,4 +1,4 @@
-import { Component, JSX, splitProps, createMemo, createSignal } from "solid-js";
+import { Component, JSX, splitProps, createMemo, createSignal, For } from "solid-js";
 import { cn } from "../../lib/utils";
 import { createControllableSignal } from "../../lib/primitives";
 import { createId } from "../../lib/primitives/createId";
@@ -67,6 +67,32 @@ export const Slider: Component<SliderProps> = (props) => {
     const range = max() - min();
     if (range === 0) return 0;
     return ((value() - min()) / range) * 100;
+  });
+
+  const ticks = createMemo(() => {
+    // Only show ticks if step is explicitly provided and we don't have too many steps
+    if (local.step === undefined) return [];
+    
+    const s = step();
+    const m = min();
+    const M = max();
+    const range = M - m;
+    
+    if (range <= 0 || s <= 0) return [];
+    
+    const count = Math.floor(range / s);
+    if (count > 50) return []; // Avoid too many ticks
+
+    const t = [];
+    // Start from 1 to skip min
+    // Go up to count, but exclude if it equals max
+    for (let i = 1; i <= count; i++) {
+        const val = m + i * s;
+        if (val < M) {
+          t.push(val);
+        }
+    }
+    return t;
   });
 
   const formatValue = (val: number) => {
@@ -180,6 +206,16 @@ export const Slider: Component<SliderProps> = (props) => {
             [isVertical() ? "height" : "width"]: `${percentage()}%`,
           }}
         />
+        <For each={ticks()}>
+            {(tickValue) => (
+               <div 
+                 class="ui-slider-tick"
+                 style={{
+                   [isVertical() ? "bottom" : "left"]: `${((tickValue - min()) / (max() - min())) * 100}%`
+                 }}
+               />
+            )}
+        </For>
         <div
           class={cn("ui-slider-thumb", isDragging() && "ui-slider-thumb-active")}
           style={{

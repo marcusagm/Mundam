@@ -6,12 +6,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: var(--p-space-s);
   background-color: var(--bg-surface-2);
   border-radius: var(--radius-s);
   min-width: 2 1.25rem;
-  box-shadow: var(--shadow-s);
-  border: 1px solid var(--border-default);
+  padding: var(--p-space-xs);
 }
 
 /* Saturation/Brightness Area */
@@ -19,10 +17,8 @@
   position: relative;
   width: 100%;
   height: 150px;
-  border-radius: var(--radius-s);
   cursor: crosshair;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
 }
 
 .ui-color-picker-sb:focus-visible {
@@ -47,12 +43,12 @@
 
 .ui-color-picker-thumb {
   position: absolute;
-  width: var(--p-space-xs);
-  height: var(--p-space-xs);
+  width: 12px;
+  height: 12px;
   transform: translate(-50%, -50%);
   border: var(--p-space-xxs) solid white;
   border-radius: 50%;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-s);
   pointer-events: none;
 }
 
@@ -60,8 +56,9 @@
 .ui-color-picker-hue {
   position: relative;
   width: 100%;
-  height: var(--p-space-xs);
-  border-radius: 9999px; /* Pill shape */
+  height: var(--p-space-s);
+  border-radius: 9999px;
+  cursor: pointer;
   background: linear-gradient(
     to right,
     #f00 0%,
@@ -102,8 +99,8 @@
 }
 
 .ui-color-picker-preview {
-  width: var(--p-space-s);
-  height: var(--p-space-s);
+  width: var(--p-space-l);
+  height: var(--p-space-l);
   border-radius: var(--radius-s);
   border: 1px solid var(--border-subtle);
   flex-shrink: 0;
@@ -112,8 +109,8 @@
 
 .ui-color-picker-input {
   flex: 1;
-  height: var(--p-space-s);
-  padding: 0 0.75rem;
+  height: var(--p-space-l);
+  padding: 0 var(--p-space-s);
   background-color: var(--bg-surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-s);
@@ -134,12 +131,12 @@
 .ui-color-picker-presets {
   display: flex;
   flex-wrap: wrap;
-  gap:  0.375rem;
+  gap: var(--p-space-s);
 }
 
 .ui-color-picker-preset {
-  width: var(--p-space-xxs);
-  height: var(--p-space-xxs);
+  width: var(--p-space-l);
+  height: var(--p-space-l);
   padding: 0;
   border: var(--p-space-xxs) solid transparent;
   border-radius: var(--radius-s);
@@ -148,7 +145,7 @@
 }
 
 .ui-color-picker-preset:hover {
-  transform: scale(1.15);
+  transform: scale(1.20);
   z-index: 10;
   box-shadow: var(--shadow-xs);
 }

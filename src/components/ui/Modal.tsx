@@ -13,7 +13,6 @@ import { createFocusTrap } from "../../lib/primitives";
 import { createId } from "../../lib/primitives/createId";
 import { useShortcuts, createConditionalScope } from "../../core/input";
 import { Button } from "./Button";
-import { Input } from "./Input";
 import "./modal.css";
 
 export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
@@ -198,57 +197,7 @@ export const ModalFooter: Component<{ children: JSX.Element; class?: string }> =
 
 // --- Specialized Modals ---
 
-export interface PromptModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: (value: string) => void;
-  title: string;
-  initialValue?: string;
-  placeholder?: string;
-  confirmText?: string;
-  cancelText?: string;
-}
 
-/**
- * Prompt modal for getting text input from the user.
- */
-export const PromptModal: Component<PromptModalProps> = (props) => {
-  let inputRef: HTMLInputElement | undefined;
-
-  const handleSubmit = (e: Event) => {
-    e.preventDefault();
-    if (inputRef?.value) {
-      props.onConfirm(inputRef.value);
-      props.onClose();
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={props.onClose}
-      title={props.title}
-      size="sm"
-    >
-      <form onSubmit={handleSubmit}>
-        <Input
-          ref={inputRef}
-          value={props.initialValue || ""}
-          placeholder={props.placeholder}
-          autofocus
-        />
-        <div class="ui-modal-prompt-actions">
-          <Button type="button" variant="ghost" onClick={props.onClose}>
-            {props.cancelText || "Cancel"}
-          </Button>
-          <Button type="submit" variant="primary">
-            {props.confirmText || "Confirm"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
 
 export interface ConfirmModalProps {
   isOpen: boolean;

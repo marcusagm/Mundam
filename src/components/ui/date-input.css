@@ -1,0 +1,158 @@
+/**
+ * DateInput Component Styles
+ * Standalone implementation matching Input styles
+ */
+
+.ui-date-input-wrapper {
+  width: 100%;
+}
+
+.ui-date-input-label {
+  display: block;
+  margin-bottom: var(--p-space-s);
+  font-size: var(--p-font-size-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ui-date-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* Height set by size variant */
+  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-s);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-date-input-container:focus-within {
+  border-color: var(--action-primary-bg);
+  box-shadow: 0 0 0 var(--p-space-xxs) rgba(14, 165, 233, 0.15);
+}
+
+.ui-date-input-container.ui-date-input-error {
+  border-color: var(--p-error-500);
+}
+
+.ui-date-input-container.ui-date-input-error:focus-within {
+  box-shadow: 0 0 0 var(--p-space-xxs) rgba(239, 68, 68, 0.15);
+}
+
+.ui-date-input-container.ui-date-input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Size Variants */
+.ui-date-input-sm {
+  height: var(--p-space-xl);
+}
+.ui-date-input-sm .ui-date-input-field {
+  font-size: var(--p-font-size-xs);
+}
+.ui-date-input-sm .ui-date-input-trigger svg {
+  width: var(--p-font-size-m);
+  height: var(--p-font-size-m);
+}
+
+.ui-date-input-md {
+  height: 2.5rem;
+}
+.ui-date-input-md .ui-date-input-field {
+  font-size: var(--p-font-size-m);
+}
+.ui-date-input-md .ui-date-input-trigger svg {
+  width: var(--p-font-size-xl);
+  height: var(--p-font-size-xl);
+}
+
+.ui-date-input-lg {
+  height: var(--p-space-2xl);
+}
+.ui-date-input-lg .ui-date-input-field {
+  font-size: var(--p-font-size-xl);
+}
+.ui-date-input-lg .ui-date-input-trigger svg {
+  width: var(--p-font-size-2xl);
+  height: var(--p-font-size-2xl);
+}
+
+
+.ui-date-input-field {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0 0 0 0.75rem; /* Right padding handled by right-icon container logic */
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.ui-date-input-container.ui-date-input-has-right .ui-date-input-field {
+  padding-right: 0;
+}
+
+.ui-date-input-field::placeholder {
+  color: var(--text-tertiary);
+}
+
+.ui-date-input-field:disabled {
+  cursor: not-allowed;
+}
+
+/* Icon Containers */
+.ui-date-input-icon-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  padding-left: var(--p-space-s);
+  padding-right: 0.75rem;
+}
+
+/* Error message */
+.ui-date-input-error-message {
+  display: block;
+  margin-top: var(--p-space-xs);
+  font-size: var(--p-font-size-xs);
+  color: var(--p-error-500);
+}
+
+/* Trigger Button */
+.ui-date-input-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  transition: all var(--transition-fast);
+}
+
+.ui-date-input-trigger:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-date-input-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Popover overrides */
+.ui-date-input-popover {
+  padding: 0; 
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}

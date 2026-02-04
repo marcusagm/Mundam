@@ -2,9 +2,10 @@ import {
   Component, 
   JSX, 
   splitProps, 
-  createContext, 
-  useContext, 
-  createMemo 
+  createContext,
+  useContext,
+  createMemo,
+  Show
 } from "solid-js";
 import { cn } from "../../lib/utils";
 import { createControllableSignal } from "../../lib/primitives";
@@ -99,6 +100,7 @@ export interface RadioGroupItemProps extends Omit<JSX.InputHTMLAttributes<HTMLIn
   value: string;
   label?: string;
   description?: string;
+  size?: "sm" | "md" | "lg";
 }
 
 export const RadioGroupItem: Component<RadioGroupItemProps> = (props) => {
@@ -109,6 +111,7 @@ export const RadioGroupItem: Component<RadioGroupItemProps> = (props) => {
     "description",
     "id",
     "disabled",
+    "size",
   ]);
 
   const context = useRadioGroup();
@@ -144,7 +147,11 @@ export const RadioGroupItem: Component<RadioGroupItemProps> = (props) => {
         type="button"
         role="radio"
         id={id()}
-        class={cn("ui-radio", isSelected() && "ui-radio-checked")}
+        class={cn(
+          "ui-radio",
+          `ui-radio-${local.size || "md"}`,
+          isSelected() && "ui-radio-checked"
+        )}
         aria-checked={isSelected()}
         aria-disabled={isDisabled()}
         aria-describedby={descriptionId()}
@@ -157,12 +164,14 @@ export const RadioGroupItem: Component<RadioGroupItemProps> = (props) => {
 
       {(local.label || local.description) && (
         <div class="ui-radio-content">
-          {local.label && <span class="ui-radio-label">{local.label}</span>}
-          {local.description && (
-            <span id={descriptionId()} class="ui-radio-description">
+          <Show when={local.label}>
+            <span class={cn("ui-radio-label", `ui-radio-label-${local.size || "md"}`)}>{local.label}</span>
+          </Show>
+          <Show when={local.description}>
+            <span id={descriptionId()} class={cn("ui-radio-description", `ui-radio-description-${local.size || "md"}`)}>
               {local.description}
             </span>
-          )}
+          </Show>
         </div>
       )}
 

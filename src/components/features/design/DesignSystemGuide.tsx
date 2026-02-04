@@ -12,19 +12,34 @@ import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
 import { ProgressBar } from "../../ui/ProgressBar";
 import { Tooltip } from "../../ui/Tooltip";
 import { Popover } from "../../ui/Popover";
-import { Modal } from "../../ui/Modal";
+import { Modal, ConfirmModal } from "../../ui/Modal";
+import { PromptModal } from "../../ui/PromptModal";
 import { Sonner, toast } from "../../ui/Sonner";
+import type { ToasterProps } from "../../ui/Sonner";
 import { Kbd } from "../../ui/Kbd";
 import { TagInput } from "../../ui/TagInput";
 import { Search, Info, Bold, Italic, Underline, Sun, Moon, AlignCenter, AlignLeft, AlignRight } from "lucide-solid";
 import "../../ui/sonner.css"; // Ensure sonner styles are loaded
 import { Toggle } from "../../ui";
+import { NumberInput } from "../../ui/NumberInput";
+import { ColorInput } from "../../ui/ColorInput";
+import { DateInput } from "../../ui/DateInput";
+import { MaskedInput } from "../../ui/MaskedInput";
 
 export const DesignSystemGuide: Component = () => {
-  const [modalOpen, setModalOpen] = createSignal(false);
+  const [modalSmOpen, setModalSmOpen] = createSignal(false);
+  const [modalMdOpen, setModalMdOpen] = createSignal(false);
+  const [modalLgOpen, setModalLgOpen] = createSignal(false);
+  const [modalXlOpen, setModalXlOpen] = createSignal(false);
+  const [modalFullOpen, setModalFullOpen] = createSignal(false);
+  
+  const [confirmDangerOpen, setConfirmDangerOpen] = createSignal(false);
+  const [confirmWarningOpen, setConfirmWarningOpen] = createSignal(false);
+  const [promptOpen, setPromptOpen] = createSignal(false);
   const [sliderVal, setSliderVal] = createSignal(50);
   const [toggleGroupVal, setToggleGroupVal] = createSignal<string | null>("bold");
   const [tags, setTags] = createSignal<string[]>(["Design", "System"]);
+  const [toastPos, setToastPos] = createSignal<ToasterProps["position"]>("bottom-right");
 
   onMount(() => {
       window.dispatchEvent(new CustomEvent('app-ready'));
@@ -47,7 +62,7 @@ export const DesignSystemGuide: Component = () => {
                 <p style={{ "color": "var(--text-secondary)" }}>Component Guide & Style Reference</p>
             </header>
 
-            <Sonner />
+            <Sonner position={toastPos()} />
 
             {/* Typography & Colors Section */}
             <section style={{ "margin-bottom": "var(--p-space-3xl)" }}>
@@ -480,6 +495,16 @@ export const DesignSystemGuide: Component = () => {
 
                         <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
 
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Number Inputs</h3>
+                        <NumberInput placeholder="Number (lg)" size="lg" min={0} max={100} />
+                        <NumberInput placeholder="Number (md)" size="md" defaultValue={10} step={5} />
+                        <NumberInput placeholder="Number (sm)" size="sm" />
+                        <NumberInput placeholder="Disabled (lg)" size="lg" disabled value={50} />
+                        <NumberInput placeholder="Disabled (md)" size="md" disabled value={50} />
+                        <NumberInput placeholder="Disabled (sm)" size="sm" disabled value={50} />
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
                         <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Selects with left icons</h3>
                         <Select 
                             options={[
@@ -520,32 +545,79 @@ export const DesignSystemGuide: Component = () => {
 
                         <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
 
-                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Tag Input</h3>
-                        <TagInput 
-                            value={tags().map((t, i) => ({ id: i, label: t }))} 
-                            onChange={(vals) => setTags(vals.map(v => v.label))} 
-                            onCreate={(t) => setTags([...tags(), t])}
-                        />
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Checkboxes</h3>
                         
                         <div style={{ "display": "flex", "gap": "var(--p-space-m)", "align-items": "center" }}>
-                           <Switch checked={true} />
-                            <Sun size={14} />
-                           <Checkbox checked={true} label="Checkbox" />
+                            <div style={{ "display": "grid", "grid-template-columns": "repeat(3, 1fr)", "gap": "var(--p-space-m)" }}>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="lg" description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="lg" description="Checkbox description" />
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="lg" disabled description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="lg" disabled description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="lg" description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="lg" disabled description="Checkbox description" />
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="md" description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="md" description="Checkbox description" />
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="md" disabled description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="md" disabled description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="md" description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="md" disabled description="Checkbox description" />
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="sm" description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="sm" description="Checkbox description" />
+                                    <Checkbox defaultChecked={true} label="Checkbox" size="sm" disabled description="Checkbox description" />
+                                    <Checkbox defaultChecked={false} label="Checkbox" size="sm" disabled description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="sm" description="Checkbox description" />
+                                    <Checkbox indeterminate={true} label="Checkbox" size="sm" disabled description="Checkbox description" />
+                                </div>
+                            </div>
                         </div>
-                         <RadioGroup 
-                            value="a"
-                            onValueChange={() => {}}
-                            name="demo-radio"
-                         >
-                            <RadioGroupItem value="a" label="Option A" />
-                            <RadioGroupItem value="b" label="Option B" />
-                         </RadioGroup>
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Switches</h3>
+                        
+                        <div style={{ "display": "flex", "gap": "var(--p-space-m)", "align-items": "start" }}>
+                            <div style={{ "display": "grid", "grid-template-columns": "repeat(3, 1fr)", "gap": "var(--p-space-m)" }}>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Switch defaultChecked={true} label="Switch" size="lg" description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="lg" description="Switch description" />
+                                    <Switch defaultChecked={true} label="Switch" size="lg" disabled description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="lg" disabled description="Switch description" />
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Switch defaultChecked={true} label="Switch" size="md" description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="md" description="Switch description" />
+                                    <Switch defaultChecked={true} label="Switch" size="md" disabled description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="md" disabled description="Switch description" />
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <Switch defaultChecked={true} label="Switch" size="sm" description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="sm" description="Switch description" />
+                                    <Switch defaultChecked={true} label="Switch" size="sm" disabled description="Switch description" />
+                                    <Switch defaultChecked={false} label="Switch" size="sm" disabled description="Switch description" />
+                                </div>
+                            </div>
+                        </div>
                      </div>
                      <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
                         <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Inputs with right icons</h3>
                         <Input placeholder="Standard Input..." size="lg" rightIcon={<Search />} />
                         <Input placeholder="Standard Input..." size="md" rightIcon={<Search />} />
                         <Input placeholder="Standard Input..." size="sm" rightIcon={<Search />} />
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Color Inputs</h3>
+                        <ColorInput defaultValue="#3b82f6" size="lg" />
+                        <ColorInput defaultValue="#22c55e" size="md" />
+                        <ColorInput defaultValue="#eab308" size="sm" />
+                        <ColorInput defaultValue="#ef4444" size="lg" disabled />
+                        <ColorInput defaultValue="#ef4444" size="md" disabled />
+                        <ColorInput defaultValue="#ef4444" size="sm" disabled />
 
                         <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
 
@@ -589,21 +661,66 @@ export const DesignSystemGuide: Component = () => {
 
                         <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
 
-                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Slider</h3>
-                        <label>Slider ({Math.round(sliderVal())})</label>
-                        <div style={{ "display": "flex", "flex-direction": "row", "gap": "var(--p-space-m)" }}>
-                            <div style={{ "display": "flex", width: "100%", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
-                                <Slider value={sliderVal()} onValueChange={setSliderVal} min={0} max={100} />
-                                <Slider value={50} min={0} max={100} disabled />
-                                <Slider value={50} step={25} min={0} max={100}  />
-                                <Slider value={50} step={25} min={0} max={100} disabled />
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Radio Buttons</h3>
+                        
+                        <div style={{ "display": "flex", "gap": "var(--p-space-m)", "align-items": "start" }}>
+                            <div style={{ "display": "grid", "grid-template-columns": "repeat(3, 1fr)", "gap": "var(--p-space-m)" }}>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <RadioGroup defaultValue="a" name="radio-lg">
+                                        <RadioGroupItem value="a" label="Radio Option" size="lg" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="lg" description="Radio description" />
+                                    </RadioGroup>
+                                    <RadioGroup defaultValue="a" disabled name="radio-lg-disabled">
+                                        <RadioGroupItem value="a" label="Radio Option" size="lg" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="lg" description="Radio description" />
+                                    </RadioGroup>
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                    <RadioGroup defaultValue="a" name="radio-md">
+                                        <RadioGroupItem value="a" label="Radio Option" size="md" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="md" description="Radio description" />
+                                    </RadioGroup>
+                                    <RadioGroup defaultValue="a" disabled name="radio-md-disabled">
+                                        <RadioGroupItem value="a" label="Radio Option" size="md" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="md" description="Radio description" />
+                                    </RadioGroup>
+                                </div>
+                                <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-s)" }}>
+                                   <RadioGroup defaultValue="a" name="radio-sm">
+                                        <RadioGroupItem value="a" label="Radio Option" size="sm" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="sm" description="Radio description" />
+                                    </RadioGroup>
+                                    <RadioGroup defaultValue="a" disabled name="radio-sm-disabled">
+                                        <RadioGroupItem value="a" label="Radio Option" size="sm" description="Radio description" />
+                                        <RadioGroupItem value="b" label="Radio Option" size="sm" description="Radio description" />
+                                    </RadioGroup>
+                                </div>
                             </div>
-                            <div style={{ "display": "flex", "flex-direction": "row", "gap": "var(--p-space-m)" }}>
-                                <Slider value={sliderVal()} onValueChange={setSliderVal} min={0} max={100} orientation="vertical" />
-                                <Slider value={50} min={0} max={100} orientation="vertical" disabled />
-                                <Slider value={50} step={25} min={0} max={100} orientation="vertical" />
-                                <Slider value={50} step={25} min={0} max={100} orientation="vertical" disabled />
-                            </div>
+                        </div>
+
+                        <div style={{ "margin-top": "var(--p-space-m)" }}>
+                             <label style={{ "margin-bottom": "var(--p-space-s)", display: "block" }}>Horizontal Radio Group (lg)</label>
+                             <RadioGroup defaultValue="a" name="radio-horizontal-lg" orientation="horizontal">
+                                <RadioGroupItem value="a" label="Option A" size="lg" />
+                                <RadioGroupItem value="b" label="Option B" size="lg" />
+                                <RadioGroupItem value="c" label="Option C" size="lg" />
+                             </RadioGroup>
+                        </div>
+                        <div style={{ "margin-top": "var(--p-space-m)" }}>
+                             <label style={{ "margin-bottom": "var(--p-space-s)", display: "block" }}>Horizontal Radio Group (md)</label>
+                             <RadioGroup defaultValue="a" name="radio-horizontal" orientation="horizontal">
+                                <RadioGroupItem value="a" label="Option A" size="md" />
+                                <RadioGroupItem value="b" label="Option B" size="md" />
+                                <RadioGroupItem value="c" label="Option C" size="md" />
+                             </RadioGroup>
+                        </div>
+                        <div style={{ "margin-top": "var(--p-space-m)" }}>
+                             <label style={{ "margin-bottom": "var(--p-space-s)", display: "block" }}>Horizontal Radio Group (sm)</label>
+                             <RadioGroup defaultValue="a" name="radio-horizontal-sm" orientation="horizontal">
+                                <RadioGroupItem value="a" label="Option A" size="sm" />
+                                <RadioGroupItem value="b" label="Option B" size="sm" />
+                                <RadioGroupItem value="c" label="Option C" size="sm" />
+                             </RadioGroup>
                         </div>
                      </div>
                      <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
@@ -612,6 +729,19 @@ export const DesignSystemGuide: Component = () => {
                         <Input placeholder="Standard Input..." size="md" leftIcon={<Search />} rightIcon={<Search />} disabled />
                         <Input placeholder="Standard Input..." size="sm" leftIcon={<Search />} rightIcon={<Search />} disabled />
                         
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Date Inputs</h3>
+                    
+                        <DateInput placeholder="DD/MM/YYYY" size="lg" />
+                        <DateInput placeholder="DD/MM/YYYY" size="md" />
+                        <DateInput placeholder="DD/MM/YYYY" size="sm" />
+                    
+                        <DateInput placeholder="Disabled" size="lg" disabled />
+                        <DateInput placeholder="Disabled" size="md" disabled />
+                        <DateInput placeholder="Disabled" size="sm" disabled />
+                    
+
                         <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
 
                         <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Selects with both icons and disabled</h3>
@@ -645,6 +775,41 @@ export const DesignSystemGuide: Component = () => {
                             rightIcon={<Search />}
                             disabled
                         />
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Masked Inputs (Phone)</h3>
+                        <MaskedInput mask="(99) 99999-9999" placeholder="(99) 99999-9999" size="lg" />
+                        <MaskedInput mask="(99) 99999-9999" placeholder="(99) 99999-9999" size="md" />
+                        <MaskedInput mask="(99) 99999-9999" placeholder="(99) 99999-9999" size="sm" />
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Tag Input</h3>
+                        <TagInput 
+                            value={tags().map((t, i) => ({ id: i, label: t }))} 
+                            onChange={(vals) => setTags(vals.map(v => v.label))} 
+                            onCreate={(t) => setTags([...tags(), t])}
+                        />
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Slider</h3>
+                        <label>Slider ({Math.round(sliderVal())})</label>
+                        <div style={{ "display": "flex", "flex-direction": "row", "gap": "var(--p-space-m)" }}>
+                            <div style={{ "display": "flex", width: "100%", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
+                                <Slider value={sliderVal()} onValueChange={setSliderVal} min={0} max={100} />
+                                <Slider defaultValue={50} min={0} max={100} disabled />
+                                <Slider defaultValue={50} step={25} min={0} max={100}  />
+                                <Slider defaultValue={50} step={25} min={0} max={100} disabled />
+                            </div>
+                            <div style={{ "display": "flex", "flex-direction": "row", "gap": "var(--p-space-m)" }}>
+                                <Slider value={sliderVal()} onValueChange={setSliderVal} min={0} max={100} orientation="vertical" />
+                                <Slider defaultValue={50} min={0} max={100} orientation="vertical" disabled />
+                                <Slider defaultValue={50} step={25} min={0} max={100} orientation="vertical" />
+                                <Slider defaultValue={50} step={25} min={0} max={100} orientation="vertical" disabled />
+                            </div>
+                        </div>
                      </div>
                 </div>
             </section>
@@ -654,10 +819,80 @@ export const DesignSystemGuide: Component = () => {
                 <h2 style={{ "margin-bottom": "var(--p-space-l)", "border-bottom": "1px solid var(--border-subtle)", "padding-bottom": "var(--p-space-s)" }}>4. Overlay & Feedback</h2>
                 <div style={{ "display": "flex", "gap": "var(--p-space-l)", "flex-wrap": "wrap" }}>
                      <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
-                        <Button onClick={() => setModalOpen(true)}>Open Modal</Button>
-                        <div style={{ "display": "flex", "gap": "var(--p-space-s)" }}>
-                             <Button variant="outline" onClick={() => toast.success("Operation successful!")}>Toast Success</Button>
-                             <Button variant="outline" onClick={() => toast.error("Something went wrong")}>Toast Error</Button>
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Modal Variants</h3>
+                        <div style={{ "display": "flex", "flex-wrap": "wrap", "gap": "var(--p-space-s)" }}>
+                            <Button onClick={() => setModalSmOpen(true)}>Small</Button>
+                            <Button onClick={() => setModalMdOpen(true)}>Medium</Button>
+                            <Button onClick={() => setModalLgOpen(true)}>Large</Button>
+                            <Button onClick={() => setModalXlOpen(true)}>Extra Large</Button>
+                            <Button onClick={() => setModalFullOpen(true)}>Full Screen</Button>
+                        </div>
+                        <div style={{ "display": "flex", "flex-wrap": "wrap", "gap": "var(--p-space-s)", "margin-top": "var(--p-space-s)" }}>
+                             <Button variant="destructive" size="sm" onClick={() => setConfirmDangerOpen(true)}>Danger Confirm</Button>
+                             <Button variant="secondary" size="sm" onClick={() => setConfirmWarningOpen(true)}>Warning Confirm</Button>
+                             <Button variant="outline" size="sm" onClick={() => setPromptOpen(true)}>Prompt Input</Button>
+                        </div>
+
+                        <hr style={{ "margin": "var(--p-space-m) 0", "border": "none", "border-top": "1px solid var(--border-subtle)" }} />
+
+                        <h3 style={{ "margin-bottom": "var(--p-space-m)", "color": "var(--text-secondary)" }}>Toast Variants</h3>
+                        
+                        <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)" }}>
+                            {/* Position Selector */}
+                            <div style={{ "max-width": "300px" }}>
+                                <label style={{ "display": "block", "margin-bottom": "var(--p-space-s)", "font-size": "var(--p-font-size-s)", "color": "var(--text-secondary)" }}>
+                                    Position
+                                </label>
+                                <Select
+                                    value={toastPos()}
+                                    onValueChange={(val) => setToastPos(val as any)}
+                                    options={[
+                                        { label: "Top Left", value: "top-left" },
+                                        { label: "Top Center", value: "top-center" },
+                                        { label: "Top Right", value: "top-right" },
+                                        { label: "Bottom Left", value: "bottom-left" },
+                                        { label: "Bottom Center", value: "bottom-center" },
+                                        { label: "Bottom Right", value: "bottom-right" },
+                                    ]}
+                                    placeholder="Select position"
+                                />
+                            </div>
+
+                            {/* Type Variants */}
+                            <div>
+                                <h4 style={{ "margin": "0 0 var(--p-space-s) 0", "font-size": "var(--p-font-size-s)", "font-weight": "600", "color": "var(--text-primary)" }}>Types</h4>
+                                <div style={{ "display": "flex", "gap": "var(--p-space-s)", "flex-wrap": "wrap" }}>
+                                    <Button variant="outline" onClick={() => toast.default("Event created")}>Default</Button>
+                                    <Button variant="outline" onClick={() => toast.success("Changes saved successfully")}>Success</Button>
+                                    <Button variant="outline" onClick={() => toast.error("Failed to delete item")}>Error</Button>
+                                    <Button variant="outline" onClick={() => toast.warning("Low disk space warning")}>Warning</Button>
+                                    <Button variant="outline" onClick={() => toast.info("New updates available")}>Info</Button>
+                                </div>
+                            </div>
+
+                            {/* Features */}
+                            <div>
+                                <h4 style={{ "margin": "0 0 var(--p-space-s) 0", "font-size": "var(--p-font-size-s)", "font-weight": "600", "color": "var(--text-primary)" }}>Features</h4>
+                                <div style={{ "display": "flex", "gap": "var(--p-space-s)", "flex-wrap": "wrap" }}>
+                                    <Button variant="outline" onClick={() => toast.success("File uploaded", { description: "image-01.png (2.4MB)" })}>
+                                        With Description
+                                    </Button>
+                                    <Button variant="outline" onClick={() => toast.info("Update installed", { 
+                                        action: { 
+                                            label: "Restart", 
+                                            onClick: () => toast.success("Restarting...") 
+                                        } 
+                                    })}>
+                                        With Action
+                                    </Button>
+                                    <Button variant="outline" onClick={() => toast.warning("System update required", { dismissible: false })}>
+                                        Not Dismissible
+                                    </Button>
+                                    <Button variant="outline" onClick={() => toast.default("Long duration toast...", { duration: 10000 })}>
+                                        Long Duration (10s)
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                      </div>
 
@@ -675,11 +910,11 @@ export const DesignSystemGuide: Component = () => {
                                  <p style={{ "font-size": "var(--p-font-size-xs)", "color": "var(--text-secondary)" }}>This is inside a popover.</p>
                              </div>
                          </Popover>
-                     </div>
                      
-                     <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)", "min-width": "300px" }}>
-                        <Alert variant="info" title="Info Alert">System update available.</Alert>
-                        <Alert variant="destructive" title="Error Alert">Failed to connect.</Alert>
+                        <div style={{ "display": "flex", "flex-direction": "column", "gap": "var(--p-space-m)", "min-width": "300px" }}>
+                            <Alert variant="info" title="Info Alert">System update available.</Alert>
+                            <Alert variant="destructive" title="Error Alert">Failed to connect.</Alert>
+                        </div>
                      </div>
                 </div>
             </section>
@@ -715,15 +950,90 @@ export const DesignSystemGuide: Component = () => {
 
         </div>
 
-        <Modal isOpen={modalOpen()} onClose={() => setModalOpen(false)} title="Design System Modal" size="md">
-            <div style={{ "padding": "var(--p-space-m)" }}>
-                <p>This mimics a standard dialog in the application.</p>
-                <div style={{ "margin-top": "var(--p-space-l)", "display": "flex", "justify-content": "flex-end", "gap": "var(--p-space-s)" }}>
-                    <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={() => setModalOpen(false)}>Confirm</Button>
+        {/* Modal Examples */}
+        <Modal 
+            isOpen={modalSmOpen()} 
+            onClose={() => setModalSmOpen(false)} 
+            title="Small Modal" 
+            size="sm"
+            footer={
+                <div style={{ "display": "flex", "justify-content": "flex-end", "gap": "var(--p-space-s)" }}>
+                    <Button variant="ghost" onClick={() => setModalSmOpen(false)}>Close</Button>
+                    <Button onClick={() => setModalSmOpen(false)}>Okay</Button>
+                </div>
+            }
+        >
+            <p>This is a small modal dialog content.</p>
+        </Modal>
+
+        <Modal 
+            isOpen={modalMdOpen()} 
+            onClose={() => setModalMdOpen(false)} 
+            title="Medium Modal (Default)" 
+            size="md"
+            footer={
+                <div style={{ "display": "flex", "justify-content": "flex-end", "gap": "var(--p-space-s)" }}>
+                    <Button variant="ghost" onClick={() => setModalMdOpen(false)}>Cancel</Button>
+                    <Button onClick={() => setModalMdOpen(false)}>Confirm</Button>
+                </div>
+            }
+        >
+            <div style={{ "padding": "var(--p-space-s) 0" }}>
+                <p>This mimics a standard dialog in the application with <code>title</code>, <code>children</code>, and <code>footer</code> props explicitly defined.</p>
+                <div style={{ "margin-top": "var(--p-space-m)" }}>
+                     <Input placeholder="Example input inside modal" />
                 </div>
             </div>
         </Modal>
+
+        <Modal isOpen={modalLgOpen()} onClose={() => setModalLgOpen(false)} title="Large Modal" size="lg">
+            <p>This is a large modal suitable for more complex forms or content.</p>
+            <div style={{ "height": "200px", "background": "var(--bg-surface-1)", "margin-top": "var(--p-space-m)", "display": "flex", "align-items": "center", "justify-content": "center" }}>
+                Placeholder Content Area
+            </div>
+        </Modal>
+
+        <Modal isOpen={modalXlOpen()} onClose={() => setModalXlOpen(false)} title="Extra Large Modal" size="xl">
+             <p>This is an extra large modal for wide content like tables or previews.</p>
+        </Modal>
+
+        <Modal isOpen={modalFullOpen()} onClose={() => setModalFullOpen(false)} title="Full Screen Modal" size="full">
+             <p>This modal takes up the entire screen.</p>
+             <Button variant="outline" onClick={() => setModalFullOpen(false)} style={{ "margin-top": "var(--p-space-m)" }}>Close Fullscreen</Button>
+        </Modal>
+
+        {/* Specialized Modals */}
+        <ConfirmModal 
+            isOpen={confirmDangerOpen()}
+            onClose={() => setConfirmDangerOpen(false)}
+            onConfirm={() => { toast.success("Deleted!"); }}
+            title="Delete Item?"
+            message="Are you sure you want to delete this item? This action cannot be undone."
+            confirmText="Delete"
+            kind="danger"
+        />
+
+        <ConfirmModal 
+            isOpen={confirmWarningOpen()}
+            onClose={() => setConfirmWarningOpen(false)}
+            onConfirm={() => { toast.info("Proceeded with caution."); }}
+            title="Warning"
+            message="This might have side effects. Do you wish to proceed?"
+            confirmText="Proceed"
+            kind="warning"
+        />
+
+        <PromptModal
+            isOpen={promptOpen()}
+            onClose={() => setPromptOpen(false)}
+            onConfirm={(val) => { toast.success(`Input received: ${val}`); }}
+            title="Enter Value"
+            description="Please enter your unique username below to continue."
+            placeholder="Type 'confirm' to pass"
+            initialValue=""
+            validate={(val) => val !== 'confirm' ? "You must type 'confirm'" : undefined}
+            required
+        />
     </div>
   );
 };

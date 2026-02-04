@@ -98,10 +98,10 @@ export const Checkbox: Component<CheckboxProps> = (props) => {
       <Show when={local.label || local.description}>
         <div class="ui-checkbox-content">
           <Show when={local.label}>
-            <span class="ui-checkbox-label">{local.label}</span>
+            <span class={cn("ui-checkbox-label", `ui-checkbox-label-${local.size || "md"}`)}>{local.label}</span>
           </Show>
           <Show when={local.description}>
-            <span id={descriptionId()} class="ui-checkbox-description">
+            <span id={descriptionId()} class={cn("ui-checkbox-description", `ui-checkbox-description-${local.size || "md"}`)}>
               {local.description}
             </span>
           </Show>
