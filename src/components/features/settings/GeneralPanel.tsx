@@ -3,7 +3,9 @@ import { Button } from '../../ui/Button';
 import { toast } from '../../ui/Sonner';
 import { SectionGroup } from '../../ui/SectionGroup';
 import { Select } from '../../ui/Select';
+import { Input } from '../../ui/Input';
 import { tauriService } from '../../../core/tauri/services';
+import { filterState, filterActions } from '../../../core/store/filterStore';
 import './general-panel.css';
 
 export const GeneralPanel: Component = () => {
@@ -14,7 +16,7 @@ export const GeneralPanel: Component = () => {
     import("solid-js").then(({ onMount }) => {
         onMount(async () => {
             const val = await tauriService.getSetting("thumbnail_threads");
-            if (val) setThreads(String(val));
+            if (val !== null && val !== undefined) setThreads(String(val));
         });
     });
 
@@ -43,6 +45,7 @@ export const GeneralPanel: Component = () => {
     };
 
     const threadOptions = [
+        { value: "0", label: "Auto-Detect (Recommended)" },
         { value: "1", label: "1 (Low CPU)" },
         { value: "2", label: "2 (Balanced)" },
         { value: "4", label: "4 (High Performance)" },
@@ -71,6 +74,27 @@ export const GeneralPanel: Component = () => {
         <p class="setting-note">
             * Requires restart to apply.
         </p>
+      </SectionGroup>
+
+      <SectionGroup
+        title="Browsing"
+        description="Configure your navigation experience."
+      >
+        <div class="general-setting-row">
+            <span class="setting-label">History Limit:</span>
+            <div style={{ width: "200px" }}>
+                 <Input 
+                    type="number"
+                    value={filterState.historyLimit}
+                    onInput={(e) => {
+                        const val = parseInt(e.currentTarget.value);
+                        if (!isNaN(val) && val > 0) {
+                            filterActions.setHistoryLimit(val);
+                        }
+                    }}
+                 />
+            </div>
+        </div>
       </SectionGroup>
 
       <SectionGroup 

@@ -11,7 +11,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            thumbnail_threads: 2, // Default conservative
+            thumbnail_threads: 0, // 0 = Auto-detect
             indexer_batch_size: 6,
         }
     }
@@ -29,10 +29,13 @@ pub async fn load_config(db: &Db) -> AppConfig {
         }
     }
     
-    // Auto-detect CPU counts if set to 0 or unconfigured (logic can be enhanced later)
-    // For now we trust the DB or default.
-    // Ideally update default if we want to be smarter:
-    // if config.thumbnail_threads == 0 { config.thumbnail_threads = num_cpus::get() / 2; }
+    // Auto-detect if set to 0
+    if config.thumbnail_threads == 0 {
+         let available = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+         // Use half the threads for background work, minimum 1
+         config.thumbnail_threads = std::cmp::max(1, available / 2);
+         println!("INFO: Auto-detected {} threads. Using {} for background tasks.", available, config.thumbnail_threads);
+    }
 
     config
 }

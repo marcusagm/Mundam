@@ -176,11 +176,23 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
 
     const handleStartEdit = (item: SearchCriterion) => {
         setEditingId(item.id);
+        const fromISO = (iso: string) => {
+            if (!iso || typeof iso !== 'string') return iso;
+            const parts = iso.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return iso;
+        };
+
         if (Array.isArray(item.value)) {
             if (item.key === 'size') {
                 // Convert back to MB for editing display
                 setEditingValue(Number(item.value[0]) / 1024 / 1024);
                 setEditingValue2(Number(item.value[1]) / 1024 / 1024);
+            } else if (['added_at', 'created_at', 'modified_at'].includes(item.key)) {
+                setEditingValue(fromISO(item.value[0]));
+                setEditingValue2(fromISO(item.value[1]));
             } else {
                 setEditingValue(item.value[0]);
                 setEditingValue2(item.value[1]);
@@ -188,6 +200,8 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
         } else {
             if (item.key === 'size') {
                 setEditingValue(Number(item.value) / 1024 / 1024);
+            } else if (['added_at', 'created_at', 'modified_at'].includes(item.key)) {
+                setEditingValue(fromISO(String(item.value)));
             } else {
                 setEditingValue(item.value);
             }
@@ -214,7 +228,21 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                         finalValue = Math.round(Number(editingValue()) * 1024 * 1024);
                     }
                 } else if (c.operator === 'between') {
-                    finalValue = [editingValue(), editingValue2()];
+                    if (['added_at', 'created_at', 'modified_at'].includes(c.key)) {
+                        const toISO = (dateStr: string) => {
+                           const parts = String(dateStr).split('/');
+                           return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+                        };
+                        finalValue = [toISO(editingValue()), toISO(editingValue2())];
+                    } else {
+                        finalValue = [editingValue(), editingValue2()];
+                    }
+                } else if (['added_at', 'created_at', 'modified_at'].includes(c.key)) {
+                     const toISO = (dateStr: string) => {
+                           const parts = String(dateStr).split('/');
+                           return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+                     };
+                     finalValue = toISO(editingValue());
                 }
                 
                 return { ...c, value: finalValue };
@@ -227,6 +255,9 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
     const handleAddCriteria = () => {
         if (!validateCurrent()) return;
 
+        // Date conversion logic is handled per-operator below
+
+        
         let finalValue = currentValue();
         
         // Handle Unit conversion for size
@@ -241,7 +272,21 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = (props) 
                 finalValue = Math.round(Number(finalValue) * multiplier);
             }
         } else if (currentOperator() === 'between') {
-            finalValue = [currentValue(), currentValue2()];
+            if (selectedField()?.type === 'date') {
+                 const toISO = (dateStr: string) => {
+                     const parts = String(dateStr).split('/');
+                     return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+                 };
+                 finalValue = [toISO(currentValue()), toISO(currentValue2())];
+            } else {
+                 finalValue = [currentValue(), currentValue2()];
+            }
+        } else if (selectedField()?.type === 'date') {
+             const toISO = (dateStr: string) => {
+                 const parts = String(dateStr).split('/');
+                 return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+             };
+             finalValue = toISO(currentValue());
         }
 
         const newCriterion: SearchCriterion = {

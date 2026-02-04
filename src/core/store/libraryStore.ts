@@ -156,12 +156,18 @@ export const libraryActions = {
               const selectedFolderId = filterState.selectedFolderId;
               const recursive = filterState.folderRecursiveView;
 
+              // Optimization: Create a Map for O(1) parent lookup instead of Array.find O(N)
+              const locationMap = new Map(metadataState.locations.map(l => [l.id, l]));
+
               const isChildOf = (childId: number, rootId: number): boolean => {
                   let current: number | null = childId;
-                  while (current) {
+                  let depth = 0;
+                  // Use constant to prevent infinite loops (though DAG should prevent it)
+                  while (current && depth < APP_CONFIG.MAX_FOLDER_DEPTH) {
                       if (current === rootId) return true;
-                      const node = metadataState.locations.find(l => l.id === current);
+                      const node = locationMap.get(current);
                       current = node ? node.parent_id : null;
+                      depth++;
                   }
                   return false;
               };

@@ -90,7 +90,7 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 *   [ ] **Integrity Checks**: Detect and handle broken paths or moved libraries.
 
 ### 2. Tag System (Taxonomy)
-*   [ ] **Hierarchical Tags**: Parent/Child tag structures (Tag Tree).
+*   [x] **Hierarchical Tags**: Parent/Child tag structures (Tag Tree).
 *   [ ] **Tag Management**: Rename, merge, and move tags; custom colors.
 *   [ ] **Assignment**: Bulk tagging, auto-complete suggestions.
 *   [ ] **Tag Search**: Quick filtering of the tag list itself.
@@ -98,13 +98,13 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 ### 3. Media Visualization
 *   [x] **Masonry Layout**: Optimized virtualized grid for variable aspect ratios.
 *   [x] **Progressive Loading**: Async thumbnail generation and "lazy" original loading.
-*   [ ] **Slide/Inspection Mode**: Fullscreen viewer with zoom/pan and navigation.
+*   [x] **Slide/Inspection Mode**: Fullscreen viewer with zoom/pan and navigation.
 *   [ ] **File Actions**: "Open in Explorer", "Copy to Clipboard".
 
 ### 4. Search & Filtering
 *   [x] **Basic Search**: By filename.
-*   [ ] **Advanced Criteria**: Filter by resolution, file type, dates, or tag logic (AND/OR).
-*   [ ] **Smart Collections**: Saved searches that auto-update.
+*   [x] **Advanced Criteria**: Filter by resolution, file type, dates, or tag logic (AND/OR).
+*   [x] **Smart Collections**: Saved searches that auto-update (Smart Folders).
 
 ### 5. Metadata & Extras
 *   [ ] **EXIF/IPTC**: Auto-read camera data and creation dates.
@@ -115,7 +115,26 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 *   [x] **Parallel Indexing**: Rayon-powered background worker for thumbnails.
 *   [x] **Resilient Database**: SQLite Upsert logic for crash recovery.
 *   [ ] **Backup System**: Automated database snapshots.
-*   [ ] **Format Support**: Expand support to PSD, TIFF, EXR via Rust image crates.
+*   [x] **Format Support**: Extensive support for 3D, Fonts, RAW, and Vectors.
+
+---
+
+## 🎨 Supported Formats
+
+Elleven Library supports a wide range of formats out of the box, with specialized rendering for specific media types.
+
+| Category | Formats | Support Status | Notes |
+| :--- | :--- | :--- | :--- |
+| **Standard Images** | JPG, PNG, WebP, GIF, BMP, ICO, TGA, TIFF | ✅ Full Support | Native performance. |
+| **Vector & Design** | SVG | ✅ Full Support | Scalable rendering via WebView. |
+| **Fonts** | TTF, OTF, WOFF, WOFF2, TTC | ✅ Full Support | Live preview with custom text. |
+| **3D Models** | GLB, GLTF, OBJ, FBX, STL, BLEND, DAE | ✅ Full Support | Interactive 3D viewer with auto-rotate and grid. |
+| **Video** | MP4, WebM, MOV | ✅ Full Support | Auto-play on hover, full controls on inspect. |
+| **Raw Photos** | ARW, CR2, NEF, DNG, RAF, ORF, RW2 | 🚧 Visual Only | High-quality thumbnails generated; Full view pending. |
+| **Professional Design** | PSD, AI, EPS | 🚧 Visual Only | Extracts embedded previews via Ffmpeg. |
+| **Creative Apps** | Affinity (All), Clip Studio, XMind | 🚧 Visual Only | Extracts internal preview image from container. |
+| **Modern Formats** | HEIC, HEIF, AVIF | ⚠️ Experimental | Logic present; depends on OS codec availability. |
+| **Pro Video/HDR** | MXF, EXR, HDR | 🚧 Visual Only | Thumbnails generated; Player support varies. |
 
 ---
 

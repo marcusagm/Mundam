@@ -1,5 +1,6 @@
 import { createStore } from "solid-js/store";
 import { batch } from "solid-js";
+import { APP_CONFIG } from "../../config/constants";
 
 export type SortField = "modified_at" | "added_at" | "created_at" | "filename" | "format" | "size" | "rating";
 export type SortOrder = "asc" | "desc";
@@ -38,10 +39,11 @@ interface FilterState extends FilterSnapshot {
   // History
   history: FilterSnapshot[];
   historyIndex: number;
+  historyLimit: number;
 }
 
 const STORAGE_KEY = "elleven-filter-preference";
-const HISTORY_LIMIT = 50;
+// const HISTORY_LIMIT = 50; // Moved to state
 
 const defaultSnapshot: FilterSnapshot = {
   selectedTags: [],
@@ -57,9 +59,10 @@ const defaultSnapshot: FilterSnapshot = {
 const defaultState: FilterState = {
   ...defaultSnapshot,
   layout: "masonry-v",
-  thumbSize: 200,
+  thumbSize: APP_CONFIG.THUMBNAIL_SIZE,
   history: [{ ...defaultSnapshot }],
-  historyIndex: 0
+  historyIndex: 0,
+  historyLimit: 50 // Default
 };
 
 const getPersisted = (): Partial<FilterState> => {
@@ -92,6 +95,7 @@ const persist = (newState: Partial<FilterState>) => {
         sortOrder: filterState.sortOrder,
         layout: filterState.layout,
         thumbSize: filterState.thumbSize,
+        historyLimit: filterState.historyLimit,
         ...newState
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
@@ -122,14 +126,20 @@ const filterActions = {
     newHistory.push(snapshot);
     
     // Limit history
-    const finalHistory = newHistory.length > HISTORY_LIMIT 
-      ? newHistory.slice(newHistory.length - HISTORY_LIMIT)
+    const limit = filterState.historyLimit || 50;
+    const finalHistory = newHistory.length > limit 
+      ? newHistory.slice(newHistory.length - limit)
       : newHistory;
 
     setFilterState({
       history: finalHistory,
       historyIndex: finalHistory.length - 1
     });
+  },
+
+  setHistoryLimit: (limit: number) => {
+      setFilterState("historyLimit", limit);
+      persist({ historyLimit: limit });
   },
 
   goBack: () => {
@@ -203,7 +213,7 @@ const filterActions = {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(() => {
       filterActions.pushHistory();
-    }, 500);
+    }, APP_CONFIG.SEARCH_DEBOUNCE_MS);
   },
 
   setAdvancedSearch: (search: SearchGroup | null) => {

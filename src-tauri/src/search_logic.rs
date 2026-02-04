@@ -189,38 +189,22 @@ fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::
             query_builder.push(" i.");
             query_builder.push(&c.key);
             
-            // In SQLite dates are strings, so comparison works if in correct format.
-            // Frontend sends DD/MM/YYYY, we should probably convert to YYYY-MM-DD on frontend or backend.
-            // Assuming DD/MM/YYYY for now and trying to convert.
-            let raw_val = c.value.as_str().unwrap_or("");
-            
-            // Try to normalize date.
-            // If it matches DD/MM/YYYY, convert to YYYY-MM-DD
-            // If it matches YYYY-MM-DD, keep it.
-            // Simplified logic: Check for '/'
-            let final_val = if raw_val.contains('/') {
-                 let parts: Vec<&str> = raw_val.split('/').collect();
-                 if parts.len() == 3 {
-                    format!("{}-{}-{}", parts[2], parts[1], parts[0])
-                 } else {
-                    raw_val.to_string()
-                 }
-            } else {
-                raw_val.to_string()
-            };
+            // Expect strictly ISO-8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS) from frontend.
+            // No manual parsing of DD/MM/YYYY.
+            let val = c.value.as_str().unwrap_or("");
 
             match c.operator.as_str() {
                 "before" => {
                     query_builder.push(" < ");
-                    query_builder.push_bind(final_val);
+                    query_builder.push_bind(val);
                 },
                 "after" => {
                     query_builder.push(" > ");
-                    query_builder.push_bind(final_val);
+                    query_builder.push_bind(val);
                 },
                 "on" => {
                     query_builder.push(" LIKE ");
-                    query_builder.push_bind(format!("{}%", final_val));
+                    query_builder.push_bind(format!("{}%", val));
                 },
                 "between" => {
                     if let Some(arr) = c.value.as_array() {
@@ -228,16 +212,13 @@ fn build_criterion_clause<'a>(c: &'a SearchCriterion, query_builder: &mut sqlx::
                             let v1 = arr[0].as_str().unwrap_or("");
                             let v2 = arr[1].as_str().unwrap_or("");
                             
-                            let parts1: Vec<&str> = v1.split('/').collect();
-                            let parts2: Vec<&str> = v2.split('/').collect();
-                            
-                            let f1 = if parts1.len() == 3 { format!("{}-{}-{}", parts1[2], parts1[1], parts1[0]) } else { v1.to_string() };
-                            let f2 = if parts2.len() == 3 { format!("{}-{}-{}", parts2[2], parts2[1], parts2[0]) } else { v2.to_string() };
-
                             query_builder.push(" BETWEEN ");
-                            query_builder.push_bind(f1);
+                            query_builder.push_bind(v1);
                             query_builder.push(" AND ");
-                            query_builder.push_bind(format!("{} 23:59:59", f2));
+                            
+                            // If it's a date-only string (YYYY-MM-DD), cover the whole day.
+                            let v2_final = if v2.len() == 10 { format!("{} 23:59:59", v2) } else { v2.to_string() };
+                            query_builder.push_bind(v2_final);
                         } else {
                             query_builder.push(" = 1 ");
                         }
