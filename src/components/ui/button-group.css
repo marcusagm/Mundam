@@ -1,6 +1,6 @@
 .ui-button-group {
   display: inline-flex;
-  gap: var(--space-1);
+  gap: var(--p-space-xs);
 }
 
 .ui-button-group-horizontal {
@@ -21,13 +21,13 @@
 }
 
 .ui-button-group-attached.ui-button-group-horizontal > .ui-btn:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-bottom-left-radius: var(--radius-md);
+  border-top-left-radius: var(--radius-s);
+  border-bottom-left-radius: var(--radius-s);
 }
 
 .ui-button-group-attached.ui-button-group-horizontal > .ui-btn:last-child {
-  border-top-right-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-s);
+  border-bottom-right-radius: var(--radius-s);
 }
 
 .ui-button-group-attached.ui-button-group-horizontal > .ui-btn:not(:first-child) {
@@ -45,13 +45,13 @@
 }
 
 .ui-button-group-attached.ui-button-group-vertical > .ui-btn:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-top-right-radius: var(--radius-md);
+  border-top-left-radius: var(--radius-s);
+  border-top-right-radius: var(--radius-s);
 }
 
 .ui-button-group-attached.ui-button-group-vertical > .ui-btn:last-child {
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-s);
+  border-bottom-right-radius: var(--radius-s);
 }
 
 .ui-button-group-attached.ui-button-group-vertical > .ui-btn:not(:first-child) {
@@ -60,13 +60,13 @@
 
 /* Size variants */
 .ui-button-group-sm > .ui-btn {
-  height: 28px;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
+  height: var(--p-space-s);
+  padding: 0 var(--p-space-s);
+  font-size: var(--p-font-size-xs);
 }
 
 .ui-button-group-lg > .ui-btn {
-  height: 40px;
-  padding: 0 var(--space-5);
-  font-size: var(--font-size-lg);
+  height: 2.5rem;
+  padding: 0 var(--p-space-l);
+  font-size: var(--p-font-size-m);
 }

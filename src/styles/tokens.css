@@ -1,139 +1,245 @@
 :root {
-  /* Color Palette - Professional Dark (Eagle/VSCode inspired) */
-  --bg-color: #1e1e1e; /* Main Content Area */
-  --bg-sidebar: #252526; /* Sidebars */
-  --bg-header: #2d2d2d; /* Top Bar */
-
-  --bg-surface: #2d2d2d; /* Alias for surface components like Modals */
-  --surface-color: #2d2d2d; /* Inputs, Cards */
-  --surface-hover: #37373d; /* List items hover */
-  --surface-active: #005f7b; /* Selection Blue (Eagle-like) */
-
-  --border-color: #3e3e42; /* Subtle separators */
-  --border-active: rgb(0, 95, 123); /* Focus borders */
-
-  --bg-subtle: rgba(255, 255, 255, 0.02);
-  --border-subtle: rgba(255, 255, 255, 0.05);
-
-  --text-primary: #cccccc;
-  --text-secondary: #969696;
-  --text-muted: #6e6e6e;
-  --text-inverse: #ffffff;
-
-  --text-destructive: #c84747;
-  --text-destructive-hover: #b13d3d;
-  --text-destructive-active: #9a3434;
-  --bg-destructive: #3e1818;
-  --bg-destructive-hover: #4a1f1f;
-  --bg-destructive-active: #562626;
-  --border-destructive: #c84747;
-  --border-destructive-hover: #b13d3d;
-  --border-destructive-active: #9a3434;
-
-  --text-success: #89d185;
-  --text-success-hover: #78b875;
-  --text-success-active: #679f65;
-  --bg-success: #1c2b1c;
-  --bg-success-hover: #243624;
-  --bg-success-active: #2c422c;
-  --border-success: #89d185;
-  --border-success-hover: #78b875;
-  --border-success-active: #679f65;
-
-  --text-error: #f48771;
-  --text-error-hover: #d97865;
-  --text-error-active: #bf6959;
-  --bg-error: #3e1c1c;
-  --bg-error-hover: #4a2222;
-  --bg-error-active: #562828;
-  --border-error: #f48771;
-  --border-error-hover: #d97865;
-  --border-error-active: #bf6959;
-
-  --text-warning: #cca700;
-  --text-warning-hover: #b39200;
-  --text-warning-active: #997d00;
-  --bg-warning: #352b00;
-  --bg-warning-hover: #423600;
-  --bg-warning-active: #4f4100;
-  --border-warning: #cca700;
-  --border-warning-hover: #b39200;
-  --border-warning-active: #997d00;
-
-  --text-info: #75beff;
-  --text-info-hover: #64b0f0;
-  --text-info-active: #53a1e0;
-  --bg-info: #062f4a;
-  --bg-info-hover: #083a5a;
-  --bg-info-active: #0a456a;
-  --border-info: #75beff;
-  --border-info-hover: #64b0f0;
-  --border-info-active: #53a1e0;
+  /* --- 1. Primitive Layer (The Palette) --- */
+  /* Using OKLCH for superior color mixing and consistency */
   
-  /* Accent - Controlled Professional Blue */
-  --accent-color: #00a0a9;
-  --accent-hover: #005f7b;
-  --accent-text: #ffffff;
+  /* Primary Palette (Teal/Cyan based on original #00a0a9) */
+  /* Hue ~210 */
+  --p-primary-50:  oklch(97% 0.02 210);
+  --p-primary-100: oklch(92% 0.04 210);
+  --p-primary-200: oklch(85% 0.08 210);
+  --p-primary-300: oklch(75% 0.12 210);
+  --p-primary-400: oklch(65% 0.14 210);
+  --p-primary-500: oklch(58% 0.15 210); /* Base Brand Color */
+  --p-primary-600: oklch(48% 0.15 210);
+  --p-primary-700: oklch(38% 0.13 210);
+  --p-primary-800: oklch(28% 0.10 210);
+  --p-primary-900: oklch(18% 0.08 210);
+  --p-primary-950: oklch(10% 0.06 210);
 
-  --danger-color: #f48771;
-  --warning-color: #cca700;
-  --success-color: #89d185;
-  --info-color: #75beff;
+  /* Neutrals (Neutral Grays) */
+  --p-neutral-0:   oklch(100% 0 0);
+  --p-neutral-50:  oklch(98% 0 0);
+  --p-neutral-100: oklch(95% 0 0);
+  --p-neutral-200: oklch(88% 0 0);
+  --p-neutral-300: oklch(78% 0 0);
+  --p-neutral-400: oklch(65% 0 0);
+  --p-neutral-500: oklch(50% 0 0);
+  --p-neutral-600: oklch(35% 0 0);
+  --p-neutral-700: oklch(25% 0 0);
+  --p-neutral-800: oklch(18% 0 0); /* ~#2d2d2d (L=29%) -> close to this */
+  --p-neutral-850: oklch(16% 0 0); /* ~#252526 */
+  --p-neutral-900: oklch(13% 0 0); /* ~#1e1e1e (L=23%) */
+  --p-neutral-950: oklch(8% 0 0);
 
-  /* Typography - Clean Sans */
-  --font-main:
-    "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  /* Functional Colors */
+  /* Success (Green) */
+  --p-success-50:  oklch(97% 0.02 145);
+  --p-success-100: oklch(92% 0.04 145);
+  --p-success-200: oklch(85% 0.08 145);
+  --p-success-300: oklch(75% 0.12 145);
+  --p-success-400: oklch(70% 0.15 145);
+  --p-success-500: oklch(65% 0.18 145);
+  --p-success-600: oklch(55% 0.17 145);
+  --p-success-700: oklch(45% 0.15 145);
+  --p-success-800: oklch(35% 0.12 145);
+  --p-success-900: oklch(25% 0.09 145);
+  --p-success-950: oklch(15% 0.06 145);
 
-  --font-size-xs: 11px;
-  --font-size-sm: 12px;
-  --font-size-base: 13px;
-  --font-size-lg: 14px;
-  --font-size-xl: 16px;
+  /* Warning (Yellow) */
+  --p-warning-50:  oklch(98% 0.02 85);
+  --p-warning-100: oklch(95% 0.04 85);
+  --p-warning-200: oklch(90% 0.08 85);
+  --p-warning-300: oklch(85% 0.11 85);
+  --p-warning-400: oklch(80% 0.13 85);
+  --p-warning-500: oklch(75% 0.15 85);
+  --p-warning-600: oklch(65% 0.14 85);
+  --p-warning-700: oklch(55% 0.12 85);
+  --p-warning-800: oklch(45% 0.10 85);
+  --p-warning-900: oklch(35% 0.08 85);
+  --p-warning-950: oklch(25% 0.06 85);
 
-  /* Geometry - Refined */
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
+  /* Error (Red) */
+  --p-error-50:  oklch(97% 0.02 25);
+  --p-error-100: oklch(92% 0.04 25);
+  --p-error-200: oklch(85% 0.08 25);
+  --p-error-300: oklch(75% 0.12 25);
+  --p-error-400: oklch(68% 0.16 25);
+  --p-error-500: oklch(60% 0.20 25);
+  --p-error-600: oklch(50% 0.18 25);
+  --p-error-700: oklch(40% 0.15 25);
+  --p-error-800: oklch(30% 0.12 25);
+  --p-error-900: oklch(20% 0.09 25);
+  --p-error-950: oklch(12% 0.06 25);
 
-  /* Spacing - 4px Base */
-  --space-0_5: 2px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  /* Info (Blue) */
+  --p-info-50:  oklch(97% 0.02 240);
+  --p-info-100: oklch(92% 0.04 240);
+  --p-info-200: oklch(85% 0.08 240);
+  --p-info-300: oklch(78% 0.12 240);
+  --p-info-400: oklch(71% 0.14 240);
+  --p-info-500: oklch(65% 0.15 240);
+  --p-info-600: oklch(55% 0.14 240);
+  --p-info-700: oklch(45% 0.12 240);
+  --p-info-800: oklch(35% 0.10 240);
+  --p-info-900: oklch(25% 0.08 240);
+  --p-info-950: oklch(15% 0.06 240);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.1);
+  /* --- 2. Spacing Scale (rem based, 1rem = 16px) --- */
+  --p-space-0:   0rem;
+  --p-space-1:   0.0625rem; /* 1px - Special Case */
+  --p-space-xxs: 0.125rem;  /* 2px */
+  --p-space-xs:  0.25rem;   /* 4px */
+  --p-space-s:   0.5rem;    /* 8px */
+  --p-space-m:   1rem;      /* 16px */
+  --p-space-l:   1.5rem;    /* 24px */
+  --p-space-xl:  2rem;      /* 32px */
+  --p-space-2xl: 3rem;      /* 48px */
+  --p-space-3xl: 4rem;      /* 64px */
+  --p-space-4xl: 6rem;      /* 96px */
 
-  --shadow-focus: 
-    0px 0px 0px 3px var(--surface-color), 
-    0px 0px 0px 5px rgba(0, 95, 123, 0.5), 
-    0px 0px 15px 5px rgba(0, 95, 123, 0.5);
+  /* --- 3. Typography --- */
+  --p-font-main: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --p-font-mono: "JetBrains Mono", "Fira Code", monospace;
 
-  --shadow-focus-selected: 
-    0px 0px 0px 2px var(--border-active),
-    0px 0px 0px 3px var(--surface-color), 
-    0px 0px 0px 5px rgba(0, 95, 123, 0.5), 
-    0px 0px 15px 5px rgba(0, 95, 123, 0.5);
+  --p-font-size-xxs: 0.625rem; /* 10px */
+  --p-font-size-xs:  0.75rem;  /* 12px */
+  --p-font-size-s:   0.8125rem; /* 13px (Base used in app) */
+  --p-font-size-m:   0.875rem;  /* 14px */
+  --p-font-size-l:   1rem;      /* 16px */
+  --p-font-size-xl:  1.25rem;   /* 20px */
+  --p-font-size-2xl: 1.5rem;    /* 24px */
+  --p-font-size-3xl: 2rem;      /* 32px */
 
-  /* Transitions */
-  --transition-fast: 100ms ease-out;
-  --transition-normal: 200ms ease-out;
+  /* --- 4. Effects --- */
+   /* Shadows - using a semantic shadow color variable to adapt */
+  --p-shadow-color: 0 0 0; /* Fallback */
 
-  /* Focus Ring */
-  --ring-color: var(--border-active);
-  --ring-offset: 2px;
-  --ring-offset-color: var(--bg-color);
+  --global-statusbar-height: var(--p-space-xl);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --transition-fast: 0ms;
-    --transition-normal: 0ms;
-  }
+/* --- 5. Semantic Layer (The Usage) --- */
+/* Default to Dark Mode as per "Professional Dark" intent */
+:root {
+  color-scheme: dark;
+  
+  /* Backgrounds */
+  --bg-page:       var(--p-neutral-900); /* #1e1e1e equivalent */
+  --bg-sidebar:    var(--p-neutral-850); /* #252526 equivalent */
+  --bg-header:     var(--p-neutral-800); /* #2d2d2d equivalent */
+  
+  --bg-surface-1:  var(--p-neutral-850); /* Cards/Panels */
+  --bg-surface-2:  var(--p-neutral-800); /* Inputs/Slightly lighter */
+  --bg-surface-3:  var(--p-neutral-700); /* Hover states */
+  --bg-surface-active: var(--p-primary-700); /* Active selection */
+
+  /* Backdrop / Glassmorphism */
+  --bg-backdrop:   oklch(13% 0 0 / 0.7);
+  --bg-overlay:    oklch(0% 0 0 / 0.4);
+
+  /* Borders */
+  --border-subtle:  var(--p-neutral-800); /* Very faint */
+  --border-default: var(--p-neutral-700); /* Standard borders */
+  --border-strong:  var(--p-neutral-600); /* Focus/Active borders */
+  --border-active:  var(--p-primary-500); /* Primary colored border */
+
+  /* Text & Icons */
+  --text-primary:   var(--p-neutral-200); /* High contrast ~#cccccc */
+  --text-secondary: var(--p-neutral-400); /* Medium contrast ~#969696 */
+  --text-tertiary:  var(--p-neutral-600); /* Low contrast/Muted */
+  --text-inverse:   var(--p-neutral-0);   /* White on dark */
+
+  /* Functional Text */
+  --text-destructive: var(--p-error-200);
+  --text-destructive-no-bg: var(--p-error-400);
+  --text-success:     var(--p-success-200);
+  --text-success-no-bg: var(--p-success-400);
+  --text-warning:     var(--p-warning-200);
+  --text-warning-no-bg: var(--p-warning-400);
+  --text-info:        var(--p-info-200);
+  --text-info-no-bg: var(--p-info-400);
+
+  /* Actions */
+  --action-primary-bg:       var(--p-primary-500);
+  --action-primary-bg-hover: var(--p-primary-400); /* Lighter on hover for dark mode */
+  --action-primary-text:     var(--p-neutral-0);
+  
+  --action-secondary-bg:       var(--p-neutral-800);
+  --action-secondary-bg-hover: var(--p-neutral-700);
+  --action-secondary-text:     var(--text-primary);
+  
+  --action-destructive-bg:       var(--p-error-500);
+  --action-destructive-text:     var(--p-neutral-0);
+
+  /* Feedback Backgrounds (Subtle) */
+  --feedback-success-bg: oklch(65% 0.18 145 / 0.15);
+  --feedback-drawing-bg: oklch(50% 0 0 / 0.5); /* Placeholder */
+
+  /* Semantic Status Backgrounds (Solid) */
+  --bg-success: var(--p-success-950);
+  --bg-warning: var(--p-warning-950);
+  --bg-error:   var(--p-error-950);
+  --bg-info:    var(--p-info-950);
+
+  /* Radius */
+  --radius-none: 0;
+  --radius-xs:   0.125rem; /* 2px */
+  --radius-s:    0.25rem;  /* 4px (std) */
+  --radius-m:    0.375rem; /* 6px */
+  --radius-l:    0.5rem;   /* 8px */
+  --radius-full: 9999px;
+
+  /* Shadows (with dark mode adjustment) */
+  --shadow-color: 0.23 0 0; /* derived from bg-page OKLCH lightness approx */
+  --shadow-xs: 0px 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-s:  0px 2px 4px oklch(0% 0 0 / 0.4);
+  --shadow-m:  0px 4px 8px oklch(0% 0 0 / 0.5);
+  --shadow-l:  0px 12px 24px oklch(0% 0 0 / 0.6);
+  
+  --shadow-focus: 
+    0px 0px 0px 2px var(--bg-page), 
+    0px 0px 0px 4px var(--p-primary-500);
+
+  /* Transitions */
+  --duration-fast:   100ms;
+  --duration-normal: 200ms;
+  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
+  
+  --transition-default: all var(--duration-normal) var(--ease-out);
+  --transition-fast:    all var(--duration-fast) var(--ease-out);
+
+  /* Font Aliases */
+  --font-main: var(--p-font-main);
+  --font-mono: var(--p-font-mono);
+  --font-size-base: var(--p-font-size-s);
+}
+
+/* Light Mode Override (if needed/activated via class) */
+[data-theme="light"] {
+  color-scheme: light;
+  
+  --bg-page:       var(--p-neutral-50);
+  --bg-sidebar:    var(--p-neutral-100);
+  --bg-header:     var(--p-neutral-0);
+  
+  --bg-surface-1:  var(--p-neutral-0);
+  --bg-surface-2:  var(--p-neutral-50);
+  --bg-surface-3:  var(--p-neutral-100);
+  --bg-surface-active: var(--p-primary-100);
+
+  --bg-backdrop:   oklch(98% 0 0 / 0.7);
+
+  --border-subtle:  var(--p-neutral-100);
+  --border-default: var(--p-neutral-200);
+  --border-strong:  var(--p-neutral-300);
+  
+  --text-primary:   var(--p-neutral-900);
+  --text-secondary: var(--p-neutral-600);
+  --text-tertiary:  var(--p-neutral-400);
+  --text-inverse:   var(--p-neutral-0);
+  
+  --action-primary-bg-hover: var(--p-primary-600); /* Darker on hover for light mode */
+  
+  --shadow-xs: 0px 1px 2px oklch(0% 0 0 / 0.05);
+  --shadow-s:  0px 2px 4px oklch(0% 0 0 / 0.1);
+  --shadow-m:  0px 4px 8px oklch(0% 0 0 / 0.1);
 }

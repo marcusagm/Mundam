@@ -1,0 +1,27 @@
+/**
+ * Popover Component Styles
+ * Base styles for popover containers
+ */
+
+.ui-popover-content {
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  padding: var(--p-space-s);
+  z-index: 1000;
+  /* Default min-width can be overridden */
+  min-width: 200px;
+  animation: ui-popover-in 0.1s ease-out;
+}
+
+@keyframes ui-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -1,14 +1,14 @@
 .star-rating {
     display: flex;
-    gap: 2px;
+    gap: var(--p-space-xxs);
 }
 
 .star-btn {
     background: none;
     border: none;
-    padding: 2px;
+    padding: var(--p-space-xxs);
     cursor: pointer;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     transition: transform var(--transition-fast), color var(--transition-fast);
 }
 
@@ -25,6 +25,6 @@
 }
 
 .star-btn:focus-visible {
-    outline: 2px solid var(--border-active);
+    outline: var(--p-space-xxs) solid var(--border-active);
     border-radius: 50%;
 }

@@ -16,18 +16,18 @@
 
 .folder-delete-path {
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--surface-raised);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-s);
   word-break: break-all;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .folder-delete-warning {
   padding: var(--spacing-sm) var(--spacing-md);
   background: color-mix(in oklch, var(--status-error) 15%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-s);
   border-left: 3px solid var(--status-error);
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
 }

@@ -8,17 +8,17 @@
 
 .ui-tooltip {
   position: fixed;
-  padding: var(--space-2, 6px) var(--space-3, 10px);
+  padding: var(--p-space-s) 0.75rem;
   background-color: var(--bg-tooltip, #1a1a1a);
-  color: var(--text-primary, #fff);
-  font-size: var(--font-size-xs, 12px);
+  color: var(--text-primary);
+  font-size: var(--p-font-size-xs);
   font-weight: 500;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-s);
   white-space: nowrap;
   z-index: 10000;
   pointer-events: none;
   animation: ui-tooltip-in 0.15s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 var(--p-space-xs)  0.375rem -1px rgba(0, 0, 0, 0.1), 0 var(--p-space-xxs) var(--p-space-xs) -1px rgba(0, 0, 0, 0.06);
   
   /* Arrow config */
   --tooltip-arrow-size: 5px;

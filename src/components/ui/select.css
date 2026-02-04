@@ -8,18 +8,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
   
   width: 100%;
-  height: 32px;
-  padding: 0 var(--space-3);
+  padding: 0 0.75rem;
   
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   text-align: left;
   
@@ -27,8 +26,83 @@
   transition: all var(--transition-fast);
 }
 
+/* Sizes */
+.ui-select-trigger-sm {
+  height: var(--p-space-xl);
+}
+
+.ui-select-trigger-sm .ui-select {
+  font-size: var(--p-font-size-xs);
+}
+
+.ui-select-trigger-sm .ui-select-icon-left svg,
+.ui-select-trigger-sm .ui-select-icon-right svg {
+  width: var(--p-font-size-m);
+  height: var(--p-font-size-m);
+}
+
+.ui-select-trigger-md {
+  height: 2.5rem;
+}
+
+.ui-select-trigger-md .ui-select {
+  font-size: var(--p-font-size-m);
+}
+
+.ui-select-trigger-md .ui-select-value,
+.ui-select-trigger-md .ui-select-placeholder {
+  font-size: var(--p-font-size-m);
+}
+
+.ui-select-trigger-md .ui-select-icon-left svg,
+.ui-select-trigger-md .ui-select-icon-right svg {
+  width: var(--p-font-size-xl);
+  height: var(--p-font-size-xl);
+}
+
+.ui-select-trigger-lg {
+  height: var(--p-space-2xl);
+}
+
+.ui-select-trigger-lg .ui-select-value,
+.ui-select-trigger-lg .ui-select-placeholder {
+  font-size: var(--p-font-size-xl);
+}
+
+.ui-select-trigger-lg .ui-select-icon-left svg,
+.ui-select-trigger-lg .ui-select-icon-right svg {
+  width: var(--p-font-size-2xl);
+  height: var(--p-font-size-2xl);
+}
+
+/* Icon support */
+.ui-select-has-left-icon {
+  padding-left: var(--p-space-s);
+}
+
+.ui-select-has-right-icon {
+  /* padding-right is handled by flex layout usually, but ensures spacing */
+  padding-right: var(--p-space-s);
+}
+
+.ui-select-icon-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  margin-right: var(--p-space-xs);
+}
+
+.ui-select-icon-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  margin-left: var(--p-space-xs);
+}
+
 .ui-select-trigger:hover:not(:disabled) {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-select-trigger:focus-visible {
@@ -38,7 +112,7 @@
 }
 
 .ui-select-trigger-open {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-select-trigger-disabled {
@@ -47,7 +121,7 @@
 }
 
 .ui-select-trigger-error {
-  border-color: var(--danger-color, #ef4444);
+  border-color: var(--text-destructive);
 }
 
 .ui-select-trigger-error:hover {
@@ -56,9 +130,9 @@
 
 .ui-select-error-message {
   display: block;
-  margin-top: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--danger-color, #ef4444);
+  margin-top: var(--p-space-xs);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-destructive);
 }
 
 .ui-select-value {
@@ -69,35 +143,35 @@
 }
 
 .ui-select-placeholder {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .ui-select-icons {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--p-space-xs);
 }
 
 .ui-select-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: var(--p-space-xxs);
   
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  border-radius: var(--radius-s);
   
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .ui-select-clear:hover {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
   color: var(--text-primary);
 }
 
 .ui-select-chevron {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   transition: transform var(--transition-fast);
 }
 
@@ -107,10 +181,10 @@
 
 /* Content */
 .ui-select-content {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-s);
   overflow: hidden;
   
   animation: select-enter 0.15s ease-out;
@@ -129,71 +203,71 @@
 
 /* Search */
 .ui-select-search {
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--border-color);
+  padding: var(--p-space-s);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .ui-select-search-input {
   width: 100%;
-  height: 28px;
-  padding: 0 var(--space-2);
+  height: var(--p-space-s);
+  padding: 0 var(--p-space-s);
   
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
 }
 
 .ui-select-search-input:focus {
   outline: none;
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-select-search-input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 /* Options */
 .ui-select-options {
   max-height: 200px;
   overflow-y: auto;
-  padding: var(--space-1);
+  padding: var(--p-space-xs);
 }
 
 .ui-select-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
   
-  padding: var(--space-2);
+  padding: var(--p-space-s);
   
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-s);
   cursor: pointer;
   
   transition: background-color var(--transition-fast);
 }
 
 .ui-select-option:hover {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
 }
 
 .ui-select-option-highlighted {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
 }
 
 .ui-select-option-selected {
-  background-color: var(--surface-active);
+  background-color: var(--bg-surface-active);
   color: var(--text-inverse);
 }
 
 .ui-select-option-selected:hover {
-  background-color: var(--surface-active);
+  background-color: var(--bg-surface-active);
 }
 
 .ui-select-option-disabled {
@@ -217,8 +291,8 @@
 }
 
 .ui-select-empty {
-  padding: var(--space-4);
+  padding: var(--p-space-m);
   text-align: center;
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-tertiary);
 }

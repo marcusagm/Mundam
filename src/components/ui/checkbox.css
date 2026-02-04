@@ -1,7 +1,7 @@
 .ui-checkbox-wrapper {
   display: inline-flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
   cursor: pointer;
   user-select: none;
 }
@@ -18,8 +18,8 @@
   flex-shrink: 0;
   
   background-color: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -32,7 +32,7 @@
 }
 
 .ui-checkbox:hover:not(:disabled) {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-checkbox:disabled {
@@ -41,57 +41,57 @@
 
 /* Sizes */
 .ui-checkbox-sm {
-  width: 14px;
-  height: 14px;
+  width: var(--p-space-xs);
+  height: var(--p-space-xs);
 }
 
 .ui-checkbox-md {
-  width: 16px;
-  height: 16px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 .ui-checkbox-lg {
-  width: 20px;
-  height: 20px;
+  width:  1.25rem;
+  height:  1.25rem;
 }
 
 /* Icon */
 .ui-checkbox-icon {
-  color: var(--accent-text);
+  color: var(--action-primary-text);
 }
 
 .ui-checkbox-sm .ui-checkbox-icon {
-  width: 10px;
-  height: 10px;
+  width:  0.625rem;
+  height:  0.625rem;
 }
 
 .ui-checkbox-lg .ui-checkbox-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--p-space-xs);
+  height: var(--p-space-xs);
 }
 
 /* Checked state */
 .ui-checkbox-checked {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
+  background-color: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
 }
 
 /* Content */
 .ui-checkbox-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--p-space-xxs);
   padding-top: 1px;
 }
 
 .ui-checkbox-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   line-height: 1.2;
 }
 
 .ui-checkbox-description {
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
   color: var(--text-secondary);
   line-height: 1.4;
 }

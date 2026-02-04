@@ -7,11 +7,11 @@
   min-height: 300px;
   padding: var(--space-8);
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .empty-state-icon {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--p-space-m);
   opacity: 0.5;
 }
 
@@ -27,7 +27,7 @@
 }
 
 .empty-state-description {
-  margin: var(--space-2) 0 0;
+  margin: var(--p-space-s) 0 0;
   font-size: var(--text-sm);
   max-width: 300px;
 }

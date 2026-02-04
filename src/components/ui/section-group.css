@@ -3,31 +3,31 @@
  */
 
 .section-group {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   overflow: hidden;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-surface-2);
 }
 
 .section-group-header {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--p-space-s) 0.75rem;
   background-color: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .section-group-title {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .section-group-description {
-    margin: 4px 0 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
+    margin: var(--p-space-xs) 0 0;
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
     font-weight: normal;
     text-transform: none;
     letter-spacing: normal;

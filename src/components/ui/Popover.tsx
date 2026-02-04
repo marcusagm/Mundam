@@ -1,6 +1,7 @@
 import { Component, JSX, Show, createSignal, onCleanup, createEffect } from "solid-js";
 import { Portal } from "solid-js/web";
 import { cn } from "../../lib/utils";
+import "./popover.css";
 
 export interface PopoverProps {
   trigger: JSX.Element;

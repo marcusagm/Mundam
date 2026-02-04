@@ -9,7 +9,7 @@
 .font-content {
     flex: 1;
     overflow: auto;
-    padding: var(--space-6);
+    padding: var(--p-space-xl);
     display: flex;
     justify-content: center;
     width: 100%;
@@ -17,7 +17,7 @@
 }
 
 .font-inner-wrapper {
-    max-width: 1024px;
+    max-width: var(--p-space-xs);
     width: 100%;
 }
 
@@ -26,11 +26,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    padding: 80px 0 var(--space-4) 0;
+    gap: var(--p-space-s);
+    padding: 80px 0 var(--p-space-m) 0;
     flex-shrink: 0;
     z-index: 10;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-default);
 }
 
 /* Tabs Styles */
@@ -49,7 +49,7 @@
     border: none;
     outline: none;
     resize: none;
-    padding: var(--space-4);
+    padding: var(--p-space-m);
     font-family: inherit; /* Dynamic */
     color: inherit;
 }
@@ -58,23 +58,23 @@
 .font-waterfall-list {
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    gap: var(--p-space-l);
     width: 100%;
-    padding: var(--space-4);
+    padding: var(--p-space-m);
     user-select: text;
 }
 
 .font-waterfall-item {
     display: flex;
-    gap: var(--space-4);
+    gap: var(--p-space-m);
     align-items: baseline;
     border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: var(--space-2);
+    padding-bottom: var(--p-space-s);
 }
 
 .font-waterfall-label {
-    width: 48px;
-    font-size: var(--font-size-sm);
+    width: var(--p-space-s);
+    font-size: var(--p-font-size-xs);
     opacity: 0.4;
     flex-shrink: 0;
     user-select: none;
@@ -89,9 +89,9 @@
 .font-glyphs-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: var(--space-4);
+    gap: var(--p-space-m);
     width: 100%;
-    padding: var(--space-4);
+    padding: var(--p-space-m);
 }
 
 .font-glyph-item {
@@ -101,44 +101,44 @@
     justify-content: center;
     aspect-ratio: 1;
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-s);
     transition: background-color var(--transition-fast);
 }
 
 .font-glyph-item:hover {
-    background-color: var(--bg-subtle);
+    background-color: var(--bg-surface-2);
 }
 
 .font-glyph-code {
-    font-size: var(--font-size-xs);
+    font-size: var(--p-font-size-xs);
     opacity: 0.3;
-    margin-top: var(--space-2);
+    margin-top: var(--p-space-s);
     user-select: none;
 }
 
 /* Info Tab */
 .font-info-container {
-    padding: var(--space-6);
+    padding: var(--p-space-xl);
     width: 100%;
-    max-width: 672px; /* 2xl */
+    max-width: var(--p-space-xxs); /* 2xl */
     margin: 0 auto;
 }
 
 .font-info-title {
-    font-size: 20px; /* Custom size not in standard tokens yet, keep or add */
+    font-size: var(--p-font-size-xl); /* Custom size not in standard tokens yet, keep or add */
     font-weight: 500;
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--p-space-l);
 }
 
 .font-info-row {
     display: flex;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: var(--space-2);
-    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-default);
+    padding-bottom: var(--p-space-s);
+    margin-bottom: 0.75rem;
 }
 
 .font-info-label {
-    width: 128px;
+    width: var(--p-space-s);
     opacity: 0.5;
 }
 
@@ -154,15 +154,15 @@
 .font-control-group {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: 0 var(--space-2);
+    gap: var(--p-space-s);
+    padding: 0 var(--p-space-s);
 }
 
 .font-control-label {
-    width: 120px;
+    width: 1 1.25rem;
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--p-space-s);
 }
 
 .font-control-label input[type="range"] {
@@ -170,8 +170,8 @@
 }
 
 .font-control-value {
-    font-size: var(--font-size-xs);
-    width: 24px;
+    font-size: var(--p-font-size-xs);
+    width: var(--p-space-l);
     text-align: right;
     opacity: 0.7;
 }
@@ -182,26 +182,23 @@
 
 .font-color-popover {
     width: 300px;
-    padding: var(--space-2);
-    border-radius: var(--radius-lg);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    /* Base popover styles applied via component */
 }
 
 .font-color-btn {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    height: 32px;
-    padding: 0 var(--space-2);
-    font-size: var(--font-size-sm);
+    gap: var(--p-space-s);
+    height: var(--p-space-xxs);
+    padding: 0 var(--p-space-s);
+    font-size: var(--p-font-size-xs);
     font-weight: normal;
 }
 
 .font-color-preview {
-    width: 16px;
-    height: 16px;
-    margin-right: var(--space-2);
-    border-radius: 50%; /* or 4px depending on usage */
+    width: var(--p-space-m);
+    height: var(--p-space-m);
+    margin-right: var(--p-space-s);
+    border-radius: 50%; /* or var(--p-space-xs) depending on usage */
     border: 1px solid var(--border-subtle);
 }

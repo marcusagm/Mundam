@@ -1,4 +1,5 @@
 import { onMount, onCleanup, Show, createEffect, createSignal } from "solid-js";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSystem, useNotification } from "./core/hooks";
 import { AppShell } from "./layouts/AppShell";
 import { LibrarySidebar } from "./components/layout/LibrarySidebar";
@@ -70,7 +71,8 @@ function App() {
     listen("indexer:complete", () => {
       notification.success("Indexing Complete", "Library update finished");
     });
-    
+
+
     // Notify Splash Screen
     window.dispatchEvent(new CustomEvent('app-ready'));
 
@@ -78,8 +80,34 @@ function App() {
     const handleOpenSettings = () => setIsSettingsOpen(true);
     window.addEventListener('app:open-settings', handleOpenSettings);
 
+    const handleOpenDesignSystem = async () => {
+        try {
+            const label = 'design-system';
+            const existing = await WebviewWindow.getByLabel(label);
+            if (existing) {
+                await existing.setFocus();
+                return;
+            }
+            
+            const webview = new WebviewWindow(label, {
+                url: 'index.html#design-system',
+                title: 'Elleven Design System',
+                width: 1200,
+                height: 900,
+            });
+            
+            webview.once('tauri://error', function (e) {
+                console.error('webview error', e);
+            });
+        } catch (e) {
+            console.error('Failed to open design system window', e);
+        }
+    };
+    window.addEventListener('app:open-design-system', handleOpenDesignSystem);
+
     onCleanup(() => {
         window.removeEventListener('app:open-settings', handleOpenSettings);
+        window.removeEventListener('app:open-design-system', handleOpenDesignSystem);
     });
   });
 

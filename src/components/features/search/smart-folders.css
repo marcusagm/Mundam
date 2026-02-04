@@ -1,7 +1,7 @@
 .smart-folders-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--p-space-xxs);
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -9,9 +9,9 @@
 }
 
 .smart-folders-empty {
-    padding: var(--space-4);
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
+    padding: var(--p-space-m);
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
     text-align: center;
     line-height: 1.4;
 }
@@ -19,8 +19,8 @@
 .smart-folder-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: var(--p-space-s);
+    padding:  0.375rem 0.75rem;
 }
 
 .smart-folder-item .folder-name {

@@ -14,25 +14,25 @@
 
 /* Size variants */
 .ui-badge-sm {
-  height: 18px;
-  padding: 0 6px;
-  font-size: 10px;
+  height: var(--p-space-s);
+  padding: 0  0.375rem;
+  font-size: var(--p-font-size-xxs);
 }
 
 .ui-badge-md {
-  height: 22px;
-  padding: 0 8px;
-  font-size: 12px;
+  height: var(--p-space-xxs);
+  padding: 0 var(--p-space-s);
+  font-size: var(--p-font-size-xs);
 }
 
 /* Variant styles */
 .ui-badge-default {
-  background-color: var(--accent-primary, #0ea5e9);
+  background-color: var(--action-primary-bg);
   color: white;
 }
 
 .ui-badge-secondary {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-surface-2);
   color: var(--text-secondary);
 }
 
@@ -53,6 +53,6 @@
 }
 
 .ui-badge-error {
-  background-color: var(--color-error, #ef4444);
+  background-color: var(--p-error-500);
   color: white;
 }

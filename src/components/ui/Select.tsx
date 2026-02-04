@@ -33,6 +33,9 @@ export interface SelectProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "o
   name?: string;
   error?: boolean;
   errorMessage?: string;
+  leftIcon?: JSX.Element;
+  rightIcon?: JSX.Element;
+  size?: "sm" | "md" | "lg";
 }
 
 /**
@@ -64,6 +67,9 @@ export const Select: Component<SelectProps> = (props) => {
     "error",
     "errorMessage",
     "id",
+    "leftIcon",
+    "rightIcon",
+    "size",
   ]);
 
   const id = createMemo(() => local.id || createId("select"));
@@ -192,6 +198,8 @@ export const Select: Component<SelectProps> = (props) => {
     }
   };
 
+  const size = () => local.size || "md";
+
   return (
     <div class={cn("ui-select", local.class)} {...others}>
       <button
@@ -200,9 +208,12 @@ export const Select: Component<SelectProps> = (props) => {
         id={id()}
         class={cn(
           "ui-select-trigger",
+          `ui-select-trigger-${size()}`,
           isOpen() && "ui-select-trigger-open",
           local.disabled && "ui-select-trigger-disabled",
-          local.error && "ui-select-trigger-error"
+          local.error && "ui-select-trigger-error",
+          !!local.leftIcon && "ui-select-has-left-icon",
+          !!local.rightIcon && "ui-select-has-right-icon"
         )}
         role="combobox"
         aria-expanded={isOpen()}
@@ -212,9 +223,17 @@ export const Select: Component<SelectProps> = (props) => {
         onClick={() => (isOpen() ? close() : open())}
         onKeyDown={handleKeyDown}
       >
+        <Show when={local.leftIcon}>
+            <span class="ui-select-icon-left">{local.leftIcon}</span>
+        </Show>
+
         <span class={cn("ui-select-value", !selectedOption() && "ui-select-placeholder")}>
           {selectedOption()?.label || local.placeholder || "Select..."}
         </span>
+
+        <Show when={local.rightIcon}>
+            <span class="ui-select-icon-right">{local.rightIcon}</span>
+        </Show>
 
         <div class="ui-select-icons">
           <Show when={local.clearable && value()}>

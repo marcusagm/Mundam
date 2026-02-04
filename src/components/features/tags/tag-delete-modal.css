@@ -1,10 +1,10 @@
 .tag-delete-modal-content {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: 0.75rem;
 }
 
 .tag-delete-warning {
-    color: var(--danger-color);
+    color: var(--text-destructive);
     font-weight: 500;
 }

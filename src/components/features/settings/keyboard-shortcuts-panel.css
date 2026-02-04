@@ -10,8 +10,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
+  gap: var(--p-space-m);
+  margin-bottom: var(--p-space-l);
 }
 
 .shortcuts-panel-header .settings-panel-description {
@@ -22,7 +22,7 @@
 .shortcuts-groups {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--p-space-l);
 }
 
 /* Shortcut Row */
@@ -30,9 +30,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-color);
+  gap: var(--p-space-m);
+  padding: 0.75rem var(--p-space-m);
+  background-color: var(--bg-page);
   border-bottom: 1px solid var(--border-subtle);
   transition: background-color var(--transition-fast);
 }
@@ -42,7 +42,7 @@
 }
 
 .shortcut-row:hover {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
 }
 
 .shortcut-row.is-editing {
@@ -53,27 +53,27 @@
 .shortcut-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--p-space-xxs);
   flex: 1;
   min-width: 0;
 }
 
 .shortcut-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .shortcut-description {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-tertiary);
 }
 
 /* Shortcut Keys Container */
 .shortcut-keys-container {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
   flex-shrink: 0;
 }
 
@@ -81,11 +81,11 @@
 .shortcut-keys-button {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  gap: var(--p-space-xs);
+  padding: var(--p-space-xs) var(--p-space-s);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-s);
   cursor: pointer;
   transition: 
     background-color var(--transition-fast),
@@ -93,36 +93,36 @@
 }
 
 .shortcut-keys-button:hover {
-  background-color: var(--surface-hover);
-  border-color: var(--border-color);
+  background-color: var(--bg-surface-3);
+  border-color: var(--border-default);
 }
 
 .shortcut-keys-button:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: var(--p-space-xxs);
 }
 
 /* Shortcut Keys Display */
 .shortcut-keys {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--p-space-xxs);
 }
 
 .shortcut-keys .ui-kbd {
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
 }
 
 .shortcut-separator {
-    color: var(--text-muted);
-    font-size: var(--font-size-xs);
-    margin: 0 4px;
+    color: var(--text-tertiary);
+    font-size: var(--p-font-size-xs);
+    margin: 0 var(--p-space-xs);
 }
 
 /* Modified Badge */
 .shortcut-modified-badge {
-  color: var(--accent-color);
-  font-size: 18px;
+  color: var(--action-primary-bg);
+  font-size: var(--p-space-s);
   line-height: 1;
 }
 
@@ -131,32 +131,32 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
 }
 
 .shortcut-edit-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
 }
 
 .shortcut-record-input {
-  min-width: 120px;
-  padding: var(--space-2) var(--space-3);
-  background-color: var(--bg-color);
-  border: 1px solid var(--accent-color);
-  border-radius: var(--radius-sm);
+  min-width: 11.25rem;
+  padding: var(--p-space-s) 0.75rem;
+  background-color: var(--bg-page);
+  border: 1px solid var(--action-primary-bg);
+  border-radius: var(--radius-s);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(0, 160, 169, 0.2);
+  box-shadow: 0 0 0 var(--p-space-xxs) rgba(0, 160, 169, 0.2);
 }
 
 .shortcut-record-input:focus {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .shortcut-record-prompt {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
@@ -164,30 +164,30 @@
 .shortcut-conflict-warning {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  gap: var(--p-space-xs);
+  padding: var(--p-space-xs) var(--p-space-s);
   background-color: var(--bg-warning);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-s);
   color: var(--text-warning);
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
 }
 
 /* Edit Actions */
 .shortcut-edit-actions {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--p-space-xs);
 }
 
 .shortcut-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--p-space-s);
+  height: var(--p-space-s);
   padding: 0;
   background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   cursor: pointer;
   transition: 
     background-color var(--transition-fast),
@@ -205,11 +205,11 @@
 }
 
 .shortcut-action-btn.cancel {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .shortcut-action-btn.cancel:hover {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
   color: var(--text-primary);
 }
 
@@ -219,8 +219,8 @@
 }
 
 .shortcut-action-btn:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: var(--p-space-xxs);
 }
 
 /* Reset Button */
@@ -228,13 +228,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--p-space-l);
+  height: var(--p-space-l);
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border-radius: var(--radius-s);
+  color: var(--text-tertiary);
   cursor: pointer;
   opacity: 0;
   transition: 
@@ -252,6 +252,6 @@
 
 .shortcut-reset-btn:focus-visible {
   opacity: 1;
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: var(--p-space-xxs);
 }

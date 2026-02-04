@@ -10,9 +10,9 @@
 }
 
 .ui-tree:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm, 4px);
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: var(--p-space-xxs);
+  border-radius: var(--radius-s);
 }
 
 /* Item container - holds the item and its children */
@@ -32,14 +32,14 @@
   top: 0;
   bottom: 0; /* Extends fully for standard items */
   width: 1px;
-  background-color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background-color: var(--border-subtle);
   pointer-events: none;
   z-index: 0;
 }
 
 /* Stop visual line at row center for the Last Item */
 .ui-tree-last-item::before {
-  height: 14px; /* Half of row height (28px) */
+  height: 0.875rem; /* Half of row height (28px) */
   bottom: auto;
 }
 
@@ -48,10 +48,10 @@
   content: "";
   position: absolute;
   left: calc(var(--guide-pos) + 1px);
-  top: 14px; /* Center of row */
+  top: 0.875rem; /* Center of row */
   width: calc(var(--tree-indent) - var(--guide-pos) - 1px); /* Span from guide to content start */
   height: 1px;
-  background-color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background-color: var(--border-subtle);
   pointer-events: none;
   z-index: 0;
 }
@@ -62,7 +62,7 @@
   display: flex;
   align-items: center;
   /* Row itself has no background/hover now */
-  min-height: 28px; 
+  min-height: 1.75rem; 
   position: relative;
   color: var(--text-primary);
   outline: none; /* Focus handled on content or custom */
@@ -70,8 +70,8 @@
 
 /* Focus on the item moves to content usually, or we style content based on container focus */
 .ui-tree-item:focus-visible .ui-tree-item-content {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
-  outline-offset: -2px;
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: -var(--p-space-xxs);
 }
 
 /* --- Item Content (The visible part) --- */
@@ -81,9 +81,9 @@
   align-items: center;
   flex: 1;
   min-width: 0;
-  height: 28px;
-  border-radius: var(--radius-sm, 4px);
-  padding: 0 var(--space-1, 4px); /* Padding for right edge comfort */
+  height: 1.75rem;
+  border-radius: var(--radius-s);
+  padding: 0 var(--p-space-xs); /* Padding for right edge comfort */
   transition: background-color 0.1s ease;
   position: relative;
   z-index: 1; /* Above guide lines */
@@ -91,16 +91,16 @@
 
 /* Hover Effect - Scoped to content width */
 .ui-tree-item-content:hover {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  background-color: var(--bg-surface-3);
 }
 
 /* Selected State */
 .ui-tree-item-selected .ui-tree-item-content {
-  background-color: var(--bg-active, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-surface-active);
 }
 
 .ui-tree-item-selected .ui-tree-item-content:hover {
-  background-color: var(--bg-active-hover, rgba(255, 255, 255, 0.12));
+  background-color: var(--action-primary-bg-hover);
 }
 
 /* Toggle button */
@@ -108,14 +108,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 2px;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-right: var(--p-space-xxs);
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm, 4px);
-  color: var(--text-muted);
+  border-radius: var(--radius-s);
+  color: var(--text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0.6;
@@ -123,7 +123,7 @@
 }
 
 .ui-tree-toggle:hover {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-surface-3);
   opacity: 1;
   color: var(--text-primary);
 }
@@ -133,34 +133,34 @@
 }
 
 .ui-tree-toggle-spacer {
-  width: 18px;
-  height: 18px;
-  margin-right: 2px;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-right: var(--p-space-xxs);
   flex-shrink: 0;
   position: relative;
 }
 .ui-tree-has-guide .ui-tree-toggle-spacer::before {
   content: "";
   position: absolute;
-  left: calc(var(--space-1, 4px) * -1);
+  left: calc(var(--p-space-xs) * -1);
   top: 50%;
-  width: 18px;
+  width: 1.125rem;
   height: 1px;
-  background-color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background-color: var(--border-subtle);
 }
 
 /* Icon */
 .ui-tree-icon {
   display: flex;
   align-items: center;
-  margin-right: 6px;
+  margin-right:  0.375rem;
   flex-shrink: 0;
 }
 
 /* Label */
 .ui-tree-label {
   flex: 1;
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--p-font-size-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -170,7 +170,7 @@
 /* Badge */
 .ui-tree-badge {
   margin-left: auto;
-  padding-left: var(--space-2, 8px);
+  padding-left: var(--p-space-s);
   flex-shrink: 0;
 }
 
@@ -178,22 +178,22 @@
 .ui-tree-input {
   flex: 1;
   min-width: 0;
-  height: 22px;
-  padding: 0 var(--space-1, 4px);
-  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--accent-primary, #0ea5e9);
-  border-radius: var(--radius-sm, 4px);
+  height: var(--p-space-l);
+  padding: 0 var(--p-space-xs);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--action-primary-bg);
+  border-radius: var(--radius-s);
   font-family: inherit;
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   outline: none;
 }
 
 /* Drag & Drop States */
 .ui-tree-item-drop-target .ui-tree-item-content {
-  background-color: var(--bg-active, rgba(255, 255, 255, 0.1));
-  outline: 2px dashed var(--accent-primary, #0ea5e9);
-  outline-offset: -2px;
+  background-color: var(--bg-surface-active);
+  outline: var(--p-space-xxs) dashed var(--action-primary-bg);
+  outline-offset: -var(--p-space-xxs);
 }
 
 .ui-tree-item-drop-disabled .ui-tree-item-content {
@@ -208,16 +208,16 @@
 }
 
 .ui-tree-root-drop-active {
-  box-shadow: inset 0 0 0 2px var(--accent-primary, #0ea5e9);
-  border-radius: var(--radius-sm, 4px);
+  box-shadow: inset 0 0 0 var(--p-space-xxs) var(--action-primary-bg);
+  border-radius: var(--radius-s);
 }
 
 /* Drop indicator lines - Positioned on the Container now? No, kept on Item row */
 .ui-tree-drop-line {
   position: absolute;
-  right: var(--space-1, 4px);
-  height: 2px;
-  background-color: var(--accent-primary, #0ea5e9);
+  right: var(--p-space-xs);
+  height: var(--p-space-xxs);
+  background-color: var(--action-primary-bg);
   z-index: 10;
   pointer-events: none;
   border-radius: 1px;
@@ -229,9 +229,9 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  background-color: var(--accent-primary, #0ea5e9);
+  width:  0.375rem;
+  height:  0.375rem;
+  background-color: var(--action-primary-bg);
   border-radius: 50%;
 }
 

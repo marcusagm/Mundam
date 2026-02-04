@@ -62,7 +62,7 @@
 
 .shell-content {
   position: relative;
-  background-color: var(--bg-color);
+  background-color: var(--bg-page);
   overflow: hidden;
 }
 
@@ -73,9 +73,9 @@
 
 .shell-footer {
   border-top: 1px solid var(--border-subtle);
-  height: 28px;
+  height: var(--global-statusbar-height);
   display: flex;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--p-font-size-xs);
   background-color: var(--bg-sidebar);
 }

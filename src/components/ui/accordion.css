@@ -7,7 +7,7 @@
 }
 
 .ui-accordion-item {
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .ui-accordion-item:last-child {
@@ -23,7 +23,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-2, 8px);
+  padding: var(--p-space-s);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -43,15 +43,15 @@
 }
 
 .ui-accordion-trigger:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm, 4px);
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: var(--p-space-xxs);
+  border-radius: var(--radius-s);
 }
 
 .ui-accordion-trigger-content {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--p-space-s);
 }
 
 .ui-accordion-title {
@@ -61,7 +61,7 @@
 .ui-accordion-chevron {
   flex-shrink: 0;
   transition: transform 0.2s ease;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .ui-accordion-item-open .ui-accordion-chevron {
@@ -71,7 +71,7 @@
 .ui-accordion-icon {
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .ui-accordion-content {
@@ -87,10 +87,10 @@
 }
 
 .ui-accordion-content-inner {
-  padding: 0 var(--space-4, 16px);
-  padding-bottom: var(--space-2, 8px);
+  padding: 0 var(--p-space-m);
+  padding-bottom: var(--p-space-s);
   color: var(--text-secondary);
-  font-size: var(--font-size-sm, 14px);
+  font-size: var(--p-font-size-xs);
   line-height: 1.6;
 }
 

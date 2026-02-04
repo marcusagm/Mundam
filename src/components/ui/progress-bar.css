@@ -10,8 +10,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-1, 4px);
-  font-size: var(--font-size-sm, 12px);
+  margin-bottom: var(--p-space-xs);
+  font-size: var(--p-font-size-xs);
   color: var(--text-secondary);
 }
 
@@ -21,29 +21,29 @@
 
 .ui-progress-track {
   width: 100%;
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-surface-2);
   border-radius: var(--radius-full, 9999px);
   overflow: hidden;
 }
 
 /* Size variants */
 .ui-progress-sm {
-  height: 4px;
+  height: var(--p-space-xs);
 }
 
 .ui-progress-md {
-  height: 8px;
+  height: var(--p-space-s);
 }
 
 .ui-progress-lg {
-  height: 12px;
+  height: 0.75rem;
 }
 
 .ui-progress-fill {
   height: 100%;
   background: linear-gradient(
     90deg,
-    var(--accent-primary, #0ea5e9) 0%,
+    var(--action-primary-bg) 0%,
     var(--accent-secondary, #06b6d4) 100%
   );
   border-radius: inherit;

@@ -1,6 +1,6 @@
 .ui-radio-group {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
 }
 
 .ui-radio-group-vertical {
@@ -15,7 +15,7 @@
 .ui-radio-wrapper {
   display: inline-flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--p-space-s);
   cursor: pointer;
   user-select: none;
 }
@@ -32,11 +32,11 @@
   justify-content: center;
   flex-shrink: 0;
   
-  width: 16px;
-  height: 16px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
   
   background-color: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-default);
   border-radius: 50%;
   
   cursor: pointer;
@@ -50,7 +50,7 @@
 }
 
 .ui-radio:hover:not(:disabled) {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-radio:disabled {
@@ -59,8 +59,8 @@
 
 /* Indicator (the dot) */
 .ui-radio-indicator {
-  width: 8px;
-  height: 8px;
+  width: var(--p-space-s);
+  height: var(--p-space-s);
   border-radius: 50%;
   background-color: transparent;
   transition: background-color var(--transition-fast), transform var(--transition-fast);
@@ -69,11 +69,11 @@
 
 /* Checked state */
 .ui-radio-checked {
-  border-color: var(--accent-color);
+  border-color: var(--action-primary-bg);
 }
 
 .ui-radio-checked .ui-radio-indicator {
-  background-color: var(--accent-color);
+  background-color: var(--action-primary-bg);
   transform: scale(1);
 }
 
@@ -81,18 +81,18 @@
 .ui-radio-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--p-space-xxs);
   padding-top: 1px;
 }
 
 .ui-radio-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   line-height: 1.2;
 }
 
 .ui-radio-description {
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
   color: var(--text-secondary);
   line-height: 1.4;
 }

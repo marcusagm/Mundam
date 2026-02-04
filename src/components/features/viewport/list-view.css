@@ -25,7 +25,7 @@
 }
 
 .list-view-thumbnail-container {
-    border-radius: 2px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     display: flex;
     align-items: center;

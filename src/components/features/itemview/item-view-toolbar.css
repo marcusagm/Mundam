@@ -1,16 +1,16 @@
 .item-view-toolbar {
     position: absolute;
-    top: 12px;
+    top: 0.75rem;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 6px 12px;
-    background-color: var(--bg-surface);
+    gap: var(--p-space-m);
+    padding:  0.375rem 0.75rem;
+    background-color: var(--bg-surface-2);
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-m);
     z-index: 1000;
     backdrop-filter: blur(12px);
     /* -webkit-backdrop-filter: blur(12px); Removed to match original */
@@ -19,12 +19,12 @@
 .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 4px;
+    gap: var(--p-space-xs);
+    padding: 0 var(--p-space-xs);
     position: relative;
 }
 
-/* Add separator between groups if needed, but original used gap: 16px */
+/* Add separator between groups if needed, but original used gap: var(--p-space-m) */
 /* We successfully grouped items, let's keep the gap but maybe not the hard lines if they weren't there. 
    User said "anterior era bonito". Anterior didn't have groups logic visible in CSS, likely just one flex container.
    I will adapt the group separator to be subtle using variables. */
@@ -33,43 +33,43 @@
     content: '';
     display: block;
     width: 1px;
-    height: 20px;
+    height:  1.25rem;
     background-color: var(--border-subtle);
-    margin-left: 8px;
-    margin-right: 4px;
+    margin-left: var(--p-space-s);
+    margin-right: var(--p-space-xs);
 }
 
 .toolbar-label {
-    font-size: 10px;
+    font-size: var(--p-font-size-xxs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-right: 6px;
+    color: var(--text-tertiary);
+    margin-right:  0.375rem;
     font-weight: 500;
 }
 
 .toolbar-separator {
     width: 1px;
-    height: 16px;
+    height: var(--p-space-m);
     background-color: var(--border-subtle);
-    margin: 0 8px;
+    margin: 0 var(--p-space-s);
 }
 
 .zoom-controls {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--p-space-xs);
 }
 
 .zoom-slider {
     width: 100px !important;
-    margin: 0 8px;
+    margin: 0 var(--p-space-s);
 }
 
 /* Remove forced overrides to let Button component control style via variants and theme vars */
 
 .zoom-btn {
-    font-size: 11px;
+    font-size: var(--p-font-size-xs);
     font-weight: 600;
 }
 
@@ -77,7 +77,7 @@
     display: flex;
     align-items: center;
     position: relative;
-    margin-left: 4px;
+    margin-left: var(--p-space-xs);
 }
 
 .timer-select {
@@ -86,10 +86,10 @@
     background: transparent;
     border: none;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: var(--p-font-size-xs);
     font-weight: 500;
     cursor: pointer;
-    padding-right: 2px;
+    padding-right: var(--p-space-xxs);
 }
 
 .timer-select:focus {
@@ -103,10 +103,10 @@
 }
 
 .text-primary {
-    color: var(--accent-primary) !important;
+    color: var(--action-primary-bg) !important;
 }
 
 .timer-icon {
-    margin-right: 4px;
+    margin-right: var(--p-space-xs);
     opacity: 0.5;
 }

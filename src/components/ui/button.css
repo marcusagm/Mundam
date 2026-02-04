@@ -6,11 +6,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2, 8px);
+  gap: var(--p-space-s);
   font-family: inherit;
   font-weight: 500;
   border: none;
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-s);
   cursor: pointer;
   transition: 
     background-color 0.15s ease,
@@ -32,26 +32,26 @@
 
 /* Size variants */
 .ui-btn-xs {
-  height: 24px;
-  padding: 0 8px;
-  font-size: 12px;
+  height: var(--p-space-l);
+  padding: 0 var(--p-space-s);
+  font-size: var(--p-font-size-xs);
 }
 .ui-btn-sm {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: var(--p-space-xl);
+  padding: 0 0.75rem;
+  font-size: var(--p-font-size-s);
 }
 
 .ui-btn-md {
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
+  height:  2.5rem;
+  padding: 0 var(--p-space-m);
+  font-size: var(--p-font-size-m);
 }
 
 .ui-btn-lg {
-  height: 48px;
-  padding: 0 24px;
-  font-size: 16px;
+  height: var(--p-space-2xl);
+  padding: 0 var(--p-space-l);
+  font-size: var(--p-font-size-l);
 }
 
 .ui-btn-icon,
@@ -61,53 +61,53 @@
 }
 
 .ui-btn-icon {
-  height: 40px;
-  width: 40px;
+  height:  2.5rem;
+  width:  2.5rem;
   justify-content: center;
 }
 
 .ui-btn-icon svg {
-  width: 24px;
-  height: 24px;
+  width: var(--p-space-l);
+  height: var(--p-space-l);
 }
 
 .ui-btn-icon-sm {
-  height: 32px;
-  width: 32px;
+  height: var(--p-space-xl);
+  width: var(--p-space-xl);
 }
 
 .ui-btn-icon-sm svg {
-  width: 20px;
-  height: 20px;
+  width:  1.25rem;
+  height:  1.25rem;
 }
 
 .ui-btn-icon-xs {
-  height: 24px;
-  width: 24px;
+  height: var(--p-space-l);
+  width: var(--p-space-l);
 }
 
 .ui-btn-icon-xs svg {
-  width: 14px;
-  height: 14px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 /* Variant styles */
 .ui-btn-primary {
-  background-color: var(--accent-primary, #0ea5e9);
+  background-color: var(--action-primary-bg);
   color: white;
 }
 
 .ui-btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-primary-hover, #0284c7);
+  background-color: var(--action-primary-bg-hover);
 }
 
 .ui-btn-secondary {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
+  background-color: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
 .ui-btn-secondary:hover:not(:disabled) {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.15));
+  background-color: var(--bg-surface-3);
 }
 
 .ui-btn-ghost {
@@ -116,13 +116,13 @@
 }
 
 .ui-btn-ghost:hover:not(:disabled) {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
+  background-color: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
 .ui-btn-ghost-destructive {
   background-color: transparent;
-  color: var(--text-destructive);
+  color: var(--text-destructive-no-bg);
 }
 
 .ui-btn-ghost-destructive:hover:not(:disabled) {
@@ -137,17 +137,17 @@
 }
 
 .ui-btn-outline:hover:not(:disabled) {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.05));
+  background-color: var(--bg-surface-2);
   border-color: var(--border-hover, rgba(255, 255, 255, 0.3));
 }
 
 .ui-btn-destructive {
-  background-color: var(--color-error, #ef4444);
+  background-color: var(--p-error-500);
   color: white;
 }
 
 .ui-btn-destructive:hover:not(:disabled) {
-  background-color: var(--color-error-hover, #dc2626);
+  background-color: var(--p-error-500);
 }
 
 /* Loading state */
@@ -156,9 +156,9 @@
 }
 
 .ui-btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid currentColor;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
+  border: var(--p-space-xxs) solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
   animation: ui-btn-spin 0.7s linear infinite;
@@ -180,51 +180,51 @@
 
 .ui-btn-lg .ui-btn-icon-left,
 .ui-btn-lg .ui-btn-icon-right {
-  width: 24px;
-  height: 24px;
+  width: var(--p-space-l);
+  height: var(--p-space-l);
 }
 
 .ui-btn-lg .ui-btn-icon-left svg,
 .ui-btn-lg .ui-btn-icon-right svg {
-  width: 24px;
-  height: 24px;
+  width: var(--p-space-l);
+  height: var(--p-space-l);
 }
 
 .ui-btn-md .ui-btn-icon-left,
 .ui-btn-md .ui-btn-icon-right {
-  width: 20px;
-  height: 20px;
+  width:  1.25rem;
+  height:  1.25rem;
 }
 
 .ui-btn-md .ui-btn-icon-left svg,
 .ui-btn-md .ui-btn-icon-right svg {
-  width: 20px;
-  height: 20px;
+  width:  1.25rem;
+  height:  1.25rem;
 }
 
 
 .ui-btn-sm .ui-btn-icon-left,
 .ui-btn-sm .ui-btn-icon-right {
-  width: 16px;
-  height: 16px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 .ui-btn-sm .ui-btn-icon-left svg,
 .ui-btn-sm .ui-btn-icon-right svg {
-  width: 16px;
-  height: 16px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 .ui-btn-xs .ui-btn-icon-left,
 .ui-btn-xs .ui-btn-icon-right {
-  width: 12px;
-  height: 12px;
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .ui-btn-xs .ui-btn-icon-left svg,
 .ui-btn-xs .ui-btn-icon-right svg {
-  width: 12px;
-  height: 12px;
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .ui-btn-content {

@@ -25,13 +25,13 @@
   justify-content: center;
   flex-shrink: 0;
   
-  background-color: var(--border-color);
+  background-color: var(--border-default);
   
   transition: background-color var(--transition-fast);
 }
 
 .ui-resizable-handle:hover {
-  background-color: var(--accent-color);
+  background-color: var(--action-primary-bg);
 }
 
 .ui-resizable-handle-horizontal {
@@ -53,34 +53,34 @@
 .ui-resizable-handle-horizontal::before {
   top: 0;
   bottom: 0;
-  left: -4px;
-  right: -4px;
+  left: -var(--p-space-xs);
+  right: -var(--p-space-xs);
 }
 
 .ui-resizable-handle-vertical::before {
   left: 0;
   right: 0;
-  top: -4px;
-  bottom: -4px;
+  top: -var(--p-space-xs);
+  bottom: -var(--p-space-xs);
 }
 
 /* Optional visible handle bar */
 .ui-resizable-handle-bar {
-  background-color: var(--border-color);
+  background-color: var(--border-default);
   border-radius: 9999px;
   transition: background-color var(--transition-fast);
 }
 
 .ui-resizable-handle-horizontal .ui-resizable-handle-bar {
-  width: 4px;
-  height: 24px;
+  width: var(--p-space-xs);
+  height: var(--p-space-l);
 }
 
 .ui-resizable-handle-vertical .ui-resizable-handle-bar {
-  width: 24px;
-  height: 4px;
+  width: var(--p-space-l);
+  height: var(--p-space-xs);
 }
 
 .ui-resizable-handle:hover .ui-resizable-handle-bar {
-  background-color: var(--accent-color);
+  background-color: var(--action-primary-bg);
 }

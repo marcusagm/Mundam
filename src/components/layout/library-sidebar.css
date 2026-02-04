@@ -3,16 +3,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  overflow: hidden;
+
 }
 
 .sidebar-logo-area {
-    padding: var(--space-4) var(--space-4) var(--space-2) var(--space-4);
+    padding: var(--p-space-m) var(--p-space-m) var(--p-space-s) var(--p-space-m);
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0.8;
-    transition: opacity var(--transition-normal);
+    transition: opacity var(--transition-default);
 }
 
 .sidebar-logo-area:hover {
@@ -20,9 +20,9 @@
 }
 
 .sidebar-logo-area img {
-    height: 32px; /* Discreet and elegant */
+    height: var(--p-space-xxs); /* Discreet and elegant */
     width: auto;
-    object-contain: contain;
+    object-fit: contain;
 }
 
 .library-sidebar .ui-resizable-panel {
@@ -37,9 +37,9 @@
 }
 
 .sidebar-empty-state {
-  padding: 12px;
+  padding: 0.75rem;
   text-align: center;
-  color: var(--text-muted);
-  font-size: 11px;
+  color: var(--text-tertiary);
+  font-size: var(--p-font-size-xs);
   font-style: italic;
 }

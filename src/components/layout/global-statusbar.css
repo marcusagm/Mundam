@@ -1,14 +1,14 @@
 .global-statusbar {
-    height: 32px;
+    height: var(--global-statusbar-height);
     width: 100%;
-    background-color: var(--bg-surface);
-    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-surface-2);
+    border-top: 1px solid var(--border-default);
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     font-family: var(--font-base);
-    font-size: var(--font-size-sm);
+    font-size: var(--p-font-size-xs);
     color: var(--text-secondary);
     user-select: none;
     -webkit-user-select: none;
@@ -17,21 +17,21 @@
 }
 
 .global-statusbar .empty-state {
-    height: 32px;
-    min-height: 32px;
+    height: var(--p-space-xxs);
+    min-height: var(--p-space-xxs);
 }
 
 .statusbar-left, .statusbar-center, .statusbar-right {
     display: flex;
     align-items: center;
     height: 100%;
-    border-right: 1px solid var(--border-color);
-    padding: 0 var(--space-2);
+    border-right: 1px solid var(--border-default);
+    padding: 0 var(--p-space-s);
 }
 
 .statusbar-left, .statusbar-right {
     flex-shrink: 0;
-    gap: var(--space-1);
+    gap: var(--p-space-xs);
 }
 
 .statusbar-center {
@@ -43,13 +43,13 @@
 .statusbar-section {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: 0.75rem;
 }
 
 .statusbar-divider {
     width: 1px;
-    height: 14px;
-    background-color: var(--border-color);
+    height: var(--p-space-xs);
+    background-color: var(--border-default);
 }
 
 .statusbar-selected {
@@ -67,9 +67,9 @@
 }
 
 .status-btn {
-    height: 24px;
-    width: 24px;
-    color: var(--text-muted);
+    height: var(--p-space-l);
+    width: var(--p-space-l);
+    color: var(--text-tertiary);
 }
 .status-btn:hover {
     color: var(--text-primary);
@@ -82,32 +82,26 @@
 /* Popover rudimentary style */
 .system-popover {
     position: absolute;
-    bottom: 36px;
-    right: 10px;
+    bottom: 2.25rem; /* 36px */
+    right: 0.625rem;
     width: 300px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    z-index: 1000;
-    padding: var(--space-2);
 }
 
 .popover-header {
     font-weight: 600;
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: var(--space-2);
+    padding-bottom: var(--p-space-s);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--p-space-s);
 }
 
 .task-row {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: 0.75rem;
 }
 
 .task-row .loader-container {
-    width: 24px;
-    height: 24px;
-    margin: 0 var(--space-2, 8px);
+    width: var(--p-space-l);
+    height: var(--p-space-l);
+    margin: 0 var(--p-space-s);
 }

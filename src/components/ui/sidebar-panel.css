@@ -5,8 +5,7 @@
 .ui-sidebar-panel {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-sidebar, #252526);
-  /* border-radius: var(--radius-md, 6px); */
+  background-color: var(--bg-sidebar);
   overflow: hidden;
 }
 
@@ -14,42 +13,42 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-1, 8px) var(--space-3, 12px);
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
-  height: 32px;
+  padding: var(--p-space-xs) var(--p-space-s);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-2);
+  height: var(--p-space-xl);
 }
 
 .ui-sidebar-panel-title {
   margin: 0;
-  font-size: var(--font-size-sm, 12px);
+  font-size: var(--p-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .ui-sidebar-panel-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1, 4px);
+  gap: var(--p-space-xs);
 }
 
 .ui-sidebar-panel-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2, 8px);
+  padding: var(--p-space-s);
 }
 
 .ui-sidebar-panel-footer {
-  padding: var(--space-3, 12px);
-  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.02));
+  padding: var(--p-space-s);
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-2);
 }
 
 /* Scrollbar styling for content */
 .ui-sidebar-panel-content::-webkit-scrollbar {
-  width: 6px;
+  width: var(--p-space-s);
 }
 
 .ui-sidebar-panel-content::-webkit-scrollbar-track {
@@ -57,8 +56,8 @@
 }
 
 .ui-sidebar-panel-content::-webkit-scrollbar-thumb {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
-  border-radius: 3px;
+  background-color: var(--bg-surface-3);
+  border-radius: var(--radius-s);
 }
 
 .ui-sidebar-panel-content::-webkit-scrollbar-thumb:hover {

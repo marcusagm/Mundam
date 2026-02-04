@@ -4,7 +4,7 @@
     height: 100%;
     position: relative;
     /* Default dark background for 3D content, can be overridden by style prop */
-    background: var(--bg-color, #1e1e1e);
+    background: var(--bg-page);
     overflow: hidden;
 }
 
@@ -14,20 +14,20 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     font-family: var(--font-main);
 }
 
 .model-icon {
     font-size: 3rem;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--p-space-m);
     opacity: 0.5;
 }
 
 .model-subtitle {
-    margin-top: var(--space-4);
+    margin-top: var(--p-space-m);
     opacity: 0.7;
-    font-size: var(--font-size-sm);
+    font-size: var(--p-font-size-xs);
 }
 
 .model-loading-overlay {
@@ -44,7 +44,7 @@
     color: var(--text-inverse);
     font-family: var(--font-main);
     font-weight: 500;
-    gap: var(--space-4);
+    gap: var(--p-space-m);
     backdrop-filter: blur(4px);
     z-index: 10;
 }

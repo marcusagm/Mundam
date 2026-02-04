@@ -1,29 +1,29 @@
 .primary-header {
-  padding: 0 16px;
-  height: 52px;
+  padding: 0 var(--p-space-m);
+  height: var(--p-space-xxs);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--p-space-m);
   background: var(--bg-header);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .header-nav {
   display: flex;
-  gap: 8px;
+  gap: var(--p-space-s);
 }
 
 .header-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 16px;
-  font-size: 11px;
+  gap: var(--p-space-m);
+  font-size: var(--p-font-size-xs);
 }
 
 .indexing-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--p-space-s);
   color: var(--text-secondary);
 }

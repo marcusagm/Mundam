@@ -12,6 +12,7 @@ import { createControllableSignal } from "../../lib/primitives";
 import "./toggle-group.css";
 
 type ToggleGroupType = "single" | "multiple";
+export type ToggleGroupSize = "sm" | "md" | "lg" | "xl";
 
 // Context
 interface ToggleGroupContextValue {
@@ -19,6 +20,7 @@ interface ToggleGroupContextValue {
   value: Accessor<string | string[]>;
   onItemClick: (itemValue: string) => void;
   disabled: boolean;
+  size: Accessor<ToggleGroupSize>;
 }
 
 const ToggleGroupContext = createContext<ToggleGroupContextValue>();
@@ -49,6 +51,7 @@ export interface ToggleGroupMultipleProps {
 export type ToggleGroupProps = (ToggleGroupSingleProps | ToggleGroupMultipleProps) & {
   disabled?: boolean;
   orientation?: "horizontal" | "vertical";
+  size?: ToggleGroupSize;
   class?: string;
   children: JSX.Element;
 };
@@ -79,6 +82,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = (props) => {
     "onValueChange",
     "disabled",
     "orientation",
+    "size",
     "children",
   ]);
 
@@ -128,6 +132,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = (props) => {
     value,
     onItemClick,
     disabled: local.disabled ?? false,
+    size: () => local.size || "md",
   };
 
   return (
@@ -183,6 +188,7 @@ export const ToggleGroupItem: Component<ToggleGroupItemProps> = (props) => {
       type="button"
       class={cn(
         "ui-toggle-group-item",
+        `ui-toggle-group-item-${context.size()}`,
         isPressed() && "ui-toggle-group-item-pressed",
         local.class
       )}

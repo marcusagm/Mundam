@@ -53,7 +53,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
 .font-textarea {

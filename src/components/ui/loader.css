@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
+  gap: 0.75rem;
   color: var(--text-secondary);
   width: 100%;
   height: 100%;
@@ -12,7 +12,7 @@
 .loader-container.fullscreen {
   position: fixed;
   inset: 0;
-  background-color: var(--bg-color);
+  background-color: var(--bg-page);
   z-index: 9999;
 }
 
@@ -31,9 +31,9 @@
 .loader-spinner:before,
 .loader-spinner:after {
   content: "";
-  width: 20px; /* Adjusted to fit the requested look, user provided 25px in example, we can use 25px */
+  width:  1.25rem; /* Adjusted to fit the requested look, user provided 25px in example, we can use 25px */
   aspect-ratio: 1;
-  box-shadow: 0 0 0 3px inset var(--accent-color); /* Changed #fff to accent-color */
+  box-shadow: 0 0 0 3px inset var(--action-primary-bg); /* Changed #fff to accent-color */
   animation: l5 1.5s infinite;
   border-radius: 0; /* Square by default in user example? Example says aspect-ratio:1, likely square. */
   /* User example had border-radius? No. */
@@ -43,7 +43,7 @@
 .loader-spinner:before,
 .loader-spinner:after {
   width: 25px;
-  box-shadow: 0 0 0 3px inset var(--accent-color); 
+  box-shadow: 0 0 0 3px inset var(--action-primary-bg); 
 }
 
 .loader-spinner:after {

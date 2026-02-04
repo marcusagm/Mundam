@@ -1,7 +1,7 @@
 .search-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--p-space-s);
     width: 100%;
 }
 
@@ -18,36 +18,31 @@
 
 .search-actions {
     position: absolute;
-    right: 4px;
+    right: var(--p-space-xs);
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--p-space-xxs);
 }
 
 .search-action-btn {
-    height: 24px !important;
-    width: 24px !important;
-    color: var(--text-muted);
+    height: var(--p-space-l) !important;
+    width: var(--p-space-l) !important;
+    color: var(--text-tertiary);
 }
 
 .search-action-btn.active {
-    color: var(--accent-color);
+    color: var(--action-primary-bg);
 }
 
 /* Active Filters Popover */
 .active-filters-popover {
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
     width: 300px;
     max-height: 400px;
     overflow-y: auto;
-    z-index: 1000;
 }
 
 .active-filters-header {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--p-space-xs) var(--p-space-s);
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
@@ -55,36 +50,36 @@
 }
 
 .active-filters-header h4 {
-    font-size: var(--font-size-xs);
+    font-size: var(--p-font-size-s);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
 .active-filters-list {
-    padding: var(--space-2);
+    padding: var(--p-space-s);
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--p-space-xs);
 }
 
 .active-filter-item {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-0_5) var(--space-2);
-    border-radius: var(--radius-sm);
-    background-color: var(--surface-hover);
-    font-size: var(--font-size-sm);
+    gap: var(--p-space-s);
+    padding: var(--p-space-xxs) var(--p-space-s);
+    border-radius: var(--radius-s);
+    background-color: var(--bg-surface-3);
+    font-size: var(--p-font-size-xs);
 }
 
 .filter-label {
     flex: 1;
     text-transform: uppercase;
-    font-size: var(--font-size-xs);
+    font-size: var(--p-font-size-xs);
     font-weight: 500;
     letter-spacing: 0.05em;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     min-width: fit-content;
 }
 
@@ -96,12 +91,12 @@
 }
 
 .remove-filter-btn {
-    color: var(--text-muted);
-    padding: 2px;
+    color: var(--text-tertiary);
+    padding: var(--p-space-xxs);
     border-radius: 50%;
 }
 
 .remove-filter-btn:hover {
-    color: var(--danger-color);
+    color: var(--text-destructive);
     background-color: rgba(244, 135, 113, 0.1);
 }

@@ -3,9 +3,9 @@
     min-height: 0;
     /* Force scrollbar to always be visible to prevent layout oscillation */
     overflow-y: scroll;
-    background-color: var(--bg-color);
+    background-color: var(--bg-page);
     position: relative;
-    padding: var(--space-2);
+    padding: var(--p-space-s);
     scrollbar-gutter: stable;
 }
 

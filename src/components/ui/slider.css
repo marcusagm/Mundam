@@ -8,11 +8,11 @@
 
 .ui-slider-horizontal {
   width: 100%;
-  height: 20px;
+  height:  1.25rem;
 }
 
 .ui-slider-vertical {
-  width: 20px;
+  width:  1.25rem;
   height: 100%;
   flex-direction: column;
 }
@@ -22,38 +22,65 @@
   pointer-events: none;
 }
 
-/* Track */
+/* Track - Hit Area Container */
 .ui-slider-track {
   position: relative;
   flex-grow: 1;
-  background-color: var(--surface-hover);
+  background-color: transparent; /* Visuals moved to ::before */
   border-radius: 9999px;
   cursor: pointer;
 }
 
+/* Visual Track */
+.ui-slider-track::before {
+  content: "";
+  position: absolute;
+  background-color: var(--bg-surface-3);
+  border-radius: 9999px;
+  /* Centering */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .ui-slider-horizontal .ui-slider-track {
-  height: 4px;
+  height: 100%; /* Full height of container */
+}
+
+.ui-slider-horizontal .ui-slider-track::before {
+  width: 100%;
+  height: var(--p-space-xs); /* Visual height */
 }
 
 .ui-slider-vertical .ui-slider-track {
-  width: 4px;
+  width: 100%; /* Full width of container */
+  height: 100%;
+}
+
+.ui-slider-vertical .ui-slider-track::before {
+  width: var(--p-space-xs); /* Visual width */
   height: 100%;
 }
 
 /* Range (filled part) */
 .ui-slider-range {
   position: absolute;
-  background-color: var(--accent-color);
+  background-color: var(--action-primary-bg);
   border-radius: 9999px;
+  /* Align with visual track */
 }
 
 .ui-slider-horizontal .ui-slider-range {
-  height: 100%;
+  height: var(--p-space-xs); /* Match visual track height */
+  top: 50%;
+  transform: translateY(-50%);
   left: 0;
 }
 
 .ui-slider-vertical .ui-slider-range {
-  width: 100%;
+  width: var(--p-space-xs); /* Match visual track width */
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 0;
 }
 
@@ -61,24 +88,42 @@
 .ui-slider-thumb {
   position: absolute;
   
-  width: 16px;
-  height: 16px;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
   
   background-color: var(--text-inverse);
-  border: 2px solid var(--accent-color);
+  border: var(--p-space-xxs) solid var(--action-primary-bg);
   border-radius: 50%;
   
   cursor: grab;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  
+  /* Center in track container (which is now full size) */
+  top: 50%;
+  left: 50%;
+  /* Transform handled by modifying specific properties below to preserve hover scale */
+  transform: translate(-50%, -50%); 
 }
 
+/* Specific overrides for positioning are no longer needed if we use left/bottom percentages in JS, 
+   but we used translate(-50%, -50%) as base. 
+   JS sets `left` (horizontal) or `bottom` (vertical).
+   
+   Horizontal: JS sets `left: X%`. `top: 50%` is from CSS. `translate(-50%, -50%)` centers it.
+   Vertical: JS sets `bottom: X%`. `left: 50%` is from CSS. `translate(-50%, 50%)` is needed?
+   
+   Wait, if `bottom` is set, `translate(-50%, 50%)` moves it down (visual correction).
+   Let's check vertical transform logic.
+*/
+
+/* Specific overrides for positioning */
+
 .ui-slider-horizontal .ui-slider-thumb {
-  top: 50%;
   transform: translate(-50%, -50%);
 }
 
 .ui-slider-vertical .ui-slider-thumb {
-  left: 50%;
+  top: auto; /* Allow bottom positioning to work */
   transform: translate(-50%, 50%);
 }
 
@@ -88,37 +133,45 @@
               0 0 0 calc(var(--ring-offset) + 2px) var(--ring-color);
 }
 
-.ui-slider-thumb:hover {
+/* Hover States */
+.ui-slider-horizontal .ui-slider-thumb:hover {
   transform: translate(-50%, -50%) scale(1.1);
-}
-
-.ui-slider-thumb-active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15);
 }
 
 .ui-slider-vertical .ui-slider-thumb:hover {
   transform: translate(-50%, 50%) scale(1.1);
 }
 
+/* Active States */
+.ui-slider-thumb-active.ui-slider-thumb { /* Increase specificity if needed */
+  cursor: grabbing;
+}
+
+.ui-slider-horizontal .ui-slider-thumb-active {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
 .ui-slider-vertical .ui-slider-thumb-active {
   transform: translate(-50%, 50%) scale(1.15);
 }
 
+
+
 /* Tooltip */
 .ui-slider-tooltip {
   position: absolute;
-  bottom: calc(100% + 8px);
+  /* On top of thumb */
+  bottom: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -8px); /* 8px gap */
   
-  padding: 4px 8px;
+  padding: var(--p-space-xs) var(--p-space-s);
   
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-s);
   
-  font-size: var(--font-size-xs);
+  font-size: var(--p-font-size-xs);
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;

@@ -24,7 +24,7 @@ export const FontView: Component<FontViewProps> = (props) => {
         try {
             const familyName = `font-preview-${props.fontName.replace(/\s+/g, '-')}-${Date.now()}`;
             // Load Font
-            const fontFace = new FontFace(familyName, `url(${props.src})`);
+            const fontFace = new FontFace(familyName, `url('${encodeURI(props.src)}')`);
             await fontFace.load();
             document.fonts.add(fontFace);
             

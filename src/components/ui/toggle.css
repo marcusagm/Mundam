@@ -6,7 +6,7 @@
   font-family: inherit;
   font-weight: 500;
   
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-s);
   cursor: pointer;
   
   transition: all var(--transition-fast);
@@ -25,24 +25,33 @@
 
 /* Sizes */
 .ui-toggle-sm {
-  height: 28px;
-  min-width: 28px;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
+  height: var(--p-space-l);
+  padding: 0 var(--p-space-s);
+  font-size: var(--p-font-size-xs);
+}
+.ui-toggle-sm svg {
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 .ui-toggle-md {
-  height: 32px;
-  min-width: 32px;
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-sm);
+  height: var(--p-space-xl);
+  padding: 0 var(--p-space-m);
+  font-size: var(--p-font-size-s);
+}
+.ui-toggle-md svg {
+  width: var(--p-space-l);
+  height: var(--p-space-l);
 }
 
 .ui-toggle-lg {
-  height: 40px;
-  min-width: 40px;
-  padding: 0 var(--space-4);
-  font-size: var(--font-size-base);
+  height: var(--p-space-2xl);
+  padding: 0 var(--p-space-l);
+  font-size: var(--p-font-size-m);
+}
+.ui-toggle-lg svg {
+  width: var(--p-space-xl);
+  height: var(--p-space-xl);
 }
 
 /* Variant: Default */
@@ -53,30 +62,30 @@
 }
 
 .ui-toggle-default:hover:not(:disabled) {
-  background-color: var(--surface-hover);
+  background-color: var(--bg-surface-3);
   color: var(--text-primary);
 }
 
 .ui-toggle-default.ui-toggle-pressed {
-  background-color: var(--surface-active);
+  background-color: var(--bg-surface-active);
   color: var(--text-inverse);
 }
 
 /* Variant: Outline */
 .ui-toggle-outline {
   background-color: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
 }
 
 .ui-toggle-outline:hover:not(:disabled) {
-  background-color: var(--surface-hover);
-  border-color: var(--accent-color);
+  background-color: var(--bg-surface-3);
+  border-color: var(--action-primary-bg);
   color: var(--text-primary);
 }
 
 .ui-toggle-outline.ui-toggle-pressed {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
-  color: var(--accent-text);
+  background-color: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
+  color: var(--action-primary-text);
 }

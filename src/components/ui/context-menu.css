@@ -11,11 +11,11 @@
 .ui-context-menu-container {
   position: fixed;
   min-width: 180px;
-  padding: var(--space-1, 4px);
-  background-color: var(--bg-elevated, #2d2d2d);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-md, 6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: var(--p-space-xs);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-s);
+  box-shadow: 0 var(--p-space-s) var(--p-space-l) rgba(0, 0, 0, 0.4);
   z-index: 9999;
   opacity: 0;
   transition: opacity 0.1s ease;
@@ -35,12 +35,12 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-2, 8px) var(--space-3, 12px);
+  padding: var(--p-space-s) 0.75rem;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-s);
   font-family: inherit;
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--p-font-size-xs);
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
@@ -49,22 +49,22 @@
 
 .ui-context-menu-item:hover:not(:disabled),
 .ui-context-menu-item-focused {
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+  background-color: var(--bg-surface-3);
 }
 
 .ui-context-menu-item:focus-visible {
-  outline: 2px solid var(--accent-primary, #0ea5e9);
-  outline-offset: -2px;
+  outline: var(--p-space-xxs) solid var(--action-primary-bg);
+  outline-offset: -var(--p-space-xxs);
 }
 
 .ui-context-menu-item-content {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--p-space-s);
 }
 
 .ui-context-menu-item-danger {
-  color: var(--color-error, #ef4444);
+  color: var(--p-error-500);
 }
 
 .ui-context-menu-item-danger:hover:not(:disabled) {
@@ -77,24 +77,24 @@
 }
 
 .ui-context-menu-shortcut {
-  margin-left: var(--space-4, 16px);
-  font-size: 11px;
-  color: var(--text-muted);
+  margin-left: var(--p-space-m);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-tertiary);
 }
 
 .ui-context-menu-chevron {
   margin-left: auto;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .ui-context-menu-separator {
   height: 1px;
-  margin: var(--space-1, 4px) 0;
-  background-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
+  margin: var(--p-space-xs) 0;
+  background-color: var(--border-subtle);
 }
 
 /* .ui-context-menu-custom {
-  padding: var(--space-2, 8px);
+  padding: var(--p-space-s);
 } */
 
 /* Submenu */
@@ -104,15 +104,15 @@
 
 .ui-context-submenu {
   position: absolute;
-  left: calc(100% - var(--space-1, 4px));
+  left: calc(100% - var(--p-space-xs));
   top: 0;
-  margin-left: 4px;
+  margin-left: var(--p-space-xs);
   min-width: 180px;
-  padding: var(--space-1, 4px);
-  background-color: var(--bg-elevated, #2d2d2d);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-md, 6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: var(--p-space-xs);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-s);
+  box-shadow: 0 var(--p-space-s) var(--p-space-l) rgba(0, 0, 0, 0.4);
   animation: ui-context-submenu-in 0.15s ease;
 }
 

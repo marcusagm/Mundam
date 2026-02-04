@@ -1,8 +1,9 @@
 import { Component, Show, createSignal } from "solid-js";
 import { useSystem } from "../../../core/hooks";
 import { Loader } from "../../ui/Loader";
-import { CircleCheck, Settings } from "lucide-solid";
+import { CircleCheck, PaintRoller, Settings } from "lucide-solid";
 import { Button } from "../../ui/Button";
+import "../../ui/popover.css";
 
 export const StatusSystem: Component = () => {
     const system = useSystem();
@@ -42,7 +43,7 @@ export const StatusSystem: Component = () => {
 
              {/* Popover Logic (Simplistic Inline for now, ideal to be a real Popover) */}
              <Show when={isPopoverOpen()}>
-                <div class="system-popover">
+                <div class="system-popover ui-popover-content">
                     <div class="popover-header">System Activity</div>
                     <div class="popover-content">
                         <Show when={!system.progress() && thumbnailQueue() === 0}>
@@ -76,6 +77,15 @@ export const StatusSystem: Component = () => {
                 onClick={() => window.dispatchEvent(new CustomEvent('app:open-settings'))}
             >
                 <Settings size={12} />
+            </Button>
+
+            <Button 
+                variant="ghost" 
+                size="icon-sm"
+                title="Design System"
+                onClick={() => window.dispatchEvent(new CustomEvent('app:open-design-system'))}
+            >
+                <PaintRoller size={12} />
             </Button>
         </div>
     );
