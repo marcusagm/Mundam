@@ -1,17 +1,13 @@
-import { Component } from "solid-js";
-import { 
-    RotateCw, Grid, RefreshCcw
-} from "lucide-solid";
-import { Button } from "../../../../ui/Button";
-import { ToggleGroup, ToggleGroupItem } from "../../../../ui/ToggleGroup";
-import { Tooltip } from "../../../../ui/Tooltip";
-import { useItemViewContext, ModelSettings } from "../../ItemViewContext";
+import { Component } from 'solid-js';
+import { RotateCw, Grid, RefreshCcw } from 'lucide-solid';
+import { Button } from '../../../../ui/Button';
+import { ToggleGroup, ToggleGroupItem } from '../../../../ui/ToggleGroup';
+import { Tooltip } from '../../../../ui/Tooltip';
+import { useItemViewContext, ModelSettings } from '../../ItemViewContext';
+import { ColorPicker, Popover } from '../../../../ui';
 
 export const ModelToolbar: Component = () => {
-    const { 
-        modelSettings, setModelSettings,
-        reset
-    } = useItemViewContext();
+    const { modelSettings, setModelSettings, reset } = useItemViewContext();
 
     const toggleAutoRotate = () => {
         setModelSettings((s: ModelSettings) => ({ ...s, autoRotate: !s.autoRotate }));
@@ -29,7 +25,7 @@ export const ModelToolbar: Component = () => {
         <>
             <div class="toolbar-group">
                 <div class="toolbar-label">View</div>
-                
+
                 <Tooltip position="bottom" content="Reset View">
                     <Button variant="ghost" size="icon" onClick={() => reset()}>
                         <RefreshCcw size={16} />
@@ -38,27 +34,21 @@ export const ModelToolbar: Component = () => {
 
                 <div class="toolbar-separator" />
 
-                <ToggleGroup 
-                    type="multiple" 
+                <ToggleGroup
+                    type="multiple"
                     value={[
                         ...(modelSettings().autoRotate ? ['autorotate'] : []),
                         ...(modelSettings().showGrid ? ['grid'] : [])
                     ]}
                 >
                     <Tooltip position="bottom" content="Auto Rotate">
-                        <ToggleGroupItem 
-                            value="autorotate" 
-                            onClick={toggleAutoRotate} 
-                        >
+                        <ToggleGroupItem value="autorotate" onClick={toggleAutoRotate}>
                             <RotateCw size={16} />
                         </ToggleGroupItem>
                     </Tooltip>
 
                     <Tooltip position="bottom" content="Show Grid">
-                        <ToggleGroupItem 
-                            value="grid" 
-                            onClick={toggleGrid} 
-                        >
+                        <ToggleGroupItem value="grid" onClick={toggleGrid}>
                             <Grid size={16} />
                         </ToggleGroupItem>
                     </Tooltip>
@@ -66,32 +56,31 @@ export const ModelToolbar: Component = () => {
             </div>
 
             <div class="toolbar-group">
-                <div class="toolbar-label">Background</div>
-                <div style={{ display: "flex", gap: "4px" }}>
-                    <Tooltip position="bottom" content="Dark">
-                        <button 
-                            class={`color-swatch ${modelSettings().backgroundColor === '#111111' ? 'active' : ''}`}
-                            style={{ "background-color": "#111111" }}
-                            onClick={() => setBg('#111111')}
-                        />
-                    </Tooltip>
-                    <Tooltip position="bottom" content="Light">
-                        <button 
-                            class={`color-swatch ${modelSettings().backgroundColor === '#eeeeee' ? 'active' : ''}`}
-                            style={{ "background-color": "#eeeeee" }}
-                            onClick={() => setBg('#eeeeee')}
-                        />
-                    </Tooltip>
-                     <Tooltip position="bottom" content="Blue">
-                        <button 
-                            class={`color-swatch ${modelSettings().backgroundColor === '#1e293b' ? 'active' : ''}`}
-                            style={{ "background-color": "#1e293b" }}
-                            onClick={() => setBg('#1e293b')}
-                        />
-                    </Tooltip>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Popover
+                        trigger={
+                            <Button variant="ghost" class="model-bg-color-btn">
+                                <div
+                                    class="model-bg-color-preview"
+                                    style={{
+                                        background: modelSettings().backgroundColor
+                                    }}
+                                />
+                                Background 2
+                            </Button>
+                        }
+                    >
+                        <div class="model-bg-color-popover">
+                            <ColorPicker
+                                color={modelSettings().backgroundColor}
+                                onChange={c => setBg(c)}
+                                allowNoColor
+                            />
+                        </div>
+                    </Popover>
                 </div>
             </div>
-            
+
             <style>{`
                 .color-swatch {
                     width: 20px;

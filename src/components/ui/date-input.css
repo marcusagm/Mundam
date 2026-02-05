@@ -21,8 +21,8 @@
   align-items: center;
   width: 100%;
   /* Height set by size variant */
-  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-s);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }

@@ -51,7 +51,7 @@
 .toolbar-separator {
     width: 1px;
     height: var(--p-space-m);
-    background-color: var(--border-subtle);
+    background-color: var(--border-default);
     margin: 0 var(--p-space-s);
 }
 

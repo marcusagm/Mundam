@@ -10,9 +10,94 @@ import { Tooltip } from '../../ui/Tooltip';
 import { useFilters, useMetadata } from '../../../core/hooks';
 import { SearchCriterion, SearchGroup, LogicalOperator } from '../../../core/store/filterStore';
 import { createId } from '../../../lib/primitives/createId';
-import { MaskedInput } from '../../ui/MaskedInput';
+import { NumberInput } from '../../ui/NumberInput';
+import { DateInput } from '../../ui/DateInput';
 import { cn } from '../../../lib/utils';
 import './advanced-search-modal.css';
+
+// --- Helpers ---
+
+const formatToISO = (val: any) => {
+    if (val instanceof Date) {
+        const y = val.getFullYear();
+        const m = (val.getMonth() + 1).toString().padStart(2, '0');
+        const d = val.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    return val;
+};
+
+const formatToDisplay = (iso: string) => {
+    if (!iso || typeof iso !== 'string') return iso;
+    const parts = iso.split('-');
+    if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (!isNaN(d.getTime())) {
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+    }
+    return iso;
+};
+
+const fromISO = (iso: string) => {
+    if (!iso || typeof iso !== 'string') return null;
+    const parts = iso.split('-');
+    if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+};
+
+const SIZE_UNITS = [
+    { value: '1', label: 'Bytes' },
+    { value: '1024', label: 'KB' },
+    { value: '1048576', label: 'MB' },
+    { value: '1073741824', label: 'GB' }
+];
+
+const computeDisplayValue = (item: Partial<SearchCriterion>, metadata: any): string => {
+    if (item.displayValue) return item.displayValue;
+    if (item.value === null || item.value === undefined) return '';
+
+    const key = item.key || '';
+    const val = item.value;
+
+    if (key === 'size') {
+        const m = Number(item.unitMultiplier || '1048576');
+        const label = SIZE_UNITS.find(u => u.value === String(m))?.label || 'MB';
+        if (Array.isArray(val)) {
+            return `${val[0] / m} ${label} to ${val[1] / m} ${label}`;
+        }
+        return `${val / m} ${label}`;
+    }
+
+    if (['added_at', 'created_at', 'modified_at'].includes(key)) {
+        if (Array.isArray(val)) {
+            return `${formatToDisplay(val[0])} to ${formatToDisplay(val[1])}`;
+        }
+        return formatToDisplay(String(val));
+    }
+
+    if (key === 'folder') {
+        return (
+            metadata.locations.find((l: any) => String(l.id) === String(val))?.name || String(val)
+        );
+    }
+
+    if (key === 'tags') {
+        return metadata.tags.find((t: any) => String(t.id) === String(val))?.name || String(val);
+    }
+
+    if (Array.isArray(val)) {
+        return `${val[0]} to ${val[1]}`;
+    }
+
+    return String(val);
+};
 
 interface AdvancedSearchModalProps {
     isOpen: boolean;
@@ -86,7 +171,7 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
     const [currentKey, setCurrentKey] = createSignal('tags');
     const [currentOperator, setCurrentOperator] = createSignal('contains');
     const [currentValue, setCurrentValue] = createSignal<any>(null);
-    const [currentUnit, setCurrentUnit] = createSignal('MB');
+    const [currentUnit, setCurrentUnit] = createSignal('1048576');
     const [currentValue2, setCurrentValue2] = createSignal<any>(null);
     const [criteria, setCriteria] = createSignal<SearchCriterion[]>([]);
     const [matchMode, setMatchMode] = createSignal<LogicalOperator>('and');
@@ -96,13 +181,10 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
     const [editingId, setEditingId] = createSignal<string | null>(null);
     const [editingValue, setEditingValue] = createSignal<any>(null);
     const [editingValue2, setEditingValue2] = createSignal<any>(null);
-
-    const SIZE_UNITS = [
-        { value: '1', label: 'Bytes' },
-        { value: '1024', label: 'KB' },
-        { value: '1048576', label: 'MB' },
-        { value: '1073741824', label: 'GB' }
-    ];
+    const [editingUnit, setEditingUnit] = createSignal('1048576');
+    const [editingValidationErrors, setEditingValidationErrors] = createSignal<
+        Record<string, string>
+    >({});
 
     // Initialize from props when opening
     createEffect(() => {
@@ -110,10 +192,15 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
             setSmartFolderName(props.initialName || '');
             if (props.initialQuery) {
                 setMatchMode(props.initialQuery.logicalOperator);
-                // Filter out nested groups for now as builder doesn't support them yet
-                const initialCriteria = props.initialQuery.items.filter(
-                    item => !('items' in item)
-                ) as SearchCriterion[];
+                // Filter and hydrate criteria
+                const initialCriteria = props.initialQuery.items
+                    .filter(item => !('items' in item))
+                    .map(item => ({
+                        ...(item as SearchCriterion),
+                        displayValue:
+                            (item as SearchCriterion).displayValue ||
+                            computeDisplayValue(item as SearchCriterion, metadata)
+                    }));
                 setCriteria(initialCriteria);
             } else {
                 setCriteria([]);
@@ -137,15 +224,12 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
             setCurrentValue(null);
             setCurrentValue2(null);
             setValidationErrors({});
+            setEditingValidationErrors({});
         }
     });
 
-    const validateCurrent = () => {
+    const validateCriterion = (field: any, op: string, val: any, val2: any, unit?: string) => {
         const errors: Record<string, string> = {};
-        const field = selectedField();
-        const op = currentOperator();
-        const val = currentValue();
-        const val2 = currentValue2();
 
         if (val === null || val === '') {
             errors.value = 'Value is required';
@@ -156,32 +240,41 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
         }
 
         if (field?.type === 'date') {
-            const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-            if (val && !dateRegex.test(val)) errors.value = 'Invalid date format';
-            if (op === 'between' && val2 && !dateRegex.test(val2))
-                errors.value2 = 'Invalid date format';
+            if (val === null) errors.value = 'Date is required';
+            if (op === 'between' && val2 === null) errors.value2 = 'End date is required';
         }
 
+        if (field?.value === 'size') {
+            if (!unit || isNaN(Number(unit)) || !SIZE_UNITS.some(u => u.value === unit)) {
+                errors.unit = 'Unit is required';
+            }
+        }
+
+        return errors;
+    };
+
+    const validateCurrent = () => {
+        const errors = validateCriterion(
+            selectedField(),
+            currentOperator(),
+            currentValue(),
+            currentValue2(),
+            currentUnit()
+        );
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
     const handleStartEdit = (item: SearchCriterion) => {
         setEditingId(item.id);
-        const fromISO = (iso: string) => {
-            if (!iso || typeof iso !== 'string') return iso;
-            const parts = iso.split('-');
-            if (parts.length === 3) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-            return iso;
-        };
+        setEditingValidationErrors({});
+        setEditingUnit(item.unitMultiplier || '1048576');
 
         if (Array.isArray(item.value)) {
             if (item.key === 'size') {
-                // Convert back to MB for editing display
-                setEditingValue(Number(item.value[0]) / 1024 / 1024);
-                setEditingValue2(Number(item.value[1]) / 1024 / 1024);
+                const mult = Number(item.unitMultiplier || '1048576');
+                setEditingValue(Number(item.value[0]) / mult);
+                setEditingValue2(Number(item.value[1]) / mult);
             } else if (['added_at', 'created_at', 'modified_at'].includes(item.key)) {
                 setEditingValue(fromISO(item.value[0]));
                 setEditingValue2(fromISO(item.value[1]));
@@ -191,7 +284,8 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
             }
         } else {
             if (item.key === 'size') {
-                setEditingValue(Number(item.value) / 1024 / 1024);
+                const mult = Number(item.unitMultiplier || '1048576');
+                setEditingValue(Number(item.value) / mult);
             } else if (['added_at', 'created_at', 'modified_at'].includes(item.key)) {
                 setEditingValue(fromISO(String(item.value)));
             } else {
@@ -205,49 +299,78 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
         const id = editingId();
         if (!id) return;
 
+        const currentItem = criteria().find(c => c.id === id);
+        if (!currentItem) return;
+
+        const field = SEARCH_FIELDS.find(f => f.value === currentItem.key);
+        const errors = validateCriterion(
+            field,
+            currentItem.operator,
+            editingValue(),
+            editingValue2(),
+            editingUnit()
+        );
+
+        if (Object.keys(errors).length > 0) {
+            setEditingValidationErrors(errors);
+            return;
+        }
+
         setCriteria(prev =>
             prev.map(c => {
                 if (c.id === id) {
                     let finalValue = editingValue();
+                    let displayValue: string | undefined;
 
-                    // Handle size conversion (assume MB for edit simplification)
+                    // Handle size conversion
                     if (c.key === 'size') {
-                        if (Array.isArray(c.value) || c.operator === 'between') {
-                            finalValue = [
-                                Math.round(Number(editingValue()) * 1024 * 1024),
-                                Math.round(Number(editingValue2()) * 1024 * 1024)
-                            ];
+                        const multiplier = Number(editingUnit());
+                        const label =
+                            SIZE_UNITS.find(u => u.value === editingUnit())?.label || 'MB';
+                        if (c.operator === 'between') {
+                            const v1 = Math.round(Number(editingValue()) * multiplier);
+                            const v2 = Math.round(Number(editingValue2()) * multiplier);
+                            finalValue = [v1, v2];
+                            displayValue = `${editingValue()} ${label} to ${editingValue2()} ${label}`;
                         } else {
-                            finalValue = Math.round(Number(editingValue()) * 1024 * 1024);
+                            finalValue = Math.round(Number(editingValue()) * multiplier);
+                            displayValue = `${editingValue()} ${label}`;
                         }
                     } else if (c.operator === 'between') {
                         if (['added_at', 'created_at', 'modified_at'].includes(c.key)) {
-                            const toISO = (dateStr: string) => {
-                                const parts = String(dateStr).split('/');
-                                return parts.length === 3
-                                    ? `${parts[2]}-${parts[1]}-${parts[0]}`
-                                    : dateStr;
-                            };
-                            finalValue = [toISO(editingValue()), toISO(editingValue2())];
+                            const v1 = formatToISO(editingValue());
+                            const v2 = formatToISO(editingValue2());
+                            finalValue = [v1, v2];
+                            displayValue = `${formatToDisplay(v1)} to ${formatToDisplay(v2)}`;
                         } else {
                             finalValue = [editingValue(), editingValue2()];
+                            displayValue = `${editingValue()} to ${editingValue2()}`;
                         }
                     } else if (['added_at', 'created_at', 'modified_at'].includes(c.key)) {
-                        const toISO = (dateStr: string) => {
-                            const parts = String(dateStr).split('/');
-                            return parts.length === 3
-                                ? `${parts[2]}-${parts[1]}-${parts[0]}`
-                                : dateStr;
-                        };
-                        finalValue = toISO(editingValue());
+                        finalValue = formatToISO(editingValue());
+                        displayValue = formatToDisplay(finalValue);
+                    } else if (c.key === 'folder') {
+                        displayValue =
+                            metadata.locations.find(l => String(l.id) === String(editingValue()))
+                                ?.name || String(editingValue());
+                    } else if (c.key === 'tags') {
+                        displayValue =
+                            metadata.tags.find(t => String(t.id) === String(editingValue()))
+                                ?.name || String(editingValue());
                     }
 
-                    return { ...c, value: finalValue };
+                    return {
+                        ...c,
+                        value: finalValue,
+                        displayValue,
+                        unitMultiplier: c.key === 'size' ? editingUnit() : undefined
+                    };
                 }
                 return c;
             })
         );
         setEditingId(null);
+        setEditingValidationErrors({});
     };
 
     const handleAddCriteria = () => {
@@ -256,41 +379,51 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
         // Date conversion logic is handled per-operator below
 
         let finalValue = currentValue();
+        let displayValue: string | undefined;
 
         // Handle Unit conversion for size
         if (currentKey() === 'size' && finalValue !== null) {
             const multiplier = Number(currentUnit());
+            const label = SIZE_UNITS.find(u => u.value === currentUnit())?.label || 'MB';
             if (currentOperator() === 'between') {
-                finalValue = [
-                    Math.round(Number(finalValue) * multiplier),
-                    Math.round(Number(currentValue2()) * multiplier)
-                ];
+                const v1 = Math.round(Number(finalValue) * multiplier);
+                const v2 = Math.round(Number(currentValue2()) * multiplier);
+                finalValue = [v1, v2];
+                displayValue = `${currentValue()} ${label} to ${currentValue2()} ${label}`;
             } else {
                 finalValue = Math.round(Number(finalValue) * multiplier);
+                displayValue = `${currentValue()} ${label}`;
             }
         } else if (currentOperator() === 'between') {
             if (selectedField()?.type === 'date') {
-                const toISO = (dateStr: string) => {
-                    const parts = String(dateStr).split('/');
-                    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
-                };
-                finalValue = [toISO(currentValue()), toISO(currentValue2())];
+                const v1 = formatToISO(currentValue());
+                const v2 = formatToISO(currentValue2());
+                finalValue = [v1, v2];
+                displayValue = `${formatToDisplay(v1)} to ${formatToDisplay(v2)}`;
             } else {
                 finalValue = [currentValue(), currentValue2()];
+                displayValue = `${currentValue()} to ${currentValue2()}`;
             }
         } else if (selectedField()?.type === 'date') {
-            const toISO = (dateStr: string) => {
-                const parts = String(dateStr).split('/');
-                return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
-            };
-            finalValue = toISO(currentValue());
+            finalValue = formatToISO(currentValue());
+            displayValue = formatToDisplay(finalValue);
+        } else if (currentKey() === 'folder') {
+            displayValue =
+                metadata.locations.find(l => String(l.id) === String(currentValue()))?.name ||
+                String(currentValue());
+        } else if (currentKey() === 'tags') {
+            displayValue =
+                metadata.tags.find(t => String(t.id) === String(currentValue()))?.name ||
+                String(currentValue());
         }
 
         const newCriterion: SearchCriterion = {
             id: createId('criterion'),
             key: currentKey(),
             operator: currentOperator(),
-            value: finalValue
+            value: finalValue,
+            displayValue,
+            unitMultiplier: currentKey() === 'size' ? currentUnit() : undefined
         };
         setCriteria([...criteria(), newCriterion]);
         // Reset current values
@@ -318,7 +451,10 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
     };
 
     const handleSaveSmartFolder = () => {
-        if (!smartFolderName()) return;
+        if (!smartFolderName()) {
+            setValidationErrors(prev => ({ ...prev, smartFolderName: 'Name is required' }));
+            return;
+        }
         const searchGroup: SearchGroup = {
             id: createId('group'),
             logicalOperator: matchMode(),
@@ -365,7 +501,7 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
             isOpen={props.isOpen}
             onClose={props.onClose}
             title={props.isSmartFolderMode ? 'Smart Folder Configuration' : 'Advanced Search'}
-            size="lg"
+            size="xl"
             footer={
                 <div class="modal-footer-content">
                     <Button variant="secondary" onClick={handleReset}>
@@ -400,8 +536,15 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                     <Input
                         label="Smart Folder Name (optional, for saving)"
                         value={smartFolderName()}
-                        onInput={e => setSmartFolderName(e.currentTarget.value)}
+                        onInput={e => {
+                            setSmartFolderName(e.currentTarget.value);
+                            if (validationErrors().smartFolderName) {
+                                setValidationErrors(prev => ({ ...prev, smartFolderName: '' }));
+                            }
+                        }}
                         placeholder="e.g. Pictures from Tokyo"
+                        error={!!validationErrors().smartFolderName}
+                        errorMessage={validationErrors().smartFolderName}
                     />
                 </div>
 
@@ -440,11 +583,10 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                             </Show>
                             <Show when={selectedField()?.type === 'number'}>
                                 <div class="number-input-group">
-                                    <Input
-                                        type="number"
-                                        value={currentValue() || ''}
-                                        onInput={e => {
-                                            setCurrentValue(Number(e.currentTarget.value));
+                                    <NumberInput
+                                        value={currentValue()}
+                                        onChange={val => {
+                                            setCurrentValue(val);
                                             if (validationErrors().value)
                                                 setValidationErrors(prev => ({
                                                     ...prev,
@@ -459,11 +601,10 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                     />
                                     <Show when={currentOperator() === 'between'}>
                                         <span class="range-separator">to</span>
-                                        <Input
-                                            type="number"
-                                            value={currentValue2() || ''}
-                                            onInput={e => {
-                                                setCurrentValue2(Number(e.currentTarget.value));
+                                        <NumberInput
+                                            value={currentValue2()}
+                                            onChange={val => {
+                                                setCurrentValue2(val);
                                                 if (validationErrors().value2)
                                                     setValidationErrors(prev => ({
                                                         ...prev,
@@ -480,17 +621,25 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                             class="unit-select"
                                             options={SIZE_UNITS}
                                             value={currentUnit()}
-                                            onValueChange={setCurrentUnit}
+                                            onValueChange={val => {
+                                                setCurrentUnit(val);
+                                                if (validationErrors().unit)
+                                                    setValidationErrors(prev => ({
+                                                        ...prev,
+                                                        unit: ''
+                                                    }));
+                                            }}
+                                            error={!!validationErrors().unit}
+                                            errorMessage={validationErrors().unit}
                                         />
                                     </Show>
                                 </div>
                             </Show>
                             <Show when={selectedField()?.type === 'date'}>
                                 <div class="date-input-group">
-                                    <MaskedInput
-                                        mask="99/99/9999"
-                                        value={currentValue() || ''}
-                                        onInput={val => {
+                                    <DateInput
+                                        value={currentValue()}
+                                        onChange={val => {
                                             setCurrentValue(val);
                                             if (validationErrors().value)
                                                 setValidationErrors(prev => ({
@@ -499,19 +648,16 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                 }));
                                         }}
                                         placeholder={
-                                            currentOperator() === 'between'
-                                                ? 'From DD/MM/YYYY'
-                                                : 'DD/MM/YYYY'
+                                            currentOperator() === 'between' ? 'From Date' : 'Date'
                                         }
                                         error={!!validationErrors().value}
                                         errorMessage={validationErrors().value}
                                     />
                                     <Show when={currentOperator() === 'between'}>
                                         <span class="range-separator">to</span>
-                                        <MaskedInput
-                                            mask="99/99/9999"
-                                            value={currentValue2() || ''}
-                                            onInput={val => {
+                                        <DateInput
+                                            value={currentValue2()}
+                                            onChange={val => {
                                                 setCurrentValue2(val);
                                                 if (validationErrors().value2)
                                                     setValidationErrors(prev => ({
@@ -519,7 +665,7 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                         value2: ''
                                                     }));
                                             }}
-                                            placeholder="To DD/MM/YYYY"
+                                            placeholder="To Date"
                                             error={!!validationErrors().value2}
                                             errorMessage={validationErrors().value2}
                                         />
@@ -661,10 +807,27 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                             <Input
                                                                 size="sm"
                                                                 value={editingValue() || ''}
-                                                                onInput={e =>
+                                                                onInput={e => {
                                                                     setEditingValue(
                                                                         e.currentTarget.value
+                                                                    );
+                                                                    if (
+                                                                        editingValidationErrors()
+                                                                            .value
                                                                     )
+                                                                        setEditingValidationErrors(
+                                                                            prev => ({
+                                                                                ...prev,
+                                                                                value: ''
+                                                                            })
+                                                                        );
+                                                                }}
+                                                                error={
+                                                                    !!editingValidationErrors()
+                                                                        .value
+                                                                }
+                                                                errorMessage={
+                                                                    editingValidationErrors().value
                                                                 }
                                                             />
                                                         </Show>
@@ -675,17 +838,34 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                             }
                                                         >
                                                             <div class="horizontal-inputs">
-                                                                <Input
-                                                                    type="number"
+                                                                <NumberInput
                                                                     size="sm"
-                                                                    value={editingValue() || ''}
-                                                                    onInput={e =>
-                                                                        setEditingValue(
-                                                                            Number(
-                                                                                e.currentTarget
-                                                                                    .value
-                                                                            )
+                                                                    value={editingValue()}
+                                                                    onChange={val => {
+                                                                        setEditingValue(val);
+                                                                        if (
+                                                                            editingValidationErrors()
+                                                                                .value
                                                                         )
+                                                                            setEditingValidationErrors(
+                                                                                prev => ({
+                                                                                    ...prev,
+                                                                                    value: ''
+                                                                                })
+                                                                            );
+                                                                    }}
+                                                                    placeholder={
+                                                                        item.operator === 'between'
+                                                                            ? 'From...'
+                                                                            : 'Value...'
+                                                                    }
+                                                                    error={
+                                                                        !!editingValidationErrors()
+                                                                            .value
+                                                                    }
+                                                                    errorMessage={
+                                                                        editingValidationErrors()
+                                                                            .value
                                                                     }
                                                                 />
                                                                 <Show
@@ -694,36 +874,95 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                     }
                                                                 >
                                                                     <span>to</span>
-                                                                    <Input
-                                                                        type="number"
+                                                                    <NumberInput
                                                                         size="sm"
-                                                                        value={
-                                                                            editingValue2() || ''
-                                                                        }
-                                                                        onInput={e =>
-                                                                            setEditingValue2(
-                                                                                Number(
-                                                                                    e.currentTarget
-                                                                                        .value
-                                                                                )
+                                                                        value={editingValue2()}
+                                                                        onChange={val => {
+                                                                            setEditingValue2(val);
+                                                                            if (
+                                                                                editingValidationErrors()
+                                                                                    .value2
                                                                             )
+                                                                                setEditingValidationErrors(
+                                                                                    prev => ({
+                                                                                        ...prev,
+                                                                                        value2: ''
+                                                                                    })
+                                                                                );
+                                                                        }}
+                                                                        placeholder="To..."
+                                                                        error={
+                                                                            !!editingValidationErrors()
+                                                                                .value2
+                                                                        }
+                                                                        errorMessage={
+                                                                            editingValidationErrors()
+                                                                                .value2
                                                                         }
                                                                     />
                                                                 </Show>
                                                                 <Show when={item.key === 'size'}>
-                                                                    <span class="unit-text">
-                                                                        MB
-                                                                    </span>
+                                                                    <Select
+                                                                        size="sm"
+                                                                        class="unit-select"
+                                                                        options={SIZE_UNITS}
+                                                                        value={editingUnit()}
+                                                                        onValueChange={val => {
+                                                                            setEditingUnit(val);
+                                                                            if (
+                                                                                editingValidationErrors()
+                                                                                    .unit
+                                                                            )
+                                                                                setEditingValidationErrors(
+                                                                                    prev => ({
+                                                                                        ...prev,
+                                                                                        unit: ''
+                                                                                    })
+                                                                                );
+                                                                        }}
+                                                                        error={
+                                                                            !!editingValidationErrors()
+                                                                                .unit
+                                                                        }
+                                                                        errorMessage={
+                                                                            editingValidationErrors()
+                                                                                .unit
+                                                                        }
+                                                                    />
                                                                 </Show>
                                                             </div>
                                                         </Show>
                                                         <Show when={field()?.type === 'date'}>
                                                             <div class="horizontal-inputs">
-                                                                <MaskedInput
+                                                                <DateInput
                                                                     size="sm"
-                                                                    mask="99/99/9999"
-                                                                    value={editingValue() || ''}
-                                                                    onInput={setEditingValue}
+                                                                    value={editingValue()}
+                                                                    onChange={val => {
+                                                                        setEditingValue(val);
+                                                                        if (
+                                                                            editingValidationErrors()
+                                                                                .value
+                                                                        )
+                                                                            setEditingValidationErrors(
+                                                                                prev => ({
+                                                                                    ...prev,
+                                                                                    value: ''
+                                                                                })
+                                                                            );
+                                                                    }}
+                                                                    placeholder={
+                                                                        item.operator === 'between'
+                                                                            ? 'From Date'
+                                                                            : 'Date'
+                                                                    }
+                                                                    error={
+                                                                        !!editingValidationErrors()
+                                                                            .value
+                                                                    }
+                                                                    errorMessage={
+                                                                        editingValidationErrors()
+                                                                            .value
+                                                                    }
                                                                 />
                                                                 <Show
                                                                     when={
@@ -731,13 +970,31 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                     }
                                                                 >
                                                                     <span>to</span>
-                                                                    <MaskedInput
+                                                                    <DateInput
                                                                         size="sm"
-                                                                        mask="99/99/9999"
-                                                                        value={
-                                                                            editingValue2() || ''
+                                                                        value={editingValue2()}
+                                                                        onChange={val => {
+                                                                            setEditingValue2(val);
+                                                                            if (
+                                                                                editingValidationErrors()
+                                                                                    .value2
+                                                                            )
+                                                                                setEditingValidationErrors(
+                                                                                    prev => ({
+                                                                                        ...prev,
+                                                                                        value2: ''
+                                                                                    })
+                                                                                );
+                                                                        }}
+                                                                        placeholder="To Date"
+                                                                        error={
+                                                                            !!editingValidationErrors()
+                                                                                .value2
                                                                         }
-                                                                        onInput={setEditingValue2}
+                                                                        errorMessage={
+                                                                            editingValidationErrors()
+                                                                                .value2
+                                                                        }
                                                                     />
                                                                 </Show>
                                                             </div>
@@ -747,8 +1004,27 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                 size="sm"
                                                                 options={hierarchicalTags()}
                                                                 value={String(editingValue() || '')}
-                                                                onValueChange={setEditingValue}
+                                                                onValueChange={val => {
+                                                                    setEditingValue(val);
+                                                                    if (
+                                                                        editingValidationErrors()
+                                                                            .value
+                                                                    )
+                                                                        setEditingValidationErrors(
+                                                                            prev => ({
+                                                                                ...prev,
+                                                                                value: ''
+                                                                            })
+                                                                        );
+                                                                }}
                                                                 searchable
+                                                                error={
+                                                                    !!editingValidationErrors()
+                                                                        .value
+                                                                }
+                                                                errorMessage={
+                                                                    editingValidationErrors().value
+                                                                }
                                                             />
                                                         </Show>
                                                         <Show when={field()?.type === 'folder'}>
@@ -756,10 +1032,27 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                 size="sm"
                                                                 options={hierarchicalFolders()}
                                                                 value={String(editingValue() || '')}
-                                                                onValueChange={val =>
-                                                                    setEditingValue(Number(val))
-                                                                }
+                                                                onValueChange={val => {
+                                                                    setEditingValue(Number(val));
+                                                                    if (
+                                                                        editingValidationErrors()
+                                                                            .value
+                                                                    )
+                                                                        setEditingValidationErrors(
+                                                                            prev => ({
+                                                                                ...prev,
+                                                                                value: ''
+                                                                            })
+                                                                        );
+                                                                }}
                                                                 searchable
+                                                                error={
+                                                                    !!editingValidationErrors()
+                                                                        .value
+                                                                }
+                                                                errorMessage={
+                                                                    editingValidationErrors().value
+                                                                }
                                                             />
                                                         </Show>
                                                         <Show when={field()?.type === 'rating'}>
@@ -774,8 +1067,25 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                 value={String(
                                                                     editingValue() || '0'
                                                                 )}
-                                                                onValueChange={val =>
-                                                                    setEditingValue(Number(val))
+                                                                onValueChange={val => {
+                                                                    setEditingValue(Number(val));
+                                                                    if (
+                                                                        editingValidationErrors()
+                                                                            .value
+                                                                    )
+                                                                        setEditingValidationErrors(
+                                                                            prev => ({
+                                                                                ...prev,
+                                                                                value: ''
+                                                                            })
+                                                                        );
+                                                                }}
+                                                                error={
+                                                                    !!editingValidationErrors()
+                                                                        .value
+                                                                }
+                                                                errorMessage={
+                                                                    editingValidationErrors().value
                                                                 }
                                                             />
                                                         </Show>
@@ -790,28 +1100,34 @@ export const AdvancedSearchModal: Component<AdvancedSearchModalProps> = props =>
                                                                         }))
                                                                 )}
                                                                 value={editingValue() || ''}
-                                                                onValueChange={setEditingValue}
+                                                                onValueChange={val => {
+                                                                    setEditingValue(val);
+                                                                    if (
+                                                                        editingValidationErrors()
+                                                                            .value
+                                                                    )
+                                                                        setEditingValidationErrors(
+                                                                            prev => ({
+                                                                                ...prev,
+                                                                                value: ''
+                                                                            })
+                                                                        );
+                                                                }}
                                                                 searchable
+                                                                error={
+                                                                    !!editingValidationErrors()
+                                                                        .value
+                                                                }
+                                                                errorMessage={
+                                                                    editingValidationErrors().value
+                                                                }
                                                             />
                                                         </Show>
                                                     </div>
                                                 }
                                             >
-                                                {Array.isArray(item.value)
-                                                    ? item.key === 'size'
-                                                        ? `${(Number(item.value[0]) / 1024 / 1024).toFixed(2)} MB to ${(Number(item.value[1]) / 1024 / 1024).toFixed(2)} MB`
-                                                        : `${item.value[0]} to ${item.value[1]}`
-                                                    : item.key === 'folder'
-                                                      ? metadata.locations.find(
-                                                            l => l.id === item.value
-                                                        )?.name || item.value
-                                                      : item.key === 'tags'
-                                                        ? metadata.tags.find(
-                                                              t => t.id === Number(item.value)
-                                                          )?.name || item.value
-                                                        : item.key === 'size'
-                                                          ? `${(Number(item.value) / 1024 / 1024).toFixed(2)} MB`
-                                                          : String(item.value)}
+                                                {item.displayValue ||
+                                                    computeDisplayValue(item, metadata)}
                                             </Show>
                                         </span>
                                         <Show

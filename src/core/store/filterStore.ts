@@ -13,6 +13,8 @@ export interface SearchCriterion {
   key: string;
   operator: string;
   value: any;
+  unitMultiplier?: string;
+  displayValue?: string;
 }
 
 export interface SearchGroup {

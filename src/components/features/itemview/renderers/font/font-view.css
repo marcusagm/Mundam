@@ -17,7 +17,7 @@
 }
 
 .font-inner-wrapper {
-    max-width: var(--p-space-xs);
+    max-width: 1024px;
     width: 100%;
 }
 
@@ -120,7 +120,7 @@
 .font-info-container {
     padding: var(--p-space-xl);
     width: 100%;
-    max-width: var(--p-space-xxs); /* 2xl */
+    max-width: 672px; /* 2xl */
     margin: 0 auto;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .font-info-label {
-    width: var(--p-space-s);
+    width: 128px;
     opacity: 0.5;
 }
 
@@ -159,7 +159,7 @@
 }
 
 .font-control-label {
-    width: 1 1.25rem;
+    width: 120px;
     display: flex;
     align-items: center;
     gap: var(--p-space-s);
@@ -199,6 +199,6 @@
     width: var(--p-space-m);
     height: var(--p-space-m);
     margin-right: var(--p-space-s);
-    border-radius: 50%; /* or var(--p-space-xs) depending on usage */
-    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border-default);
 }

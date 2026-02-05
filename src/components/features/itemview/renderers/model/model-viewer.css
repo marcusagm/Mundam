@@ -48,3 +48,28 @@
     backdrop-filter: blur(4px);
     z-index: 10;
 }
+
+
+
+.model-bg-color-popover {
+    width: 300px;
+    /* Base popover styles applied via component */
+}
+
+.model-bg-color-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-s);
+    height: var(--p-space-xxs);
+    padding: 0 var(--p-space-s);
+    font-size: var(--p-font-size-xs);
+    font-weight: normal;
+}
+
+.model-bg-color-preview {
+    width: var(--p-space-m);
+    height: var(--p-space-m);
+    margin-right: var(--p-space-s);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border-default);
+}

@@ -1,15 +1,15 @@
-import { Component, createSignal, Show, For, createMemo } from "solid-js";
-import { Search, SlidersHorizontal, Funnel, X } from "lucide-solid";
-import { useFilters, useMetadata } from "../../../core/hooks";
-import { SearchGroup } from "../../../core/store/filterStore";
-import { Button } from "../../ui/Button";
-import { Input } from "../../ui/Input";
-import { Popover } from "../../ui/Popover";
-import { AdvancedSearchModal } from "./AdvancedSearchModal";
-import { createInputScope, useShortcuts, shortcutStore } from "../../../core/input";
-import { formatShortcutForDisplay } from "../../../core/input/normalizer";
-import { cn } from "../../../lib/utils";
-import "./search-toolbar.css";
+import { Component, createSignal, Show, For, createMemo } from 'solid-js';
+import { Search, SlidersHorizontal, Funnel, X } from 'lucide-solid';
+import { useFilters, useMetadata } from '../../../core/hooks';
+import { SearchGroup } from '../../../core/store/filterStore';
+import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
+import { Popover } from '../../ui/Popover';
+import { AdvancedSearchModal } from './AdvancedSearchModal';
+import { createInputScope, useShortcuts, shortcutStore } from '../../../core/input';
+import { formatShortcutForDisplay } from '../../../core/input/normalizer';
+import { cn } from '../../../lib/utils';
+import './search-toolbar.css';
 
 export const SearchToolbar: Component = () => {
     const filters = useFilters();
@@ -19,23 +19,23 @@ export const SearchToolbar: Component = () => {
 
     // Input System
     createInputScope('search');
-    
-    const focusSearchShortcut = createMemo(() => 
+
+    const focusSearchShortcut = createMemo(() =>
         shortcutStore.getByNameAndScope('Focus Search', 'global')
     );
-    
+
     const shortcutLabel = createMemo(() => {
         const s = focusSearchShortcut();
-        if (!s) return "Cmd+K";
+        if (!s) return 'Cmd+K';
         const keys = Array.isArray(s.keys) ? s.keys[0] : s.keys;
         return formatShortcutForDisplay(keys);
     });
-    
+
     useShortcuts([
         {
             keys: focusSearchShortcut()?.keys || 'Meta+KeyK',
             name: 'Focus Search',
-            action: (e) => {
+            action: e => {
                 e?.preventDefault();
                 inputRef?.focus();
             }
@@ -45,7 +45,7 @@ export const SearchToolbar: Component = () => {
             name: 'Clear Search / Blur',
             scope: 'search',
             enabled: () => !!filters.searchQuery || document.activeElement === inputRef,
-            action: (_e) => {
+            action: _e => {
                 if (filters.searchQuery) {
                     filters.setSearch('');
                     // Keep focus if clearing
@@ -55,7 +55,7 @@ export const SearchToolbar: Component = () => {
             }
         }
     ]);
-    
+
     // Check if current advanced search matches a smart folder
     const currentSmartFolder = createMemo(() => {
         if (!filters.advancedSearch) return null;
@@ -65,15 +65,15 @@ export const SearchToolbar: Component = () => {
 
     // Filter helpers
     const activeFiltersList = () => {
-        const list: { type: string, label: string, value: string, onRemove: () => void }[] = [];
-        
+        const list: { type: string; label: string; value: string; onRemove: () => void }[] = [];
+
         if (filters.selectedTags.length > 0) {
             filters.selectedTags.forEach(id => {
                 const tag = metadata.tags.find(t => t.id === id);
                 if (tag) {
                     list.push({
-                        type: "tag",
-                        label: "Tag",
+                        type: 'tag',
+                        label: 'Tag',
                         value: tag.name,
                         onRemove: () => filters.toggleTag(id)
                     });
@@ -85,8 +85,8 @@ export const SearchToolbar: Component = () => {
             const folder = metadata.locations.find(f => f.id === filters.selectedFolderId);
             if (folder) {
                 list.push({
-                    type: "folder",
-                    label: "Folder",
+                    type: 'folder',
+                    label: 'Folder',
                     value: folder.name,
                     onRemove: () => filters.setFolder(null)
                 });
@@ -95,9 +95,9 @@ export const SearchToolbar: Component = () => {
 
         if (filters.filterUntagged) {
             list.push({
-                type: "untagged",
-                label: "Filter",
-                value: "Untagged",
+                type: 'untagged',
+                label: 'Filter',
+                value: 'Untagged',
                 onRemove: () => filters.setUntagged(false)
             });
         }
@@ -106,9 +106,11 @@ export const SearchToolbar: Component = () => {
             const smartFolder = currentSmartFolder();
 
             list.push({
-                type: "advanced",
-                label: smartFolder ? "Smart Folder" : "Advanced",
-                value: smartFolder ? smartFolder.name : "Search Criteria Active",
+                type: 'advanced',
+                label: smartFolder ? 'Smart Folder' : 'Advanced',
+                value: smartFolder
+                    ? smartFolder.name
+                    : `${filters.advancedSearch.items.length} criteria active`,
                 onRemove: () => filters.setAdvancedSearch(null)
             });
         }
@@ -119,11 +121,11 @@ export const SearchToolbar: Component = () => {
     return (
         <div class="search-toolbar">
             <div class="search-input-wrapper">
-                <Input 
+                <Input
                     ref={inputRef}
-                    placeholder={`Search references (${shortcutLabel()})`} 
+                    placeholder={`Search references (${shortcutLabel()})`}
                     value={filters.searchQuery}
-                    onInput={(e) => filters.setSearch(e.currentTarget.value)}
+                    onInput={e => filters.setSearch(e.currentTarget.value)}
                     leftIcon={<Search size={14} />}
                     class="search-input"
                 />
@@ -131,9 +133,9 @@ export const SearchToolbar: Component = () => {
                     <Show when={activeFiltersList().length > 0}>
                         <Popover
                             trigger={
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon-xs" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
                                     class="search-action-btn active"
                                     title="Active Filters"
                                 >
@@ -144,18 +146,24 @@ export const SearchToolbar: Component = () => {
                             <div class="active-filters-popover">
                                 <div class="active-filters-header">
                                     <h4>Active Filters</h4>
-                                    <Button variant="ghost" size="xs" onClick={() => filters.clearAll()}>Clear All</Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="xs"
+                                        onClick={() => filters.clearAll()}
+                                    >
+                                        Clear All
+                                    </Button>
                                 </div>
                                 <div class="active-filters-list">
                                     <For each={activeFiltersList()}>
-                                        {(filter) => (
+                                        {filter => (
                                             <div class="active-filter-item">
                                                 <span class="filter-label">{filter.label}:</span>
                                                 <span class="filter-value">{filter.value}</span>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon-xs"
-                                                    class="remove-filter-btn" 
+                                                    class="remove-filter-btn"
                                                     onClick={filter.onRemove}
                                                 >
                                                     <X />
@@ -168,10 +176,10 @@ export const SearchToolbar: Component = () => {
                         </Popover>
                     </Show>
 
-                    <Button 
-                        variant="ghost" 
-                        size="icon-xs" 
-                        class={cn("search-action-btn", !!filters.advancedSearch && "active")} 
+                    <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        class={cn('search-action-btn', !!filters.advancedSearch && 'active')}
                         title="Advanced Search"
                         onClick={() => setIsModalOpen(true)}
                     >
@@ -180,14 +188,16 @@ export const SearchToolbar: Component = () => {
                 </div>
             </div>
 
-            <AdvancedSearchModal 
-                isOpen={isModalOpen()} 
-                onClose={() => setIsModalOpen(false)} 
+            <AdvancedSearchModal
+                isOpen={isModalOpen()}
+                onClose={() => setIsModalOpen(false)}
                 isSmartFolderMode={true}
                 initialId={currentSmartFolder()?.id}
                 initialName={currentSmartFolder()?.name}
                 initialQuery={filters.advancedSearch || undefined}
-                onSave={(name: string, query: SearchGroup, id?: number) => metadata.saveSmartFolder(name, query, id)}
+                onSave={(name: string, query: SearchGroup, id?: number) =>
+                    metadata.saveSmartFolder(name, query, id)
+                }
             />
         </div>
     );

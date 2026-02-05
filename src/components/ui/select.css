@@ -121,18 +121,18 @@
 }
 
 .ui-select-trigger-error {
-  border-color: var(--text-destructive);
+  border-color: var(--text-destructive-no-bg);
 }
 
 .ui-select-trigger-error:hover {
-  border-color: var(--danger-hover, #dc2626) !important;
+  border-color: var(--text-destructive-no-bg);
 }
 
 .ui-select-error-message {
   display: block;
   margin-top: var(--p-space-xs);
   font-size: var(--p-font-size-xs);
-  color: var(--text-destructive);
+  color: var(--text-destructive-no-bg);
 }
 
 .ui-select-value {
