@@ -170,7 +170,7 @@ function App() {
                 <SettingsModal
                     isOpen={isSettingsOpen()}
                     onClose={() => setIsSettingsOpen(false)}
-                    initialTab="keyboard-shortcuts"
+                    initialTab="general"
                 />
             </Show>
         </Show>

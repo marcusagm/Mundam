@@ -1,9 +1,9 @@
-import { Component, Show, createSignal } from "solid-js";
-import { useSystem } from "../../../core/hooks";
-import { Loader } from "../../ui/Loader";
-import { CircleCheck, PaintRoller, Settings } from "lucide-solid";
-import { Button } from "../../ui/Button";
-import "../../ui/popover.css";
+import { Component, Show, createSignal } from 'solid-js';
+import { useSystem } from '../../../core/hooks';
+import { Loader } from '../../ui/Loader';
+import { CircleCheck, PaintRoller, Settings } from 'lucide-solid';
+import { Button } from '../../ui/Button';
+import '../../ui/popover.css';
 
 export const StatusSystem: Component = () => {
     const system = useSystem();
@@ -12,46 +12,48 @@ export const StatusSystem: Component = () => {
 
     // TODO: Wire up to real backend event "thumbnail:queue-status"
     // Mocking or listening to existing events
-    
+
     return (
         <div class="statusbar-section statusbar-system">
-             {/* Background Processes Indicator */}
-             <div class="system-indicator">
-                <Switch fallback={
-                    <Button 
-                        variant="ghost" 
-                        size="icon-sm" 
-                        class="status-btn success-text" 
-                        title="All Systems Operational"
-                        onClick={() => setIsPopoverOpen(!isPopoverOpen())}
-                    >
-                        <CircleCheck size={12} />
-                    </Button>
-                }>
+            {/* Background Processes Indicator */}
+            <div class="system-indicator">
+                <Switch
+                    fallback={
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            class="status-btn success-text"
+                            title="All Systems Operational"
+                            onClick={() => setIsPopoverOpen(!isPopoverOpen())}
+                        >
+                            <CircleCheck size={12} />
+                        </Button>
+                    }
+                >
                     <Match when={system.progress() || thumbnailQueue() > 0}>
-                         <Button 
-                            variant="ghost" 
-                            size="icon-sm" 
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
                             class="status-btn"
                             onClick={() => setIsPopoverOpen(!isPopoverOpen())}
-                         >
+                        >
                             <Loader size="sm" />
-                         </Button>
+                        </Button>
                     </Match>
                 </Switch>
-             </div>
+            </div>
 
-             {/* Popover Logic (Simplistic Inline for now, ideal to be a real Popover) */}
-             <Show when={isPopoverOpen()}>
+            {/* Popover Logic (Simplistic Inline for now, ideal to be a real Popover) */}
+            <Show when={isPopoverOpen()}>
                 <div class="system-popover ui-popover-content">
                     <div class="popover-header">System Activity</div>
                     <div class="popover-content">
                         <Show when={!system.progress() && thumbnailQueue() === 0}>
                             <div class="empty-state">No background tasks running.</div>
                         </Show>
-                        
+
                         <Show when={system.progress()}>
-                             <div class="task-row">
+                            <div class="task-row">
                                 <Loader size="sm" />
                                 <div>
                                     <div class="task-name">Indexing Library</div>
@@ -59,19 +61,19 @@ export const StatusSystem: Component = () => {
                                         {system.progress()?.processed} / {system.progress()?.total}
                                     </div>
                                 </div>
-                             </div>
+                            </div>
                         </Show>
-                        
+
                         {/* Add Thumbnail Logic Here Later */}
                     </div>
                 </div>
-             </Show>
+            </Show>
 
             <div class="statusbar-divider" />
 
-             {/* Settings Trigger */}
-             <Button 
-                variant="ghost" 
+            {/* Settings Trigger */}
+            <Button
+                variant="ghost"
                 size="icon-sm"
                 title="Settings (Cmd+,)"
                 onClick={() => window.dispatchEvent(new CustomEvent('app:open-settings'))}
@@ -79,17 +81,17 @@ export const StatusSystem: Component = () => {
                 <Settings size={12} />
             </Button>
 
-            <Button 
+            {/* <Button 
                 variant="ghost" 
                 size="icon-sm"
                 title="Design System"
                 onClick={() => window.dispatchEvent(new CustomEvent('app:open-design-system'))}
             >
                 <PaintRoller size={12} />
-            </Button>
+            </Button> */}
         </div>
     );
 };
 
 // Helper for Switch/Match imports
-import { Switch, Match } from "solid-js";
+import { Switch, Match } from 'solid-js';
