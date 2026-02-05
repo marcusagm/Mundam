@@ -53,6 +53,7 @@
 /* Indeterminate animation */
 .ui-progress-indeterminate {
   width: 40%;
+  border-radius: var(--radius-full, 9999px);
   animation: ui-progress-indeterminate 1.5s ease-in-out infinite;
 }
 

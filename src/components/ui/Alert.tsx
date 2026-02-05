@@ -57,7 +57,7 @@ export const Alert: Component<AlertProps> = (props) => {
       {...others}
     >
       <span class="ui-alert-icon">
-        <Dynamic component={IconComponent()} size={16} />
+        <Dynamic component={IconComponent()} />
       </span>
       
       <div class="ui-alert-content">

@@ -138,7 +138,7 @@ const ToastItem: Component<{
       }}
     >
       <div class="ui-toast-icon">
-        <IconComponent size={18} />
+        <IconComponent />
       </div>
 
       <div class="ui-toast-content">

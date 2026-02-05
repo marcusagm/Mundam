@@ -14,13 +14,13 @@
 
 /* Size variants */
 .ui-badge-sm {
-  height: var(--p-space-s);
+  height: var(--p-space-m);
   padding: 0  0.375rem;
   font-size: var(--p-font-size-xxs);
 }
 
 .ui-badge-md {
-  height: var(--p-space-xxs);
+  height: var(--p-space-l);
   padding: 0 var(--p-space-s);
   font-size: var(--p-font-size-xs);
 }
@@ -44,6 +44,11 @@
 
 .ui-badge-success {
   background-color: var(--color-success, #22c55e);
+  color: white;
+}
+
+.ui-badge-info {
+  background-color: var(--color-info, #06b6d4);
   color: white;
 }
 
