@@ -15,7 +15,7 @@
 
 .ui-table-grid-header {
   display: flex;
-  height: var(--p-space-xxs);
+  height: var(--p-space-xl);
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-default);
   z-index: 10;

@@ -97,6 +97,28 @@ pub fn orig_handler(
         full_path = PathBuf::from("/").join(full_path);
     }
 
+    // SPECIAL CASE: Affinity files (.afphoto, .afdesign, .afpub)
+    // Browsers cannot render these natively. We intercept and serve the high-res PNG preview instead.
+    if let Some(ext) = full_path.extension().and_then(|e| e.to_str()) {
+        let ext_lower = ext.to_lowercase();
+        if ext_lower == "afphoto" || ext_lower == "afdesign" || ext_lower == "afpub" {
+            match crate::thumbnails::affinity::extract_largest_png(&full_path) {
+                Ok(png_data) => {
+                    return Response::builder()
+                        .status(StatusCode::OK)
+                        .header(header::CONTENT_TYPE, "image/png")
+                        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                        .body(png_data)
+                        .unwrap();
+                }
+                Err(e) => {
+                    eprintln!("ERROR: Failed to extract Affinity preview for protocol: {}", e);
+                    // Fallback to normal serve_file (which will likely fail to render in UI but serves the bytes)
+                }
+            }
+        }
+    }
+
     match serve_file(&full_path) {
         Ok(res) => res,
         Err(res) => res,

@@ -23,6 +23,7 @@ pub enum ThumbnailStrategy {
     Ffmpeg,      // Video and complex formats
     Webview,     // SVG, HTML
     ZipPreview,  // Affinity, OpenOffice etc
+    Affinity,    // Proprietary Affinity formats (.afphoto, .afdesign, .afpub)
     Model3D,     // Uses Assimp to convert to GLB
     Font,        // Resvg with custom font loading
     Icon,        // Fallback for files without preview
@@ -386,21 +387,21 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["afdesign"],
         mime_types: &["application/x-affinity-design"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::ZipPreview,
+        strategy: ThumbnailStrategy::Affinity,
     },
     FileFormat {
         name: "Affinity Photo",
         extensions: &["afphoto"],
         mime_types: &["application/x-affinity-photo"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::ZipPreview,
+        strategy: ThumbnailStrategy::Affinity,
     },
      FileFormat {
         name: "Affinity Publisher",
         extensions: &["afpub"],
         mime_types: &["application/x-affinity-publisher"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::ZipPreview,
+        strategy: ThumbnailStrategy::Affinity,
     },
     FileFormat {
         name: "Clip Studio Paint",
