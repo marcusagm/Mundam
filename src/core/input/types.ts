@@ -32,9 +32,11 @@ export interface InputScope {
 
 export const SCOPE_PRIORITIES: Record<string, number> = {
   global: 0,
-  search: 25,
+  viewport: 10,
   'image-viewer': 50,
-  modal: 100,
+  editing: 1000,
+  search: 1100,
+  modal: 1200,
 };
 
 // =============================================================================

@@ -282,7 +282,10 @@ function createShortcutStore() {
       normalizedKeys: canonicalizeShortcut(finalKeys),
       scope: definition.scope || 'global',
       priority: definition.priority ?? 0,
-      ignoreInputs: definition.ignoreInputs ?? true,
+      ignoreInputs: definition.ignoreInputs ?? (tokens.some(t => {
+        const mods = (t.meta as any)?.modifiers;
+        return Array.isArray(mods) && mods.length > 0;
+      }) ? false : true),
       preventDefault: definition.preventDefault ?? true,
       isDefault: definition.isDefault ?? true,
     };

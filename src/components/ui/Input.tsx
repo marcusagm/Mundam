@@ -1,5 +1,6 @@
-import { Component, JSX, splitProps, Show } from 'solid-js';
+import { Component, JSX, splitProps, Show, onCleanup } from 'solid-js';
 import { cn } from '../../lib/utils';
+import { useInput, SCOPE_PRIORITIES } from '../../core/input';
 import './input.css';
 
 export type InputSize = 'sm' | 'md' | 'lg';
@@ -48,7 +49,62 @@ export const Input: Component<InputProps> = props => {
         'class'
     ]);
 
+    const input = useInput();
+    let isEditingScopeActive = false;
+
     const size = () => local.size || 'md';
+
+    const handleFocus = (e: FocusEvent) => {
+        if (!isEditingScopeActive) {
+            input.pushScope('editing', SCOPE_PRIORITIES.editing, true);
+            isEditingScopeActive = true;
+        }
+        if (typeof others.onFocus === 'function') {
+            (others.onFocus as any)(e);
+        }
+    };
+
+    const handleBlur = (e: FocusEvent) => {
+        if (isEditingScopeActive) {
+            input.popScope('editing');
+            isEditingScopeActive = false;
+        }
+        if (typeof others.onBlur === 'function') {
+            (others.onBlur as any)(e);
+        }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Stop propagation for keys that are common shortcuts
+        // to prevent them from bubbling up to the global shortcut system
+        // while the user is typing in an input.
+        if (
+            [
+                'Enter',
+                'ArrowUp',
+                'ArrowDown',
+                'ArrowLeft',
+                'ArrowRight',
+                ' ',
+                'Home',
+                'End'
+            ].includes(e.key)
+        ) {
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        }
+        if (typeof others.onKeyDown === 'function') {
+            (others.onKeyDown as any)(e);
+        }
+    };
+
+    onCleanup(() => {
+        if (isEditingScopeActive) {
+            input.popScope('editing');
+        }
+    });
 
     return (
         <div class={cn('ui-input-wrapper', local.wrapperClass)}>
@@ -76,6 +132,9 @@ export const Input: Component<InputProps> = props => {
                         local.error && local.errorMessage ? `${others.id}-error` : undefined
                     }
                     {...others}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
                 />
 
                 <Show when={local.rightIcon}>

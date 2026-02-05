@@ -18,10 +18,20 @@ import { tokensEqual } from './normalizer';
 
 const INPUT_ELEMENTS = ['INPUT', 'TEXTAREA', 'SELECT'];
 
-function isInputFocused(): boolean {
+function isInputFocused(target?: EventTarget | null): boolean {
   if (typeof document === 'undefined') return false;
+  
+  // If target is provided and is an input, it's focused (or was when event fired)
+  if (target instanceof HTMLElement) {
+    if (INPUT_ELEMENTS.includes(target.tagName)) return true;
+    if (target.getAttribute('contenteditable') === 'true') return true;
+  }
+
   const active = document.activeElement;
-  if (!active) return false;
+  if (!active || active === document.body) return false;
+  
+  // If active element is no longer in the document, ignore it
+  if (!document.contains(active)) return false;
   
   // Check tag name
   if (INPUT_ELEMENTS.includes(active.tagName)) {
@@ -85,8 +95,14 @@ function findMatches(token: InputToken): MatchResult[] {
     }
     
     // If shortcut's scope priority is lower than the blocking threshold, ignore it
-    // Unless the shortcut belongs to the blocking scope itself (priorities equal)
-    if (shortcutScopePriority < cutoffPriority) {
+    // EXCEPT for shortcuts with modifiers (Meta, Alt, Ctrl) which should typically 
+    // bypass input-level blocking unless they are in the blocking scope themselves.
+    const hasModifiers = shortcut.tokens.some(t => {
+      const mods = t.meta?.modifiers;
+      return Array.isArray(mods) && mods.length > 0;
+    });
+    
+    if (shortcutScopePriority < cutoffPriority && !hasModifiers) {
       continue;
     }
     
@@ -199,7 +215,8 @@ export function dispatchToken(token: InputToken, event: Event | null): boolean {
   }
   
   // Check if we should ignore due to input focus
-  const inputFocused = isInputFocused();
+  // Use event target if available for more robust focus detection during blur transitions
+  const inputFocused = isInputFocused(event?.target);
   
   // Find matches
   const matches = findMatches(token);
