@@ -18,6 +18,7 @@ import { Sonner, toast } from '../../ui/Sonner';
 import type { ToasterProps } from '../../ui/Sonner';
 import { Kbd } from '../../ui/Kbd';
 import { TagInput } from '../../ui/TagInput';
+import { Loader } from '../../ui/Loader';
 import {
     Search,
     Info,
@@ -87,7 +88,7 @@ export const DesignSystemGuide: Component = () => {
                                 'margin-bottom': 'var(--p-space-s)'
                             }}
                         >
-                            Elleven Design System
+                            Mundam Design System
                         </h1>
                         <p style={{ color: 'var(--text-secondary)' }}>
                             Component Guide & Style Reference
@@ -2988,6 +2989,20 @@ export const DesignSystemGuide: Component = () => {
                             <span>
                                 <Kbd>Shift</Kbd> <Kbd>A</Kbd>
                             </span>
+
+                            <hr />
+
+                            <h3
+                                style={{
+                                    'margin-bottom': 'var(--p-space-m)',
+                                    color: 'var(--text-secondary)'
+                                }}
+                            >
+                                Loader
+                            </h3>
+                            <Loader size="sm" />
+                            <Loader size="md" />
+                            <Loader size="lg" />
                         </div>
                     </div>
                 </section>

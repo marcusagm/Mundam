@@ -1,16 +1,16 @@
-import { Component, createMemo, createSignal, onMount } from "solid-js";
-import { Folder, FolderOpen, Plus } from "lucide-solid";
-import { useMetadata, useFilters, useNotification } from "../../../core/hooks";
-import { TreeView, TreeNode } from "../../ui/TreeView";
-import { SidebarPanel } from "../../ui/SidebarPanel";
-import { Button } from "../../ui/Button";
-import { CountBadge } from "../../ui/CountBadge";
-import { FolderDeleteModal } from "./FolderDeleteModal";
-import { FolderContextMenu } from "./FolderContextMenu";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { Component, createMemo, createSignal, onMount } from 'solid-js';
+import { Folder, FolderOpen, Plus } from 'lucide-solid';
+import { useMetadata, useFilters, useNotification } from '../../../core/hooks';
+import { TreeView, TreeNode } from '../../ui/TreeView';
+import { SidebarPanel } from '../../ui/SidebarPanel';
+import { Button } from '../../ui/Button';
+import { CountBadge } from '../../ui/CountBadge';
+import { FolderDeleteModal } from './FolderDeleteModal';
+import { FolderContextMenu } from './FolderContextMenu';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 // import { libraryActions } from "../../../core/store/libraryStore";
-import "./folder-tree-sidebar-panel.css";
+import './folder-tree-sidebar-panel.css';
 
 interface FolderNodeData {
     folderId: number;
@@ -23,7 +23,7 @@ export const FolderTreeSidebarPanel: Component = () => {
     const metadata = useMetadata();
     const filters = useFilters();
     const notification = useNotification();
-    
+
     const [expandedIds, setExpandedIds] = createSignal<Set<string | number>>(new Set());
     const [deleteModalOpen, setDeleteModalOpen] = createSignal(false);
     const [folderToDelete, setFolderToDelete] = createSignal<FolderNodeData | null>(null);
@@ -31,15 +31,17 @@ export const FolderTreeSidebarPanel: Component = () => {
     const [contextMenuPos, setContextMenuPos] = createSignal({ x: 0, y: 0 });
     const [contextMenuNode, setContextMenuNode] = createSignal<TreeNode | null>(null);
     const [isDragOver] = createSignal(false);
-    
+
     // Load/Save expansion state
     onMount(() => {
-        const saved = localStorage.getItem("elleven_folder_expanded");
+        const saved = localStorage.getItem('mundam_folder_expanded');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) setExpandedIds(new Set(parsed));
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
     });
 
@@ -48,7 +50,7 @@ export const FolderTreeSidebarPanel: Component = () => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
             else next.add(id);
-            localStorage.setItem("elleven_folder_expanded", JSON.stringify(Array.from(next)));
+            localStorage.setItem('mundam_folder_expanded', JSON.stringify(Array.from(next)));
             return next;
         });
     };
@@ -57,8 +59,10 @@ export const FolderTreeSidebarPanel: Component = () => {
     const folderTree = createMemo(() => {
         const allFolders = metadata.locations || [];
         const isRecursive = filters.folderRecursiveView;
-        const counts = isRecursive ? metadata.stats.folder_counts_recursive : metadata.stats.folder_counts;
-        
+        const counts = isRecursive
+            ? metadata.stats.folder_counts_recursive
+            : metadata.stats.folder_counts;
+
         // Map ID -> TreeNode
         const nodeMap = new Map<number, TreeNode>();
         const roots: TreeNode[] = [];
@@ -69,14 +73,16 @@ export const FolderTreeSidebarPanel: Component = () => {
                 id: `folder-${f.id}`,
                 label: f.name,
                 children: [],
-                data: { 
-                    folderId: f.id, 
-                    path: f.path, 
+                data: {
+                    folderId: f.id,
+                    path: f.path,
                     name: f.name,
-                    isRoot: f.is_root 
+                    isRoot: f.is_root
                 } as FolderNodeData,
                 icon: f.is_root ? FolderOpen : Folder,
-                badge: <CountBadge showZero={true} count={counts.get(f.id) || 0} variant="secondary" />
+                badge: (
+                    <CountBadge showZero={true} count={counts.get(f.id) || 0} variant="secondary" />
+                )
             });
         }
 
@@ -90,7 +96,7 @@ export const FolderTreeSidebarPanel: Component = () => {
                 roots.push(node);
             }
         }
-        
+
         // Sort roots?
         roots.sort((a, b) => a.label.localeCompare(b.label));
 
@@ -102,22 +108,25 @@ export const FolderTreeSidebarPanel: Component = () => {
             const selected = await open({
                 directory: true,
                 multiple: false,
-                title: "Select folder to add to library"
+                title: 'Select folder to add to library'
             });
-            
+
             if (selected) {
-                console.log("Adding folder:", selected);
-                await invoke("add_location", { path: selected });
+                console.log('Adding folder:', selected);
+                await invoke('add_location', { path: selected });
                 await metadata.loadLocations();
                 await metadata.loadStats();
-                notification.success("Folder Linked", `Monitoring "${selected.split(/[\\/]/).pop()}"`);
+                notification.success(
+                    'Folder Linked',
+                    `Monitoring "${selected.split(/[\\/]/).pop()}"`
+                );
             }
         } catch (err) {
-            console.error("Failed to add folder:", err);
-            notification.error("Failed to Link Folder");
+            console.error('Failed to add folder:', err);
+            notification.error('Failed to Link Folder');
         }
     };
-    
+
     const handleSelect = (node: TreeNode) => {
         const data = node.data as FolderNodeData;
         filters.setFolder(data.folderId);
@@ -138,7 +147,7 @@ export const FolderTreeSidebarPanel: Component = () => {
     //     }
     //     libraryActions.refreshImages(true);
     // };
-    
+
     // Get selected IDs for tree
     const selectedIds = createMemo(() => {
         const ids: (string | number)[] = [];
@@ -150,13 +159,13 @@ export const FolderTreeSidebarPanel: Component = () => {
 
     return (
         <>
-            <SidebarPanel 
-                title="Folders" 
-                class={`panel-fluid ${isDragOver() ? "drag-over" : ""}`}
+            <SidebarPanel
+                title="Folders"
+                class={`panel-fluid ${isDragOver() ? 'drag-over' : ''}`}
                 actions={
-                    <Button 
-                        variant="ghost" 
-                        size="icon-xs" 
+                    <Button
+                        variant="ghost"
+                        size="icon-xs"
                         title="Add Folder"
                         onClick={handleAddFolder}
                     >
@@ -165,10 +174,10 @@ export const FolderTreeSidebarPanel: Component = () => {
                 }
             >
                 {folderTree().length > 0 ? (
-                    <TreeView 
-                        items={folderTree()} 
+                    <TreeView
+                        items={folderTree()}
                         onSelect={handleSelect}
-                        selectedIds={selectedIds()} 
+                        selectedIds={selectedIds()}
                         onContextMenu={handleContextMenu}
                         expandedIds={expandedIds()}
                         onToggle={toggleExpansion}
@@ -181,21 +190,21 @@ export const FolderTreeSidebarPanel: Component = () => {
                     </div>
                 )}
             </SidebarPanel>
-            
-            <FolderDeleteModal 
+
+            <FolderDeleteModal
                 isOpen={deleteModalOpen()}
                 onClose={() => setDeleteModalOpen(false)}
                 folderId={folderToDelete()?.folderId ?? null}
-                folderName={folderToDelete()?.name ?? ""}
+                folderName={folderToDelete()?.name ?? ''}
             />
-            
-            <FolderContextMenu 
+
+            <FolderContextMenu
                 isOpen={contextMenuOpen()}
                 x={contextMenuPos().x}
                 y={contextMenuPos().y}
                 node={contextMenuNode()}
                 onClose={() => setContextMenuOpen(false)}
-                onDelete={(node) => {
+                onDelete={node => {
                     setFolderToDelete(node.data as FolderNodeData);
                     setDeleteModalOpen(true);
                 }}

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Elleven Library",
+  "productName": "Mundam",
   "version": "0.1.0",
-  "identifier": "com.marcusmaia.elleven-library",
+  "identifier": "com.marcusmaia.mundam",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
-        "width": 800,
-        "height": 600,
+        "title": "Mundam",
+        "width": 1200,
+        "height": 800,
+        "minHeight": 800,
+        "minWidth": 1200,
         "dragDropEnabled": false
       }
     ],

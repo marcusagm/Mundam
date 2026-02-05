@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Logo Loader</title>
+    <style>
+        /* --- Variáveis de Cores (Fácil Customização) --- */
+        :root {
+            --main-bg: #f4f4f9;       /* Cor do fundo da página */
+            --card-color: #00A0A9;    /* Cor de preenchimento das cartas */
+            --border-width: 5px;      /* Espessura da borda/espaçamento */
+        }
+
+        /* Reset e Centralização da Página */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--main-bg); /* Usa a variável de fundo */
+            font-family: sans-serif;
+        }
+
+        /* Container Principal do Loader */
+        .loader-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+
+        /* Estilo Base da Carta */
+        .card {
+            position: absolute;
+            width: 50px;
+            height: 60px;
+            
+            /* A borda agora tem a cor do fundo da página para criar o efeito de recorte */
+            border: var(--border-width) solid var(--main-bg); 
+            
+            /* O fundo da carta agora é a cor solicitada */
+            background-color: var(--card-color); 
+            
+            border-radius: 8px;
+            transform-origin: bottom center;
+            box-sizing: border-box;
+        }
+
+        /* --- Definição das Cartas (Profundidade e Posição Inicial) --- */
+        
+        /* Carta 1: Topo / Frente (A referência Reta) */
+        .card-1 {
+            z-index: 3;
+            left: 50%;
+            top: 50%;
+            margin-left: -25px; 
+            margin-top: -30px; /* Ajuste fino para centralizar verticalmente */
+            animation: card-1-anim 3s ease-in-out infinite;
+        }
+
+        /* Carta 2: Meio */
+        .card-2 {
+            z-index: 2;
+            left: 50%;
+            top: 50%;
+            margin-left: -25px;
+            margin-top: -30px;
+            animation: card-2-anim 3s ease-in-out infinite;
+        }
+
+        /* Carta 3: Fundo / Esquerda */
+        .card-3 {
+            z-index: 1;
+            left: 50%;
+            top: 50%;
+            margin-left: -25px;
+            margin-top: -30px;
+            animation: card-3-anim 3s ease-in-out infinite;
+        }
+
+        /* --- Animações (Keyframes) --- */
+
+        /* Lógica Atualizada:
+           Card 1: 0deg (Reta)
+           Card 2: -30deg (Esquerda)
+           Card 3: -60deg (Mais a esquerda)
+        */
+
+        @keyframes card-1-anim {
+            0%, 25% {
+                transform: rotate(0deg); /* Reta */
+            }
+            45% {
+                transform: rotate(0deg); /* Colapso no centro */
+            }
+            65% {
+                transform: rotate(180deg); /* Giro conjunto */
+            }
+            85%, 100% {
+                transform: rotate(360deg); /* Volta para 0 (360) */
+            }
+        }
+
+        @keyframes card-2-anim {
+            0%, 25% {
+                transform: rotate(-30deg); /* 30 graus esquerda */
+            }
+            45% {
+                transform: rotate(0deg);
+            }
+            65% {
+                transform: rotate(180deg);
+            }
+            85%, 100% {
+                transform: rotate(330deg); /* 360 - 30 */
+            }
+        }
+
+        @keyframes card-3-anim {
+            0%, 25% {
+                transform: rotate(-60deg); /* 60 graus esquerda */
+            }
+            45% {
+                transform: rotate(0deg);
+            }
+            65% {
+                transform: rotate(180deg);
+            }
+            85%, 100% {
+                transform: rotate(300deg); /* 360 - 60 */
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="loader-container">
+        <div class="card card-3"></div>
+        <div class="card card-2"></div>
+        <div class="card card-1"></div>
+    </div>
+
+</body>
+</html>

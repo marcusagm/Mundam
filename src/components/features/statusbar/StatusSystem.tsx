@@ -81,14 +81,14 @@ export const StatusSystem: Component = () => {
                 <Settings size={12} />
             </Button>
 
-            {/* <Button 
-                variant="ghost" 
+            <Button
+                variant="ghost"
                 size="icon-sm"
                 title="Design System"
                 onClick={() => window.dispatchEvent(new CustomEvent('app:open-design-system'))}
             >
                 <PaintRoller size={12} />
-            </Button> */}
+            </Button>
         </div>
     );
 };

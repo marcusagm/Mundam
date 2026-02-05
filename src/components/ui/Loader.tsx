@@ -1,60 +1,60 @@
-import { Component, Show } from "solid-js";
-import { ProgressBar } from "./ProgressBar";
-import "./loader.css";
+import { Component, Show } from 'solid-js';
+import { ProgressBar } from './ProgressBar';
+import './loader.css';
 
 interface LoaderProps {
-  /**
-   * Size of the spinner
-   * @default "md"
-   */
-  size?: "sm" | "md" | "lg";
-  
-  /**
-   * Whether to take up the full screen/container
-   * @default false
-   */
-  fullscreen?: boolean;
+    /**
+     * Size of the spinner
+     * @default "md"
+     */
+    size?: 'sm' | 'md' | 'lg';
 
-  /**
-   * Text to display below the spinner
-   */
-  text?: string;
+    /**
+     * Whether to take up the full screen/container
+     * @default false
+     */
+    fullscreen?: boolean;
 
-  /**
-   * If provided, shows a progress bar below the text
-   * Value should be percentage (0-100) or current if max is set
-   */
-  progress?: number;
-  
-  /**
-   * Max value for progress
-   */
-  max?: number;
+    /**
+     * Text to display below the spinner
+     */
+    text?: string;
 
-  class?: string;
+    /**
+     * If provided, shows a progress bar below the text
+     * Value should be percentage (0-100) or current if max is set
+     */
+    progress?: number;
+
+    /**
+     * Max value for progress
+     */
+    max?: number;
+
+    class?: string;
 }
 
-export const Loader: Component<LoaderProps> = (props) => {
-  return (
-    <div 
-      class={`loader-container ${props.fullscreen ? "fullscreen" : ""} ${props.class || ""}`}
-      role="status"
-    >
-      <div class={`loader-spinner ${props.size || "md"}`} />
-      
-      <Show when={props.text}>
-        <span class="loader-text">{props.text}</span>
-      </Show>
+export const Loader: Component<LoaderProps> = props => {
+    return (
+        <div
+            class={`loader-container ${props.fullscreen ? 'fullscreen' : ''} ${props.class || ''}`}
+            role="status"
+        >
+            <div class={`loader-cards ${props.size || 'md'}`}>
+                <div class="loader-card card-3"></div>
+                <div class="loader-card card-2"></div>
+                <div class="loader-card card-1"></div>
+            </div>
 
-      <Show when={typeof props.progress === "number"}>
-        <div class="loader-progress-wrapper">
-             <ProgressBar 
-                value={props.progress!} 
-                max={props.max} 
-                size="sm" 
-             />
+            <Show when={props.text}>
+                <span class="loader-text">{props.text}</span>
+            </Show>
+
+            <Show when={typeof props.progress === 'number'}>
+                <div class="loader-progress-wrapper">
+                    <ProgressBar value={props.progress!} max={props.max} size="sm" />
+                </div>
+            </Show>
         </div>
-      </Show>
-    </div>
-  );
+    );
 };

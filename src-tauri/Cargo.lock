@@ -1128,42 +1128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "elleven-library"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "fast_image_resize",
- "image",
- "imagesize",
- "infer 0.15.0",
- "mime_guess",
- "notify",
- "percent-encoding",
- "rayon",
- "resvg",
- "rexif",
- "serde",
- "serde_json",
- "sqlx",
- "strum",
- "strum_macros",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-mcp-bridge",
- "tauri-plugin-opener",
- "tauri-plugin-sql",
- "tiny-skia",
- "tokio",
- "walkdir",
- "webp",
- "wuff",
- "zip",
- "zune-jpeg 0.4.21",
-]
-
-[[package]]
 name = "embed-resource"
 version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2892,6 +2856,42 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "mundam"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fast_image_resize",
+ "image",
+ "imagesize",
+ "infer 0.15.0",
+ "mime_guess",
+ "notify",
+ "percent-encoding",
+ "rayon",
+ "resvg",
+ "rexif",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "strum",
+ "strum_macros",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-mcp-bridge",
+ "tauri-plugin-opener",
+ "tauri-plugin-sql",
+ "tiny-skia",
+ "tokio",
+ "walkdir",
+ "webp",
+ "wuff",
+ "zip",
+ "zune-jpeg 0.4.21",
 ]
 
 [[package]]

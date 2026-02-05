@@ -1,8 +1,8 @@
-# 11 Elleven Library
+# Mundam
 
-**Elleven Library** is a high-performance, local-first image reference manager designed specifically for artists, concept designers, and illustrators. It allows you to organize, tag, and view massive collections of reference images with zero lag, keeping your workflow uninterrupted.
+**Mundam** is a high-performance, local-first image reference manager designed specifically for artists, concept designers, and illustrators. It allows you to organize, tag, and view massive collections of reference images with zero lag, keeping your workflow uninterrupted.
 
-Built with **Tauri v2**, **Rust**, and **SolidJS**, Elleven combines the raw power of native code with the reactivity of modern web interfaces.
+Built with **Tauri v2**, **Rust**, and **SolidJS**, Mundam combines the raw power of native code with the reactivity of modern web interfaces.
 
 ---
 
@@ -48,8 +48,8 @@ Built with **Tauri v2**, **Rust**, and **SolidJS**, Elleven combines the raw pow
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/yourusername/elleven-library.git
-    cd elleven-library
+    git clone https://github.com/marcusagm/Mundam.git
+    cd mundam
     ```
 
 2.  **Install Frontend Dependencies**

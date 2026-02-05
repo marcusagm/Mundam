@@ -1,7 +1,11 @@
 {
-  "name": "elleven-library",
+  "name": "mundam",
   "version": "0.1.0",
   "description": "Professional image reference manager for artists.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcusagm/Mundam"
+  },
   "type": "module",
   "scripts": {
     "start": "vite",

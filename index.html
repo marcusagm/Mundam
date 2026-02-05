@@ -1,157 +1,188 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-    @font-face {
-      font-family: 'Poppins';
-      src: url('/Poppins/Poppins-Regular.ttf') format('truetype');
-      font-weight: 400;
-      font-style: normal;
-    }
-    @font-face {
-      font-family: 'Poppins';
-      src: url('/Poppins/Poppins-Medium.ttf') format('truetype');
-      font-weight: 500;
-      font-style: normal;
-    }
-    </style>
-  <style>
-      /* 
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+            @font-face {
+                font-family: 'Poppins';
+                src: url('/Poppins/Poppins-Regular.ttf') format('truetype');
+                font-weight: 400;
+                font-style: normal;
+            }
+            @font-face {
+                font-family: 'Poppins';
+                src: url('/Poppins/Poppins-Medium.ttf') format('truetype');
+                font-weight: 500;
+                font-style: normal;
+            }
+        </style>
+        <style>
+            /* 
          Loader Styling - Scoped to #splash-screen to prevent conflicts.
          Colors match tokens.css manually to ensure 1:1 match without import issues.
       */
-      #splash-screen {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background-color: #1e1e1e; /* bg-color */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        color: #969696; /* text-secondary */
-        transition: opacity 0.3s ease-out;
-      }
+            #splash-screen {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                background-color: oklch(13% 0 0); /* bg-color */
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                font-family:
+                    'Poppins',
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    'Segoe UI',
+                    Roboto,
+                    sans-serif;
+                color: #969696; /* text-secondary */
+                transition: opacity 0.3s ease-out;
+            }
 
-      #splash-spinner {
-        display: inline-flex;
-        gap: 5px;
-        margin-bottom: 24px;
-      }
+            #splash-loader {
+                position: relative;
+                width: 60px;
+                height: 60px;
+                margin-bottom: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
 
-      #splash-spinner:before,
-      #splash-spinner:after {
-        content: "";
-        width: 25px;
-        aspect-ratio: 1;
-        box-shadow: 0 0 0 3px inset #00a0a9; /* accent-color */
-        animation: l5 1.5s infinite;
-      }
+            .splash-card {
+                position: absolute;
+                width: 30px;
+                height: 35px;
+                border: 3px solid oklch(13% 0 0);
+                background-color: #00a0a9;
+                border-radius: 4px;
+                transform-origin: bottom center;
+                box-sizing: border-box;
+            }
 
-      #splash-spinner:after {
-        --s: -1;
-      }
+            .card-1 { z-index: 3; animation: card-1-anim 3s ease-in-out infinite; }
+            .card-2 { z-index: 2; animation: card-2-anim 3s ease-in-out infinite; }
+            .card-3 { z-index: 1; animation: card-3-anim 3s ease-in-out infinite; }
 
-      @keyframes l5 {
-        0%   {transform:scaleX(var(--s,1)) translate(0) scale(1)}
-        33%  {transform:scaleX(var(--s,1)) translate(calc(50% + 2.5px)) scale(1)}
-        66%  {transform:scaleX(var(--s,1)) translate(calc(50% + 2.5px)) scale(2)}
-        100% {transform:scaleX(var(--s,1)) translate(0) scale(1)}
-      }
+            @keyframes card-1-anim {
+                0%, 25% { transform: rotate(0deg); }
+                45% { transform: rotate(0deg); }
+                65% { transform: rotate(180deg); }
+                85%, 100% { transform: rotate(360deg); }
+            }
 
-      #splash-text {
-        font-size: 14px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-      }
+            @keyframes card-2-anim {
+                0%, 25% { transform: rotate(-30deg); }
+                45% { transform: rotate(0deg); }
+                65% { transform: rotate(180deg); }
+                85%, 100% { transform: rotate(330deg); }
+            }
 
-      #splash-error {
-        display: none;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        text-align: center;
-      }
+            @keyframes card-3-anim {
+                0%, 25% { transform: rotate(-60deg); }
+                45% { transform: rotate(0deg); }
+                65% { transform: rotate(180deg); }
+                85%, 100% { transform: rotate(300deg); }
+            }
 
-      #splash-error-msg {
-        color: #f48771; /* danger-color */
-        max-width: 80%;
-      }
+            #splash-text {
+                font-size: 14px;
+                font-weight: 400;
+                letter-spacing: 0.5px;
+            }
 
-      #splash-reload {
-        padding: 8px 16px;
-        background-color: #00a0a9;
-        color: #ffffff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 12px;
-      }
+            #splash-error {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+                text-align: center;
+            }
 
+            #splash-error-msg {
+                color: #f48771; /* danger-color */
+                max-width: 80%;
+            }
 
-    </style>
-  </head>
+            #splash-reload {
+                padding: 8px 16px;
+                background-color: #00a0a9;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 12px;
+            }
+        </style>
+    </head>
 
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    
-    <!-- Sibling Loader - NOT inside root -->
-    <div id="splash-screen">
-      <div id="splash-content" style="display: flex; flex-direction: column; align-items: center;">
-        <div id="splash-spinner"></div>
-        <div id="splash-text">Initializing Elleven Library...</div>
-      </div>
-      
-      <div id="splash-error">
-        <div id="splash-error-msg">Application failed to start.</div>
-        <button id="splash-reload" onclick="window.location.reload()">Reload</button>
-      </div>
-    </div>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
 
-    <!-- Application Root -->
-    <div id="root"></div>
+        <!-- Sibling Loader - NOT inside root -->
+        <div id="splash-screen">
+            <div
+                id="splash-content"
+                style="display: flex; flex-direction: column; align-items: center"
+            >
+                <div id="splash-loader">
+                    <div class="splash-card card-3"></div>
+                    <div class="splash-card card-2"></div>
+                    <div class="splash-card card-1"></div>
+                </div>
+                <div id="splash-text">Initializing Mundam...</div>
+            </div>
 
-    <script>
-      (function() {
-        const splash = document.getElementById('splash-screen');
-        const content = document.getElementById('splash-content');
-        const errorView = document.getElementById('splash-error');
-        const errorMsg = document.getElementById('splash-error-msg');
-        const text = document.getElementById('splash-text');
+            <div id="splash-error">
+                <div id="splash-error-msg">Application failed to start.</div>
+                <button id="splash-reload" onclick="window.location.reload()">Reload</button>
+            </div>
+        </div>
 
-        // 1. Listen for App Ready Event
-        window.addEventListener('app-ready', () => {
-          splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 300); // Remove after fade
-        });
+        <!-- Application Root -->
+        <div id="root"></div>
 
-        // 2. Global Error Handler (Boot Phase)
-        window.onerror = function(msg, source, lineno, colno, error) {
-          if (document.body.contains(splash)) {
-            content.style.display = 'none';
-            errorView.style.display = 'flex';
-            errorMsg.textContent = msg || "Unknown startup error";
-            return false;
-          }
-        };
+        <script>
+            (function () {
+                const splash = document.getElementById('splash-screen');
+                const content = document.getElementById('splash-content');
+                const errorView = document.getElementById('splash-error');
+                const errorMsg = document.getElementById('splash-error-msg');
+                const text = document.getElementById('splash-text');
 
-        // 3. Long Load Warning (5s)
-        const timeout = setTimeout(() => {
-          if (document.body.contains(splash) && content.style.display !== 'none') {
-             text.textContent = "Taking longer than usual...";
-          }
-        }, 5000);
+                // 1. Listen for App Ready Event
+                window.addEventListener('app-ready', () => {
+                    splash.style.opacity = '0';
+                    setTimeout(() => splash.remove(), 300); // Remove after fade
+                });
 
-        // Cleanup timeout on success
-        window.addEventListener('app-ready', () => clearTimeout(timeout));
-      })();
-    </script>
-    
-    <script src="/src/index.tsx" type="module"></script>
-  </body>
+                // 2. Global Error Handler (Boot Phase)
+                window.onerror = function (msg, source, lineno, colno, error) {
+                    if (document.body.contains(splash)) {
+                        content.style.display = 'none';
+                        errorView.style.display = 'flex';
+                        errorMsg.textContent = msg || 'Unknown startup error';
+                        return false;
+                    }
+                };
+
+                // 3. Long Load Warning (5s)
+                const timeout = setTimeout(() => {
+                    if (document.body.contains(splash) && content.style.display !== 'none') {
+                        text.textContent = 'Taking longer than usual...';
+                    }
+                }, 5000);
+
+                // Cleanup timeout on success
+                window.addEventListener('app-ready', () => clearTimeout(timeout));
+            })();
+        </script>
+
+        <script src="/src/index.tsx" type="module"></script>
+    </body>
 </html>

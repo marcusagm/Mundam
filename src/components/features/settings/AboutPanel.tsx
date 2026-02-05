@@ -135,11 +135,11 @@ export const AboutPanel: Component = () => {
                     <img
                         id="about-app-logo"
                         src={effectiveLogo()}
-                        alt="Elleven Library Logo"
+                        alt="Mundam Logo"
                         class="about-logo"
                     />
                 </div>
-                <h1 class="about-app-name">Elleven Library</h1>
+                {/* <h1 class="about-app-name">Mundam</h1> */}
                 <div class="about-version">Version 0.1.0</div>
             </div>
 
@@ -173,23 +173,16 @@ export const AboutPanel: Component = () => {
                 <p class="about-copyright">© 2024-2025 Marcus Maia. All rights reserved.</p>
                 <div class="about-links">
                     <button
-                        onClick={() =>
-                            handleOpenLink('https://github.com/marcusagm/Elleven-Library')
-                        }
+                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam')}
                         class="about-link"
                     >
                         GitHub
                     </button>
-                    <button
-                        onClick={() => handleOpenLink('https://elleven.app')}
-                        class="about-link"
-                    >
+                    <button onClick={() => handleOpenLink('https://mundam.app')} class="about-link">
                         Website
                     </button>
                     <button
-                        onClick={() =>
-                            handleOpenLink('https://github.com/marcusagm/Elleven-Library/issues')
-                        }
+                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam/issues')}
                         class="about-link"
                     >
                         Support

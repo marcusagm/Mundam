@@ -32,7 +32,7 @@ export const AppearancePanel: Component = () => {
         <div class="settings-panel-content appearance-panel">
             <h2 class="settings-panel-title">Appearance</h2>
             <p class="settings-panel-description">
-                Maximize intermediate creative focus by customizing the look of Elleven Library.
+                Maximize intermediate creative focus by customizing the look of Mundam.
             </p>
 
             <SectionGroup

@@ -34,7 +34,7 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
     
     // Try bundled FFmpeg in src-tauri/ffmpeg (development)
     // The binary is at: src-tauri/ffmpeg/ffmpeg
-    // Current exe is at: src-tauri/target/debug/elleven-library
+    // Current exe is at: src-tauri/target/debug/mundam
     if let Ok(exe_path) = std::env::current_exe() {
         // Go up from target/debug to src-tauri
         if let Some(target_dir) = exe_path.parent() {

@@ -58,7 +58,7 @@ pub fn run() {
                 .expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data).ok();
 
-            let db_path = app_data.join("elleven.db");
+            let db_path = app_data.join("mundam.db");
             let thumbnails_dir = app_data.join("thumbnails");
             std::fs::create_dir_all(&thumbnails_dir).ok();
 

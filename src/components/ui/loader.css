@@ -17,56 +17,88 @@
 }
 
 
-.loader-spinner {
-  display: inline-flex;
-  gap: 5px;
-  /* Size overrides via width/height on ::before/::after would be tricky with this pure css animation 
-     that relies on specific pixel sizes.
-     We will keep strict sizing for 'md' (default) and use transform/zoom for others if needed, 
-     or just stick to one robust size for now as requested by user.
-  */
-  flex-shrink: 0;
+
+.loader-cards {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.loader-spinner:before,
-.loader-spinner:after {
-  content: "";
-  width:  1.25rem; /* Adjusted to fit the requested look, user provided 25px in example, we can use 25px */
-  aspect-ratio: 1;
-  box-shadow: 0 0 0 3px inset var(--action-primary-bg); /* Changed #fff to accent-color */
-  animation: l5 1.5s infinite;
-  border-radius: 0; /* Square by default in user example? Example says aspect-ratio:1, likely square. */
-  /* User example had border-radius? No. */
+/* Sizes */
+.loader-cards.sm { transform: scale(0.6); }
+.loader-cards.md { transform: scale(1); }
+.loader-cards.lg { transform: scale(1.5); }
+
+.loader-card {
+  position: absolute;
+  width: 30px;
+  height: 35px;
+  
+  /* Borda com cor de fundo para efeito de recorte */
+  border: 3px solid var(--bg-page); 
+  background-color: var(--action-primary-bg); 
+  
+  border-radius: var(--radius-s);
+  transform-origin: bottom center;
+  box-sizing: border-box;
+  box-shadow: var(--shadow-s);
 }
 
-/* User asked to use tokens. */
-.loader-spinner:before,
-.loader-spinner:after {
-  width: 25px;
-  box-shadow: 0 0 0 3px inset var(--action-primary-bg); 
+/* Fullscreen mode needs to use fixed background for borders */
+.fullscreen .loader-card {
+  border-color: var(--bg-page);
 }
 
-.loader-spinner:after {
-  --s: -1;
+/* Identificar qual carta é qual */
+.card-1 {
+  z-index: 3;
+  animation: card-1-anim 3s ease-in-out infinite;
 }
 
-/* Spinner Sizes - Scale transform to manage sizes easily */
-.loader-spinner.sm {
-  transform: scale(0.6);
+.card-2 {
+  z-index: 2;
+  animation: card-2-anim 3s ease-in-out infinite;
 }
 
-.loader-spinner.md {
-  transform: scale(1);
+.card-3 {
+  z-index: 1;
+  animation: card-3-anim 3s ease-in-out infinite;
 }
 
-.loader-spinner.lg {
-  transform: scale(1.5);
+@keyframes card-1-anim {
+  0%, 25% { transform: rotate(0deg); }
+  45% { transform: rotate(0deg); }
+  65% { transform: rotate(180deg); }
+  85%, 100% { transform: rotate(360deg); }
 }
 
-@keyframes l5 {
-  0%   {transform:scaleX(var(--s,1)) translate(0) scale(1)}
-  33%  {transform:scaleX(var(--s,1)) translate(calc(50% + 2.5px)) scale(1)}
-  66%  {transform:scaleX(var(--s,1)) translate(calc(50% + 2.5px)) scale(2)}
-  100% {transform:scaleX(var(--s,1)) translate(0) scale(1)}
+@keyframes card-2-anim {
+  0%, 25% { transform: rotate(-30deg); }
+  45% { transform: rotate(0deg); }
+  65% { transform: rotate(180deg); }
+  85%, 100% { transform: rotate(330deg); }
+}
+
+@keyframes card-3-anim {
+  0%, 25% { transform: rotate(-60deg); }
+  45% { transform: rotate(0deg); }
+  65% { transform: rotate(180deg); }
+  85%, 100% { transform: rotate(300deg); }
+}
+
+.loader-text {
+  margin-top: 0.5rem;
+  font-size: var(--p-font-size-s);
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.loader-progress-wrapper {
+  width: 120px;
+  margin-top: 0.25rem;
 }
 

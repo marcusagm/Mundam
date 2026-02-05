@@ -1,4 +1,4 @@
-import { onMount, onCleanup, Show, createEffect, createSignal } from 'solid-js';
+import { onMount, onCleanup, Show, createEffect, createSignal, createMemo } from 'solid-js';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useSystem, useNotification } from './core/hooks';
 import { AppShell } from './layouts/AppShell';
@@ -22,6 +22,9 @@ import { SettingsModal } from './components/features/settings';
 // Input System
 import { InputProvider, useShortcuts } from './core/input';
 import { useSelection, useLibrary } from './core/hooks';
+import logoColor from './assets/logo-color.svg';
+import logoWhite from './assets/logo-white.svg';
+import { appearance } from './core/store/appearanceStore';
 
 function App() {
     const system = useSystem();
@@ -29,6 +32,14 @@ function App() {
     const selection = useSelection();
     const lib = useLibrary();
     const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
+
+    const effectiveLogo = createMemo(() => {
+        let mode = appearance().mode;
+        if (mode === 'system') {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return mode === 'dark' ? logoWhite : logoColor;
+    });
 
     // Global shortcuts via Input Service
     useShortcuts([
@@ -99,7 +110,7 @@ function App() {
 
                 const webview = new WebviewWindow(label, {
                     url: 'index.html#design-system',
-                    title: 'Elleven Design System',
+                    title: 'Mundam Design System',
                     width: 1200,
                     height: 900
                 });
@@ -145,13 +156,14 @@ function App() {
     return (
         <Show
             when={!system.loading()}
-            fallback={<Loader fullscreen text="Initializing Elleven Library..." />}
+            fallback={<Loader fullscreen text="Initializing Mundam..." />}
         >
             <Show
                 when={system.rootPath()}
                 fallback={
                     <div class="welcome-screen">
-                        <h1>Elleven Library</h1>
+                        <img src={effectiveLogo()} alt="Mundam Logo" class="welcome-logo" />
+                        {/* <h1>Mundam</h1> */}
                         <p>Start by choosing a folder to monitor for visual references.</p>
                         <button class="primary-btn" onClick={handleSelectFolder}>
                             Initialize Library

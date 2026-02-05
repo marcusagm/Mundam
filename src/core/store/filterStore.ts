@@ -44,7 +44,7 @@ interface FilterState extends FilterSnapshot {
   historyLimit: number;
 }
 
-const STORAGE_KEY = "elleven-filter-preference";
+const STORAGE_KEY = "mundam-filter-preference";
 // const HISTORY_LIMIT = 50; // Moved to state
 
 const defaultSnapshot: FilterSnapshot = {

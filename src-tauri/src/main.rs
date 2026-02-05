@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    elleven_library_lib::run()
+    mundam_lib::run()
 }

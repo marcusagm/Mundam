@@ -1,14 +1,14 @@
 [package]
-name = "elleven-library"
+name = "mundam"
 version = "0.1.0"
-description = "Elleven-Library: A professional image reference manager for artists."
+description = "Mundam: A professional image reference manager for artists."
 authors = ["marcusmaia"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "elleven_library_lib"
+name = "mundam_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
