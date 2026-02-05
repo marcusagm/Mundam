@@ -1,20 +1,24 @@
+@import "./themes/index.css";
+
 :root {
+  /* --- 0. Theme Defaults --- */
+  --theme-h: 210;
+  --theme-c: 0.15;
+
   /* --- 1. Primitive Layer (The Palette) --- */
-  /* Using OKLCH for superior color mixing and consistency */
   
-  /* Primary Palette (Teal/Cyan based on original #00a0a9) */
-  /* Hue ~210 */
-  --p-primary-50:  oklch(97% 0.02 210);
-  --p-primary-100: oklch(92% 0.04 210);
-  --p-primary-200: oklch(85% 0.08 210);
-  --p-primary-300: oklch(75% 0.12 210);
-  --p-primary-400: oklch(65% 0.14 210);
-  --p-primary-500: oklch(58% 0.15 210); /* Base Brand Color */
-  --p-primary-600: oklch(48% 0.15 210);
-  --p-primary-700: oklch(38% 0.13 210);
-  --p-primary-800: oklch(28% 0.10 210);
-  --p-primary-900: oklch(18% 0.08 210);
-  --p-primary-950: oklch(10% 0.06 210);
+  /* Primary Palette (Dynamic) */
+  --p-primary-50:  oklch(97% 0.02 var(--theme-h));
+  --p-primary-100: oklch(92% 0.04 var(--theme-h));
+  --p-primary-200: oklch(85% 0.08 var(--theme-h));
+  --p-primary-300: oklch(75% 0.12 var(--theme-h));
+  --p-primary-400: oklch(65% 0.14 var(--theme-h));
+  --p-primary-500: oklch(58% var(--theme-c) var(--theme-h));
+  --p-primary-600: oklch(48% var(--theme-c) var(--theme-h));
+  --p-primary-700: oklch(38% 0.13 var(--theme-h));
+  --p-primary-800: oklch(28% 0.10 var(--theme-h));
+  --p-primary-900: oklch(18% 0.08 var(--theme-h));
+  --p-primary-950: oklch(10% 0.06 var(--theme-h));
 
   /* Neutrals (Neutral Grays) */
   --p-neutral-0:   oklch(100% 0 0);
@@ -26,9 +30,9 @@
   --p-neutral-500: oklch(50% 0 0);
   --p-neutral-600: oklch(35% 0 0);
   --p-neutral-700: oklch(25% 0 0);
-  --p-neutral-800: oklch(18% 0 0); /* ~#2d2d2d (L=29%) -> close to this */
-  --p-neutral-850: oklch(16% 0 0); /* ~#252526 */
-  --p-neutral-900: oklch(13% 0 0); /* ~#1e1e1e (L=23%) */
+  --p-neutral-800: oklch(18% 0 0);
+  --p-neutral-850: oklch(16% 0 0);
+  --p-neutral-900: oklch(13% 0 0);
   --p-neutral-950: oklch(8% 0 0);
 
   /* Functional Colors */
@@ -84,69 +88,63 @@
   --p-info-900: oklch(25% 0.08 240);
   --p-info-950: oklch(15% 0.06 240);
 
-  /* --- 2. Spacing Scale (rem based, 1rem = 16px) --- */
+  /* --- 2. Spacing --- */
   --p-space-0:   0rem;
-  --p-space-1:   0.0625rem; /* 1px - Special Case */
-  --p-space-xxs: 0.125rem;  /* 2px */
-  --p-space-xs:  0.25rem;   /* 4px */
-  --p-space-s:   0.5rem;    /* 8px */
-  --p-space-m:   1rem;      /* 16px */
-  --p-space-l:   1.5rem;    /* 24px */
-  --p-space-xl:  2rem;      /* 32px */
-  --p-space-2xl: 3rem;      /* 48px */
-  --p-space-3xl: 4rem;      /* 64px */
-  --p-space-4xl: 6rem;      /* 96px */
+  --p-space-1:   0.0625rem;
+  --p-space-xxs: 0.125rem;
+  --p-space-xs:  0.25rem;
+  --p-space-s:   0.5rem;
+  --p-space-m:   1rem;
+  --p-space-l:   1.5rem;
+  --p-space-xl:  2rem;
+  --p-space-2xl: 3rem;
+  --p-space-3xl: 4rem;
+  --p-space-4xl: 6rem;
 
   /* --- 3. Typography --- */
   --p-font-main: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --p-font-mono: "JetBrains Mono", "Fira Code", monospace;
 
-  --p-font-size-xxs: 0.625rem; /* 10px */
-  --p-font-size-xs:  0.75rem;  /* 12px */
-  --p-font-size-s:   0.8125rem; /* 13px (Base used in app) */
-  --p-font-size-m:   0.875rem;  /* 14px */
-  --p-font-size-l:   1rem;      /* 16px */
-  --p-font-size-xl:  1.25rem;   /* 20px */
-  --p-font-size-2xl: 1.5rem;    /* 24px */
-  --p-font-size-3xl: 2rem;      /* 32px */
+  --p-font-size-xxs: 0.625rem;
+  --p-font-size-xs:  0.75rem;
+  --p-font-size-s:   0.8125rem;
+  --p-font-size-m:   0.875rem;
+  --p-font-size-l:   1rem;
+  --p-font-size-xl:  1.25rem;
+  --p-font-size-2xl: 1.5rem;
+  --p-font-size-3xl: 2rem;
 
   /* --- 4. Effects --- */
-   /* Shadows - using a semantic shadow color variable to adapt */
-  --p-shadow-color: 0 0 0; /* Fallback */
-
+  --p-shadow-color: 0 0 0;
   --global-statusbar-height: var(--p-space-xl);
 }
 
-/* --- 5. Semantic Layer (The Usage) --- */
-/* Default to Dark Mode as per "Professional Dark" intent */
+/* --- 5. Semantic Layer --- */
 :root {
   color-scheme: dark;
-  
-  /* Backgrounds */
-  --bg-page:       var(--p-neutral-900); /* #1e1e1e equivalent */
-  --bg-sidebar:    var(--p-neutral-850); /* #252526 equivalent */
-  --bg-header:     var(--p-neutral-800); /* #2d2d2d equivalent */
-  
-  --bg-surface-1:  var(--p-neutral-850); /* Cards/Panels */
-  --bg-surface-2:  var(--p-neutral-800); /* Inputs/Slightly lighter */
-  --bg-surface-3:  var(--p-neutral-700); /* Hover states */
-  --bg-surface-active: var(--p-primary-700); /* Active selection */
+  --bg-page:       var(--p-neutral-900);
+  --bg-sidebar:    var(--p-neutral-850);
+  --bg-header:     var(--p-neutral-800);
+  --bg-surface-1:  var(--p-neutral-850);
+  --bg-surface-2:  var(--p-neutral-800);
+  --bg-surface-3:  var(--p-neutral-700);
+  --bg-surface-active: var(--p-primary-700);
 
   /* Backdrop / Glassmorphism */
   --bg-backdrop:   oklch(13% 0 0 / 0.7);
   --bg-overlay:    oklch(0% 0 0 / 0.4);
 
-  /* Borders */
-  --border-subtle:  var(--p-neutral-800); /* Very faint */
-  --border-default: var(--p-neutral-700); /* Standard borders */
-  --border-strong:  var(--p-neutral-600); /* Focus/Active borders */
-  --border-active:  var(--p-primary-500); /* Primary colored border */
+  /* Border */
+  --border-subtle:  var(--p-neutral-800);
+  --border-default: var(--p-neutral-700);
+  --border-strong:  var(--p-neutral-600);
+  --border-active:  var(--p-primary-500);
 
   /* Text & Icons */
-  --text-primary:   var(--p-neutral-200); /* High contrast ~#cccccc */
-  --text-secondary: var(--p-neutral-400); /* Medium contrast ~#969696 */
-  --text-tertiary:  var(--p-neutral-600); /* Low contrast/Muted */
-  --text-inverse:   var(--p-neutral-0);   /* White on dark */
+  --text-primary:   var(--p-neutral-200);
+  --text-secondary: var(--p-neutral-400);
+  --text-tertiary:  var(--p-neutral-600);
+  --text-inverse:   var(--p-neutral-0);
 
   /* Functional Text */
   --text-destructive: var(--p-error-200);
@@ -160,7 +158,7 @@
 
   /* Actions */
   --action-primary-bg:       var(--p-primary-500);
-  --action-primary-bg-hover: var(--p-primary-400); /* Lighter on hover for dark mode */
+  --action-primary-bg-hover: var(--p-primary-400);
   --action-primary-text:     var(--p-neutral-0);
   
   --action-secondary-bg:       var(--p-neutral-800);
@@ -182,10 +180,10 @@
 
   /* Radius */
   --radius-none: 0;
-  --radius-xs:   0.125rem; /* 2px */
-  --radius-s:    0.25rem;  /* 4px (std) */
-  --radius-m:    0.375rem; /* 6px */
-  --radius-l:    0.5rem;   /* 8px */
+  --radius-xs:   0.125rem;
+  --radius-s:    0.25rem;
+  --radius-m:    0.375rem;
+  --radius-l:    0.5rem;
   --radius-full: 9999px;
 
   /* Shadows (with dark mode adjustment) */
@@ -217,29 +215,95 @@
 [data-theme="light"] {
   color-scheme: light;
   
-  --bg-page:       var(--p-neutral-50);
+  /* Backgrounds: Darker -> Lighter for Depth */
+  --bg-page:       var(--p-neutral-200);
   --bg-sidebar:    var(--p-neutral-100);
-  --bg-header:     var(--p-neutral-0);
+  --bg-header:     var(--p-neutral-200);
   
-  --bg-surface-1:  var(--p-neutral-0);
-  --bg-surface-2:  var(--p-neutral-50);
-  --bg-surface-3:  var(--p-neutral-100);
-  --bg-surface-active: var(--p-primary-100);
-
-  --bg-backdrop:   oklch(98% 0 0 / 0.7);
-
-  --border-subtle:  var(--p-neutral-100);
-  --border-default: var(--p-neutral-200);
-  --border-strong:  var(--p-neutral-300);
+  --bg-surface-1:  var(--p-neutral-200);
+  --bg-surface-2:  var(--p-neutral-100);
+  --bg-surface-3:  var(--p-neutral-50);
   
+  /* Fixed OKLCH parameter order (L C H) */
+  --bg-surface-active: var(--p-primary-500);
+
+  /* Backdrop / Glassmorphism */
+  --bg-backdrop:   oklch(100% 0 0 / 0.7);
+  --bg-overlay:    oklch(100% 0 270 / 0.2);
+
+  /* Border */
+  --border-subtle:  var(--p-neutral-200);
+  --border-default: var(--p-neutral-300);
+  --border-strong:  var(--p-neutral-400);
+  --border-active:  var(--p-primary-500);
+
+  /* Text & Icons */
   --text-primary:   var(--p-neutral-900);
   --text-secondary: var(--p-neutral-600);
-  --text-tertiary:  var(--p-neutral-400);
+  --text-tertiary:  var(--p-neutral-500);
   --text-inverse:   var(--p-neutral-0);
+
+  /* Functional Text (Optimized for Light backgrounds) */
+  --text-destructive: oklch(45% 0.18 25);
+  --text-destructive-no-bg: oklch(40% 0.18 25);
+  --text-success:     oklch(45% 0.15 145);
+  --text-success-no-bg: oklch(40% 0.15 145);
+  --text-warning:     oklch(50% 0.15 85);
+  --text-warning-no-bg: oklch(45% 0.15 85);
+  --text-info:        oklch(45% 0.15 240);
+  --text-info-no-bg: oklch(40% 0.15 240);
+
+  /* Actions */
+  --action-primary-bg:       oklch(50% var(--theme-c) var(--theme-h));
+  --action-primary-bg-hover: oklch(45% var(--theme-c) var(--theme-h));
+  --action-primary-text:     var(--p-neutral-0);
   
-  --action-primary-bg-hover: var(--p-primary-600); /* Darker on hover for light mode */
+  --action-secondary-bg:       var(--p-neutral-200);
+  --action-secondary-bg-hover: var(--p-neutral-300);
+  --action-secondary-text:     var(--text-primary);
   
-  --shadow-xs: 0px 1px 2px oklch(0% 0 0 / 0.05);
+  --action-destructive-bg:       oklch(50% 0.20 25);
+  --action-destructive-text:     var(--p-neutral-0);
+
+  /* Feedback Backgrounds (Subtle) */
+  --feedback-success-bg: oklch(65% 0.18 145 / 0.15);
+  --feedback-drawing-bg: oklch(0% 0 0 / 0.05);
+
+  /* Semantic Status Backgrounds (Solid Light) */
+  --bg-success: var(--p-primary-50);
+  --bg-warning: var(--p-warning-50);
+  --bg-error:   var(--p-error-50);
+  --bg-info:    var(--p-info-50);
+
+  /* Radius (Inherited, but can be overridden) */
+  --radius-none: 0;
+  --radius-xs:   0.125rem;
+  --radius-s:    0.25rem;
+  --radius-m:    0.375rem;
+  --radius-l:    0.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows (Light Mode optimized) */
+  --shadow-color: 0 0 0;
+  --shadow-xs: 0px 1px 2px oklch(0% 0 0 / 0.1);
   --shadow-s:  0px 2px 4px oklch(0% 0 0 / 0.1);
   --shadow-m:  0px 4px 8px oklch(0% 0 0 / 0.1);
+  --shadow-l:  0px 12px 24px oklch(0% 0 0 / 0.1);
+  
+  --shadow-focus: 
+    0px 0px 0px 2px var(--bg-page), 
+    0px 0px 0px 4px oklch(50% var(--theme-c) var(--theme-h));
+
+  /* Transitions */
+  --duration-fast:   100ms;
+  --duration-normal: 200ms;
+  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
+  
+  --transition-default: all var(--duration-normal) var(--ease-out);
+  --transition-fast:    all var(--duration-fast) var(--ease-out);
+
+  /* Font Aliases */
+  --font-main: var(--p-font-main);
+  --font-mono: var(--p-font-mono);
+  --font-size-base: var(--p-font-size-s);
 }

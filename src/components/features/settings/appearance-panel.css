@@ -1,0 +1,45 @@
+/**
+ * Appearance Panel Styles
+ */
+
+.appearance-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.appearance-panel .section-group {
+    margin-bottom: var(--p-space-l);
+}
+
+.appearance-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--p-space-m);
+  padding: 0.75rem var(--p-space-m);
+  background-color: var(--bg-page);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.appearance-setting-row:last-child {
+  border-bottom: none;
+}
+
+.appearance-setting-row.vertical {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--p-space-s);
+}
+
+.setting-label {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-secondary);
+}
+
+.appearance-radius-preview {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--p-space-xs);
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-tertiary);
+}

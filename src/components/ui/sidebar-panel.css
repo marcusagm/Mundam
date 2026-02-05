@@ -15,7 +15,7 @@
   justify-content: space-between;
   padding: var(--p-space-xs) var(--p-space-s);
   border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface-2);
+  background-color: var(--bg-header);
   height: var(--p-space-xl);
 }
 

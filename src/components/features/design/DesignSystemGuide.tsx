@@ -35,6 +35,7 @@ import { NumberInput } from '../../ui/NumberInput';
 import { ColorInput } from '../../ui/ColorInput';
 import { DateInput } from '../../ui/DateInput';
 import { MaskedInput } from '../../ui/MaskedInput';
+import { appearance, appearanceActions } from '../../../core/store/appearanceStore';
 
 export const DesignSystemGuide: Component = () => {
     const [modalSmOpen, setModalSmOpen] = createSignal(false);
@@ -51,6 +52,7 @@ export const DesignSystemGuide: Component = () => {
     const [toastPos, setToastPos] = createSignal<ToasterProps['position']>('bottom-right');
 
     onMount(() => {
+        appearanceActions.initialize();
         window.dispatchEvent(new CustomEvent('app-ready'));
     });
 
@@ -72,20 +74,51 @@ export const DesignSystemGuide: Component = () => {
                     style={{
                         'margin-bottom': 'var(--p-space-2xl)',
                         'border-bottom': '1px solid var(--border-default)',
-                        'padding-bottom': 'var(--p-space-l)'
+                        'padding-bottom': 'var(--p-space-l)',
+                        display: 'flex',
+                        'justify-content': 'space-between',
+                        'align-items': 'flex-end'
                     }}
                 >
-                    <h1
+                    <div>
+                        <h1
+                            style={{
+                                'font-size': 'var(--p-font-size-3xl)',
+                                'margin-bottom': 'var(--p-space-s)'
+                            }}
+                        >
+                            Elleven Design System
+                        </h1>
+                        <p style={{ color: 'var(--text-secondary)' }}>
+                            Component Guide & Style Reference
+                        </p>
+                    </div>
+                    <div
                         style={{
-                            'font-size': 'var(--p-font-size-3xl)',
-                            'margin-bottom': 'var(--p-space-s)'
+                            'text-align': 'right',
+                            'font-family': 'var(--p-font-mono)',
+                            'font-size': 'var(--p-font-size-xxs)',
+                            color: 'var(--text-tertiary)',
+                            background: 'var(--bg-surface-2)',
+                            padding: 'var(--p-space-s) var(--p-space-m)',
+                            'border-radius': 'var(--radius-m)',
+                            border: '1px solid var(--border-subtle)'
                         }}
                     >
-                        Elleven Design System
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>
-                        Component Guide & Style Reference
-                    </p>
+                        <div
+                            style={{
+                                'font-weight': '600',
+                                color: 'var(--action-primary-bg)',
+                                'margin-bottom': '4px'
+                            }}
+                        >
+                            ACTIVE SETTINGS
+                        </div>
+                        <div>Mode: {appearance().mode}</div>
+                        <div>Theme: {appearance().theme}</div>
+                        <div>Radius: {appearance().radius}px</div>
+                        <div>Font: {appearance().fontSize}</div>
+                    </div>
                 </header>
 
                 <Sonner position={toastPos()} />
@@ -99,7 +132,7 @@ export const DesignSystemGuide: Component = () => {
                             'padding-bottom': 'var(--p-space-s)'
                         }}
                     >
-                        1. Tokens
+                        1. Tokens & Live Preview
                     </h2>
 
                     <div
@@ -116,7 +149,7 @@ export const DesignSystemGuide: Component = () => {
                                     color: 'var(--text-secondary)'
                                 }}
                             >
-                                Colors
+                                Color Palette (Current Theme: {appearance().theme})
                             </h3>
                             <div
                                 style={{
@@ -125,7 +158,7 @@ export const DesignSystemGuide: Component = () => {
                                     gap: 'var(--p-space-m)'
                                 }}
                             >
-                                <ColorSwatch name="Primary" val="var(--p-primary-500)" />
+                                <ColorSwatch name="Primary (500)" val="var(--p-primary-500)" />
                                 <ColorSwatch name="Success" val="var(--p-success-500)" />
                                 <ColorSwatch name="Warning" val="var(--p-warning-500)" />
                                 <ColorSwatch name="Error" val="var(--p-error-500)" />

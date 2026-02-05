@@ -1,0 +1,35 @@
+/* src/styles/themes/index.css */
+
+/* Theme Hue/Chroma overrides - using html class for higher specificity */
+html.theme-neutral { --theme-h: 210; --theme-c: 0.15; }
+html.theme-blue { --theme-h: 245; --theme-c: 0.15; }
+html.theme-emerald { --theme-h: 155; --theme-c: 0.15; }
+html.theme-orange { --theme-h: 40; --theme-c: 0.15; }
+html.theme-rose { --theme-h: 15; --theme-c: 0.15; }
+html.theme-violet { --theme-h: 280; --theme-c: 0.15; }
+html.theme-teal { --theme-h: 190; --theme-c: 0.15; }
+html.theme-zinc { --theme-h: 0; --theme-c: 0; }
+html.theme-indigo { --theme-h: 260; --theme-c: 0.15; }
+html.theme-fuchsia { --theme-h: 320; --theme-c: 0.15; }
+html.theme-slate { --theme-h: 240; --theme-c: 0.02; }
+html.theme-stone { --theme-h: 70; --theme-c: 0.02; }
+
+/* Font Size Overrides - using html class for higher specificity */
+html.font-size-small {
+  --p-font-size-xxs: 0.5625rem; /* 9px */
+  --p-font-size-xs:  0.6875rem; /* 11px */
+  --p-font-size-s:   0.75rem;   /* 12px */
+  --p-font-size-m:   0.8125rem; /* 13px */
+  --p-font-size-l:   0.875rem;  /* 14px */
+}
+/* 
+html.font-size-medium {
+} */
+
+html.font-size-large {
+  --p-font-size-xxs: 0.6875rem; /* 11px */
+  --p-font-size-xs:  0.8125rem; /* 13px */
+  --p-font-size-s:   0.875rem;  /* 14px */
+  --p-font-size-m:   1rem;      /* 16px */
+  --p-font-size-l:   1.125rem;  /* 18px */
+}
