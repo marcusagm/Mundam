@@ -27,7 +27,7 @@
 }
 
 .ui-number-input-btn:hover:not(:disabled) {
-  background-color: var(--bg-surface-hover);
+  background-color: var(--bg-surface-3);
   color: var(--text-primary);
 }
 

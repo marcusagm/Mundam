@@ -72,18 +72,18 @@
 }
 
 .ui-btn-icon-sm {
-  height: var(--p-space-xl);
-  width: var(--p-space-xl);
+  height: 2rem;
+  width: 2rem;
 }
 
 .ui-btn-icon-sm svg {
-  width:  1.25rem;
-  height:  1.25rem;
+  width: var(--p-space-m);
+  height: var(--p-space-m);
 }
 
 .ui-btn-icon-xs {
-  height: var(--p-space-l);
-  width: var(--p-space-l);
+  height: 1.5rem;
+  width: 1.5rem;
 }
 
 .ui-btn-icon-xs svg {

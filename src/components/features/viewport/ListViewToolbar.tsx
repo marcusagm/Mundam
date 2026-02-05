@@ -1,23 +1,23 @@
-import { Component } from "solid-js";
-import { 
-    ArrowLeft, 
-    ArrowRight, 
-    LayoutGrid, 
-    AlignCenterVertical, 
-    AlignCenterHorizontal, 
-    List, 
-    SortAsc, 
+import { Component } from 'solid-js';
+import {
+    ArrowLeft,
+    ArrowRight,
+    LayoutGrid,
+    AlignCenterVertical,
+    AlignCenterHorizontal,
+    List,
+    SortAsc,
     SortDesc,
     ChevronDown
-} from "lucide-solid";
-import { useFilters } from "../../../core/hooks";
-import { Button } from "../../ui/Button";
-import { ButtonGroup } from "../../ui/ButtonGroup";
-import { SearchToolbar } from "../search/SearchToolbar";
-import { DropdownMenu } from "../../ui/DropdownMenu";
-import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
-import { Slider } from "../../ui/Slider";
-import "./list-view-toolbar.css";
+} from 'lucide-solid';
+import { useFilters } from '../../../core/hooks';
+import { Button } from '../../ui/Button';
+import { ButtonGroup } from '../../ui/ButtonGroup';
+import { SearchToolbar } from '../search/SearchToolbar';
+import { DropdownMenu } from '../../ui/DropdownMenu';
+import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
+import { Slider } from '../../ui/Slider';
+import './list-view-toolbar.css';
 
 export const ListViewToolbar: Component = () => {
     const filters = useFilters();
@@ -27,19 +27,19 @@ export const ListViewToolbar: Component = () => {
             {/* History Navigation */}
             <div class="toolbar-group">
                 <ButtonGroup attached>
-                    <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        onClick={() => filters.goBack()} 
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => filters.goBack()}
                         disabled={!filters.canGoBack}
                         title="Back"
                     >
                         <ArrowLeft size={18} />
                     </Button>
-                    <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        onClick={() => filters.goForward()} 
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => filters.goForward()}
                         disabled={!filters.canGoForward}
                         title="Forward"
                     >
@@ -59,36 +59,61 @@ export const ListViewToolbar: Component = () => {
                 <DropdownMenu
                     trigger={
                         <Button variant="ghost" class="sort-dropdown-trigger">
-                            <span>Sort: {
-                                {
-                                    modified_at: "Modification",
-                                    added_at: "Addition",
-                                    created_at: "Creation",
-                                    filename: "Title",
-                                    format: "Type",
-                                    size: "Size",
-                                    rating: "Rating"
-                                }[filters.sortBy] || "Date"
-                            }</span>
+                            <span>
+                                Sort:{' '}
+                                {{
+                                    modified_at: 'Modification',
+                                    added_at: 'Addition',
+                                    created_at: 'Creation',
+                                    filename: 'Title',
+                                    format: 'Type',
+                                    size: 'Size',
+                                    rating: 'Rating'
+                                }[filters.sortBy] || 'Date'}
+                            </span>
                             <ChevronDown size={14} />
                         </Button>
                     }
                     items={[
-                        { type: "item", label: "Modification Date", action: () => filters.setSortBy("modified_at") },
-                        { type: "item", label: "Addition Date", action: () => filters.setSortBy("added_at") },
-                        { type: "item", label: "Creation Date", action: () => filters.setSortBy("created_at") },
-                        { type: "item", label: "Title", action: () => filters.setSortBy("filename") },
-                        { type: "item", label: "File Type", action: () => filters.setSortBy("format") },
-                        { type: "item", label: "File Size", action: () => filters.setSortBy("size") },
-                        { type: "item", label: "Rating", action: () => filters.setSortBy("rating") },
+                        {
+                            type: 'item',
+                            label: 'Modification Date',
+                            action: () => filters.setSortBy('modified_at')
+                        },
+                        {
+                            type: 'item',
+                            label: 'Addition Date',
+                            action: () => filters.setSortBy('added_at')
+                        },
+                        {
+                            type: 'item',
+                            label: 'Creation Date',
+                            action: () => filters.setSortBy('created_at')
+                        },
+                        {
+                            type: 'item',
+                            label: 'Title',
+                            action: () => filters.setSortBy('filename')
+                        },
+                        {
+                            type: 'item',
+                            label: 'File Type',
+                            action: () => filters.setSortBy('format')
+                        },
+                        {
+                            type: 'item',
+                            label: 'File Size',
+                            action: () => filters.setSortBy('size')
+                        },
+                        { type: 'item', label: 'Rating', action: () => filters.setSortBy('rating') }
                     ]}
                 />
 
                 {/* Sort Order Toggle */}
-                <ToggleGroup 
-                    type="single" 
-                    value={filters.sortOrder} 
-                    onValueChange={(val) => filters.setSortOrder(val as "asc" | "desc")}
+                <ToggleGroup
+                    type="single"
+                    value={filters.sortOrder}
+                    onValueChange={val => filters.setSortOrder(val as 'asc' | 'desc')}
                 >
                     <ToggleGroupItem value="asc" title="Ascending">
                         <SortAsc size={14} />
@@ -108,31 +133,53 @@ export const ListViewToolbar: Component = () => {
                         </Button>
                     }
                     items={[
-                        { type: "item", label: "Masonry Vertical", icon: AlignCenterVertical as any, action: () => filters.setLayout("masonry-v") },
-                        { type: "item", label: "Masonry Horizontal", icon: AlignCenterHorizontal as any, action: () => filters.setLayout("masonry-h") },
-                        { type: "item", label: "Grid", icon: LayoutGrid as any, action: () => filters.setLayout("grid") },
-                        { type: "item", label: "List", icon: List as any, action: () => filters.setLayout("list") },
+                        {
+                            type: 'item',
+                            label: 'Masonry Vertical',
+                            icon: AlignCenterVertical as any,
+                            action: () => filters.setLayout('masonry-v')
+                        },
+                        {
+                            type: 'item',
+                            label: 'Masonry Horizontal',
+                            icon: AlignCenterHorizontal as any,
+                            action: () => filters.setLayout('masonry-h')
+                        },
+                        {
+                            type: 'item',
+                            label: 'Grid',
+                            icon: LayoutGrid as any,
+                            action: () => filters.setLayout('grid')
+                        },
+                        {
+                            type: 'item',
+                            label: 'List',
+                            icon: List as any,
+                            action: () => filters.setLayout('list')
+                        }
                     ]}
                 />
-                
+
                 {/* O Slider de tamanho de thumbnail precisa de um lugar melhor se o DropdownMenu for simplificado assim, 
                     ou podemos adicionar um item customizado se o Dropdown suportar. Por enquanto, vamos deixar o Slider fora se necessário ou ajustar o Dropdown.
                     Dado que o DropdownMenu atual não suporta itens customizados facilmente via props.items, 
                     vamos manter o Slider como um elemento separado por enquanto para não quebrar a UI.
                 */}
-                <div class="toolbar-group" style={{ 
-                    width: "120px", 
-                    "margin-left": "8px",
-                    "display": "flex",
-                    "align-items": "center",
-                    "gap": "8px"
-                }}>
-                    <Slider 
-                        value={filters.thumbSize || 200} 
-                        min={100} 
-                        max={500} 
-                        step={filters.layout === 'grid' ? 20 : 10}
-                        onValueChange={(val) => filters.setThumbSize(val)}
+                <div
+                    class="toolbar-group"
+                    style={{
+                        width: '120px',
+                        'margin-left': '8px',
+                        display: 'flex',
+                        'align-items': 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Slider
+                        value={filters.thumbSize || 200}
+                        min={100}
+                        max={500}
+                        onValueChange={val => filters.setThumbSize(val)}
                         title="Thumbnail Size"
                     />
                 </div>

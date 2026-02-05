@@ -7,7 +7,8 @@
 }
 
 .inspector-header {
-  padding: var(--p-space-m) var(--p-space-m) 0.75rem;
+  padding: var(--p-space-s) var(--p-space-s);
+  background-color: var(--bg-surface-2);
   font-size: var(--p-font-size-xs);
   font-weight: 600;
   color: var(--text-tertiary);
@@ -68,7 +69,7 @@
 
 .inspector-meta-label {
   font-size: var(--p-font-size-xxs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   text-transform: uppercase;
 }
 
@@ -169,7 +170,7 @@
 .inspector-rating-container {
   display: flex;
   align-items: center;
-  height: var(--p-space-xxs);
+  height: var(--p-space-l);
 }
 
 .inspector-notes-input {

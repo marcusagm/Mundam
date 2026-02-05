@@ -71,7 +71,7 @@
 .ui-accordion-icon {
   display: flex;
   align-items: center;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .ui-accordion-content {

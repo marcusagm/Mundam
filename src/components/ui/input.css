@@ -19,23 +19,23 @@
   display: flex;
   align-items: center;
   width: 100%;
-  background-color: var(--bg-input, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-s);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .ui-input-container:focus-within {
   border-color: var(--action-primary-bg);
-  box-shadow: 0 0 0 var(--p-space-xxs) rgba(14, 165, 233, 0.15);
+  box-shadow: 0 0 0 1px var(--action-primary-bg);
 }
 
 .ui-input-container.ui-input-error {
-  border-color: var(--p-error-500);
+  border-color: var(--text-destructive);
 }
 
 .ui-input-container.ui-input-error:focus-within {
-  box-shadow: 0 0 0 var(--p-space-xxs) rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 1px var(--text-destructive);
 }
 
 /* Size variants */
@@ -45,6 +45,7 @@
 
 .ui-input-sm .ui-input {
   font-size: var(--p-font-size-xs);
+  padding: 0 var(--p-space-s);
 }
 
 .ui-input-sm .ui-input-icon svg {
@@ -53,7 +54,7 @@
 }
 
 .ui-input-md {
-  height:  2.5rem;
+  height: 2.5rem;
 }
 
 .ui-input-md .ui-input {
@@ -87,7 +88,7 @@
   border: none;
   outline: none;
   font-family: inherit;
-  font-size: var(--p-font-size-xs);
+  font-size: var(--p-font-size-m);
   color: var(--text-primary);
 }
 
@@ -95,12 +96,12 @@
   color: var(--text-tertiary);
 }
 
-/* Left icon padding */
+/* Left icon padding adjustmnt */
 .ui-input-has-left .ui-input {
   padding-left: 0;
 }
 
-/* Right icon padding */
+/* Right icon padding adjustment */
 .ui-input-has-right .ui-input {
   padding-right: 0;
 }
@@ -129,7 +130,7 @@
   display: block;
   margin-top: var(--p-space-xs);
   font-size: var(--p-font-size-xs);
-  color: var(--p-error-500);
+  color: var(--text-destructive);
 }
 
 /* Disabled state */
@@ -138,7 +139,8 @@
   cursor: not-allowed;
 }
 
-.ui-input-container:has(.ui-input:disabled) {
+.ui-input-container.ui-input-disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background-color: var(--bg-surface-1);
 }

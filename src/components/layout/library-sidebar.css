@@ -1,3 +1,50 @@
+.sidebar {
+  background-color: var(--bg-surface-1);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--p-space-m) 0;
+}
+
+.logo-area {
+  font-weight: 900;
+  font-size: 1.5rem;
+  color: var(--action-primary-bg);
+  margin-bottom: var(--p-space-xl);
+}
+
+.nav-item {
+  width: 100%;
+  padding:  0.375rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-s);
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: var(--p-font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  margin-bottom: var(--p-space-xxs);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-item:hover {
+  background-color: var(--bg-surface-3);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background-color: var(--bg-surface-3);
+  color: var(--text-inverse);
+  /* Remove old border-left style */
+  border-left: none; 
+}
+.nav-item.active:hover {
+  background-color: var(--bg-surface-active);
+}
+
 .library-sidebar {
   height: 100%;
   display: flex;

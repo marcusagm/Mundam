@@ -96,11 +96,11 @@
 
 /* Selected State */
 .ui-tree-item-selected .ui-tree-item-content {
-  background-color: var(--bg-surface-active);
+  background-color: var(--bg-surface-3);
 }
 
 .ui-tree-item-selected .ui-tree-item-content:hover {
-  background-color: var(--action-primary-bg-hover);
+  background-color: var(--bg-surface-active);
 }
 
 /* Toggle button */
@@ -115,7 +115,7 @@
   background: transparent;
   border: none;
   border-radius: var(--radius-s);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0.6;
@@ -123,7 +123,7 @@
 }
 
 .ui-tree-toggle:hover {
-  background-color: var(--bg-surface-3);
+  background-color: var(--bg-surface-active);
   opacity: 1;
   color: var(--text-primary);
 }
