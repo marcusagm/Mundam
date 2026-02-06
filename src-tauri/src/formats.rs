@@ -23,7 +23,7 @@ pub enum ThumbnailStrategy {
     Ffmpeg,      // Video and complex formats
     Webview,     // SVG, HTML
     ZipPreview,  // Affinity, OpenOffice etc
-    Affinity,    // Proprietary Affinity formats (.afphoto, .afdesign, .afpub)
+    NativeExtractor, // For formats where we extract a preview (Affinity, RAW, PSD)
     Model3D,     // Uses Assimp to convert to GLB
     Font,        // Resvg with custom font loading
     Icon,        // Fallback for files without preview
@@ -147,62 +147,76 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         strategy: ThumbnailStrategy::NativeImage,
     },
     FileFormat {
+        name: "Windows Cursor",
+        extensions: &["cur"],
+        mime_types: &["image/x-icon"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeImage,
+    },
+    FileFormat {
         name: "Targa Image",
         extensions: &["tga"],
         mime_types: &["image/x-tga", "image/targa"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeImage,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
 
-    // --- RAW PHOTOS (FFMPEG/LIBRAW - mapped to Ffmpeg or Native based on impl) ---
+    // --- RAW PHOTOS ---
     FileFormat {
         name: "Canon Raw",
         extensions: &["cr2", "cr3", "crw"],
         mime_types: &["image/x-canon-cr2", "image/x-canon-crw"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg, 
+        strategy: ThumbnailStrategy::NativeExtractor, 
     },
     FileFormat {
         name: "Nikon Raw",
         extensions: &["nef", "nrw"],
         mime_types: &["image/x-nikon-nef"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Sony Raw",
         extensions: &["arw", "srf", "sr2"],
         mime_types: &["image/x-sony-arw", "image/x-sony-srf", "image/x-sony-sr2"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Adobe DNG",
         extensions: &["dng"],
         mime_types: &["image/x-adobe-dng"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Fujifilm Raw",
         extensions: &["raf"],
         mime_types: &["image/x-fuji-raf"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Olympus Raw",
         extensions: &["orf"],
         mime_types: &["image/x-olympus-orf"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Panasonic Raw",
         extensions: &["rw2"],
         mime_types: &["image/x-panasonic-rw2"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg,
+        strategy: ThumbnailStrategy::NativeExtractor,
+    },
+    FileFormat {
+        name: "Pentax/Epson Raw",
+        extensions: &["pef", "erf"],
+        mime_types: &["image/x-pentax-pef", "image/x-epson-erf"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
 
     // --- MODERN FORMATS ---
@@ -227,21 +241,28 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["svg"],
         mime_types: &["image/svg+xml"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Webview, // SVG renders best in WebView
+        strategy: ThumbnailStrategy::Webview, 
     },
     FileFormat {
         name: "Adobe Photoshop",
         extensions: &["psd", "psb"],
         mime_types: &["image/vnd.adobe.photoshop"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Ffmpeg, 
+        strategy: ThumbnailStrategy::NativeExtractor, 
     },
     FileFormat {
         name: "Adobe Illustrator",
         extensions: &["ai", "eps"],
         mime_types: &["application/postscript", "application/illustrator"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Ffmpeg, // Attempt to extract PDF preview stream
+        strategy: ThumbnailStrategy::NativeExtractor, 
+    },
+    FileFormat {
+        name: "GIMP Image",
+        extensions: &["xcf"],
+        mime_types: &["image/x-xcf"],
+        type_category: MediaType::Project,
+        strategy: ThumbnailStrategy::Icon, // TODO: XCF parser
     },
 
     // --- 3D MODELS ---
@@ -250,7 +271,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["blend"],
         mime_types: &["application/x-blender"],
         type_category: MediaType::Model3D,
-        strategy: ThumbnailStrategy::Model3D,
+        strategy: ThumbnailStrategy::NativeExtractor, // Extract internal preview
     },
     FileFormat {
         name: "FBX Model",
@@ -387,21 +408,21 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["afdesign"],
         mime_types: &["application/x-affinity-design"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Affinity,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Affinity Photo",
         extensions: &["afphoto"],
         mime_types: &["application/x-affinity-photo"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Affinity,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
      FileFormat {
         name: "Affinity Publisher",
         extensions: &["afpub"],
         mime_types: &["application/x-affinity-publisher"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Affinity,
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Clip Studio Paint",
@@ -420,6 +441,36 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
 
     // --- VIDEOS ---
     FileFormat {
+        name: "OpenEXR Image",
+        extensions: &["exr"],
+        mime_types: &["image/x-exr"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor, 
+    },
+    FileFormat {
+        name: "Radiance HDR",
+        extensions: &["hdr"],
+        mime_types: &["image/vnd.radiance"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor, 
+    },
+    FileFormat {
+        name: "DirectDraw Surface",
+        extensions: &["dds"],
+        mime_types: &["image/vnd-ms.dds"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor, 
+    },
+    FileFormat {
+        name: "Netpbm Formats",
+        extensions: &["pbm", "pgm", "ppm", "pnm", "pam"],
+        mime_types: &["image/x-portable-bitmap", "image/x-portable-graymap", "image/x-portable-pixmap", "image/x-portable-anymap"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor, 
+    },
+
+    // --- VIDEOS (FFMPEG) ---
+    FileFormat {
         name: "MPEG-4 Video",
         extensions: &["mp4", "m4v"],
         mime_types: &["video/mp4"],
@@ -433,11 +484,17 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
     },
-    // --- PROFESSIONAL VIDEO & CGI ---
     FileFormat {
         name: "QuickTime Video",
         extensions: &["mov", "qt"],
         mime_types: &["video/quicktime"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "Matroska Video",
+        extensions: &["mkv"],
+        mime_types: &["video/x-matroska"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
     },
@@ -449,17 +506,75 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         strategy: ThumbnailStrategy::Ffmpeg,
     },
     FileFormat {
-        name: "OpenEXR Image",
-        extensions: &["exr"],
-        mime_types: &["image/x-exr"],
-        type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg, 
+        name: "Windows Media Video",
+        extensions: &["wmv", "asf"],
+        mime_types: &["video/x-ms-wmv", "video/x-ms-asf"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
     },
     FileFormat {
-        name: "Radiance HDR",
-        extensions: &["hdr"],
-        mime_types: &["image/vnd.radiance"],
-        type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Ffmpeg, 
+        name: "Flash Video",
+        extensions: &["flv", "f4v", "swf"],
+        mime_types: &["video/x-flv"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "MPEG Video",
+        extensions: &["mpg", "mpeg", "m2v", "vob", "ts", "mts", "m2ts"],
+        mime_types: &["video/mpeg", "video/mp2p", "video/mp2t", "video/x-m2ts"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "AVI Video",
+        extensions: &["avi", "divx"],
+        mime_types: &["video/x-msvideo", "video/avi"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+
+    // --- AUDIO ---
+    FileFormat {
+        name: "MP3 Audio",
+        extensions: &["mp3"],
+        mime_types: &["audio/mpeg", "audio/mp3"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon, 
+    },
+    FileFormat {
+        name: "Waveform Audio",
+        extensions: &["wav"],
+        mime_types: &["audio/wav", "audio/x-wav", "audio/wave"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "FLAC Audio",
+        extensions: &["flac"],
+        mime_types: &["audio/flac", "audio/x-flac"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Ogg Audio",
+        extensions: &["ogg", "oga"],
+        mime_types: &["audio/ogg", "application/ogg"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Opus Audio",
+        extensions: &["opus"],
+        mime_types: &["audio/opus", "audio/ogg"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "MPEG-4 Audio",
+        extensions: &["m4a", "aac"],
+        mime_types: &["audio/mp4", "audio/aac", "audio/x-m4a"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
     },
 ];

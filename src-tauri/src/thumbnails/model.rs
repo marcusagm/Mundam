@@ -113,7 +113,16 @@ fn get_assimp_path_best_effort() -> PathBuf {
         }
     }
     
-    // 2. Fallback to system PATH
+    // 2. Try common system paths (macOS Homebrew)
+    #[cfg(target_os = "macos")]
+    {
+        let homebrew = PathBuf::from("/opt/homebrew/bin/assimp");
+        if homebrew.exists() { return homebrew; }
+        let usr_local = PathBuf::from("/usr/local/bin/assimp");
+        if usr_local.exists() { return usr_local; }
+    }
+
+    // 3. Fallback to system PATH
     PathBuf::from("assimp")
 }
 

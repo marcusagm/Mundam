@@ -40,3 +40,5 @@ desktop.ini
 
 # Tauri / Rust Check
 # (Most Tauri ignores are in src-tauri/.gitignore, but avoiding redundancy here)
+
+/file-samples

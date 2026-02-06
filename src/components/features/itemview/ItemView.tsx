@@ -6,7 +6,8 @@ import {
     Match,
     createEffect,
     onCleanup,
-    onMount
+    onMount,
+    createSignal
 } from 'solid-js';
 import { useViewport, useLibrary } from '../../../core/hooks';
 import { useShortcuts, createConditionalScope } from '../../../core/input';
@@ -19,6 +20,7 @@ import { VideoPlayer } from './renderers/video/VideoPlayer';
 import { FontView } from './renderers/font/FontView';
 import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
+import { Loader } from '../../ui/Loader';
 import './item-view.css';
 
 // Helper to determine media type from extension
@@ -42,13 +44,60 @@ const getMediaType = (
         'avif',
         'afphoto',
         'afdesign',
-        'afpub'
+        'afpub',
+        'psd',
+        'psb',
+        'arw',
+        'cr2',
+        'cr3',
+        'nef',
+        'dng',
+        'raf',
+        'orf',
+        'rw2',
+        'nrw',
+        'srf',
+        'sr2',
+        'crw',
+        'erf',
+        'pef',
+        'tga',
+        'tiff',
+        'tif',
+        'heic',
+        'heif',
+        'exr',
+        'hdr',
+        'clip',
+        'ai',
+        'eps',
+        'dds'
     ];
-    const videoExts = ['mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv'];
-    const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'];
+    const videoExts = [
+        'mp4',
+        'm4v',
+        'webm',
+        'mov',
+        'qt',
+        'mxf',
+        'mkv',
+        'avi',
+        'wmv',
+        'flv',
+        'mpg',
+        'mpeg',
+        'ts',
+        'mts',
+        'm2ts',
+        'vob',
+        'm2v',
+        'asf',
+        'f4v',
+        'swf'
+    ];
+    const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'oga', 'opus'];
     const fontExts = ['ttf', 'otf', 'ttc', 'woff', 'woff2'];
     const modelExts = [
-        'blend',
         'fbx',
         'obj',
         'glb',
@@ -58,7 +107,8 @@ const getMediaType = (
         '3ds',
         'dxf',
         'lwo',
-        'lws'
+        'lws',
+        'blend'
     ];
 
     if (imageExts.includes(ext)) return 'image';
@@ -113,15 +163,19 @@ const ItemViewContent: Component = () => {
     // Push image-viewer scope with blocking enabled (isolates input)
     createConditionalScope('image-viewer', () => true, undefined, true);
 
+    const [itemLoading, setItemLoading] = createSignal(false);
     const item = createMemo(() => lib.items.find(i => i.id.toString() === viewport.activeItemId()));
 
     // Reset view state when item changes
     createEffect(() => {
         const i = item();
         if (i) {
+            setItemLoading(true);
             reset();
             const type = getMediaType(i.filename);
             setMediaType(type);
+            // Small delay to allow renderer to mount/unmount smoothly
+            setTimeout(() => setItemLoading(false), 300);
         }
     });
 
@@ -220,39 +274,46 @@ const ItemViewContent: Component = () => {
             </BaseToolbar>
 
             <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>
-                <Switch fallback={<div class="item-error">Unsupported format</div>}>
-                    <Match
-                        when={
-                            getMediaType(item()!.filename) === 'image' ||
-                            getMediaType(item()!.filename) === 'unknown'
-                        }
-                    >
-                        {/* Defaulting unknown to image for now, or maybe project/raw files */}
-                        <ImageViewer
-                            src={`orig://localhost/${item()!.path}`}
-                            alt={item()!.filename}
-                        />
-                    </Match>
-                    <Match when={getMediaType(item()!.filename) === 'video'}>
-                        <VideoPlayer src={`orig://localhost/${item()!.path}`} type="video" />
-                    </Match>
-                    <Match when={getMediaType(item()!.filename) === 'audio'}>
-                        <VideoPlayer src={`orig://localhost/${item()!.path}`} type="audio" />
-                    </Match>
-                    <Match when={mediaType() === 'font'}>
-                        <FontView
-                            src={`orig://localhost/${item()!.path}`}
-                            fontName={item()!.filename}
-                        />
-                    </Match>
-                    <Match when={getMediaType(item()!.filename) === 'model'}>
-                        <ModelViewer
-                            src={`orig://localhost/${item()!.path}`}
-                            filename={item()!.filename}
-                            thumbnail={item()!.thumbnail_path}
-                        />
-                    </Match>
-                </Switch>
+                <div class="item-renderer-wrapper" classList={{ 'is-changing': itemLoading() }}>
+                    <Show when={itemLoading()}>
+                        <div class="item-switch-loader">
+                            <Loader size="lg" text="Loading asset..." />
+                        </div>
+                    </Show>
+
+                    <Switch fallback={<div class="item-error">Unsupported format</div>}>
+                        <Match
+                            when={
+                                getMediaType(item()!.filename) === 'image' ||
+                                getMediaType(item()!.filename) === 'unknown'
+                            }
+                        >
+                            <ImageViewer
+                                src={`orig://localhost/${item()!.path}`}
+                                alt={item()!.filename}
+                            />
+                        </Match>
+                        <Match when={getMediaType(item()!.filename) === 'video'}>
+                            <VideoPlayer src={`orig://localhost/${item()!.path}`} type="video" />
+                        </Match>
+                        <Match when={getMediaType(item()!.filename) === 'audio'}>
+                            <VideoPlayer src={`orig://localhost/${item()!.path}`} type="audio" />
+                        </Match>
+                        <Match when={mediaType() === 'font'}>
+                            <FontView
+                                src={`orig://localhost/${item()!.path}`}
+                                fontName={item()!.filename}
+                            />
+                        </Match>
+                        <Match when={getMediaType(item()!.filename) === 'model'}>
+                            <ModelViewer
+                                src={`orig://localhost/${item()!.path}`}
+                                filename={item()!.filename}
+                                thumbnail={item()!.thumbnail_path}
+                            />
+                        </Match>
+                    </Switch>
+                </div>
             </Show>
         </div>
     );

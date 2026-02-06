@@ -4,6 +4,7 @@ use crate::formats::{FileFormat, ThumbnailStrategy};
 pub mod native;
 pub mod archive;
 pub mod affinity;
+pub mod extractors;
 
 pub mod icon;
 pub mod svg;
@@ -74,8 +75,11 @@ pub fn generate_thumbnail(
     let ffmpeg_available = crate::ffmpeg::is_ffmpeg_available();
     
     // Note: If we use FFmpeg, the open_file handle is ignored (FFmpeg opens its own).
-    // Shared read locks should be fine on most OSs.
-    if ffmpeg_available && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage) {
+    // EXCLUSION: Affinity, Clip, XMind should always use NativeExtractor first as they are proprietary zip formats.
+    let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let is_zip_project = ["afphoto", "afdesign", "afpub", "clip", "xmind"].contains(&ext.as_str());
+
+    if ffmpeg_available && !is_zip_project && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
          if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
@@ -91,7 +95,7 @@ pub fn generate_thumbnail(
         },
         ThumbnailStrategy::NativeImage => native::generate_thumbnail_fast(input_path, &output_path, size_px, open_file.as_mut()).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::ZipPreview => archive::generate_thumbnail_zip_preview(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
-        ThumbnailStrategy::Affinity => affinity::generate_thumbnail_affinity(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
+        ThumbnailStrategy::NativeExtractor => extractors::generate_thumbnail_extracted(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::Font => font::generate_font_thumbnail(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::Model3D => model::generate_model_preview(input_path, thumbnails_dir, hashed_filename, size_px), 

@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
-use fast_image_resize as fr;
-use crate::thumbnails::native::encode_webp_native;
 
 const PNG_SIGNATURE: &[u8; 8] = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a";
 const PNG_IEND: &[u8; 4] = b"IEND";
@@ -61,53 +59,8 @@ pub fn extract_largest_png(input_path: &Path) -> Result<Vec<u8>, Box<dyn std::er
     }
 }
 
-/// Extract preview from Affinity files and resize it to a thumbnail.
-pub fn generate_thumbnail_affinity(
-    input_path: &Path,
-    output_path: &Path,
-    size_px: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let png_data = extract_largest_png(input_path)?;
-    process_png_data(&png_data, output_path, size_px)
-}
-
 fn find_iend(data: &[u8]) -> Option<usize> {
     // Search for "IEND" string
     data.windows(4).position(|window| window == PNG_IEND)
 }
 
-fn process_png_data(
-    png_data: &[u8],
-    output_path: &Path,
-    size_px: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let img = image::load_from_memory(png_data)?;
-    let width = img.width();
-    let height = img.height();
-
-    let aspect = width as f32 / height as f32;
-    let (new_w, new_h) = if aspect > 1.0 {
-        (size_px, (size_px as f32 / aspect).max(1.0) as u32)
-    } else {
-        (((size_px as f32 * aspect).max(1.0)) as u32, size_px)
-    };
-
-    let src_image = fr::images::Image::from_vec_u8(
-        width,
-        height,
-        img.to_rgba8().into_raw(),
-        fr::PixelType::U8x4,
-    )
-    .map_err(|e| e.to_string())?;
-
-    let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
-    let mut resizer = fr::Resizer::new();
-    resizer
-        .resize(&src_image, &mut dst_image, None)
-        .map_err(|e| e.to_string())?;
-
-    let buffer = dst_image.buffer();
-    encode_webp_native(buffer, new_w, new_h, output_path)?;
-
-    Ok(())
-}

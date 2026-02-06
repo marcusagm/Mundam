@@ -49,3 +49,29 @@
     width: 100%;
     height: 100%;
 }
+
+.item-renderer-wrapper {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.item-renderer-wrapper.is-changing {
+    opacity: 0.5;
+}
+
+.item-switch-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2rem;
+    border-radius: 1rem;
+    backdrop-filter: blur(4px);
+}
