@@ -98,8 +98,10 @@ impl FfmpegTranscoder {
     ) -> Command {
         let mut cmd = Command::new(&self.ffmpeg_path);
 
-        // Input
-        cmd.arg("-y") // Overwrite output
+        // Input options
+        cmd.arg("-y")                    // Overwrite output
+            .arg("-hide_banner")         // Cleaner output
+            .arg("-loglevel").arg("warning") // Reduce verbosity
             .arg("-i")
             .arg(source);
 
@@ -115,7 +117,10 @@ impl FfmpegTranscoder {
             }
             MediaType::Video | MediaType::Unknown => {
                 // Video transcoding to H.264 + AAC using CRF for quality
+                // Map video and audio streams explicitly, ignore if missing
                 cmd.args([
+                    "-map", "0:v:0?",          // First video stream (optional)
+                    "-map", "0:a:0?",          // First audio stream (optional)
                     "-c:v", "libx264",         // H.264 codec
                     "-preset", quality.ffmpeg_preset(),
                     "-crf", &quality.crf().to_string(), // CRF-based quality
@@ -123,6 +128,7 @@ impl FfmpegTranscoder {
                     "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
                     "-movflags", "+faststart", // Web optimization
                     "-pix_fmt", "yuv420p",     // Compatibility
+                    "-max_muxing_queue_size", "1024", // Handle complex streams
                     "-f", "mp4",
                 ]);
             }
