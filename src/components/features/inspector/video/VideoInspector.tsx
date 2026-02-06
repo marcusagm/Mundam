@@ -3,6 +3,7 @@ import { type ImageItem } from '../../../../types';
 import { Accordion, VideoPlayer as UIVideoPlayer } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
+import { getVideoUrl } from '../../../../lib/stream-utils';
 import './VideoInspector.css';
 
 interface VideoInspectorProps {
@@ -10,7 +11,7 @@ interface VideoInspectorProps {
 }
 
 export const VideoInspector: Component<VideoInspectorProps> = props => {
-    const assetUrl = () => `video://localhost/${encodeURIComponent(props.item.path)}`;
+    const assetUrl = () => getVideoUrl(props.item.path);
 
     return (
         <div class="inspector-content">

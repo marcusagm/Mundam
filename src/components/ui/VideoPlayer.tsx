@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { Component, createSignal, createEffect, on, onMount, onCleanup, Show } from 'solid-js';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
 import { Slider } from './Slider';
@@ -14,6 +14,7 @@ import {
     SkipBack,
     SkipForward
 } from 'lucide-solid';
+import { videoState, videoActions } from '../../core/store/videoStore';
 import './video-player.css';
 
 export interface VideoPlayerProps {
@@ -33,19 +34,53 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     const [isPlaying, setIsPlaying] = createSignal(false);
     const [currentTime, setCurrentTime] = createSignal(0);
     const [duration, setDuration] = createSignal(0);
-    const [volume, setVolume] = createSignal(1);
-    const [isMuted, setIsMuted] = createSignal(false);
     const [isLoading, setIsLoading] = createSignal(true);
     const [isFullscreen, setIsFullscreen] = createSignal(false);
     const [showControls, setShowControls] = createSignal(true);
     const [error, setError] = createSignal<string | null>(null);
-    const [playbackRate, setPlaybackRate] = createSignal(1);
     const [buffered, setBuffered] = createSignal(0);
     const [previewTime, setPreviewTime] = createSignal<number | null>(null);
     const [previewPos, setPreviewPos] = createSignal(0);
     const [lastAction, setLastAction] = createSignal<'play' | 'pause' | null>(null);
+    const [isTranscoding, setIsTranscoding] = createSignal(false);
+    const [retryCount, setRetryCount] = createSignal(0);
 
     let controlsTimeout: number;
+    let retryTimeout: number | undefined;
+
+    // Check if this is a transcoding URL
+    const needsTranscode = () =>
+        props.src.includes('video-stream://') || props.src.includes('audio-stream://');
+
+    // Reset state when src changes
+    createEffect(
+        on(
+            () => props.src,
+            () => {
+                // Clear any pending retry
+                if (retryTimeout) {
+                    clearTimeout(retryTimeout);
+                    retryTimeout = undefined;
+                }
+                // Reset playback state
+                setError(null);
+                setIsLoading(true);
+                setIsTranscoding(false);
+                setRetryCount(0);
+                setCurrentTime(0);
+                setDuration(0);
+                setBuffered(0);
+                setIsPlaying(false);
+                setPreviewTime(null);
+                // Apply persisted volume to video element
+                if (videoRef) {
+                    videoRef.volume = videoState.volume();
+                    videoRef.muted = videoState.isMuted();
+                    videoRef.playbackRate = videoState.playbackRate();
+                }
+            }
+        )
+    );
 
     const togglePlay = (e?: MouseEvent) => {
         if (e) e.stopPropagation();
@@ -104,6 +139,13 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
 
     const handleLoadedMetadata = () => {
         if (!videoRef) return;
+        // Video loaded successfully - clear transcoding state
+        setIsTranscoding(false);
+        setRetryCount(0);
+        if (retryTimeout) {
+            clearTimeout(retryTimeout);
+            retryTimeout = undefined;
+        }
         setDuration(videoRef.duration);
         setIsLoading(false);
     };
@@ -117,26 +159,26 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     const toggleMute = (e?: MouseEvent) => {
         if (e) e.stopPropagation();
         if (!videoRef) return;
-        const newMuted = !isMuted();
-        setIsMuted(newMuted);
+        const newMuted = !videoState.isMuted();
+        videoActions.setIsMuted(newMuted);
         videoRef.muted = newMuted;
     };
 
     const handleVolumeChange = (val: number) => {
         if (!videoRef) return;
         const v = val / 100;
-        setVolume(v);
+        videoActions.setVolume(v);
         videoRef.volume = v;
-        if (v > 0) setIsMuted(false);
+        if (v > 0) videoActions.setIsMuted(false);
     };
 
     const cyclePlaybackRate = (e?: MouseEvent) => {
         if (e) e.stopPropagation();
         if (!videoRef) return;
         const rates = [1, 1.25, 1.5, 2];
-        const current = playbackRate();
+        const current = videoState.playbackRate();
         const next = rates[(rates.indexOf(current) + 1) % rates.length];
-        setPlaybackRate(next);
+        videoActions.setPlaybackRate(next);
         videoRef.playbackRate = next;
     };
 
@@ -191,11 +233,11 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                 break;
             case 'ArrowUp':
                 e.preventDefault();
-                handleVolumeChange(Math.min((volume() + 0.1) * 100, 100));
+                handleVolumeChange(Math.min((videoState.volume() + 0.1) * 100, 100));
                 break;
             case 'ArrowDown':
                 e.preventDefault();
-                handleVolumeChange(Math.max((volume() - 0.1) * 100, 0));
+                handleVolumeChange(Math.max((videoState.volume() - 0.1) * 100, 0));
                 break;
             case 'KeyF':
                 e.preventDefault();
@@ -219,6 +261,9 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
 
     onCleanup(() => {
         clearTimeout(controlsTimeout);
+        if (retryTimeout) {
+            clearTimeout(retryTimeout);
+        }
         const fsHandler = () => {};
         document.removeEventListener('fullscreenchange', fsHandler);
         document.removeEventListener('webkitfullscreenchange', fsHandler);
@@ -238,11 +283,25 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
             onKeyDown={handleKeyDown}
             tabindex="0"
         >
-            <Show when={error()}>
+            <Show when={isTranscoding()}>
+                <div class="ui-video-transcoding">
+                    <Loader size="lg" />
+                    <p>Transcoding video...</p>
+                    <p class="ui-video-transcoding-hint">This may take a while for large files</p>
+                </div>
+            </Show>
+
+            <Show when={error() && !isTranscoding()}>
                 <div class="ui-video-error">
                     <AlertCircle size={48} />
                     <p>{error()}</p>
-                    <Button variant="outline" onClick={() => setError(null)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setError(null);
+                            setRetryCount(0);
+                        }}
+                    >
                         Retry
                     </Button>
                 </div>
@@ -276,9 +335,24 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     onClick={togglePlay}
                     onDblClick={toggleFullscreen}
                     onError={() => {
-                        const msg = 'Error loading video format';
-                        setError(msg);
-                        props.onError?.(msg);
+                        // If this is a transcoding URL and we haven't retried too many times, auto-retry
+                        if (needsTranscode() && retryCount() < 20) {
+                            setIsTranscoding(true);
+                            setRetryCount(prev => prev + 1);
+                            // Auto-retry after 3 seconds
+                            retryTimeout = window.setTimeout(() => {
+                                if (videoRef) {
+                                    videoRef.load();
+                                }
+                            }, 3000);
+                        } else {
+                            setIsTranscoding(false);
+                            const msg = needsTranscode()
+                                ? 'Transcoding failed or timed out'
+                                : 'Error loading video format';
+                            setError(msg);
+                            props.onError?.(msg);
+                        }
                     }}
                     tabindex="-1"
                 />
@@ -389,7 +463,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                                         onClick={e => toggleMute(e)}
                                     >
                                         <Show
-                                            when={isMuted() || volume() === 0}
+                                            when={videoState.isMuted() || videoState.volume() === 0}
                                             fallback={<Volume2 size={18} />}
                                         >
                                             <VolumeX size={18} />
@@ -399,7 +473,9 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                                         <Slider
                                             min={0}
                                             max={100}
-                                            value={isMuted() ? 0 : volume() * 100}
+                                            value={
+                                                videoState.isMuted() ? 0 : videoState.volume() * 100
+                                            }
                                             onValueChange={handleVolumeChange}
                                         />
                                     </div>
@@ -422,7 +498,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                                             class="ui-video-speed-btn"
                                             onClick={e => cyclePlaybackRate(e)}
                                         >
-                                            {playbackRate()}x
+                                            {videoState.playbackRate()}x
                                         </Button>
                                     </Tooltip>
                                 </Show>

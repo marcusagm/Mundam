@@ -1,0 +1,59 @@
+# .editorconfig
+# Top-most EditorConfig file
+root = true
+
+# Base settings for all files
+[*]
+indent_style = space
+indent_size = 4
+tab_width = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# JavaScript/TypeScript files
+[*.{js,jsx,ts,tsx}]
+indent_size = 4
+indent_style = space
+# other language-specific preferences could go here
+# e.g., consistent line endings, etc.
+
+# CSS / SCSS / Less files
+[*.{css,scss,less}]
+indent_size = 4
+indent_style = space
+# optional: disable trimming whitespace in css (if wanted)
+# trim_trailing_whitespace = false
+
+# HTML files
+[*.html]
+indent_size = 4
+indent_style = space
+
+# JSON files (config, package.json etc)
+[*.json]
+indent_size = 4
+indent_style = space
+# Optionally allow trailing whitespace if desired for readability
+trim_trailing_whitespace = false
+
+# Markdown files
+[*.md]
+indent_size = 4
+indent_style = space
+trim_trailing_whitespace = false
+# For Markdown you may want less strict whitespace trimming
+insert_final_newline = true
+
+# Makefile uses tabs
+[Makefile]
+indent_style = tab
+tab_width = 4
+
+# Optional: override for generated / build files (ignore)
+[build/**]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = false
+insert_final_newline = false

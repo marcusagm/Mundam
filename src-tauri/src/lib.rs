@@ -19,6 +19,7 @@ pub mod formats;
 mod format_commands;
 mod audio_commands;
 mod config;
+mod transcoding;
 
 
 use crate::database::Db;
@@ -141,7 +142,18 @@ pub fn run() {
             settings_commands::run_db_maintenance,
 
             format_commands::get_library_supported_formats,
-            audio_commands::get_audio_waveform_data
+            audio_commands::get_audio_waveform_data,
+
+            // Transcoding commands
+            transcoding::commands::needs_transcoding,
+            transcoding::commands::is_native_format,
+            transcoding::commands::get_stream_url,
+            transcoding::commands::get_quality_options,
+            transcoding::commands::transcode_file,
+            transcoding::commands::is_cached,
+            transcoding::commands::get_cache_stats,
+            transcoding::commands::cleanup_cache,
+            transcoding::commands::ffmpeg_available
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

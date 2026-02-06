@@ -3,6 +3,7 @@ import { type ImageItem } from '../../../../types';
 import { Accordion, AudioPlayer, Loader } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
+import { getAudioUrl } from '../../../../lib/stream-utils';
 import './AudioInspector.css';
 
 interface AudioInspectorProps {
@@ -10,7 +11,7 @@ interface AudioInspectorProps {
 }
 
 export const AudioInspector: Component<AudioInspectorProps> = props => {
-    const assetUrl = () => `audio://localhost/${encodeURIComponent(props.item.path)}`;
+    const assetUrl = () => getAudioUrl(props.item.path);
     const [loading, setLoading] = createSignal(false);
 
     // Provide a visual hint when switching items in the inspector
