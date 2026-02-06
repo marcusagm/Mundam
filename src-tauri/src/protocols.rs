@@ -6,22 +6,31 @@ use tauri::{
     Manager,
 };
 
+fn error_response(status: StatusCode, body: Vec<u8>) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(body)
+        .unwrap_or_else(|_| Response::default())
+}
+
 fn serve_file(path: &Path, range: Option<&header::HeaderValue>) -> Result<Response<Vec<u8>>, Response<Vec<u8>>> {
     use std::io::{Read, Seek};
     
+    if !path.exists() {
+        return Err(error_response(StatusCode::NOT_FOUND, b"File not found".to_vec()));
+    }
+
+    if path.is_dir() {
+        return Err(error_response(StatusCode::FORBIDDEN, b"Cannot serve directory".to_vec()));
+    }
+
     let mut file = std::fs::File::open(path).map_err(|e| {
-        Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(e.to_string().into_bytes())
-            .unwrap()
+        error_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string().into_bytes())
     })?;
 
     let metadata = file.metadata().map_err(|_| {
-        Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Vec::new())
-            .unwrap()
+        error_response(StatusCode::INTERNAL_SERVER_ERROR, Vec::new())
     })?;
     
     let file_size = metadata.len();
@@ -45,7 +54,7 @@ fn serve_file(path: &Path, range: Option<&header::HeaderValue>) -> Result<Respon
         }
     }
 
-    let response = Response::builder()
+    let builder = Response::builder()
         .header(header::CONTENT_TYPE, mime)
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(header::ACCEPT_RANGES, "bytes");
@@ -61,40 +70,59 @@ fn serve_file(path: &Path, range: Option<&header::HeaderValue>) -> Result<Respon
 
                     if start < file_size && start <= end {
                         let chunk_size = (end - start) + 1;
-                        let mut buffer = vec![0u8; chunk_size as usize];
                         
-                        file.seek(std::io::SeekFrom::Start(start)).map_err(|_| {
-                             Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap()
-                        })?;
-                        
-                        file.read_exact(&mut buffer).map_err(|_| {
-                             Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap()
-                        })?;
+                        // Security check: don't allocate more than 100MB per chunk
+                        if chunk_size > 100 * 1024 * 1024 {
+                             return Err(error_response(StatusCode::PAYLOAD_TOO_LARGE, b"Chunk too large".to_vec()));
+                        }
 
-                        return Ok(response
-                            .status(StatusCode::PARTIAL_CONTENT)
-                            .header(header::CONTENT_RANGE, format!("bytes {}-{}/{}", start, end, file_size))
-                            .header(header::CONTENT_LENGTH, chunk_size)
-                            .body(buffer)
-                            .unwrap());
+                        let mut buffer = vec![0u8; chunk_size as usize];
+                        if file.seek(std::io::SeekFrom::Start(start)).is_ok() && file.read_exact(&mut buffer).is_ok() {
+                            return Ok(builder
+                                .status(StatusCode::PARTIAL_CONTENT)
+                                .header(header::CONTENT_RANGE, format!("bytes {}-{}/{}", start, end, file_size))
+                                .header(header::CONTENT_LENGTH, chunk_size)
+                                .body(buffer)
+                                .unwrap_or_else(|_| Response::default()));
+                        }
                     }
                 }
             }
         }
     }
 
-    // Default: Serve entire file (be careful with memory, but Vec<u8> is required by Response)
-    // For very large files, this might still be an issue if Range wasn't used.
-    let mut all_data = Vec::with_capacity(file_size as usize);
-    file.read_to_end(&mut all_data).map_err(|_| {
-        Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap()
-    })?;
+    // Default: Serve entire file. Prevent serving massive files without Range to avoid OOM panics.
+    if file_size > 150 * 1024 * 1024 {
+        return Err(error_response(StatusCode::PAYLOAD_TOO_LARGE, b"File too large. Use Range requests.".to_vec()));
+    }
 
-    Ok(response
+    let mut all_data = Vec::new();
+    if file.read_to_end(&mut all_data).is_err() {
+        return Err(error_response(StatusCode::INTERNAL_SERVER_ERROR, b"Read error".to_vec()));
+    }
+
+    Ok(builder
         .status(StatusCode::OK)
         .header(header::CONTENT_LENGTH, file_size)
         .body(all_data)
-        .unwrap())
+        .unwrap_or_else(|_| Response::default()))
+}
+
+fn extract_path_part(uri: &str, scheme: &str) -> String {
+    // Standardize URL parsing for custom protocols in Tauri 2
+    let prefix_with_host = format!("{}://localhost/", scheme);
+    let prefix_simple = format!("{}://", scheme);
+    let prefix_short = format!("{}:", scheme);
+
+    if let Some(pos) = uri.find(&prefix_with_host) {
+        uri[pos + prefix_with_host.len()..].to_string()
+    } else if let Some(pos) = uri.find(&prefix_simple) {
+        uri[pos + prefix_simple.len()..].to_string()
+    } else if let Some(pos) = uri.find(&prefix_short) {
+        uri[pos + prefix_short.len()..].to_string()
+    } else {
+        uri.to_string()
+    }
 }
 
 pub fn thumb_handler(
@@ -102,27 +130,17 @@ pub fn thumb_handler(
     request: &tauri::http::Request<Vec<u8>>,
 ) -> Response<Vec<u8>> {
     let uri = request.uri().to_string();
-    // println!("DEBUG: thumb_handler called for URI: {}", uri);
+    let path_part = extract_path_part(&uri, "thumb");
+    let path_part = path_part.split('?').next().unwrap_or(&path_part);
 
-    let path_part = if uri.contains("://localhost/") {
-        uri.split("://localhost/").nth(1).unwrap_or("")
-    } else {
-        uri.trim_start_matches("thumb://")
+    let thumb_dir = match app.path().app_local_data_dir() {
+        Ok(dir) => dir.join("thumbnails"),
+        Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, b"Data dir not found".to_vec()),
     };
-    
-    // Strip query params if present (e.g., ?v=0 for cache busting)
-    let path_part = path_part.split('?').next().unwrap_or(path_part);
-
-    let thumb_dir = app
-        .path()
-        .app_local_data_dir()
-        .expect("Failed to get app data dir")
-        .join("thumbnails");
 
     let decoded_filename = percent_decode_str(path_part).decode_utf8_lossy();
     let mut full_path = thumb_dir.join(decoded_filename.as_ref());
 
-    // Fallback: If it's an icon that's missing the 'extensions/' prefix
     if !full_path.exists() && decoded_filename.starts_with("icon_") {
         let alt_path = thumb_dir.join("extensions").join(decoded_filename.as_ref());
         if alt_path.exists() {
@@ -131,7 +149,6 @@ pub fn thumb_handler(
     }
 
     let range = request.headers().get(header::RANGE);
-
     match serve_file(&full_path, range) {
         Ok(res) => res,
         Err(res) => res,
@@ -143,35 +160,31 @@ pub fn orig_handler(
     request: &tauri::http::Request<Vec<u8>>,
 ) -> Response<Vec<u8>> {
     let uri = request.uri().to_string();
+    let path_part = extract_path_part(&uri, "orig");
 
-    let path_part = if uri.contains("://localhost/") {
-        uri.split("://localhost/").nth(1).unwrap_or("")
-    } else {
-        uri.trim_start_matches("orig://")
-    };
-
-    let decoded_path = percent_decode_str(path_part).decode_utf8_lossy();
+    let decoded_path = percent_decode_str(&path_part).decode_utf8_lossy();
     let mut full_path = PathBuf::from(decoded_path.as_ref());
 
-    // Ensure absolute path on Unix
     if !full_path.is_absolute() && cfg!(unix) {
-        full_path = PathBuf::from("/").join(full_path);
+        // Handle leading slash removal by browsers
+        if !path_part.starts_with('/') {
+             full_path = PathBuf::from("/").join(full_path);
+        }
     }
 
     // NATIVE EXTRACTORS: Interpolate formats the browser cannot render natively.
-    // We intercept and serve an extracted preview if available.
     if let Ok((preview_data, mime)) = crate::thumbnails::extractors::extract_preview(&full_path) {
-        println!("PROTOCOL (orig_handler): Extracted {} preview for {:?}", mime, full_path.file_name().unwrap_or_default());
+        let len = preview_data.len();
         return Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime)
+            .header(header::CONTENT_LENGTH, len)
             .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(preview_data)
-            .unwrap();
+            .unwrap_or_else(|_| Response::default());
     }
 
     let range = request.headers().get(header::RANGE);
-
     match serve_file(&full_path, range) {
         Ok(res) => res,
         Err(res) => res,

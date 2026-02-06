@@ -1,0 +1,34 @@
+.star-rating {
+    display: flex;
+    gap: 2px;
+}
+
+.star-button {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-xs);
+}
+
+.star-button:hover:not(.is-readonly) {
+    color: var(--p-warning-500);
+    background: var(--bg-surface-3);
+}
+
+.star-button.is-filled {
+    color: var(--p-warning-500);
+}
+
+.star-button.is-active {
+    color: var(--p-warning-500);
+}
+
+.star-button.is-readonly {
+    cursor: default;
+}

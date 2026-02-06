@@ -1,0 +1,23 @@
+.inspector-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: var(--p-space-m);
+}
+
+.inspector-preview.audio-preview {
+    margin: var(--p-space-m);
+    height: auto;
+    padding: var(--p-space-xl);
+    background: var(--bg-surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-s);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-s);
+}
+
+.inspector-audio-player {
+    width: 100%;
+}

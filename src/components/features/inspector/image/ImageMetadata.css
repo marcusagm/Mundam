@@ -1,0 +1,26 @@
+.inspector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--p-space-m) 0.75rem;
+    padding: var(--p-space-s) 0;
+}
+
+.inspector-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+}
+
+.inspector-meta-label {
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.inspector-meta-value {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-s);
+    font-size: var(--p-font-size-xs);
+    color: var(--text-secondary);
+}

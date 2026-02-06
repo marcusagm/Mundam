@@ -1,0 +1,69 @@
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: var(--p-space-m);
+}
+
+.deck-container {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--p-space-xl);
+}
+
+.inspector-deck-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.inspector-deck-card {
+  position: absolute;
+  background: var(--bg-surface-2);
+  border: 2px solid var(--border-active);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  overflow: hidden;
+}
+
+.deck-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.inspector-deck-badge {
+  position: absolute;
+  z-index: 10;
+  top: -10px;
+  right: -10px;
+  background: var(--action-primary-bg);
+  color: white;
+  font-size: var(--p-font-size-xxs);
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-s);
+  border: 2px solid var(--bg-sidebar);
+}
+
+.inspector-selection-count {
+  text-align: center;
+  margin-bottom: var(--p-space-m);
+  font-size: var(--p-font-size-m);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.batch-hint {
+   font-size: var(--p-font-size-xxs);
+   color: var(--text-secondary);
+   line-height: 1.4;
+}
+
+.inspector-field-group {
+    margin-bottom: var(--p-space-m);
+}

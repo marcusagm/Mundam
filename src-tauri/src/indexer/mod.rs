@@ -112,9 +112,13 @@ impl Indexer {
         // Ensure root is in the set
         unique_dirs.insert(root_str.clone());
 
+        println!("DEBUG: Ensuring folder hierarchy for {} folders...", unique_dirs.len());
         // 2. Ensure Hierarchy Exists
         let folder_map = match self.ensure_folder_hierarchy(unique_dirs, &root_str).await {
-            Ok(map) => map,
+            Ok(map) => {
+                println!("DEBUG: Folder hierarchy ensured ({} entries)", map.len());
+                map
+            },
             Err(e) => {
                 eprintln!("Failed to ensure folder hierarchy: {}", e);
                 HashMap::new()

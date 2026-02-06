@@ -1,0 +1,104 @@
+.inspector-tags-wrapper {
+    padding: var(--p-space-xs) 0;
+}
+
+.inspector-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--p-space-xs);
+    margin-bottom: var(--p-space-s);
+}
+
+.inspector-tag-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-xs);
+    padding-right: var(--p-space-xxs);
+}
+
+.tag-remove-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: var(--transition-fast);
+}
+
+.tag-remove-btn:hover {
+    color: var(--text-destructive);
+    background: var(--bg-surface-3);
+}
+
+.add-tag-trigger {
+    background: var(--bg-surface-2);
+    border: 1px dashed var(--border-default);
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xxs);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: var(--transition-fast);
+}
+
+.add-tag-trigger:hover {
+    border-color: var(--border-active);
+    color: var(--text-primary);
+    background: var(--bg-surface-3);
+}
+
+.add-tag-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-s);
+    background: var(--bg-surface-1);
+    padding: var(--p-space-s);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border-subtle);
+}
+
+.add-tag-input {
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-default);
+    color: var(--text-primary);
+    font-size: var(--p-font-size-xs);
+    padding: 4px var(--p-space-s);
+    border-radius: var(--radius-xs);
+    width: 100%;
+}
+
+.add-tag-input:focus {
+    outline: none;
+    border-color: var(--border-active);
+}
+
+.add-tag-actions {
+    display: flex;
+    gap: var(--p-space-s);
+}
+
+.add-tag-btn, .cancel-tag-btn {
+    font-size: var(--p-font-size-xxs);
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.add-tag-btn {
+    background: var(--action-primary-bg);
+    color: var(--action-primary-text);
+}
+
+.cancel-tag-btn {
+    background: var(--bg-surface-2);
+    color: var(--text-secondary);
+    border-color: var(--border-subtle);
+}

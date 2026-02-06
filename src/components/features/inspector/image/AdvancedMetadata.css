@@ -1,0 +1,55 @@
+.inspector-loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60px;
+    color: var(--text-tertiary);
+}
+
+.inspector-exif-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--p-space-s);
+    padding: var(--p-space-s) 0;
+}
+
+.inspector-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+    padding-bottom: var(--p-space-xs);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.inspector-meta-item:last-child {
+    border-bottom: none;
+}
+
+.inspector-meta-label {
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.inspector-meta-value.exif-value {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-primary);
+    word-break: break-all;
+    font-family: var(--p-font-mono);
+}
+
+.inspector-no-data {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--p-space-m) 0;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
