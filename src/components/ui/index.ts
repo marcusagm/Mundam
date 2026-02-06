@@ -27,6 +27,8 @@ export { ToggleGroup, ToggleGroupItem } from "./ToggleGroup";
 export type { ToggleGroupProps, ToggleGroupItemProps } from "./ToggleGroup";
 export { Slider } from "./Slider";
 export type { SliderProps } from "./Slider";
+export { VideoPlayer } from "./VideoPlayer";
+export type { VideoPlayerProps } from "./VideoPlayer";
 
 // Data Display
 export { Accordion, AccordionItem } from "./Accordion";

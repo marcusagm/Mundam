@@ -1,6 +1,6 @@
 import { Component } from 'solid-js';
 import { type ImageItem } from '../../../../types';
-import { Accordion } from '../../../ui/Accordion';
+import { Accordion, VideoPlayer as UIVideoPlayer } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
 import './VideoInspector.css';
@@ -15,9 +15,11 @@ export const VideoInspector: Component<VideoInspectorProps> = props => {
     return (
         <div class="inspector-content">
             <div class="inspector-preview video-preview">
-                <video controls class="inspector-video-player" src={assetUrl()}>
-                    Your browser does not support the video element.
-                </video>
+                <UIVideoPlayer
+                    src={assetUrl()}
+                    variant="compact"
+                    class="inspector-video-player-ui"
+                />
             </div>
 
             <Accordion>

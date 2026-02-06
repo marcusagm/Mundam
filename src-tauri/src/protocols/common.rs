@@ -53,59 +53,102 @@ pub fn serve_file(path: &Path, range: Option<&header::HeaderValue>) -> Result<Re
     let file_size = metadata.len();
     
     // Use the central format registry for MIME detection
-    let mime = if let Some(format) = crate::formats::FileFormat::detect(path) {
+    let mut mime = if let Some(format) = crate::formats::FileFormat::detect(path) {
         format.mime_types.first().unwrap_or(&"application/octet-stream").to_string()
     } else {
         from_path(path).first_or_octet_stream().to_string()
     };
 
+    // Specific fix for MPEG transport streams which Safari likes as video/mp2t
+    if path.extension().and_then(|e| e.to_str()) == Some("m2ts") {
+        mime = "video/mp2t".to_string();
+    }
+
     let builder = Response::builder()
         .header(header::CONTENT_TYPE, mime)
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCEPT_RANGES, "bytes");
+        .header(header::ACCEPT_RANGES, "bytes")
+        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Content-Range, Content-Length, Accept-Ranges");
 
     if let Some(range_value) = range {
         if let Ok(range_str) = range_value.to_str() {
             if range_str.starts_with("bytes=") {
-                let range_parts: Vec<&str> = range_str["bytes=".len()..].split('-').collect();
-                if range_parts.len() == 2 {
-                    let start = range_parts[0].parse::<u64>().unwrap_or(0);
-                    let end = range_parts[1].parse::<u64>().unwrap_or(file_size - 1);
-                    let end = if end >= file_size { file_size - 1 } else { end };
+                let range_spec = &range_str["bytes=".len()..];
+                let mut start: u64 = 0;
+                let mut end: u64 = file_size - 1;
 
-                    if start < file_size && start <= end {
-                        let mut real_end = end;
-                        let mut chunk_size = (real_end - start) + 1;
-                        
-                        // Cap chunk size to 100MB to prevent memory exhaustion.
-                        // Browsers will automatically request the remaining data in subsequent requests.
-                        if chunk_size > 100 * 1024 * 1024 {
-                             chunk_size = 100 * 1024 * 1024;
-                             real_end = start + chunk_size - 1;
-                        }
-
-                        let mut buffer = vec![0u8; chunk_size as usize];
-                        if file.seek(std::io::SeekFrom::Start(start)).is_ok() && file.read_exact(&mut buffer).is_ok() {
-                            return Ok(builder
-                                .status(StatusCode::PARTIAL_CONTENT)
-                                .header(header::CONTENT_RANGE, format!("bytes {}-{}/{}", start, real_end, file_size))
-                                .header(header::CONTENT_LENGTH, chunk_size)
-                                .body(buffer)
-                                .unwrap_or_else(|_| Response::default()));
-                        }
+                let parts: Vec<&str> = range_spec.split('-').collect();
+                if parts.len() >= 1 && !parts[0].is_empty() {
+                    if let Ok(s) = parts[0].parse::<u64>() {
+                        start = s;
                     }
+                }
+                if parts.len() >= 2 && !parts[1].is_empty() {
+                    if let Ok(e) = parts[1].parse::<u64>() {
+                        end = e;
+                    }
+                } else if parts.len() == 1 && range_spec.starts_with('-') {
+                    // Suffix: -500 -> last 500 bytes
+                    if let Ok(suffix) = range_spec[1..].parse::<u64>() {
+                        start = file_size.saturating_sub(suffix);
+                        end = file_size - 1;
+                    }
+                }
+
+                // Sanitize range
+                if start >= file_size {
+                    return Err(error_response(StatusCode::RANGE_NOT_SATISFIABLE, format!("bytes */{}", file_size).into_bytes()));
+                }
+                if end >= file_size {
+                    end = file_size - 1;
+                }
+                if start > end {
+                    end = start; // Handle zero-length ranges somewhat gracefully
+                }
+
+                let max_chunk = 10 * 1024 * 1024; // 10MB chunks
+                let requested_size = (end - start) + 1;
+                let chunk_size = std::cmp::min(requested_size, max_chunk);
+                let real_end = start + chunk_size - 1;
+
+                let mut buffer = vec![0u8; chunk_size as usize];
+                if file.seek(std::io::SeekFrom::Start(start)).is_ok() && file.read_exact(&mut buffer).is_ok() {
+                    return Ok(builder
+                        .status(StatusCode::PARTIAL_CONTENT)
+                        .header(header::CONTENT_RANGE, format!("bytes {}-{}/{}", start, real_end, file_size))
+                        .header(header::CONTENT_LENGTH, chunk_size)
+                        .body(buffer)
+                        .unwrap_or_else(|_| Response::default()));
                 }
             }
         }
     }
 
-    // Default: Serve entire file (for non-range requests, e.g. small images/fonts)
-    // Prevent serving massive files without Range to avoid OOM panics.
-    if file_size > 200 * 1024 * 1024 {
-        return Err(error_response(StatusCode::PAYLOAD_TOO_LARGE, b"File too large for full download. Use Range requests.".to_vec()));
+    // Default: Serve entire file (for non-range requests)
+    // If the file is very large and no range was requested, we might be in an initial "probe" request.
+    // For videos, instead of returning 413, we serve the first chunk as 206 to encourage the browser to use Ranges.
+    let is_video = path.extension().and_then(|e| e.to_str()).map(|e| ["mp4", "webm", "mov", "m4v", "mkv", "m2ts"].contains(&e)).unwrap_or(false);
+
+    if file_size > 500 * 1024 * 1024 && is_video {
+        // Automatic Range fallthrough for large videos
+        let chunk_size = std::cmp::min(file_size, 10 * 1024 * 1024);
+        let mut buffer = vec![0u8; chunk_size as usize];
+        if file.seek(std::io::SeekFrom::Start(0)).is_ok() && file.read_exact(&mut buffer).is_ok() {
+             return Ok(builder
+                .status(StatusCode::PARTIAL_CONTENT)
+                .header(header::CONTENT_RANGE, format!("bytes 0-{}/{}", chunk_size - 1, file_size))
+                .header(header::CONTENT_LENGTH, chunk_size)
+                .body(buffer)
+                .unwrap_or_else(|_| Response::default()));
+        }
     }
 
-    let mut all_data = Vec::new();
+    // High Memory Limit for full download (Images, Fonts, small Videos)
+    if file_size > 1024 * 1024 * 1024 {
+        return Err(error_response(StatusCode::PAYLOAD_TOO_LARGE, b"File too large".to_vec()));
+    }
+
+    let mut all_data = Vec::with_capacity(file_size as usize);
     if file.read_to_end(&mut all_data).is_err() {
         return Err(error_response(StatusCode::INTERNAL_SERVER_ERROR, b"Read error".to_vec()));
     }
@@ -113,6 +156,7 @@ pub fn serve_file(path: &Path, range: Option<&header::HeaderValue>) -> Result<Re
     Ok(builder
         .status(StatusCode::OK)
         .header(header::CONTENT_LENGTH, file_size)
+        .header(header::CACHE_CONTROL, "public, max-age=3600")
         .body(all_data)
         .unwrap_or_else(|_| Response::default()))
 }

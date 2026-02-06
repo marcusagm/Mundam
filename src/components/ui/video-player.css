@@ -1,0 +1,298 @@
+/* src/components/ui/video-player.css */
+
+.ui-video-player {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--p-neutral-950);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  font-family: var(--font-main);
+}
+
+.ui-video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* --- Controls Overlay --- */
+.ui-video-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 40%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+  padding: var(--p-space-m);
+  pointer-events: none;
+}
+
+/* Controls only visible when JS class is applied */
+.ui-video-controls-visible {
+  opacity: 1;
+}
+
+.ui-video-controls > * {
+  pointer-events: auto;
+}
+
+/* --- Center Action Pulse --- */
+.ui-video-center-action {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ui-video-center-action-pulse {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  color: white;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  animation: video-pulse-in-out 0.6s ease-out forwards;
+}
+
+@keyframes video-pulse-in-out {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* --- Top Bar (Title) --- */
+.ui-video-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: var(--p-space-m);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%);
+  color: var(--p-neutral-0);
+  font-size: var(--p-font-size-s);
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.ui-video-controls-visible .ui-video-top-bar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- Main Controls Area --- */
+.ui-video-bottom-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-s);
+  backdrop-filter: blur(12px);
+  background: rgba(15, 15, 15, 0.7);
+  padding: var(--p-space-s) var(--p-space-m);
+  border-radius: var(--radius-l);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.ui-video-controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-m);
+}
+
+/* --- Seek Bar --- */
+.ui-video-seekbar-container {
+  width: 100%;
+  padding: var(--p-space-xs) 0;
+  position: relative;
+  z-index: 15;
+}
+
+.ui-video-seekbar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  position: relative;
+  cursor: pointer;
+  transition: height 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.ui-video-seekbar-container:hover .ui-video-seekbar {
+  height: 8px;
+}
+
+.ui-video-seekbar-slider {
+  position: absolute;
+  inset: 0;
+  height: 100% !important;
+  z-index: 10;
+}
+
+/* Override Slider internals for video player */
+.ui-video-seekbar-slider .ui-slider-track::before {
+  background-color: transparent !important;
+}
+
+.ui-video-seekbar-slider .ui-slider-range {
+  height: 100% !important;
+  background-color: var(--action-primary-bg) !important;
+  box-shadow: 0 0 10px var(--action-primary-bg);
+}
+
+.ui-video-seekbar-slider .ui-slider-thumb {
+  width: 14px;
+  height: 14px;
+  background: white !important;
+  border: none !important;
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.2s ease;
+}
+
+.ui-video-seekbar-container:hover .ui-slider-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.ui-video-seekbar-buffer {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.4); /* Much more evident */
+  border-radius: var(--radius-full);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.ui-video-seekbar-preview {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  color: white;
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 20;
+}
+
+.ui-video-seekbar-preview::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.8);
+}
+
+/* --- Buttons & UI --- */
+.ui-video-time {
+  color: var(--p-neutral-300);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  min-width: 90px;
+}
+
+.ui-video-time span {
+    opacity: 0.5;
+    margin: 0 2px;
+}
+
+.ui-video-volume-group {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-s);
+  width: 140px;
+  transition: width 0.3s ease;
+}
+
+.ui-video-volume-slider {
+  flex: 1;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.ui-video-volume-group:hover .ui-video-volume-slider {
+    opacity: 1;
+}
+
+/* --- Compact Variant --- */
+.ui-video-player-compact .ui-video-bottom-controls {
+  padding: 4px 8px;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-m);
+}
+
+.ui-video-player-compact .ui-video-volume-group {
+  width: 32px;
+  overflow: hidden;
+}
+
+.ui-video-player-compact .ui-video-volume-group:hover {
+    width: 120px;
+}
+
+.ui-video-player-compact .ui-video-time {
+    display: none;
+}
+
+.ui-video-player-compact .ui-video-seekbar-container {
+    padding: 2px 0;
+}
+
+.ui-video-player-compact .ui-video-seekbar {
+    height: 3px;
+}
+
+.ui-video-player-compact .ui-video-seekbar:hover {
+    height: 5px;
+}
+
+/* --- Loading Spinner --- */
+.ui-video-loader {
+  position: absolute;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.3);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Error View --- */
+.ui-video-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--p-space-m);
+  color: var(--text-destructive);
+  text-align: center;
+  padding: var(--p-space-xl);
+}
