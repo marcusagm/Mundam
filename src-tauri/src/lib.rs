@@ -49,7 +49,8 @@ async fn start_indexing(path: String, app: tauri::AppHandle) -> Result<(), Strin
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    crate::protocols::register_all(builder)
         .setup(|app| {
             // Resolve paths
             let app_data = app
@@ -101,12 +102,6 @@ pub fn run() {
             });
 
             Ok(())
-        })
-        .register_uri_scheme_protocol("thumb", move |ctx, request| {
-            crate::protocols::thumb_handler(ctx.app_handle(), &request)
-        })
-        .register_uri_scheme_protocol("orig", move |ctx, request| {
-            crate::protocols::orig_handler(ctx.app_handle(), &request)
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())

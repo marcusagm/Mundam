@@ -289,31 +289,31 @@ const ItemViewContent: Component = () => {
                             }
                         >
                             <ImageViewer
-                                src={`orig://localhost/${encodeURIComponent(item()!.path)}`}
+                                src={`image://localhost/${encodeURIComponent(item()!.path)}`}
                                 alt={item()!.filename}
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'video'}>
                             <VideoPlayer
-                                src={`orig://localhost/${encodeURIComponent(item()!.path)}`}
+                                src={`video://localhost/${encodeURIComponent(item()!.path)}`}
                                 type="video"
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'audio'}>
                             <VideoPlayer
-                                src={`orig://localhost/${encodeURIComponent(item()!.path)}`}
+                                src={`audio://localhost/${encodeURIComponent(item()!.path)}`}
                                 type="audio"
                             />
                         </Match>
                         <Match when={mediaType() === 'font'}>
                             <FontView
-                                src={`orig://localhost/${encodeURIComponent(item()!.path)}`}
+                                src={`font://localhost/${encodeURIComponent(item()!.path)}`}
                                 fontName={item()!.filename}
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'model'}>
                             <ModelViewer
-                                src={`orig://localhost/${encodeURIComponent(item()!.path)}`}
+                                src={`model://localhost/${encodeURIComponent(item()!.path)}`}
                                 filename={item()!.filename}
                                 thumbnail={item()!.thumbnail_path}
                             />

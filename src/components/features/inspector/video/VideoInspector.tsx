@@ -10,7 +10,7 @@ interface VideoInspectorProps {
 }
 
 export const VideoInspector: Component<VideoInspectorProps> = props => {
-    const assetUrl = () => `orig://localhost/${encodeURIComponent(props.item.path)}`;
+    const assetUrl = () => `video://localhost/${encodeURIComponent(props.item.path)}`;
 
     return (
         <div class="inspector-content">

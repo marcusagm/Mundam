@@ -17,6 +17,10 @@ impl Db {
 
         let pool = SqlitePool::connect_with(options).await?;
 
+        // Optimize SQLite performance
+        pool.execute("PRAGMA journal_mode = WAL").await?;
+        pool.execute("PRAGMA synchronous = NORMAL").await?;
+
         // Initialize schema if tables don't exist
         let schema = include_str!("schema.sql");
         pool.execute(schema).await?;
