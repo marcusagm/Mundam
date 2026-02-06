@@ -98,10 +98,12 @@ impl FfmpegTranscoder {
     ) -> Command {
         let mut cmd = Command::new(&self.ffmpeg_path);
 
-        // Input options
-        cmd.arg("-y")                    // Overwrite output
-            .arg("-hide_banner")         // Cleaner output
+        // Input options - increase analysis for complex/large files
+        cmd.arg("-y")                        // Overwrite output
+            .arg("-hide_banner")             // Cleaner output
             .arg("-loglevel").arg("warning") // Reduce verbosity
+            .arg("-probesize").arg("100M")   // Analyze more data (for large files)
+            .arg("-analyzeduration").arg("100M") // Longer analysis time
             .arg("-i")
             .arg(source);
 
@@ -112,6 +114,7 @@ impl FfmpegTranscoder {
                     "-vn",                     // No video
                     "-c:a", "aac",             // AAC codec
                     "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
+                    "-ar", "48000",            // Standard sample rate
                     "-f", "mp4",               // MP4 container (m4a is mp4 audio-only)
                 ]);
             }
@@ -121,14 +124,25 @@ impl FfmpegTranscoder {
                 cmd.args([
                     "-map", "0:v:0?",          // First video stream (optional)
                     "-map", "0:a:0?",          // First audio stream (optional)
+                    // Video codec settings
                     "-c:v", "libx264",         // H.264 codec
+                    "-profile:v", "high",      // H.264 High Profile (best quality)
+                    "-level", "4.1",           // Level 4.1 (1080p@30fps compatible)
                     "-preset", quality.ffmpeg_preset(),
                     "-crf", &quality.crf().to_string(), // CRF-based quality
-                    "-c:a", "aac",             // AAC audio
-                    "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
-                    "-movflags", "+faststart", // Web optimization
+                    // Force even dimensions (required by most codecs)
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                     "-pix_fmt", "yuv420p",     // Compatibility
-                    "-max_muxing_queue_size", "1024", // Handle complex streams
+                    // GOP settings for better seeking
+                    "-g", "30",                // Keyframe every 30 frames (1s at 30fps)
+                    "-bf", "2",                // 2 B-frames between I and P frames
+                    // Audio settings
+                    "-c:a", "aac",             // AAC codec
+                    "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
+                    "-ar", "48000",            // Standard sample rate
+                    // Container settings
+                    "-movflags", "+faststart", // Web optimization (moves moov atom to start)
+                    "-max_muxing_queue_size", "9999", // Handle large/complex streams
                     "-f", "mp4",
                 ]);
             }

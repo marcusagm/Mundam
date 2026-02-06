@@ -23,7 +23,7 @@ export const tauriService = {
    * Example wrapper for other commands...
    */
   // stopIndexing: async () => invoke("stop_indexing"),
-  
+
   getLibrarySupportedFormats: async (): Promise<any[]> => {
       try {
           return await invoke("get_library_supported_formats");
@@ -56,6 +56,35 @@ export const tauriService = {
           await invoke("set_setting", { key, value });
       } catch (error) {
           console.error(`Failed to set setting ${key}:`, error);
+          throw error;
+      }
+  },
+
+  // --- Cache Management ---
+
+  getCacheStats: async (): Promise<{ directory: string; size_bytes: number; file_count: number }> => {
+      try {
+          return await invoke("get_cache_stats");
+      } catch (error) {
+          console.error("Failed to get cache stats:", error);
+          return { directory: "", size_bytes: 0, file_count: 0 };
+      }
+  },
+
+  cleanupCache: async (maxAgeDays?: number): Promise<number> => {
+      try {
+          return await invoke("cleanup_cache", { maxAgeDays });
+      } catch (error) {
+          console.error("Failed to cleanup cache:", error);
+          throw error;
+      }
+  },
+
+  clearCache: async (): Promise<number> => {
+      try {
+          return await invoke("clear_cache");
+      } catch (error) {
+          console.error("Failed to clear cache:", error);
           throw error;
       }
   }

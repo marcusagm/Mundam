@@ -145,3 +145,59 @@ commands.allow = ["run_db_maintenance"]
 identifier = "allow-get-audio-waveform-data"
 description = "Enables get_audio_waveform_data"
 commands.allow = ["get_audio_waveform_data"]
+
+[[permission]]
+identifier = "allow-get-image-count-filtered"
+description = "Enables get_image_count_filtered"
+commands.allow = ["get_image_count_filtered"]
+
+# Transcoding Commands
+[[permission]]
+identifier = "allow-get-cache-stats"
+description = "Enables get_cache_stats for transcoding cache"
+commands.allow = ["get_cache_stats"]
+
+[[permission]]
+identifier = "allow-cleanup-cache"
+description = "Enables cleanup_cache for removing old transcoded files"
+commands.allow = ["cleanup_cache"]
+
+[[permission]]
+identifier = "allow-clear-cache"
+description = "Enables clear_cache for removing all transcoded files"
+commands.allow = ["clear_cache"]
+
+[[permission]]
+identifier = "allow-ffmpeg-available"
+description = "Enables ffmpeg_available check"
+commands.allow = ["ffmpeg_available"]
+
+[[permission]]
+identifier = "allow-needs-transcoding"
+description = "Enables needs_transcoding check"
+commands.allow = ["needs_transcoding"]
+
+[[permission]]
+identifier = "allow-is-native-format"
+description = "Enables is_native_format check"
+commands.allow = ["is_native_format"]
+
+[[permission]]
+identifier = "allow-get-stream-url"
+description = "Enables get_stream_url for media playback"
+commands.allow = ["get_stream_url"]
+
+[[permission]]
+identifier = "allow-get-quality-options"
+description = "Enables get_quality_options for transcoding"
+commands.allow = ["get_quality_options"]
+
+[[permission]]
+identifier = "allow-transcode-file"
+description = "Enables transcode_file for media conversion"
+commands.allow = ["transcode_file"]
+
+[[permission]]
+identifier = "allow-is-cached"
+description = "Enables is_cached for cache status check"
+commands.allow = ["is_cached"]

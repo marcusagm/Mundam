@@ -44,6 +44,9 @@
     "allow-set-setting",
     "allow-run-db-maintenance",
     "allow-get-library-supported-formats",
-    "allow-get-audio-waveform-data"
+    "allow-get-audio-waveform-data",
+    "allow-get-cache-stats",
+    "allow-cleanup-cache",
+    "allow-clear-cache"
   ]
 }

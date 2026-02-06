@@ -1,9 +1,10 @@
-import { Component, createSignal, createEffect, on, onMount, onCleanup, Show } from 'solid-js';
+import { Component, createSignal, createEffect, on, onMount, onCleanup, Show, For } from 'solid-js';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
 import { Slider } from './Slider';
 import { Tooltip } from './Tooltip';
 import { Loader } from './Loader';
+import { Popover } from './Popover';
 import {
     Play,
     Pause,
@@ -12,16 +13,32 @@ import {
     Maximize,
     Minimize,
     SkipBack,
-    SkipForward
+    SkipForward,
+    Settings,
+    Check
 } from 'lucide-solid';
 import { videoState, videoActions } from '../../core/store/videoStore';
+import { type TranscodeQuality } from '../../lib/stream-utils';
 import './video-player.css';
+
+export type QualityOption = {
+    id: TranscodeQuality;
+    label: string;
+};
+
+const QUALITY_OPTIONS: QualityOption[] = [
+    { id: 'preview', label: 'Preview' },
+    { id: 'standard', label: 'Standard' },
+    { id: 'high', label: 'High' }
+];
 
 export interface VideoPlayerProps {
     src: string;
     variant?: 'full' | 'compact';
     autoPlay?: boolean;
     title?: string;
+    quality?: TranscodeQuality;
+    onQualityChange?: (quality: TranscodeQuality) => void;
     onEnded?: () => void;
     onError?: (error: string) => void;
     class?: string;
@@ -501,6 +518,53 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                                             {videoState.playbackRate()}x
                                         </Button>
                                     </Tooltip>
+                                </Show>
+
+                                {/* Quality Selector - only for transcoded videos */}
+                                <Show when={needsTranscode() && props.onQualityChange}>
+                                    <Popover
+                                        trigger={
+                                            <Tooltip content="Quality">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    class="ui-video-quality-btn"
+                                                >
+                                                    <Settings size={18} />
+                                                </Button>
+                                            </Tooltip>
+                                        }
+                                        align="end"
+                                    >
+                                        <div class="ui-video-quality-menu">
+                                            <div class="ui-video-quality-title">Quality</div>
+                                            <For each={QUALITY_OPTIONS}>
+                                                {option => (
+                                                    <button
+                                                        class={cn(
+                                                            'ui-video-quality-option',
+                                                            (props.quality || 'standard') ===
+                                                                option.id &&
+                                                                'ui-video-quality-option-active'
+                                                        )}
+                                                        onClick={() =>
+                                                            props.onQualityChange?.(option.id)
+                                                        }
+                                                    >
+                                                        <span>{option.label}</span>
+                                                        <Show
+                                                            when={
+                                                                (props.quality || 'standard') ===
+                                                                option.id
+                                                            }
+                                                        >
+                                                            <Check size={14} />
+                                                        </Show>
+                                                    </button>
+                                                )}
+                                            </For>
+                                        </div>
+                                    </Popover>
                                 </Show>
 
                                 <Tooltip

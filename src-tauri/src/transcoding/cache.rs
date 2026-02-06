@@ -27,7 +27,7 @@ impl TranscodeCache {
         let mut hasher = DefaultHasher::new();
         source.to_string_lossy().hash(&mut hasher);
         (quality as u8).hash(&mut hasher);
-        
+
         // Also hash the file modification time for cache invalidation
         if let Ok(metadata) = fs::metadata(source) {
             if let Ok(modified) = metadata.modified() {
@@ -36,7 +36,7 @@ impl TranscodeCache {
                 }
             }
         }
-        
+
         format!("{:016x}", hasher.finish())
     }
 
@@ -146,6 +146,38 @@ impl TranscodeCache {
         }
         deleted
     }
+
+    /// Clear all cache entries
+    /// Returns number of files deleted
+    pub fn clear_all(&self) -> usize {
+        let entries = match fs::read_dir(&self.cache_dir) {
+            Ok(e) => e,
+            Err(_) => return 0,
+        };
+
+        let mut deleted = 0;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if fs::remove_file(&path).is_ok() {
+                    deleted += 1;
+                }
+            }
+        }
+        deleted
+    }
+
+    /// Get number of cached files
+    pub fn get_file_count(&self) -> usize {
+        let entries = match fs::read_dir(&self.cache_dir) {
+            Ok(e) => e,
+            Err(_) => return 0,
+        };
+
+        entries.flatten()
+            .filter(|entry| entry.path().is_file())
+            .count()
+    }
 }
 
 #[cfg(test)]
@@ -163,10 +195,10 @@ mod tests {
             Path::new("/test/file.mkv"),
             TranscodeQuality::High
         );
-        
+
         // Different qualities should produce different keys
         assert_ne!(key1, key2);
-        
+
         // Same input should produce same key
         let key3 = TranscodeCache::generate_cache_key(
             Path::new("/test/file.mkv"),
@@ -179,19 +211,19 @@ mod tests {
     fn test_cache_paths() {
         let temp_dir = env::temp_dir().join("mundam_cache_test");
         let cache = TranscodeCache::new(&temp_dir);
-        
+
         let audio_path = cache.get_cache_path(
             Path::new("test.ogg"),
             TranscodeQuality::Standard
         );
         assert!(audio_path.extension().unwrap() == "m4a");
-        
+
         let video_path = cache.get_cache_path(
             Path::new("test.mkv"),
             TranscodeQuality::High
         );
         assert!(video_path.extension().unwrap() == "mp4");
-        
+
         // Cleanup
         let _ = fs::remove_dir_all(&temp_dir);
     }

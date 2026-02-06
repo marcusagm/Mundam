@@ -72,7 +72,7 @@ pub fn run() {
                     Ok(db) => {
                         let db_arc = std::sync::Arc::new(db);
                         let watcher_registry = std::sync::Arc::new(tokio::sync::Mutex::new(crate::indexer::WatcherRegistry::default()));
-                        
+
                         // Load Config
                         let app_config = crate::config::load_config(&db_arc).await;
                         let config_state = crate::config::ConfigState(std::sync::Mutex::new(app_config.clone()));
@@ -153,6 +153,7 @@ pub fn run() {
             transcoding::commands::is_cached,
             transcoding::commands::get_cache_stats,
             transcoding::commands::cleanup_cache,
+            transcoding::commands::clear_cache,
             transcoding::commands::ffmpeg_available
         ])
         .run(tauri::generate_context!())

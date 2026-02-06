@@ -22,7 +22,7 @@ import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
 import { AudioRenderer } from './renderers/audio/AudioRenderer';
 import { Loader } from '../../ui/Loader';
-import { getAudioUrl, getVideoUrl } from '../../../lib/stream-utils';
+import { getAudioUrl } from '../../../lib/stream-utils';
 import './item-view.css';
 
 // Helper to determine media type from extension
@@ -296,7 +296,7 @@ const ItemViewContent: Component = () => {
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'video'}>
-                            <VideoPlayer src={getVideoUrl(item()!.path)} type="video" />
+                            <VideoPlayer path={item()!.path} />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'audio'}>
                             <AudioRenderer src={getAudioUrl(item()!.path)} />

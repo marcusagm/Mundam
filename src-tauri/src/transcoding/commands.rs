@@ -25,13 +25,13 @@ pub fn is_native_format(path: String) -> bool {
 pub fn get_stream_url(path: String, quality: Option<String>) -> String {
     let file_path = Path::new(&path);
     let quality_param = quality.unwrap_or_else(|| "preview".to_string());
-    
+
     if detector::needs_transcoding(file_path) {
         // Use streaming protocol
         let media_type = detector::get_media_type(file_path);
         match media_type {
             detector::MediaType::Audio => {
-                format!("audio-stream://localhost/{}?quality={}", 
+                format!("audio-stream://localhost/{}?quality={}",
                     urlencoding::encode(&path), quality_param)
             }
             detector::MediaType::Video | detector::MediaType::Unknown => {
@@ -132,6 +132,7 @@ pub fn get_cache_stats(app: AppHandle) -> Result<CacheStats, String> {
     Ok(CacheStats {
         directory: cache.dir().to_string_lossy().to_string(),
         size_bytes: cache.get_cache_size(),
+        file_count: cache.get_file_count(),
     })
 }
 
@@ -143,6 +144,14 @@ pub fn cleanup_cache(app: AppHandle, max_age_days: Option<u64>) -> Result<usize,
 
     let days = max_age_days.unwrap_or(30);
     Ok(cache.cleanup(days))
+}
+
+/// Clear all cache entries
+#[tauri::command]
+pub fn clear_cache(app: AppHandle) -> Result<usize, String> {
+    let app_data = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let cache = TranscodeCache::new(&app_data);
+    Ok(cache.clear_all())
 }
 
 /// Check if FFmpeg is available
@@ -171,4 +180,5 @@ pub struct QualityOption {
 pub struct CacheStats {
     directory: String,
     size_bytes: u64,
+    file_count: usize,
 }
