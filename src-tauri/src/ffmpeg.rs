@@ -128,6 +128,69 @@ pub fn generate_thumbnail_ffmpeg_full(
     generate_with_ffmpeg(&ffmpeg_path, input_path, output_path, size_px)
 }
 
+/// Extract normalized audio waveform data using FFmpeg
+pub fn get_audio_waveform(
+    app_handle: &tauri::AppHandle,
+    input_path: &Path,
+) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+    let ffmpeg_path = get_ffmpeg_path(Some(app_handle))
+        .ok_or("FFmpeg not found")?;
+
+    // Use a low sample rate (100Hz) to extract peaks quickly
+    // -ar 100: Resample to 100Hz
+    // -ac 1: Downmix to mono
+    // -f f32le: Output 32-bit floats
+    let output = Command::new(ffmpeg_path)
+        .args([
+            "-hide_banner",
+            "-loglevel", "error",
+            "-i", &input_path.to_string_lossy(),
+            "-ar", "100",
+            "-ac", "1",
+            "-f", "f32le",
+            "-",
+        ])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("FFmpeg waveform extraction failed: {}", stderr).into());
+    }
+
+    let raw_data = output.stdout;
+    let floats: Vec<f32> = raw_data
+        .chunks_exact(4)
+        .map(|chunk| {
+            let b = [chunk[0], chunk[1], chunk[2], chunk[3]];
+            f32::from_le_bytes(b).abs()
+        })
+        .collect();
+
+    if floats.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Downsample to exactly 500 points for a consistent UI waveform
+    let target_points = 500;
+    let result = if floats.len() <= target_points {
+        floats
+    } else {
+        let chunk_size = floats.len() / target_points;
+        floats.chunks(chunk_size)
+            .map(|chunk| chunk.iter().fold(0.0f32, |max, &val| max.max(val)))
+            .take(target_points)
+            .collect()
+    };
+
+    // Global normalization
+    let max = result.iter().fold(0.0f32, |max, &val| max.max(val));
+    if max > 0.0 {
+        Ok(result.iter().map(|&v| v / max).collect())
+    } else {
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

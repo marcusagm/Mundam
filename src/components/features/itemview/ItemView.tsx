@@ -20,6 +20,7 @@ import { VideoPlayer } from './renderers/video/VideoPlayer';
 import { FontView } from './renderers/font/FontView';
 import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
+import { AudioRenderer } from './renderers/audio/AudioRenderer';
 import { Loader } from '../../ui/Loader';
 import './item-view.css';
 
@@ -300,9 +301,8 @@ const ItemViewContent: Component = () => {
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'audio'}>
-                            <VideoPlayer
+                            <AudioRenderer
                                 src={`audio://localhost/${encodeURIComponent(item()!.path)}`}
-                                type="audio"
                             />
                         </Match>
                         <Match when={mediaType() === 'font'}>

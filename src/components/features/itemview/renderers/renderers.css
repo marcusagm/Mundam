@@ -22,9 +22,19 @@
     outline: none;
 }
 
-.audio-element {
-    max-width: 100%;
-    width: 500px;
+.audio-renderer-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--p-space-xl);
+}
+
+.audio-renderer-player {
+    width: 100%;
+    max-width: 900px;
+    aspect-ratio: 16/10;
 }
 
 

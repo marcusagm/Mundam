@@ -140,3 +140,8 @@ commands.allow = ["get_library_supported_formats"]
 identifier = "allow-run-db-maintenance"
 description = "Enables run_db_maintenance"
 commands.allow = ["run_db_maintenance"]
+
+[[permission]]
+identifier = "allow-get-audio-waveform-data"
+description = "Enables get_audio_waveform_data"
+commands.allow = ["get_audio_waveform_data"]

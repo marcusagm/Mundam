@@ -17,6 +17,7 @@ mod db_settings;
 mod settings_commands;
 pub mod formats;
 mod format_commands;
+mod audio_commands;
 mod config;
 
 
@@ -139,7 +140,8 @@ pub fn run() {
             settings_commands::set_setting,
             settings_commands::run_db_maintenance,
 
-            format_commands::get_library_supported_formats
+            format_commands::get_library_supported_formats,
+            audio_commands::get_audio_waveform_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

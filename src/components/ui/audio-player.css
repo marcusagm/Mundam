@@ -1,0 +1,238 @@
+.ui-audio-player {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-surface-1);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.ui-audio-player-compact {
+  height: auto;
+  min-height: 48px;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* --- 1. Main View Area (Full Mode) --- */
+.ui-audio-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--p-space-xl);
+  background: radial-gradient(circle at 50% 30%, var(--p-neutral-800) 0%, var(--p-neutral-900) 100%);
+  position: relative;
+  min-height: 380px;
+}
+
+.ui-audio-art {
+  width: 240px;
+  height: 240px;
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-l);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-l);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: var(--p-space-xl);
+  color: var(--p-primary-500);
+}
+
+.ui-audio-info {
+  text-align: center;
+}
+
+.ui-audio-title {
+  font-size: var(--p-font-size-xl);
+  font-weight: 600;
+  margin-bottom: var(--p-space-xs);
+  color: var(--text-primary);
+}
+
+.ui-audio-subtitle {
+  font-size: var(--p-font-size-s);
+  color: var(--text-secondary);
+}
+
+/* --- 2. Waveform Seekbar --- */
+.ui-audio-seekbar-container {
+  width: 100%;
+  padding: var(--p-space-m);
+  position: relative;
+  cursor: pointer;
+}
+
+.ui-audio-player-compact .ui-audio-seekbar-container {
+  padding: var(--p-space-xs);
+}
+
+.ui-audio-waveform {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  gap: 1.5px;
+  width: 100%;
+  position: relative;
+}
+
+.ui-audio-player-compact .ui-audio-waveform {
+  height: 40px;
+  gap: 1px;
+}
+
+.ui-audio-waveform-bar {
+  flex: 1;
+  background: var(--p-neutral-600);
+  border-radius: 1px;
+  min-width: 1px;
+  transition: transform 0.1s ease;
+}
+
+.ui-audio-waveform-bar.is-played {
+  background: var(--p-primary-500);
+}
+
+.ui-audio-waveform-bar.is-hover {
+  background: var(--p-primary-300);
+}
+
+.ui-audio-player-compact .ui-audio-waveform-bar {
+  flex: 1; /* Ensure bars fill the width in compact mode */
+}
+
+.ui-audio-seekbar-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0; /* Hidden but interactive */
+  z-index: 10;
+}
+
+.ui-audio-buffer-overlay {
+  position: absolute;
+  left: 0;
+  height: 100%;
+  background: var(--p-neutral-700);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --- 3. Controls Area --- */
+.ui-audio-controls {
+  padding: var(--p-space-m);
+  background: var(--bg-surface-2);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-m);
+}
+
+.ui-audio-player-compact .ui-audio-controls {
+  padding: var(--p-space-xs);
+  background: transparent;
+  border-top: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--p-space-xs);
+}
+
+.ui-audio-controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-m);
+}
+
+.ui-audio-controls-center {
+  justify-content: center;
+  flex: 2;
+}
+
+.ui-audio-controls-left,
+.ui-audio-controls-right {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-s);
+  flex: 1;
+}
+
+.ui-audio-controls-right {
+  justify-content: flex-end;
+}
+
+.ui-audio-time {
+  font-family: var(--p-font-mono);
+  font-size: var(--p-font-size-xs);
+  color: var(--text-secondary);
+  min-width: 100px;
+}
+
+.ui-audio-volume-group {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-s);
+  width: 100px;
+}
+
+.ui-audio-volume-slider {
+  flex: 1;
+}
+
+.ui-audio-controls .text-primary {
+  color: var(--p-primary-500) !important;
+}
+
+.ui-audio-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+}
+
+.ui-audio-error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--p-space-m);
+  color: var(--text-destructive);
+  text-align: center;
+  padding: var(--p-space-xl);
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.ui-audio-center-action {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 15;
+}
+
+.ui-audio-center-action-pulse {
+  background: var(--p-primary-500);
+  color: white;
+  border-radius: 50%;
+  padding: var(--p-space-m);
+  animation: pulse 0.6s ease-out forwards;
+}
