@@ -20,6 +20,7 @@ mod format_commands;
 mod audio_commands;
 mod config;
 mod transcoding;
+mod streaming;
 
 
 use crate::database::Db;
@@ -103,12 +104,16 @@ pub fn run() {
                 }
             });
 
+            // Start HLS Streaming Server
+            crate::streaming::server::spawn_server(app.handle().clone());
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_mcp_bridge::init())
         .invoke_handler(tauri::generate_handler![
             start_indexing,

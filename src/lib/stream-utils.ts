@@ -5,6 +5,17 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
+// Re-export HLS utilities for convenience
+export {
+  HLS_SERVER_URL,
+  getHlsPlaylistUrl,
+  getHlsProbeUrl,
+  probeVideo,
+  isHlsServerAvailable,
+  isHlsUrl,
+  type VideoProbeResult,
+} from './hls-player';
+
 export type TranscodeQuality = 'preview' | 'standard' | 'high';
 
 export interface QualityOption {
@@ -18,6 +29,7 @@ export interface CacheStats {
   directory: string;
   sizeBytes: number;
 }
+
 
 // Audio extensions that require transcoding
 const TRANSCODE_AUDIO_EXTENSIONS = new Set([
@@ -108,11 +120,11 @@ export function isNativeFormat(path: string): boolean {
  */
 export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'): string {
   const encodedPath = encodeURIComponent(path);
-  
+
   if (needsAudioTranscoding(path)) {
     return `audio-stream://localhost/${encodedPath}?quality=${quality}`;
   }
-  
+
   return `audio://localhost/${encodedPath}`;
 }
 
@@ -122,11 +134,11 @@ export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'
  */
 export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'): string {
   const encodedPath = encodeURIComponent(path);
-  
+
   if (needsVideoTranscoding(path)) {
     return `video-stream://localhost/${encodedPath}?quality=${quality}`;
   }
-  
+
   return `video://localhost/${encodedPath}`;
 }
 
@@ -135,15 +147,15 @@ export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'
  */
 export function getMediaType(path: string): 'audio' | 'video' | 'unknown' {
   const ext = getExtension(path);
-  
+
   if (NATIVE_AUDIO_EXTENSIONS.has(ext) || TRANSCODE_AUDIO_EXTENSIONS.has(ext)) {
     return 'audio';
   }
-  
+
   if (NATIVE_VIDEO_EXTENSIONS.has(ext) || TRANSCODE_VIDEO_EXTENSIONS.has(ext)) {
     return 'video';
   }
-  
+
   return 'unknown';
 }
 

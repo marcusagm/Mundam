@@ -16,6 +16,34 @@
     text-align: center;
 }
 
+.video-player-loading,
+.video-player-error {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--p-space-md);
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--text-primary);
+    z-index: 10;
+}
+
+.video-player-loading p,
+.video-player-error p {
+    font-size: var(--font-size-sm);
+    margin: 0;
+}
+
+.video-player-error small {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+}
+
 .video-element {
     max-width: 100%;
     max-height: 100%;
@@ -37,7 +65,6 @@
     aspect-ratio: 16/10;
 }
 
-
 /* Font Preview */
 .font-preview-container {
     width: 100%;
@@ -58,7 +85,8 @@
     opacity: 0.8;
 }
 
-.font-loading, .font-error {
+.font-loading,
+.font-error {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,6 +104,3 @@
     outline: none;
     line-height: 1.5;
 }
-
-
-

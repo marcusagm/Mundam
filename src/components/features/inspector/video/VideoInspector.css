@@ -17,6 +17,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-s);
+    position: relative;
 }
 
 .inspector-video-player {
@@ -24,4 +25,17 @@
     height: 100%;
     max-height: 100%;
     object-fit: contain;
+}
+
+.inspector-video-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 5;
 }

@@ -18,7 +18,8 @@ import {
     Check
 } from 'lucide-solid';
 import { videoState, videoActions } from '../../core/store/videoStore';
-import { type TranscodeQuality } from '../../lib/stream-utils';
+import { type TranscodeQuality, isHlsUrl } from '../../lib/stream-utils';
+import { HlsPlayerManager } from '../../lib/hls-player';
 import './video-player.css';
 
 export type QualityOption = {
@@ -41,6 +42,8 @@ export interface VideoPlayerProps {
     onQualityChange?: (quality: TranscodeQuality) => void;
     onEnded?: () => void;
     onError?: (error: string) => void;
+    /** Show quality selector button (default: true for transcoded videos) */
+    showQualitySelector?: boolean;
     class?: string;
 }
 
@@ -68,6 +71,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     // Check if this is a transcoding URL
     const needsTranscode = () =>
         props.src.includes('video-stream://') || props.src.includes('audio-stream://');
+    // HLS Manager instance
+    let hlsManager: HlsPlayerManager | null = null;
 
     // Reset state when src changes
     createEffect(
@@ -95,6 +100,38 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     videoRef.muted = videoState.isMuted();
                     videoRef.playbackRate = videoState.playbackRate();
                 }
+            }
+        )
+    );
+
+    // Handle HLS source attachment
+    createEffect(
+        on(
+            () => props.src,
+            src => {
+                // Cleanup previous HLS instance
+                if (hlsManager) {
+                    hlsManager.destroy();
+                    hlsManager = null;
+                }
+
+                if (!videoRef || !src) return;
+
+                // If it's an HLS URL, use hls.js
+                if (isHlsUrl(src)) {
+                    // Check native HLS support (Safari)
+                    if (videoRef.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Safari has native support, just set src
+                        videoRef.src = src;
+                    } else if (HlsPlayerManager.isSupported()) {
+                        // Use hls.js
+                        hlsManager = new HlsPlayerManager({ debug: false });
+                        hlsManager.attach(videoRef, src);
+                    } else {
+                        setError('HLS playback not supported in this browser');
+                    }
+                }
+                // For non-HLS sources, the video element handles it via src attribute
             }
         )
     );
@@ -280,6 +317,11 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
         clearTimeout(controlsTimeout);
         if (retryTimeout) {
             clearTimeout(retryTimeout);
+        }
+        // Cleanup HLS manager
+        if (hlsManager) {
+            hlsManager.destroy();
+            hlsManager = null;
         }
         const fsHandler = () => {};
         document.removeEventListener('fullscreenchange', fsHandler);
@@ -520,8 +562,14 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                                     </Tooltip>
                                 </Show>
 
-                                {/* Quality Selector - only for transcoded videos */}
-                                <Show when={needsTranscode() && props.onQualityChange}>
+                                {/* Quality Selector - only for transcoded videos when enabled */}
+                                <Show
+                                    when={
+                                        props.showQualitySelector !== false &&
+                                        needsTranscode() &&
+                                        props.onQualityChange
+                                    }
+                                >
                                     <Popover
                                         trigger={
                                             <Tooltip content="Quality">

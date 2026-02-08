@@ -22,7 +22,7 @@
 .ui-progress-track {
   width: 100%;
   background-color: var(--bg-surface-2);
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--radius-m);
   overflow: hidden;
 }
 
@@ -53,7 +53,7 @@
 /* Indeterminate animation */
 .ui-progress-indeterminate {
   width: 40%;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--radius-m);
   animation: ui-progress-indeterminate 1.5s ease-in-out infinite;
 }
 

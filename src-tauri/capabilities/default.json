@@ -47,6 +47,13 @@
     "allow-get-audio-waveform-data",
     "allow-get-cache-stats",
     "allow-cleanup-cache",
-    "allow-clear-cache"
+    "allow-clear-cache",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "http://127.0.0.1:9876/*" },
+        { "url": "http://localhost:9876/*" }
+      ]
+    }
   ]
 }

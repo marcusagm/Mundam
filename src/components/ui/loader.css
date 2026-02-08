@@ -36,12 +36,12 @@
   position: absolute;
   width: 30px;
   height: 35px;
-  
+
   /* Borda com cor de fundo para efeito de recorte */
-  border: 3px solid var(--bg-page); 
-  background-color: var(--action-primary-bg); 
-  
-  border-radius: var(--radius-s);
+  border: 3px solid var(--bg-page);
+  background-color: var(--action-primary-bg);
+
+  border-radius: 8px;
   transform-origin: bottom center;
   box-sizing: border-box;
   box-shadow: var(--shadow-s);

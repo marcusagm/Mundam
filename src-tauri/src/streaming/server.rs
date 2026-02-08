@@ -1,0 +1,253 @@
+//! Axum HTTP Server for HLS Streaming
+//!
+//! Runs on a separate thread and provides endpoints for:
+//! - /health - Health check
+//! - /probe/{path} - Get video metadata and native format detection
+//! - /playlist/{path} - Generate M3U8 playlist dynamically
+//! - /segment/{path}/{index} - Transcode and serve video segments
+
+use axum::{
+    routing::get,
+    Router,
+    extract::{Path, State},
+    response::{IntoResponse, Response},
+    http::{StatusCode, header},
+    body::Body,
+};
+use tower_http::cors::{CorsLayer, Any};
+use std::sync::Arc;
+use std::path::PathBuf;
+use tokio::sync::RwLock;
+use tauri::Manager;
+
+use super::{probe, playlist, segment, process_manager::ProcessManager};
+use crate::transcoding::cache::TranscodeCache;
+
+/// Default port for the HLS streaming server
+pub const DEFAULT_PORT: u16 = 9876;
+
+/// Segment duration in seconds
+pub const SEGMENT_DURATION: f64 = 10.0;
+
+/// Shared state for the streaming server
+#[derive(Clone)]
+pub struct AppState {
+    pub cache: Arc<TranscodeCache>,
+    pub process_manager: Arc<RwLock<ProcessManager>>,
+    pub app_handle: tauri::AppHandle,
+}
+
+/// The HLS Streaming Server
+pub struct StreamingServer {
+    port: u16,
+    app_handle: tauri::AppHandle,
+}
+
+impl StreamingServer {
+    /// Create a new streaming server instance
+    pub fn new(port: u16, app_handle: tauri::AppHandle) -> Self {
+        Self { port, app_handle }
+    }
+
+    /// Start the server on a background task
+    pub async fn start(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let app_data = self.app_handle
+            .path()
+            .app_local_data_dir()
+            .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+        let cache = Arc::new(TranscodeCache::new(&app_data));
+        let process_manager = Arc::new(RwLock::new(ProcessManager::new()));
+
+        let state = AppState {
+            cache,
+            process_manager,
+            app_handle: self.app_handle.clone(),
+        };
+
+        let cors = CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+
+        let app = Router::new()
+            .route("/health", get(health_handler))
+            .route("/probe/*path", get(probe_handler))
+            .route("/playlist/*path", get(playlist_handler))
+            .route("/segment/*path", get(segment_handler))
+            .layer(cors)
+            .with_state(state);
+
+        let addr = format!("127.0.0.1:{}", self.port);
+        let listener = tokio::net::TcpListener::bind(&addr).await?;
+
+        println!("INFO: HLS streaming server started on http://{}", addr);
+
+        axum::serve(listener, app).await?;
+
+        Ok(())
+    }
+}
+
+/// Health check endpoint
+async fn health_handler() -> impl IntoResponse {
+    (StatusCode::OK, "OK")
+}
+
+/// Probe endpoint - returns video metadata
+async fn probe_handler(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> Response {
+    let file_path = decode_path(&path);
+    println!("DEBUG: Probe request for: {:?}", file_path);
+
+    match probe::get_video_info(&state.app_handle, &file_path).await {
+        Ok(info) => {
+            println!("DEBUG: Probe success - native: {}, codec: {:?}", info.is_native, info.video_codec);
+            let json = serde_json::to_string(&info).unwrap_or_default();
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(json))
+                .unwrap()
+        }
+        Err(e) => {
+            eprintln!("PROBE_ERROR for {:?}: {}", file_path, e);
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(format!("Probe failed: {}", e)))
+                .unwrap()
+        }
+    }
+}
+
+/// Playlist endpoint - generates M3U8 dynamically
+async fn playlist_handler(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> Response {
+    let file_path = decode_path(&path);
+
+    // First, probe the video to get duration
+    let info = match probe::get_video_info(&state.app_handle, &file_path).await {
+        Ok(i) => i,
+        Err(e) => {
+            return Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(format!("Failed to probe video: {}", e)))
+                .unwrap();
+        }
+    };
+
+    let m3u8 = playlist::generate_m3u8(&path, info.duration_secs, SEGMENT_DURATION);
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/vnd.apple.mpegurl")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::from(m3u8))
+        .unwrap()
+}
+
+/// Segment endpoint - transcodes and serves a video segment
+async fn segment_handler(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> Response {
+    // Path format: /segment/{encoded_file_path}/{index}
+    // We need to parse out the index from the end
+    let (file_path, index) = match parse_segment_path(&path) {
+        Some((p, i)) => (p, i),
+        None => {
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Invalid segment path format"))
+                .unwrap();
+        }
+    };
+
+    match segment::get_segment(
+        &state.app_handle,
+        &state.cache,
+        &state.process_manager,
+        &file_path,
+        index,
+        SEGMENT_DURATION,
+    ).await {
+        Ok(data) => {
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "video/MP2T")
+                .header(header::CACHE_CONTROL, "max-age=3600")
+                .body(Body::from(data))
+                .unwrap()
+        }
+        Err(e) => {
+            eprintln!("SEGMENT_ERROR: {}", e);
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(format!("Segment failed: {}", e)))
+                .unwrap()
+        }
+    }
+}
+
+/// Decode URL-encoded path
+fn decode_path(path: &str) -> PathBuf {
+    // URL decode the path first
+    let decoded = urlencoding::decode(path)
+        .map(|s| s.into_owned())
+        .unwrap_or_else(|_| path.to_string());
+
+    // The path comes as /path/to/file (the leading slash is part of the route)
+    // For Unix absolute paths like /Users/..., we need to preserve them
+    // For Windows paths like C:\..., they would be encoded differently
+
+    // If path starts with "/" and next char is not "/", it's an absolute Unix path
+    // that was passed directly, so preserve it
+    if decoded.starts_with('/') {
+        // Check if it looks like a Unix absolute path (e.g., /Users, /home, /tmp)
+        let parts: Vec<&str> = decoded.splitn(3, '/').collect();
+        if parts.len() >= 2 && !parts[1].is_empty() {
+            // Valid Unix path like /Users/...
+            return PathBuf::from(&decoded);
+        }
+    }
+
+    // Fallback: treat as relative path
+    PathBuf::from(decoded)
+}
+
+/// Parse segment path to extract file path and index
+/// Format: {url_encoded_path}/{index}
+fn parse_segment_path(path: &str) -> Option<(PathBuf, u32)> {
+    // URL decode first
+    let decoded = urlencoding::decode(path)
+        .map(|s| s.into_owned())
+        .unwrap_or_else(|_| path.to_string());
+
+    // Find the last slash to separate index from path
+    if let Some(last_slash) = decoded.rfind('/') {
+        let file_part = &decoded[..last_slash];
+        let index_part = &decoded[last_slash + 1..];
+
+        // Try to parse index (might have .ts extension)
+        let index_str = index_part.trim_end_matches(".ts");
+        if let Ok(index) = index_str.parse::<u32>() {
+            return Some((PathBuf::from(file_part), index));
+        }
+    }
+
+    None
+}
+
+/// Start the streaming server in a background task
+pub fn spawn_server(app_handle: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let server = StreamingServer::new(DEFAULT_PORT, app_handle);
+        if let Err(e) = server.start().await {
+            eprintln!("ERROR: HLS streaming server failed: {}", e);
+        }
+    });
+}
