@@ -146,7 +146,8 @@ fn is_codec_native(video_codec: &Option<String>, audio_codec: &Option<String>) -
             codec.as_str(),
             "aac" | "mp3" | "mp2" |    // Common web codecs
             "flac" |                    // FLAC
-            "pcm_s16le" | "pcm_s24le" | "pcm_f32le" // PCM variants (WAV)
+            "pcm_s16le" | "pcm_s24le" | "pcm_f32le" | // PCM variants (WAV)
+            "opus" | "vorbis"           // Modern open codecs (supported by WebKit/Blink)
         ),
         None => true, // No audio stream is OK
     };
@@ -160,25 +161,17 @@ fn is_hls_problematic(path: &Path, container: &Option<String>) -> bool {
     // Check by extension
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
-        if matches!(ext_lower.as_str(),
-            // Flash formats - obsolete and problematic
-            "swf" |
-            // Raw video streams without proper container
-            "m2v" | "mpv" |
-            // Some MPEG containers have seeking issues
-            "mpg" | "mpeg"
-        ) {
+        // Flash formats - obsolete and problematic
+        // Raw video streams without proper container
+        // Some MPEG containers have seeking issues
+        if ext_lower == "swf" || ext_lower == "m2v" || ext_lower == "mpv" || ext_lower == "mpg" || ext_lower == "mpeg" {
             return true;
         }
     }
 
     // Check by container format from ffprobe
     if let Some(fmt) = container {
-        if matches!(fmt.as_str(),
-            "swf" |
-            "mpeg1video" | "mpegvideo" |
-            "m2v" | "mpegps"
-        ) {
+        if fmt == "swf" || fmt == "mpeg1video" || fmt == "mpegvideo" || fmt == "m2v" || fmt == "mpegps" {
             return true;
         }
     }

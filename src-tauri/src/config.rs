@@ -17,6 +17,7 @@ impl Default for AppConfig {
     }
 }
 
+#[allow(dead_code)]
 pub struct ConfigState(pub Mutex<AppConfig>);
 
 pub async fn load_config(db: &Db) -> AppConfig {
@@ -28,7 +29,7 @@ pub async fn load_config(db: &Db) -> AppConfig {
              config.thumbnail_threads = v as usize;
         }
     }
-    
+
     // Auto-detect if set to 0
     if config.thumbnail_threads == 0 {
          let available = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);

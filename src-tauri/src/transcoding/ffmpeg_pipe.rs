@@ -1,19 +1,11 @@
-use std::io::{Read, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio, Child};
+use std::process::{Command, Stdio};
 
 use super::quality::TranscodeQuality;
 use super::detector::{MediaType, get_media_type};
 use super::cache::TranscodeCache;
 
-/// Transcoding status for progress tracking
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TranscodeStatus {
-    Pending,
-    Running,
-    Complete,
-    Failed,
-}
+// TranscodeStatus removed as it was unused
 
 /// FFmpeg-based transcoder for media files
 pub struct FfmpegTranscoder {
@@ -30,12 +22,7 @@ impl FfmpegTranscoder {
         Self { ffmpeg_path, cache }
     }
 
-    /// Create a new transcoder with app handle for bundled FFmpeg detection
-    pub fn with_app_handle(cache: TranscodeCache, app_handle: &tauri::AppHandle) -> Self {
-        let ffmpeg_path = crate::ffmpeg::get_ffmpeg_path(Some(app_handle))
-            .unwrap_or_else(|| PathBuf::from("ffmpeg"));
-        Self { ffmpeg_path, cache }
-    }
+    // with_app_handle removed as it was unused
 
     /// Check if FFmpeg is available
     pub fn is_available(&self) -> bool {
@@ -153,129 +140,24 @@ impl FfmpegTranscoder {
         cmd
     }
 
-    /// Start streaming transcoding (returns child process)
-    /// The output is written to stdout in fragmented MP4 format
-    pub fn start_streaming(
-        &self,
-        source: &Path,
-        quality: TranscodeQuality,
-    ) -> Result<TranscodeStream, TranscodeError> {
-        if !source.exists() {
-            return Err(TranscodeError::SourceNotFound(source.to_path_buf()));
-        }
-
-        let media_type = get_media_type(source);
-        let mut cmd = Command::new(&self.ffmpeg_path);
-
-        // Input
-        cmd.arg("-i").arg(source);
-
-        match media_type {
-            MediaType::Audio => {
-                cmd.args([
-                    "-vn",
-                    "-c:a", "aac",
-                    "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
-                    "-f", "adts", // ADTS for streaming AAC
-                    "pipe:1",
-                ]);
-            }
-            MediaType::Video | MediaType::Unknown => {
-                cmd.args([
-                    "-c:v", "libx264",
-                    "-preset", "ultrafast", // Always ultrafast for streaming
-                    "-tune", "zerolatency",
-                    "-b:v", &format!("{}k", quality.video_bitrate() / 1000),
-                    "-c:a", "aac",
-                    "-b:a", &format!("{}k", quality.audio_bitrate() / 1000),
-                    "-movflags", "frag_keyframe+empty_moov+faststart",
-                    "-pix_fmt", "yuv420p",
-                    "-f", "mp4",
-                    "pipe:1",
-                ]);
-            }
-        }
-
-        cmd.stdout(Stdio::piped()).stderr(Stdio::null());
-
-        let child = cmd.spawn().map_err(|e| TranscodeError::FfmpegError(e.to_string()))?;
-
-        Ok(TranscodeStream {
-            child,
-            media_type,
-        })
-    }
-
-    /// Get the cache manager
-    pub fn cache(&self) -> &TranscodeCache {
-        &self.cache
-    }
 }
 
-/// Streaming transcoder output
-pub struct TranscodeStream {
-    child: Child,
-    media_type: MediaType,
-}
-
-impl TranscodeStream {
-    /// Read transcoded data into buffer
-    /// Returns number of bytes read, 0 if finished
-    pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if let Some(stdout) = self.child.stdout.as_mut() {
-            stdout.read(buf)
-        } else {
-            Ok(0)
-        }
-    }
-
-    /// Get buffered reader for the stream
-    pub fn reader(&mut self) -> Option<BufReader<&mut std::process::ChildStdout>> {
-        self.child.stdout.as_mut().map(BufReader::new)
-    }
-
-    /// Get the media type being transcoded
-    pub fn media_type(&self) -> MediaType {
-        self.media_type
-    }
-
-    /// Get MIME type for the output
-    pub fn mime_type(&self) -> &'static str {
-        match self.media_type {
-            MediaType::Audio => "audio/aac",
-            MediaType::Video | MediaType::Unknown => "video/mp4",
-        }
-    }
-
-    /// Wait for transcoding to finish
-    pub fn wait(mut self) -> std::io::Result<std::process::ExitStatus> {
-        self.child.wait()
-    }
-
-    /// Kill the transcoding process
-    pub fn kill(mut self) -> std::io::Result<()> {
-        self.child.kill()
-    }
-}
+// TranscodeStream removed as it was unused
 
 /// Transcoding errors
 #[derive(Debug, Clone)]
 pub enum TranscodeError {
     SourceNotFound(PathBuf),
-    FfmpegNotFound,
     FfmpegError(String),
     TranscodeFailed(String),
-    IoError(String),
 }
 
 impl std::fmt::Display for TranscodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TranscodeError::SourceNotFound(p) => write!(f, "Source file not found: {:?}", p),
-            TranscodeError::FfmpegNotFound => write!(f, "FFmpeg not found in system"),
             TranscodeError::FfmpegError(e) => write!(f, "FFmpeg error: {}", e),
             TranscodeError::TranscodeFailed(e) => write!(f, "Transcoding failed: {}", e),
-            TranscodeError::IoError(e) => write!(f, "IO error: {}", e),
         }
     }
 }

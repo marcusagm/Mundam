@@ -3,7 +3,7 @@ use tauri::{AppHandle, Manager};
 
 use super::cache::TranscodeCache;
 use super::detector;
-use super::ffmpeg_pipe::{FfmpegTranscoder, TranscodeError};
+use super::ffmpeg_pipe::FfmpegTranscoder;
 use super::quality::TranscodeQuality;
 
 /// Check if a file needs transcoding for playback

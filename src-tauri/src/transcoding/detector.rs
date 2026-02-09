@@ -64,7 +64,7 @@ pub fn needs_transcoding(path: &Path) -> bool {
     let ext = path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
-    
+
     match ext {
         Some(e) => {
             TRANSCODE_AUDIO.contains(&e.as_str()) || TRANSCODE_VIDEO.contains(&e.as_str())
@@ -78,7 +78,7 @@ pub fn is_native_format(path: &Path) -> bool {
     let ext = path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
-    
+
     match ext {
         Some(e) => {
             NATIVE_AUDIO.contains(&e.as_str()) || NATIVE_VIDEO.contains(&e.as_str())
@@ -92,7 +92,7 @@ pub fn get_media_type(path: &Path) -> MediaType {
     let ext = path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
-    
+
     match ext {
         Some(e) => {
             if TRANSCODE_AUDIO.contains(&e.as_str()) || NATIVE_AUDIO.contains(&e.as_str()) {
@@ -108,11 +108,12 @@ pub fn get_media_type(path: &Path) -> MediaType {
 }
 
 /// Check if a file extension needs audio-only transcoding
+#[allow(dead_code)]
 pub fn is_audio_transcode(path: &Path) -> bool {
     let ext = path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
-    
+
     match ext {
         Some(e) => TRANSCODE_AUDIO.contains(&e.as_str()),
         None => false,
@@ -120,11 +121,12 @@ pub fn is_audio_transcode(path: &Path) -> bool {
 }
 
 /// Check if a file extension needs video transcoding
+#[allow(dead_code)]
 pub fn is_video_transcode(path: &Path) -> bool {
     let ext = path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
-    
+
     match ext {
         Some(e) => TRANSCODE_VIDEO.contains(&e.as_str()),
         None => false,

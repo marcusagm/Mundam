@@ -127,6 +127,7 @@ impl TranscodeCache {
     }
 
     /// Delete a specific cache entry
+    #[allow(dead_code)]
     pub fn invalidate(&self, source: &Path, quality: TranscodeQuality) -> bool {
         let cache_path = self.get_cache_path(source, quality);
         if cache_path.exists() {
@@ -137,6 +138,7 @@ impl TranscodeCache {
     }
 
     /// Delete all cache entries for a source file (all qualities)
+    #[allow(dead_code)]
     pub fn invalidate_all(&self, source: &Path) -> usize {
         let mut deleted = 0;
         for quality in TranscodeQuality::all() {

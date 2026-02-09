@@ -30,6 +30,7 @@ impl ProcessManager {
     }
 
     /// Register a new transcoding process
+    #[allow(dead_code)]
     pub fn register(&mut self, key: &str, child: &Child) {
         let info = ProcessInfo {
             process_id: child.id(),
@@ -51,11 +52,13 @@ impl ProcessManager {
     }
 
     /// Check if a segment is currently being processed
+    #[allow(dead_code)]
     pub fn is_processing(&self, key: &str) -> bool {
         self.processes.contains_key(key)
     }
 
     /// Clean up old/orphaned processes (older than timeout)
+    #[allow(dead_code)]
     pub fn cleanup_stale(&mut self, timeout_secs: u64) {
         let timeout = std::time::Duration::from_secs(timeout_secs);
         let now = Instant::now();
@@ -72,6 +75,7 @@ impl ProcessManager {
     }
 
     /// Get number of active processes
+    #[allow(dead_code)]
     pub fn active_count(&self) -> usize {
         self.processes.len()
     }
