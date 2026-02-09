@@ -5,9 +5,12 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
+import { HLS_SERVER_URL } from './hls-player';
+
+export { HLS_SERVER_URL };
+
 // Re-export HLS utilities for convenience
 export {
-  HLS_SERVER_URL,
   getHlsPlaylistUrl,
   getHlsProbeUrl,
   probeVideo,
@@ -70,6 +73,12 @@ const NATIVE_AUDIO_EXTENSIONS = new Set([
   'mp3', 'wav', 'aac', 'm4a', 'm4r', 'flac', 'mp2', 'aiff', 'aif',
 ]);
 
+// Video extensions that require linear transcoding (live HLS)
+const LINEAR_VIDEO_EXTENSIONS = new Set([
+  'swf',                  // Flash
+  'mpg', 'mpeg', 'm2v',   // MPEG-1/2
+]);
+
 // Native video extensions (no transcoding needed)
 const NATIVE_VIDEO_EXTENSIONS = new Set([
   'mp4', 'm4v', 'mov', 'qt',
@@ -97,6 +106,14 @@ export function needsAudioTranscoding(path: string): boolean {
 export function needsVideoTranscoding(path: string): boolean {
   const ext = getExtension(path);
   return TRANSCODE_VIDEO_EXTENSIONS.has(ext);
+}
+
+/**
+ * Check if a file extension requires linear transcoding (live HLS)
+ */
+export function needsLinearTranscoding(path: string): boolean {
+  const ext = getExtension(path);
+  return LINEAR_VIDEO_EXTENSIONS.has(ext);
 }
 
 /**
@@ -131,9 +148,14 @@ export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'
 /**
  * Get the appropriate video URL for a file path
  * Uses video-stream:// for files that need transcoding, video:// otherwise
+ * Uses HLS Live for linear formats
  */
 export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'): string {
   const encodedPath = encodeURIComponent(path);
+
+  if (needsLinearTranscoding(path)) {
+    return `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}`;
+  }
 
   if (needsVideoTranscoding(path)) {
     return `video-stream://localhost/${encodedPath}?quality=${quality}`;

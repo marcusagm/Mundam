@@ -102,6 +102,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     onQualityChange={handleQualityChange}
                     // Show quality selector for all (including HLS)
                     showQualitySelector={true}
+                    // Pass probed duration for linear HLS which reports Infinity
+                    forcedDuration={probeResult()?.duration_secs}
                 />
             </Show>
 

@@ -57,12 +57,33 @@ export interface VideoPlayerProps {
     /** Show quality selector button (default: true for transcoded videos) */
     showQualitySelector?: boolean;
     class?: string;
+    /** Forced duration in seconds (useful for HLS where metadata might report Infinity) */
+    forcedDuration?: number;
 }
 
 export const VideoPlayer: Component<VideoPlayerProps> = props => {
     let videoRef: HTMLVideoElement | undefined;
     let containerRef: HTMLDivElement | undefined;
     const playerId = createUniqueId();
+
+    const getStreamMode = () => {
+        if (props.src.includes('/hls-live/')) return 'LIVE';
+        if (isHlsUrl(props.src)) return 'HLS';
+        return 'NATIVE';
+    };
+
+    const getModeDotClass = () => {
+        switch (getStreamMode()) {
+            case 'LIVE':
+                return 'ui-video-badge-live';
+            case 'HLS':
+                return 'ui-video-badge-hls';
+            case 'NATIVE':
+                return 'ui-video-badge-native';
+            default:
+                return 'ui-video-badge-unknown';
+        }
+    };
 
     const [isPlaying, setIsPlaying] = createSignal(false);
     const [currentTime, setCurrentTime] = createSignal(0);
@@ -190,6 +211,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     };
 
     const formatTime = (seconds: number) => {
+        if (!Number.isFinite(seconds) || Number.isNaN(seconds)) return '--:--';
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
@@ -208,6 +230,13 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
         if (!videoRef) return;
         const b = videoRef.buffered;
         const cur = videoRef.currentTime;
+        const d = duration();
+        // If duration is infinite (live stream logic), we can't show percentage easily
+        if (!Number.isFinite(d) || d <= 0) {
+            setBuffered(0);
+            return;
+        }
+
         for (let i = 0; i < b.length; i++) {
             if (b.start(i) <= cur && b.end(i) >= cur) {
                 setBuffered(b.end(i));
@@ -228,7 +257,14 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
             clearTimeout(retryTimeout);
             retryTimeout = undefined;
         }
-        setDuration(videoRef.duration);
+
+        let d = videoRef.duration;
+        // If video reports Infinity (HLS linear), try to use forced duration
+        if ((!Number.isFinite(d) || Number.isNaN(d)) && props.forcedDuration) {
+            d = props.forcedDuration;
+        }
+
+        setDuration(d);
         setIsLoading(false);
     };
 
@@ -463,6 +499,11 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                             <Pause size={48} fill="currentColor" />
                         </div>
                     </Show>
+                </div>
+
+                <div class="ui-video-badge">
+                    <div class={cn('ui-video-badge-dot', getModeDotClass())} />
+                    {getStreamMode()}
                 </div>
 
                 <div

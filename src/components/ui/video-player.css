@@ -374,6 +374,35 @@
   color: var(--accent);
 }
 
-.ui-video-quality-option-active svg {
-  color: var(--accent);
+
+/* --- Streaming Mode Badge --- */
+.ui-video-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  font-size: 10px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
+
+.ui-video-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.ui-video-badge-live { background-color: #ef4444; }
+.ui-video-badge-hls { background-color: #3b82f6; }
+.ui-video-badge-native { background-color: #22c55e; }
+.ui-video-badge-unknown { background-color: #888888; }
+
