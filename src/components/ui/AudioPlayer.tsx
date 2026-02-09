@@ -1,4 +1,13 @@
-import { Component, createSignal, Show, For, createEffect, createMemo } from 'solid-js';
+import {
+    Component,
+    createSignal,
+    Show,
+    For,
+    createEffect,
+    createMemo,
+    createUniqueId,
+    untrack
+} from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
@@ -16,6 +25,7 @@ import {
     Repeat
 } from 'lucide-solid';
 import { audioState, audioActions } from '../../core/store/audioStore';
+import { videoActions } from '../../core/store/videoStore';
 import './audio-player.css';
 
 export interface AudioPlayerProps {
@@ -43,6 +53,20 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
     const [buffered, setBuffered] = createSignal(0);
     const [waveform, setWaveform] = createSignal<number[]>([]);
     const [lastAction, setLastAction] = createSignal<'play' | 'pause' | null>(null);
+    const playerId = createUniqueId();
+
+    // Single Active Player Logic
+    createEffect(() => {
+        const activeId = audioState.activePlayerId();
+        // Use untrack so this effect only runs when activeId changes
+        if (activeId && activeId !== playerId && untrack(() => isPlaying())) {
+            // Another player started playing, pause this one
+            if (audioRef) {
+                audioRef.pause();
+                setIsPlaying(false);
+            }
+        }
+    });
 
     // Derived loading state
     const isActuallyLoading = () => isLoading() || isWaveformLoading();
@@ -197,7 +221,11 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
                 autoplay={props.autoPlay}
                 loop={audioState.isLooping()}
                 preload="metadata"
-                onPlay={() => setIsPlaying(true)}
+                onPlay={() => {
+                    setIsPlaying(true);
+                    audioActions.setActivePlayer(playerId);
+                    videoActions.setActivePlayer('audio-player');
+                }}
                 onPause={() => setIsPlaying(false)}
                 onTimeUpdate={handleTimeUpdate}
                 onProgress={updateBuffered}

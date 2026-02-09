@@ -6,11 +6,13 @@ const initialVolume = savedVolume ? parseFloat(savedVolume) : 1;
 const [volume, setVolume] = createSignal(initialVolume);
 const [isMuted, setIsMuted] = createSignal(false);
 const [isLooping, setIsLooping] = createSignal(false);
+const [activePlayerId, setActivePlayerId] = createSignal<string | null>(null);
 
 export const audioState = {
     volume,
     isMuted,
-    isLooping
+    isLooping,
+    activePlayerId
 };
 
 export const audioActions = {
@@ -23,5 +25,8 @@ export const audioActions = {
     },
     setIsLooping: (loop: boolean) => {
         setIsLooping(loop);
+    },
+    setActivePlayer: (id: string | null) => {
+        setActivePlayerId(id);
     }
 };

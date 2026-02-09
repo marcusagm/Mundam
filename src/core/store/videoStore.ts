@@ -7,12 +7,14 @@ const [volume, setVolume] = createSignal(initialVolume);
 const [isMuted, setIsMuted] = createSignal(false);
 const [isLooping, setIsLooping] = createSignal(false);
 const [playbackRate, setPlaybackRate] = createSignal(1);
+const [activePlayerId, setActivePlayerId] = createSignal<string | null>(null);
 
 export const videoState = {
     volume,
     isMuted,
     isLooping,
-    playbackRate
+    playbackRate,
+    activePlayerId
 };
 
 export const videoActions = {
@@ -28,5 +30,8 @@ export const videoActions = {
     },
     setPlaybackRate: (rate: number) => {
         setPlaybackRate(rate);
+    },
+    setActivePlayer: (id: string | null) => {
+        setActivePlayerId(id);
     }
 };

@@ -77,6 +77,11 @@ async fn transcode_segment(
     cmd.args([
         "-hide_banner",
         "-loglevel", "warning",
+        // Robustness flags for seeking in TS/VOB
+        "-analyzeduration", "100M",
+        "-probesize", "50M",
+        "-ignore_unknown",
+        "-fflags", "+genpts",
         // Fast seek (before input)
         "-ss", &format!("{:.3}", start_time),
         // Input file
@@ -86,6 +91,7 @@ async fn transcode_segment(
         // Stream mapping (first video, first audio if exists)
         "-map", "0:v:0",
         "-map", "0:a:0?",
+        "-sn", // Disable subtitles (source of many seek errors)
         // Video encoding
         "-c:v", "libx264",
         "-preset", "ultrafast",

@@ -1,4 +1,15 @@
-import { Component, createSignal, createEffect, on, onMount, onCleanup, Show, For } from 'solid-js';
+import {
+    Component,
+    createSignal,
+    createEffect,
+    on,
+    onMount,
+    onCleanup,
+    Show,
+    For,
+    createUniqueId,
+    untrack
+} from 'solid-js';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
 import { Slider } from './Slider';
@@ -18,6 +29,7 @@ import {
     Check
 } from 'lucide-solid';
 import { videoState, videoActions } from '../../core/store/videoStore';
+import { audioActions } from '../../core/store/audioStore';
 import { type TranscodeQuality, isHlsUrl } from '../../lib/stream-utils';
 import { HlsPlayerManager } from '../../lib/hls-player';
 import './video-player.css';
@@ -50,6 +62,7 @@ export interface VideoPlayerProps {
 export const VideoPlayer: Component<VideoPlayerProps> = props => {
     let videoRef: HTMLVideoElement | undefined;
     let containerRef: HTMLDivElement | undefined;
+    const playerId = createUniqueId();
 
     const [isPlaying, setIsPlaying] = createSignal(false);
     const [currentTime, setCurrentTime] = createSignal(0);
@@ -105,6 +118,19 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
             }
         )
     );
+
+    // Single Active Player Logic
+    createEffect(() => {
+        const activeId = videoState.activePlayerId();
+        // Use untrack so this effect only runs when activeId changes, not when isPlaying changes
+        if (activeId && activeId !== playerId && untrack(() => isPlaying())) {
+            // Another player started playing, pause this one
+            if (videoRef) {
+                videoRef.pause();
+                setIsPlaying(false);
+            }
+        }
+    });
 
     // Handle HLS source attachment
     createEffect(
@@ -377,6 +403,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     preload="metadata"
                     onPlay={() => {
                         setIsPlaying(true);
+                        videoActions.setActivePlayer(playerId);
+                        audioActions.setActivePlayer('video-player');
                         resetControlsTimeout();
                     }}
                     onPause={() => {

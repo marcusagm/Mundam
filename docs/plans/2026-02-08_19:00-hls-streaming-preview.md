@@ -141,6 +141,14 @@ Frontend (SolidJS)                   Backend (Rust/Axum)
 - [x] **9.5** Cleanup cache → Verify: Segments removidos
 - [x] **9.6** Stress test: 10 seeks em 2s → Verify: Só último processado
 
+### Phase 10: Refinements - Quality & Robustness
+
+- [x] **10.1** Backend: Aceitar parâmetro `quality` (preview, standard, high) em `/playlist` e `/segment` → Verify: Cache distinct
+- [x] **10.2** Backend: Ajustar FFmpeg (CRF, scale) baseado na qualidade → Verify: Tamanho do arquivo muda
+- [x] **10.3** Frontend: Atualizar `VideoPlayer.tsx` para mostrar seletor de qualidade em HLS → Verify: UI visible
+- [x] **10.4** Backend: Robustez para VOB/M2TS (analyzeduration, probesize, genpts) → Verify: Seek sem erro
+- [x] **10.5** Frontend: Single Active Player (pausa automática entre áudio/vídeo) → Verify: Somente 1 mídia toca
+
 ---
 
 ## Done When
