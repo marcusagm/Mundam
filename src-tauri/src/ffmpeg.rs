@@ -80,28 +80,62 @@ pub fn generate_with_ffmpeg(
     let output_str = output_path.to_string_lossy();
 
     // FFmpeg command for thumbnail generation:
-    // -ss 00:00:01: Seek 1 second in to likely hit a non-black frame
-    // -i: input file
-    // -vf scale: resize maintaining aspect ratio (using -1 for auto)
-    // -vframes 1: only output one frame
-    // -q:v 80: quality for WebP output
-    let output = Command::new(ffmpeg_path)
-        .args([
-            "-hide_banner",
-            "-loglevel", "error",
-            "-ss", "00:00:01",
-            "-i", &input_str,
-            "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
-            "-vframes", "1",
-            "-q:v", "80",
-            "-y",
-            &output_str,
-        ])
-        .output()?;
+    // Try seeking 1 second first (better for movies)
+    // If that fails, try 0 seconds (better for short clips/SWF)
+    let run_ffmpeg = |time: &str| -> Result<(), String> {
+        let output = Command::new(ffmpeg_path)
+            .args([
+                "-hide_banner",
+                "-loglevel", "error",
+                "-ss", time,
+                "-i", &input_str,
+                "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
+                "-vframes", "1",
+                "-c:v", "libwebp",
+                "-strict", "unofficial",
+                "-q:v", "80",
+                "-y",
+                &output_str,
+            ])
+            .output()
+            .map_err(|e| e.to_string())?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg failed: {}", stderr).into());
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(stderr.to_string());
+        }
+        Ok(())
+    };
+
+    // First attempt at 1s
+    if let Err(e1) = run_ffmpeg("00:00:01") {
+        // Second attempt at 0s
+        if let Err(e2) = run_ffmpeg("00:00:00") {
+            // Third attempt: No seek (let ffmpeg find first frame automatically)
+            // This often helps with corrupted headers where seeking logic fails
+            // but reading sequentially works.
+            let output_no_seek = Command::new(ffmpeg_path)
+                .args([
+                    "-hide_banner",
+                    "-loglevel", "error",
+                    "-i", &input_str,
+                    "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
+                    "-vframes", "1",
+                    "-c:v", "libwebp",
+                    "-strict", "unofficial",
+                    "-q:v", "80",
+                    "-y",
+                    &output_str,
+                ])
+                .output()
+                .map_err(|e| e.to_string())?;
+
+            if !output_no_seek.status.success() {
+                 let e3 = String::from_utf8_lossy(&output_no_seek.stderr);
+                 eprintln!("Thumbnail ffmpeg failed for {}: 1s err: {}, 0s err: {}, no-seek err: {}", input_str, e1, e2, e3);
+                 return Err(format!("FFmpeg failed: {}", e3).into());
+            }
+        }
     }
 
     // Verify output was created

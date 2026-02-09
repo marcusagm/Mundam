@@ -4,10 +4,11 @@ import { Accordion, VideoPlayer as UIVideoPlayer, Loader } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
 import {
-    getVideoUrl,
     probeVideo,
     getHlsPlaylistUrl,
-    isHlsServerAvailable
+    isHlsServerAvailable,
+    needsLinearTranscoding,
+    HLS_SERVER_URL
 } from '../../../../lib/stream-utils';
 import './VideoInspector.css';
 
@@ -21,6 +22,7 @@ interface VideoInspectorProps {
  */
 export const VideoInspector: Component<VideoInspectorProps> = props => {
     const [videoUrl, setVideoUrl] = createSignal('');
+    const quality = 'standard'; // Default quality for inspector
 
     // Probe video when item changes
     const [probeResult] = createResource(
@@ -52,14 +54,29 @@ export const VideoInspector: Component<VideoInspectorProps> = props => {
                     return;
                 }
 
-                if (probe && !probe.is_native) {
+                // Determine stream URL strategy (Shared logic with VideoPlayer.tsx)
+                const isLinear =
+                    needsLinearTranscoding(path) ||
+                    (probe &&
+                        (probe.video_codec === 'mjpeg' ||
+                            probe.video_codec === 'flv1' ||
+                            probe.video_codec === 'vp6f'));
+
+                if (isLinear) {
+                    console.log(`Inspector: Using Linear HLS for ${path}`);
+                    const encodedPath = encodeURIComponent(path);
+                    setVideoUrl(
+                        `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}`
+                    );
+                } else if (probe && !probe.is_native) {
                     // Non-native format: use HLS
-                    console.log(`Inspector: Using HLS for ${path}`);
-                    setVideoUrl(getHlsPlaylistUrl(path));
+                    console.log(`Inspector: Using Standard HLS for ${path}`);
+                    setVideoUrl(getHlsPlaylistUrl(path, quality));
                 } else {
                     // Native or fallback: use direct protocol
                     console.log(`Inspector: Using direct protocol for ${path}`);
-                    setVideoUrl(getVideoUrl(path));
+                    // Ensure we use the proper video:// protocol for native files
+                    setVideoUrl(`video://localhost/${encodeURIComponent(path)}`);
                 }
             }
         )

@@ -27,7 +27,7 @@ pub mod model;
 pub fn get_thumbnail_strategy(path: &Path) -> ThumbnailStrategy {
     match FileFormat::detect(path) {
         Some(format) => format.strategy.clone(),
-        None => ThumbnailStrategy::Icon, 
+        None => ThumbnailStrategy::Icon,
     }
 }
 
@@ -57,23 +57,23 @@ pub fn generate_thumbnail(
     size_px: u32,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let output_path = thumbnails_dir.join(hashed_filename);
-    
+
     // OPTIMIZATION: Open file handle ONCE here to avoid re-opening in detection and native generation
     let mut open_file = std::fs::File::open(input_path).ok();
-    
+
     let strategy = if let Some(ref mut file) = open_file {
         FileFormat::detect_header(file, input_path)
             .map(|f| f.strategy.clone())
-            .unwrap_or(ThumbnailStrategy::Icon)
+            .unwrap_or_else(|| get_thumbnail_strategy(input_path))
     } else {
         get_thumbnail_strategy(input_path)
     };
 
     let start = std::time::Instant::now();
-    
+
     // OPTIMIZATION: Try external FFmpeg FIRST if available for Image/Video
     let ffmpeg_available = crate::ffmpeg::is_ffmpeg_available();
-    
+
     // Note: If we use FFmpeg, the open_file handle is ignored (FFmpeg opens its own).
     // EXCLUSION: Affinity, Clip, XMind should always use NativeExtractor first as they are proprietary zip formats.
     let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
@@ -98,13 +98,13 @@ pub fn generate_thumbnail(
         ThumbnailStrategy::NativeExtractor => extractors::generate_thumbnail_extracted(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::Webview => svg::generate_thumbnail_svg(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
         ThumbnailStrategy::Font => font::generate_font_thumbnail(input_path, &output_path, size_px).map(|_| hashed_filename.to_string()),
-        ThumbnailStrategy::Model3D => model::generate_model_preview(input_path, thumbnails_dir, hashed_filename, size_px), 
+        ThumbnailStrategy::Model3D => model::generate_model_preview(input_path, thumbnails_dir, hashed_filename, size_px),
         ThumbnailStrategy::Icon | ThumbnailStrategy::None => {
             // Use the shared icon generator logic
             icon::get_or_generate_icon(input_path, thumbnails_dir, size_px)
         },
     };
-    
+
     let final_result = match result {
         Ok(path) => Ok(path),
         Err(e) => {
@@ -116,12 +116,12 @@ pub fn generate_thumbnail(
              }
         }
     };
-    
+
     let elapsed = start.elapsed();
     if elapsed.as_millis() > 100 {
         println!("THUMB: {:?} | {:?} | {:?}", strategy, elapsed, input_path.file_name().unwrap_or_default());
     }
-    
+
     final_result
 }
 

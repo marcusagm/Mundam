@@ -3,13 +3,13 @@ import { VideoPlayer as UIVideoPlayer } from '../../../../ui';
 import { Loader } from '../../../../ui/Loader';
 import {
     type TranscodeQuality,
-    getVideoUrl,
     probeVideo,
     getHlsPlaylistUrl,
     isHlsServerAvailable,
     type VideoProbeResult,
     needsLinearTranscoding,
-    HLS_SERVER_URL
+    HLS_SERVER_URL,
+    getExtension
 } from '../../../../../lib/stream-utils';
 import { transcodeState } from '../../../../../core/store/transcodeStore';
 import '../renderers.css';
@@ -67,10 +67,23 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     return;
                 }
 
+                console.log(
+                    `Checking format for ${path}: ext=${getExtension(path)}, linear=${needsLinearTranscoding(path)}`
+                );
+
                 // Determine stream URL strategy
-                if (needsLinearTranscoding(path)) {
+                // Check extension-based linear requirement AND codec-based requirement
+                // MJPEG and Flash Video (flv1/swf) often fail standard segmentation, so force Linear
+                const isLinear =
+                    needsLinearTranscoding(path) ||
+                    (probe &&
+                        (probe.video_codec === 'mjpeg' ||
+                            probe.video_codec === 'flv1' ||
+                            probe.video_codec === 'vp6f'));
+
+                if (isLinear) {
                     // Linear HLS (Live transcoding) - for formats that can't be segmented easily
-                    console.log(`Using Linear HLS for ${path}`);
+                    console.log(`Using Linear HLS for ${path} (isLinear=true)`);
                     // We construct the URL manually or use a helper if available, but getVideoUrl does this too.
                     // However, getVideoUrl returns video-stream:// for standard transcode.
                     // Let's use the direct HTTP URL for Linear to allow the VideoPlayer to handle it as HLS.

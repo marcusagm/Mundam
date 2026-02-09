@@ -594,14 +594,14 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
     FileFormat {
         name: "Ogg Audio",
         extensions: &["ogg", "oga"],
-        mime_types: &["audio/ogg", "application/ogg"],
+        mime_types: &[],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
     },
     FileFormat {
         name: "Opus Audio",
         extensions: &["opus"],
-        mime_types: &["audio/opus", "audio/ogg"],
+        mime_types: &["audio/opus"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
     },

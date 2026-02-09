@@ -29,9 +29,9 @@ impl Db {
         let columns: Vec<(i64, String, String, i64, Option<String>, i64)> = sqlx::query_as("PRAGMA table_info(images)")
             .fetch_all(&pool)
             .await?;
-        
+
         let column_names: Vec<String> = columns.into_iter().map(|c| c.1).collect();
-        
+
         if !column_names.contains(&"format".to_string()) {
             println!("DEBUG: Migration - Adding 'format' column to images table");
             pool.execute("ALTER TABLE images ADD COLUMN format TEXT DEFAULT ''").await?;
@@ -94,7 +94,7 @@ impl Db {
             .bind(path)
             .fetch_optional(&self.pool)
             .await?;
-        
+
         if row.is_some() {
             Ok(row.map(|r| r.0))
         } else {
@@ -115,10 +115,10 @@ impl Db {
         is_root: bool,
     ) -> Result<i64, sqlx::Error> {
         let path = path.trim_end_matches('/');
-        
+
         // Try to find existing
         if let Some(id) = self.get_folder_by_path(path).await? {
-            // PROTECTION: If this folder is already marked as a root and the new call 
+            // PROTECTION: If this folder is already marked as a root and the new call
             // is trying to treat it as a child (is_root=false), do NOT demote it.
             let existing: Option<(bool, Option<i64>)> = sqlx::query_as("SELECT is_root, parent_id FROM folders WHERE id = ?")
                 .bind(id)
@@ -137,10 +137,10 @@ impl Db {
                  let mut updates = Vec::new();
                  if is_root { updates.push("is_root = 1"); updates.push("parent_id = NULL"); }
                  else if parent_id.is_some() { updates.push("parent_id = ?"); }
-                 
+
                  query.push_str(&updates.join(", "));
                  query.push_str(" WHERE id = ?");
-                 
+
                  let mut q = sqlx::query(&query);
                  if !is_root && parent_id.is_some() { q = q.bind(parent_id); }
                  q = q.bind(id);
@@ -158,7 +158,7 @@ impl Db {
         .bind(is_root)
         .execute(&self.pool)
         .await;
-        
+
         match res {
             Ok(r) => Ok(r.last_insert_rowid()),
             Err(e) => {
@@ -216,7 +216,7 @@ impl Db {
             .await?;
         Ok(())
     }
-    
+
     pub async fn get_location_thumbnails(&self, location_id: i64) -> Result<Vec<String>, sqlx::Error> {
         // Use CTE to get all descendants
         let rows: Vec<(String,)> = sqlx::query_as(
@@ -230,45 +230,45 @@ impl Db {
         .bind(location_id)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows.into_iter().map(|(path,)| path).collect())
     }
-    
+
     pub async fn delete_folder(&self, folder_id: i64) -> Result<(), sqlx::Error> {
         // CASCADE delete in schema handles children folders and images
         sqlx::query("DELETE FROM folders WHERE id = ?")
             .bind(folder_id)
             .execute(&self.pool)
             .await?;
-            
+
         // Clean up orphan tags? (Maybe later)
         Ok(())
     }
 
     pub async fn adopt_orphaned_children(&self, parent_id: i64, parent_path: &str) -> Result<(), sqlx::Error> {
         // Find existing ROOT folders that should differ to this new parent
-        // Use standard separator '/' or platform specific? 
+        // Use standard separator '/' or platform specific?
         // Paths in DB are full paths.
         // We assume standard path formatting logic (Rust to_string_lossy).
         // Let's use a LIKE query with safe binding.
         // We match parent_path + separator + %.
         // Note: Windows paths might use backslash. The `path` string format depends on how `PathBuf` stringifies.
         // On Mac it uses forward slash.
-        
+
         let path_pattern = format!("{}/%", parent_path); // Append separator
-        
+
         // Update any root folder that logicially belongs to this new parent
         sqlx::query(
-            "UPDATE folders 
-             SET parent_id = ?, is_root = 0 
-             WHERE is_root = 1 
+            "UPDATE folders
+             SET parent_id = ?, is_root = 0
+             WHERE is_root = 1
              AND path LIKE ?"
         )
         .bind(parent_id)
         .bind(path_pattern)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
 
@@ -283,7 +283,7 @@ impl Db {
         Ok(rows)
     }
 
-    
+
     pub async fn get_folder_counts_recursive(&self) -> Result<Vec<(i64, i64)>, sqlx::Error> {
         // Recursive count of images in folders
         let rows: Vec<(i64, i64)> = sqlx::query_as(
@@ -291,9 +291,9 @@ impl Db {
                 -- Base case: Direct folder
                 SELECT id as root_id, id as child_id
                 FROM folders
-                
+
                 UNION ALL
-                
+
                 -- Recursive case: Child folders
                 SELECT ft.root_id, f.id
                 FROM folders f
@@ -306,7 +306,7 @@ impl Db {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
 
@@ -322,13 +322,13 @@ impl Db {
 
     pub async fn ensure_folder_hierarchy(&self, path: &str) -> Result<i64, sqlx::Error> {
         let path = path.trim_end_matches('/');
-        
+
         // 1. Check if this path is already a known root. If so, stop climbing.
         let existing = sqlx::query_as::<_, (i64, bool)>("SELECT id, is_root FROM folders WHERE path = ?")
             .bind(path)
             .fetch_optional(&self.pool)
             .await?;
-            
+
         if let Some((id, is_root)) = existing {
             if is_root { return Ok(id); }
         }
@@ -342,7 +342,7 @@ impl Db {
 
         let parent_id = if let Some(parent) = path_obj.parent() {
             let parent_str = parent.to_string_lossy();
-            
+
             if let Some(pid) = self.get_folder_by_path(&parent_str).await? {
                 Some(pid)
             } else {
@@ -350,7 +350,7 @@ impl Db {
                 if parent_str.len() > 1 && parent_str != "/" {
                      Some(Box::pin(self.ensure_folder_hierarchy(&parent_str)).await?)
                 } else {
-                    None 
+                    None
                 }
             }
         } else {
@@ -374,8 +374,8 @@ impl Db {
         if let Some((id, old_fid)) = existing {
             // Standard Update
             sqlx::query(
-                "UPDATE images SET 
-                    folder_id = ?, filename = ?, width = ?, height = ?, size = ?, format = ?, modified_at = ? 
+                "UPDATE images SET
+                    folder_id = ?, filename = ?, width = ?, height = ?, size = ?, format = ?, modified_at = ?
                  WHERE path = ?"
             )
             .bind(folder_id)
@@ -388,7 +388,7 @@ impl Db {
             .bind(&img.path)
             .execute(&self.pool)
             .await?;
-            
+
             let old_fid_if_changed = if old_fid != folder_id { Some(old_fid) } else { None };
             return Ok((id, old_fid_if_changed, false));
         }
@@ -406,8 +406,8 @@ impl Db {
             if !std::path::Path::new(&old_path).exists() {
                 println!("DEBUG: DB - Adopting 'lost' image record {} for new path: {}", id, img.path);
                 sqlx::query(
-                    "UPDATE images SET 
-                        path = ?, folder_id = ?, filename = ?, format = ?, modified_at = ? 
+                    "UPDATE images SET
+                        path = ?, folder_id = ?, filename = ?, format = ?, modified_at = ?
                      WHERE id = ?"
                 )
                 .bind(&img.path)
@@ -425,9 +425,9 @@ impl Db {
         // 3. True New File
         // Use ON CONFLICT to handle race conditions between Indexer and Watcher
         let res = sqlx::query(
-            "INSERT INTO images (folder_id, path, filename, width, height, size, format, created_at, modified_at) 
+            "INSERT INTO images (folder_id, path, filename, width, height, size, format, created_at, modified_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(path) DO UPDATE SET 
+             ON CONFLICT(path) DO UPDATE SET
                 folder_id = excluded.folder_id,
                 filename = excluded.filename,
                 width = excluded.width,
@@ -447,7 +447,7 @@ impl Db {
         .bind(img.modified_at)
         .execute(&self.pool)
         .await?;
-        
+
         Ok((res.last_insert_rowid(), None, true))
     }
 
@@ -515,11 +515,11 @@ impl Db {
                 .bind(image_id)
                 .execute(&self.pool)
                 .await?;
-            
-            // Note: image_tags are cascaded if schema is correct, 
+
+            // Note: image_tags are cascaded if schema is correct,
             // but we kept the IDs in memory to return
         }
-        
+
         Ok(context)
     }
 
@@ -569,7 +569,7 @@ impl Db {
                 height: Some(h),
                 size: s,
                 created_at: created_dt,
-                modified_at: modified_dt, 
+                modified_at: modified_dt,
                 thumbnail_path: thumb,
                 rating,
                 notes,
@@ -583,13 +583,13 @@ impl Db {
     pub async fn rename_folder(&self, old_path: &str, new_path: &str, new_name: &str) -> Result<bool, sqlx::Error> {
         let old_path = old_path.trim_end_matches('/');
         let new_path = new_path.trim_end_matches('/');
-        
+
         // 1. Find the folder
         let folder = self.get_folder_by_path(old_path).await?;
-        
+
         if let Some(id) = folder {
             println!("DEBUG: DB - Renaming folder ID {} from '{}' to '{}'", id, old_path, new_path);
-            
+
             // 2. Try to Update the folder itself
             let res = sqlx::query("UPDATE folders SET path = ?, name = ? WHERE id = ?")
                 .bind(new_path)
@@ -616,11 +616,11 @@ impl Db {
                     } else { return Err(e); }
                 }
             }
-                
+
             // 3. Update all children paths using SUBSTR for safety
             let old_prefix = format!("{}/", old_path);
             let old_len = old_path.len() as i32;
-            
+
             // Update child folders
             sqlx::query(
                 "UPDATE folders SET path = ? || SUBSTR(path, ? + 1) WHERE SUBSTR(path, 1, ? + 1) = ?"
@@ -631,7 +631,7 @@ impl Db {
             .bind(&old_prefix)
             .execute(&self.pool)
             .await?;
-            
+
             // Update child images
             sqlx::query(
                 "UPDATE images SET path = ? || SUBSTR(path, ? + 1) WHERE SUBSTR(path, 1, ? + 1) = ?"
@@ -642,7 +642,7 @@ impl Db {
             .bind(&old_prefix)
             .execute(&self.pool)
             .await?;
-            
+
             Ok(true)
         } else {
             Ok(false)
@@ -668,7 +668,7 @@ impl Db {
         .bind(&pattern)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
 
