@@ -1,5 +1,5 @@
 //! FFmpeg subprocess wrapper for thumbnail generation
-//! 
+//!
 //! Handles complex formats that Rust crates can't decode:
 //! - RAW: cr2, cr3, arw, nef, dng, raf, orf, etc.
 //! - Modern: heic, heif, avif, jxl
@@ -11,7 +11,7 @@ use tauri::Manager;
 
 
 /// Get the path to the FFmpeg binary
-/// 
+///
 /// Searches in order:
 /// 1. Bundled in resources (production)
 /// 2. Bundled in src-tauri/ffmpeg (development)
@@ -25,13 +25,13 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
             } else {
                 resource_dir.join("ffmpeg").join("ffmpeg")
             };
-            
+
             if bundled_path.exists() {
                 return Some(bundled_path);
             }
         }
     }
-    
+
     // Try bundled FFmpeg in src-tauri/ffmpeg (development)
     // The binary is at: src-tauri/ffmpeg/ffmpeg
     // Current exe is at: src-tauri/target/debug/mundam
@@ -48,12 +48,12 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
             }
         }
     }
-    
+
     // Fallback to system FFmpeg
     if Command::new("ffmpeg").arg("-version").output().map(|o| o.status.success()).unwrap_or(false) {
         return Some(PathBuf::from("ffmpeg"));
     }
-    
+
     None
 }
 
@@ -65,7 +65,7 @@ pub fn is_ffmpeg_available() -> bool {
 
 
 /// Generate a thumbnail using FFmpeg subprocess
-/// 
+///
 /// This handles:
 /// - RAW camera files (cr2, arw, nef, etc.)
 /// - Modern codecs (heic, avif, jxl)
@@ -78,17 +78,18 @@ pub fn generate_with_ffmpeg(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input_str = input_path.to_string_lossy();
     let output_str = output_path.to_string_lossy();
-    
+
     // FFmpeg command for thumbnail generation:
+    // -ss 00:00:01: Seek 1 second in to likely hit a non-black frame
     // -i: input file
     // -vf scale: resize maintaining aspect ratio (using -1 for auto)
-    // -vframes 1: only output one frame (for video/animated files)
+    // -vframes 1: only output one frame
     // -q:v 80: quality for WebP output
-    // -y: overwrite output without asking
     let output = Command::new(ffmpeg_path)
         .args([
             "-hide_banner",
             "-loglevel", "error",
+            "-ss", "00:00:01",
             "-i", &input_str,
             "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
             "-vframes", "1",
@@ -97,22 +98,22 @@ pub fn generate_with_ffmpeg(
             &output_str,
         ])
         .output()?;
-    
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("FFmpeg failed: {}", stderr).into());
     }
-    
+
     // Verify output was created
     if !output_path.exists() {
         return Err("FFmpeg did not create output file".into());
     }
-    
+
     Ok(())
 }
 
 /// Generate thumbnail with fallback strategies
-/// 
+///
 /// 1. Try FFmpeg from bundled resources
 /// 2. Try system FFmpeg
 /// 3. Return error if neither works
@@ -124,7 +125,7 @@ pub fn generate_thumbnail_ffmpeg_full(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let ffmpeg_path = get_ffmpeg_path(app_handle)
         .ok_or("FFmpeg not found (neither bundled nor in system PATH)")?;
-    
+
     generate_with_ffmpeg(&ffmpeg_path, input_path, output_path, size_px)
 }
 
@@ -194,7 +195,7 @@ pub fn get_audio_waveform(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_ffmpeg_available() {
         // This test will pass if FFmpeg is installed on the system

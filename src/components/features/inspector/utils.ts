@@ -7,14 +7,18 @@ export const getMediaType = (filename: string): MediaType => {
     const imageExts = [
         'jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'bmp', 'ico', 'svg', 'avif',
         'afphoto', 'afdesign', 'afpub', 'psd', 'psb', 'arw', 'cr2', 'cr3', 'nef', 'dng',
-        'raf', 'orf', 'rw2', 'nrw', 'srf', 'sr2', 'crw', 'erf', 'pef', 'tga', 'tiff', 
+        'raf', 'orf', 'rw2', 'nrw', 'srf', 'sr2', 'crw', 'erf', 'pef', 'tga', 'tiff',
         'tif', 'heic', 'heif', 'exr', 'hdr', 'clip', 'ai', 'eps', 'dds'
     ];
     const videoExts = [
-        'mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 
-        'mpeg', 'ts', 'mts', 'm2ts', 'vob', 'm2v', 'asf', 'f4v', 'swf'
+        'mp4', 'm4v', 'webm', 'mov', 'qt', 'mxf', 'mkv', 'avi', 'wmv', 'flv', 'mpg',
+        'mpeg', 'ts', 'mts', 'm2ts', 'vob', 'm2v', 'asf', 'f4v', 'swf',
+        '3gp', '3g2', 'rm', 'rmvb', 'wtv', 'ogv', 'mjpeg', 'mjpg'
     ];
-    const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'oga', 'opus'];
+    const audioExts = [
+        'mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'oga', 'opus',
+        'wma', 'ac3', 'dts', 'spx', 'mka', 'aiff', 'aif', 'aifc', 'amr', 'ape', 'wv'
+    ];
     const fontExts = ['ttf', 'otf', 'ttc', 'woff', 'woff2'];
     const modelExts = [
         'fbx', 'obj', 'glb', 'gltf', 'stl', 'dae', '3ds', 'dxf', 'lwo', 'lws', 'blend'

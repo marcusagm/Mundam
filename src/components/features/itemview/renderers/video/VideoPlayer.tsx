@@ -7,7 +7,9 @@ import {
     probeVideo,
     getHlsPlaylistUrl,
     isHlsServerAvailable,
-    type VideoProbeResult
+    type VideoProbeResult,
+    needsLinearTranscoding,
+    HLS_SERVER_URL
 } from '../../../../../lib/stream-utils';
 import { transcodeState } from '../../../../../core/store/transcodeStore';
 import '../renderers.css';
@@ -65,15 +67,26 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     return;
                 }
 
-                // Determine if we should use HLS
-                if (probe && !probe.is_native) {
-                    // Non-native format: use HLS streaming
-                    console.log(`Using HLS for ${path} (codec: ${probe.video_codec})`);
+                // Determine stream URL strategy
+                if (needsLinearTranscoding(path)) {
+                    // Linear HLS (Live transcoding) - for formats that can't be segmented easily
+                    console.log(`Using Linear HLS for ${path}`);
+                    // We construct the URL manually or use a helper if available, but getVideoUrl does this too.
+                    // However, getVideoUrl returns video-stream:// for standard transcode.
+                    // Let's use the direct HTTP URL for Linear to allow the VideoPlayer to handle it as HLS.
+                    const encodedPath = encodeURIComponent(path);
+                    setVideoUrl(
+                        `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${q}`
+                    );
+                } else if (probe && !probe.is_native) {
+                    // Standard HLS (Segmented) - for robust seeking
+                    console.log(`Using Standard HLS for ${path} (codec: ${probe.video_codec})`);
                     setVideoUrl(getHlsPlaylistUrl(path, q));
                 } else {
-                    // Native format or probe not available: use direct protocol
-                    console.log(`Using direct protocol for ${path}`);
-                    setVideoUrl(getVideoUrl(path, q));
+                    // Native format (MP4/MOV) - Direct file access
+                    console.log(`Using Direct Native for ${path}`);
+                    // Native formats uses video:// protocol
+                    setVideoUrl(`video://localhost/${encodeURIComponent(path)}`);
                 }
             }
         )

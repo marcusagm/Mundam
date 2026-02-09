@@ -101,6 +101,7 @@ impl LinearManager {
             "-loglevel", "error",
             "-i", &key,
             "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-c:a", "aac",
@@ -115,9 +116,15 @@ impl LinearManager {
         ]);
 
         cmd.current_dir(&temp_dir);
-        // Inherit stdio for debugging, or null to silence
-        // cmd.stdout(Stdio::null());
-        // cmd.stderr(Stdio::null());
+
+        // Setup log file for stderr to debug failures
+        let log_file_path = temp_dir.join("ffmpeg.log");
+        if let Ok(log_file) = std::fs::File::create(&log_file_path) {
+            cmd.stderr(log_file);
+        } else {
+             // Fallback
+             // cmd.stderr(Stdio::null());
+        }
 
         let child = cmd.spawn().map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
         let pid = child.id();

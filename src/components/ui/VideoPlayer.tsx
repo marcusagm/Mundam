@@ -67,7 +67,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     const playerId = createUniqueId();
 
     const getStreamMode = () => {
-        if (props.src.includes('/hls-live/')) return 'LIVE';
+        // Check for specific protocols or path segments
+        if (props.src.includes('/hls-live/') || props.src.includes('mode=linear')) return 'LIVE';
         if (isHlsUrl(props.src)) return 'HLS';
         return 'NATIVE';
     };

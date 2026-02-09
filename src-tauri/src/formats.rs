@@ -49,7 +49,7 @@ impl FileFormat {
         if let Ok(mut file) = File::open(path) {
             return Self::detect_header(&mut file, path);
         }
-        
+
         // Fallback if file open fails (locked?) - rely on extension only
         Self::detect_extension(path)
     }
@@ -59,8 +59,8 @@ impl FileFormat {
     pub fn detect_header(file: &mut File, path_fallback: &Path) -> Option<&'static FileFormat> {
         // 1. Try reading first bytes (Header)
         // 1024 bytes is enough for almost all magic bytes (infer usually needs < 300)
-        let mut buffer = [0u8; 1024]; 
-        
+        let mut buffer = [0u8; 1024];
+
         // Read header
         if file.read(&mut buffer).is_ok() {
             // Rewind file for subsequent use!
@@ -85,7 +85,7 @@ impl FileFormat {
         }
         None
     }
-    
+
     /// Checks if the file extension is supported by the library.
     /// This is a fast check for indexer traversing.
     pub fn is_supported_extension(path: &Path) -> bool {
@@ -167,7 +167,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["cr2", "cr3", "crw"],
         mime_types: &["image/x-canon-cr2", "image/x-canon-crw"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Nikon Raw",
@@ -241,21 +241,21 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["svg"],
         mime_types: &["image/svg+xml"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::Webview, 
+        strategy: ThumbnailStrategy::Webview,
     },
     FileFormat {
         name: "Adobe Photoshop",
         extensions: &["psd", "psb"],
         mime_types: &["image/vnd.adobe.photoshop"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Adobe Illustrator",
         extensions: &["ai", "eps"],
         mime_types: &["application/postscript", "application/illustrator"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "GIMP Image",
@@ -292,7 +292,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["gltf"],
         mime_types: &["model/gltf+json"],
         type_category: MediaType::Model3D,
-        strategy: ThumbnailStrategy::Model3D, 
+        strategy: ThumbnailStrategy::Model3D,
     },
     FileFormat {
         name: "Binary GLTF",
@@ -445,28 +445,28 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["exr"],
         mime_types: &["image/x-exr"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Radiance HDR",
         extensions: &["hdr"],
         mime_types: &["image/vnd.radiance"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "DirectDraw Surface",
         extensions: &["dds"],
         mime_types: &["image/vnd-ms.dds"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
     FileFormat {
         name: "Netpbm Formats",
         extensions: &["pbm", "pgm", "ppm", "pnm", "pam"],
         mime_types: &["image/x-portable-bitmap", "image/x-portable-graymap", "image/x-portable-pixmap", "image/x-portable-anymap"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor, 
+        strategy: ThumbnailStrategy::NativeExtractor,
     },
 
     // --- VIDEOS (FFMPEG) ---
@@ -533,6 +533,41 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
     },
+    FileFormat {
+        name: "3GPP Video",
+        extensions: &["3gp", "3g2"],
+        mime_types: &["video/3gpp", "video/3gpp2"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "RealMedia Video",
+        extensions: &["rm", "rmvb"],
+        mime_types: &["application/vnd.rn-realmedia"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "Windows Recorded TV Show",
+        extensions: &["wtv"],
+        mime_types: &["video/x-wtv"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "Ogg Video",
+        extensions: &["ogv"],
+        mime_types: &["video/ogg"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
+    FileFormat {
+        name: "Motion JPEG",
+        extensions: &["mjpeg", "mjpg"],
+        mime_types: &["video/x-motion-jpeg"],
+        type_category: MediaType::Video,
+        strategy: ThumbnailStrategy::Ffmpeg,
+    },
 
     // --- AUDIO ---
     FileFormat {
@@ -540,7 +575,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["mp3"],
         mime_types: &["audio/mpeg", "audio/mp3"],
         type_category: MediaType::Audio,
-        strategy: ThumbnailStrategy::Icon, 
+        strategy: ThumbnailStrategy::Icon,
     },
     FileFormat {
         name: "Waveform Audio",
@@ -574,6 +609,55 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         name: "MPEG-4 Audio",
         extensions: &["m4a", "aac"],
         mime_types: &["audio/mp4", "audio/aac", "audio/x-m4a"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Windows Media Audio",
+        extensions: &["wma"],
+        mime_types: &["audio/x-ms-wma"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "AIFF Audio",
+        extensions: &["aiff", "aif", "aifc"],
+        mime_types: &["audio/x-aiff", "audio/aiff"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Dolby Digital",
+        extensions: &["ac3"],
+        mime_types: &["audio/ac3"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "DTS Audio",
+        extensions: &["dts"],
+        mime_types: &["audio/vnd.dts"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "AMR Audio",
+        extensions: &["amr"],
+        mime_types: &["audio/amr"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "Monkey's Audio",
+        extensions: &["ape"],
+        mime_types: &["audio/x-ape"],
+        type_category: MediaType::Audio,
+        strategy: ThumbnailStrategy::Icon,
+    },
+    FileFormat {
+        name: "WavPack Audio",
+        extensions: &["wv"],
+        mime_types: &["audio/wavpack", "audio/x-wavpack"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
     },

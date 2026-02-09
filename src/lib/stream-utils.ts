@@ -36,12 +36,17 @@ export interface CacheStats {
 
 // Audio extensions that require transcoding
 const TRANSCODE_AUDIO_EXTENSIONS = new Set([
-  'ogg', 'oga', 'opus',  // Ogg container
+  'ogg', 'oga', 'opus',   // Ogg container
   'wma',                  // Windows Media
-  'ac3',                  // Dolby Digital
+  'ac3',                  // Dolby Digital (AC-3)
+  'dts',                  // DTS
   'spx',                  // Speex
   'ra', 'rm',             // RealAudio
   'mka',                  // Matroska Audio
+  'aiff', 'aif', 'aifc',  // AIFF
+  'amr',                  // AMR (Mobile)
+  'ape',                  // Monkey's Audio
+  'wv',                   // WavPack
 ]);
 
 // Video extensions that require transcoding
@@ -65,18 +70,23 @@ const TRANSCODE_VIDEO_EXTENSIONS = new Set([
   'swf',                  // Flash (limited support)
   'divx',                 // DivX
   'hevc',                 // Raw HEVC
-  'mjpeg',                // Motion JPEG
+  'mjpeg', 'mjpg',        // Motion JPEG
 ]);
 
 // Native audio extensions (no transcoding needed)
 const NATIVE_AUDIO_EXTENSIONS = new Set([
-  'mp3', 'wav', 'aac', 'm4a', 'm4r', 'flac', 'mp2', 'aiff', 'aif',
+  'mp3', 'wav', 'aac', 'm4a', 'm4r', 'flac', 'mp2',
 ]);
 
 // Video extensions that require linear transcoding (live HLS)
 const LINEAR_VIDEO_EXTENSIONS = new Set([
   'swf',                  // Flash
-  'mpg', 'mpeg', 'm2v',   // MPEG-1/2
+  'mpg', 'mpeg', 'm2v',   // MPEG-1/2 (Often has seeking issues)
+  'wtv',                  // Windows TV (MPEG-2 based, poor seeking)
+  'rm', 'rmvb',           // RealMedia (Proprietary, poor seeking)
+  '3gp', '3g2',           // 3GPP (Mobile, erratic timestamps)
+  'mjpeg', 'mjpg',        // Motion JPEG (Stream of images)
+  'ogv',                  // Ogg Theora (Often fails segmentation)
 ]);
 
 // Native video extensions (no transcoding needed)

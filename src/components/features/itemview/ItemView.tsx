@@ -95,9 +95,37 @@ const getMediaType = (
         'm2v',
         'asf',
         'f4v',
-        'swf'
+        'swf',
+        '3gp',
+        '3g2',
+        'rm',
+        'rmvb',
+        'wtv',
+        'ogv',
+        'mjpeg',
+        'mjpg'
     ];
-    const audioExts = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'oga', 'opus'];
+    const audioExts = [
+        'mp3',
+        'wav',
+        'ogg',
+        'aac',
+        'flac',
+        'm4a',
+        'oga',
+        'opus',
+        'wma',
+        'ac3',
+        'dts',
+        'spx',
+        'mka',
+        'aiff',
+        'aif',
+        'aifc',
+        'amr',
+        'ape',
+        'wv'
+    ];
     const fontExts = ['ttf', 'otf', 'ttc', 'woff', 'woff2'];
     const modelExts = [
         'fbx',

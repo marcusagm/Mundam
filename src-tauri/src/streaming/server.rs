@@ -243,24 +243,13 @@ async fn linear_hls_handler(
 
     let decoded_full = urlencoding::decode(&path).unwrap_or(std::borrow::Cow::Borrowed(&path));
 
-    // Check if valid request
+    // 1. Handle Playlist Request
     if decoded_full.ends_with("/index.m3u8") {
-        // Playlist request
         let file_path_str = decoded_full.trim_end_matches("/index.m3u8");
-        // Check for double slash issues
+        // Handle potential double slash from trimming
         let file_path_str = if file_path_str.ends_with('/') { &file_path_str[..file_path_str.len()-1] } else { file_path_str };
 
-        // Handle absolute path restoration
-        let file_path = if cfg!(windows) {
-             PathBuf::from(file_path_str)
-        } else {
-             if file_path_str.starts_with('/') {
-                PathBuf::from(file_path_str)
-             } else {
-                PathBuf::from("/").join(file_path_str)
-             }
-        };
-
+        let file_path = PathBuf::from(file_path_str);
         if !file_path.exists() {
              return Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -276,7 +265,8 @@ async fn linear_hls_handler(
 
                 // Poll for playlist existence (ffmpeg might take a second to create it)
                 let mut tries = 0;
-                while !playlist_path.exists() && tries < 100 { // Wait up to 10s
+                // Increased timeout to 15s to allow for slower ffmpeg startup
+                while !playlist_path.exists() && tries < 150 {
                     tokio::time::sleep(Duration::from_millis(100)).await;
                     tries += 1;
                 }
@@ -287,6 +277,7 @@ async fn linear_hls_handler(
                             Response::builder()
                                 .status(StatusCode::OK)
                                 .header(header::CONTENT_TYPE, "application/vnd.apple.mpegurl")
+                                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                                 .body(Body::from(content))
                                 .unwrap()
                          }
@@ -311,23 +302,16 @@ async fn linear_hls_handler(
                     .unwrap()
             }
         }
-
-    } else if decoded_full.ends_with(".ts") {
-        // Segment request: .../video.swf/segment_00001.ts
-        // Extract filename and file path
-        // Assume format: {file_path}/{segment_name}
-
+    }
+    // 2. Handle Segment Request
+    else if decoded_full.ends_with(".ts") {
+        // Path format: /path/to/video.ext/segment_00001.ts
         let path_buf = PathBuf::from(decoded_full.as_ref());
         let segment_name = path_buf.file_name().unwrap().to_string_lossy();
-        let file_path_part = path_buf.parent().unwrap();
 
-        // Convert file_path_part back to absolute path
-        let file_path_str = file_path_part.to_string_lossy();
-        let file_path = if cfg!(unix) && !file_path_str.starts_with('/') {
-             PathBuf::from("/").join(file_path_str.as_ref())
-        } else {
-             PathBuf::from(file_path_str.as_ref())
-        };
+        // The parent of the segment is the "file path" in our URL structure
+        let file_path_part = path_buf.parent().unwrap();
+        let file_path = PathBuf::from(file_path_part);
 
         if let Some(temp_dir) = state.linear_manager.get_temp_dir(&file_path).await {
              let segment_path = temp_dir.join(segment_name.as_ref());
@@ -337,25 +321,27 @@ async fn linear_hls_handler(
                          Response::builder()
                             .status(StatusCode::OK)
                             .header(header::CONTENT_TYPE, "video/MP2T")
+                            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                             .header(header::CACHE_CONTROL, "no-cache")
                             .body(Body::from(data))
                             .unwrap()
                      }
-                     Err(_) => {
+                     Err(e) => {
+                         eprintln!("Error reading segment {:?}: {}", segment_path, e);
                          Response::builder().status(StatusCode::NOT_FOUND).body(Body::empty()).unwrap()
                      }
                  }
              } else {
-                 Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Segment not found")).unwrap()
+                 Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Segment file not found")).unwrap()
              }
         } else {
-             Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Session not active")).unwrap()
+             Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Session not active for this file")).unwrap()
         }
 
     } else {
         Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body(Body::from("Invalid HLS Live request"))
+            .body(Body::from("Invalid HLS Live request path"))
             .unwrap()
     }
 }
