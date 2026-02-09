@@ -70,7 +70,9 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
 
     // Check if this is a transcoding URL
     const needsTranscode = () =>
-        props.src.includes('video-stream://') || props.src.includes('audio-stream://');
+        props.src.includes('video-stream://') ||
+        props.src.includes('audio-stream://') ||
+        isHlsUrl(props.src);
     // HLS Manager instance
     let hlsManager: HlsPlayerManager | null = null;
 

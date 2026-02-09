@@ -24,9 +24,10 @@ pub async fn get_segment(
     file_path: &Path,
     segment_index: u32,
     segment_duration: f64,
+    quality: &str,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     // Check if segment is already cached
-    let cache_path = get_segment_cache_path(cache, file_path, segment_index);
+    let cache_path = get_segment_cache_path(cache, file_path, segment_index, quality);
 
     if cache_path.exists() {
         // Serve from cache
@@ -44,7 +45,7 @@ pub async fn get_segment(
     }
 
     // Transcode the segment
-    let data = transcode_segment(app_handle, file_path, segment_index, segment_duration).await?;
+    let data = transcode_segment(app_handle, process_manager, &segment_key, file_path, segment_index, segment_duration, quality).await?;
 
     // Cache the segment to disk
     if let Some(parent) = cache_path.parent() {
@@ -58,9 +59,12 @@ pub async fn get_segment(
 /// Transcode a single segment using FFmpeg
 async fn transcode_segment(
     app_handle: &tauri::AppHandle,
+    process_manager: &Arc<RwLock<ProcessManager>>,
+    segment_key: &str,
     file_path: &Path,
     segment_index: u32,
     segment_duration: f64,
+    quality: &str,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let ffmpeg_path = get_ffmpeg_path(Some(app_handle))
         .ok_or("FFmpeg not found")?;
@@ -82,14 +86,27 @@ async fn transcode_segment(
         // Stream mapping (first video, first audio if exists)
         "-map", "0:v:0",
         "-map", "0:a:0?",
-        // Video encoding - ultrafast for real-time
+        // Video encoding
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-crf", "23",
+    ]);
+
+    // Apply quality settings
+    match quality {
+        "preview" => {
+            cmd.args(["-crf", "30", "-vf", "scale=-2:480"]);
+        }
+        "high" => {
+            cmd.args(["-crf", "18", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
+        }
+        _ => { // standard
+            cmd.args(["-crf", "23", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
+        }
+    }
+
+    cmd.args([
         "-profile:v", "high",
         "-level", "4.1",
-        // Force even dimensions
-        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-pix_fmt", "yuv420p",
         // Audio encoding
         "-c:a", "aac",
@@ -105,6 +122,12 @@ async fn transcode_segment(
     cmd.stderr(Stdio::piped());
 
     let mut child = cmd.spawn()?;
+
+    // Register process for cancellation
+    if let Some(id) = child.id() {
+        let mut pm = process_manager.write().await;
+        pm.register(segment_key, id);
+    }
 
     let mut stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let mut stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
@@ -130,7 +153,7 @@ async fn transcode_segment(
 }
 
 /// Get the cache path for a segment
-fn get_segment_cache_path(cache: &TranscodeCache, file_path: &Path, segment_index: u32) -> PathBuf {
+fn get_segment_cache_path(cache: &TranscodeCache, file_path: &Path, segment_index: u32, quality: &str) -> PathBuf {
     // Use the cache directory from TranscodeCache
     // Create a subdirectory for HLS segments
     let cache_dir = cache.dir().join("hls_segments");
@@ -153,7 +176,8 @@ fn get_segment_cache_path(cache: &TranscodeCache, file_path: &Path, segment_inde
 
     let file_hash = format!("{:016x}", hasher.finish());
 
-    cache_dir.join(format!("{}-seg{:05}.ts", file_hash, segment_index))
+    // Include quality in filename
+    cache_dir.join(format!("{}-{}-seg{:05}.ts", file_hash, quality, segment_index))
 }
 
 #[cfg(test)]
@@ -165,7 +189,7 @@ mod tests {
         // Just verify the function doesn't panic
         let temp_dir = std::env::temp_dir().join("test_cache");
         let cache = TranscodeCache::new(&temp_dir);
-        let path = get_segment_cache_path(&cache, Path::new("/test/video.mkv"), 42);
+        let path = get_segment_cache_path(&cache, Path::new("/test/video.mkv"), 42, "standard");
 
         assert!(path.to_string_lossy().contains("seg00042.ts"));
         assert!(path.to_string_lossy().contains("hls_segments"));

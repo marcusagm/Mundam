@@ -108,8 +108,8 @@ Frontend (SolidJS)                   Backend (Rust/Axum)
 
 - [x] **5.1** Criar `src-tauri/src/streaming/process_manager.rs` com `HashMap<SegmentKey, ChildProcess>` → Verify: Compila
 - [x] **5.2** Implementar `cancel_segment(path, index)` que mata processo FFMPEG → Verify: Log "Cancelled"
-- [ ] **5.3** Adicionar header `X-Request-Id` para tracking → Verify: Headers presentes
-- [ ] **5.4** Implementar cleanup automático de processos órfãos (timeout 30s) → Verify: Sem memory leak
+- [x] **5.3** Adicionar header `X-Request-Id` para tracking → Verify: Headers presentes
+- [x] **5.4** Implementar cleanup automático de processos órfãos (timeout 30s) → Verify: Sem memory leak
 
 ### Phase 6: Frontend - Integração hls.js
 
@@ -134,22 +134,22 @@ Frontend (SolidJS)                   Backend (Rust/Axum)
 
 ### Phase 9: Verification & Polish
 
-- [ ] **9.1** Testar MKV 1GB+ → Verify: Inicia em <2s
-- [ ] **9.2** Testar seek para final do vídeo → Verify: Processa só 10s
-- [ ] **9.3** Testar MP4 nativo → Verify: Zero transcoding (bypass)
-- [ ] **9.4** Verificar cache via GeneralPanel → Verify: Segments aparecem
-- [ ] **9.5** Cleanup cache → Verify: Segments removidos
-- [ ] **9.6** Stress test: 10 seeks em 2s → Verify: Só último processado
+- [x] **9.1** Testar MKV 1GB+ → Verify: Inicia em <2s
+- [x] **9.2** Testar seek para final do vídeo → Verify: Processa só 10s
+- [x] **9.3** Testar MP4 nativo → Verify: Zero transcoding (bypass)
+- [x] **9.4** Verificar cache via GeneralPanel → Verify: Segments aparecem
+- [x] **9.5** Cleanup cache → Verify: Segments removidos
+- [x] **9.6** Stress test: 10 seeks em 2s → Verify: Só último processado
 
 ---
 
 ## Done When
 
-- [ ] Vídeos MKV/AVI/M2TS iniciam em <2 segundos
-- [ ] Seeking processa apenas ~10s (não o vídeo inteiro)
-- [ ] MP4/MOV nativos usam bypass (video:// existente)
-- [ ] Segments cacheados integrados com GeneralPanel.tsx (stats, cleanup)
-- [ ] Seek rápido cancela processos anteriores (debounce + kill)
+- [x] Vídeos MKV/AVI/M2TS iniciam em <2 segundos
+- [x] Seeking processa apenas ~10s (não o vídeo inteiro)
+- [x] MP4/MOV nativos usam bypass (video:// existente)
+- [x] Segments cacheados integrados com GeneralPanel.tsx (stats, cleanup)
+- [x] Seek rápido cancela processos anteriores (debounce + kill)
 
 ---
 

@@ -26,7 +26,6 @@ interface VideoPlayerProps {
 export const VideoPlayer: Component<VideoPlayerProps> = props => {
     const [quality, setQuality] = createSignal<TranscodeQuality>(transcodeState.quality());
     const [videoUrl, setVideoUrl] = createSignal('');
-    const [useHls, setUseHls] = createSignal(false);
     const [probeError, setProbeError] = createSignal<string | null>(null);
 
     // Probe video when path changes
@@ -70,12 +69,10 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                 if (probe && !probe.is_native) {
                     // Non-native format: use HLS streaming
                     console.log(`Using HLS for ${path} (codec: ${probe.video_codec})`);
-                    setUseHls(true);
-                    setVideoUrl(getHlsPlaylistUrl(path));
+                    setVideoUrl(getHlsPlaylistUrl(path, q));
                 } else {
                     // Native format or probe not available: use direct protocol
                     console.log(`Using direct protocol for ${path}`);
-                    setUseHls(false);
                     setVideoUrl(getVideoUrl(path, q));
                 }
             }
@@ -103,8 +100,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     class="video-renderer-player"
                     quality={quality()}
                     onQualityChange={handleQualityChange}
-                    // Hide quality selector for HLS (quality is automatic)
-                    showQualitySelector={!useHls()}
+                    // Show quality selector for all (including HLS)
+                    showQualitySelector={true}
                 />
             </Show>
 

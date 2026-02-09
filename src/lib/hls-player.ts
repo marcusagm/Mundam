@@ -44,9 +44,9 @@ export const HLS_SERVER_URL = 'http://127.0.0.1:9876';
  * @param filePath - Absolute path to the video file
  * @returns The M3U8 playlist URL
  */
-export function getHlsPlaylistUrl(filePath: string): string {
+export function getHlsPlaylistUrl(filePath: string, quality: string = 'standard'): string {
     const encodedPath = encodeURIComponent(filePath);
-    return `${HLS_SERVER_URL}/playlist/${encodedPath}`;
+    return `${HLS_SERVER_URL}/playlist/${encodedPath}?quality=${quality}`;
 }
 
 /**

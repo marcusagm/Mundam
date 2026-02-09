@@ -22,6 +22,10 @@ impl TranscodeCache {
         Self { cache_dir }
     }
 
+    fn get_hls_dir(&self) -> PathBuf {
+        self.cache_dir.join("hls_segments")
+    }
+
     /// Generate a deterministic cache key from source path and quality
     fn generate_cache_key(source: &Path, quality: TranscodeQuality) -> String {
         let mut hasher = DefaultHasher::new();
@@ -71,10 +75,18 @@ impl TranscodeCache {
     /// Returns number of files deleted
     pub fn cleanup(&self, max_age_days: u64) -> usize {
         let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
+
+        let mut deleted = self.cleanup_dir(&self.cache_dir, max_age);
+        deleted += self.cleanup_dir(&self.get_hls_dir(), max_age);
+
+        deleted
+    }
+
+    fn cleanup_dir(&self, dir: &Path, max_age: Duration) -> usize {
         let now = SystemTime::now();
         let mut deleted = 0;
 
-        let entries = match fs::read_dir(&self.cache_dir) {
+        let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(_) => return 0,
         };
@@ -103,13 +115,18 @@ impl TranscodeCache {
                 }
             }
         }
-
         deleted
     }
 
     /// Get total cache size in bytes
     pub fn get_cache_size(&self) -> u64 {
-        let entries = match fs::read_dir(&self.cache_dir) {
+        let mut size = self.get_dir_size(&self.cache_dir);
+        size += self.get_dir_size(&self.get_hls_dir());
+        size
+    }
+
+    fn get_dir_size(&self, dir: &Path) -> u64 {
+        let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(_) => return 0,
         };
@@ -152,7 +169,13 @@ impl TranscodeCache {
     /// Clear all cache entries
     /// Returns number of files deleted
     pub fn clear_all(&self) -> usize {
-        let entries = match fs::read_dir(&self.cache_dir) {
+        let mut deleted = self.clear_dir(&self.cache_dir);
+        deleted += self.clear_dir(&self.get_hls_dir());
+        deleted
+    }
+
+    fn clear_dir(&self, dir: &Path) -> usize {
+        let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(_) => return 0,
         };
@@ -171,7 +194,13 @@ impl TranscodeCache {
 
     /// Get number of cached files
     pub fn get_file_count(&self) -> usize {
-        let entries = match fs::read_dir(&self.cache_dir) {
+        let mut count = self.get_dir_file_count(&self.cache_dir);
+        count += self.get_dir_file_count(&self.get_hls_dir());
+        count
+    }
+
+    fn get_dir_file_count(&self, dir: &Path) -> usize {
+        let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(_) => return 0,
         };

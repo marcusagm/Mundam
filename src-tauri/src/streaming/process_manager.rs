@@ -4,7 +4,6 @@
 
 use std::collections::HashMap;
 use std::time::Instant;
-use tokio::process::Child;
 
 /// Manages active FFmpeg transcoding processes
 pub struct ProcessManager {
@@ -21,6 +20,27 @@ struct ProcessInfo {
     started_at: Instant,
 }
 
+#[cfg(unix)]
+fn kill_process(pid: u32) {
+    use std::process::Command;
+    Command::new("kill")
+        .arg("-9")
+        .arg(pid.to_string())
+        .output()
+        .ok();
+}
+
+#[cfg(windows)]
+fn kill_process(pid: u32) {
+    use std::process::Command;
+    Command::new("taskkill")
+        .arg("/F")
+        .arg("/PID")
+        .arg(pid.to_string())
+        .output()
+        .ok();
+}
+
 impl ProcessManager {
     /// Create a new process manager
     pub fn new() -> Self {
@@ -31,9 +51,9 @@ impl ProcessManager {
 
     /// Register a new transcoding process
     #[allow(dead_code)]
-    pub fn register(&mut self, key: &str, child: &Child) {
+    pub fn register(&mut self, key: &str, pid: u32) {
         let info = ProcessInfo {
-            process_id: child.id(),
+            process_id: Some(pid),
             started_at: Instant::now(),
         };
         self.processes.insert(key.to_string(), info);
@@ -46,8 +66,10 @@ impl ProcessManager {
             let elapsed = info.started_at.elapsed();
             println!("INFO: Cancelled segment {} after {:?}", key, elapsed);
 
-            // The actual process killing happens when the Child is dropped
-            // or we could use kill() if we stored the Child handle
+            // Kill the process if we have an ID
+            if let Some(pid) = info.process_id {
+                kill_process(pid);
+            }
         }
     }
 
@@ -62,16 +84,18 @@ impl ProcessManager {
     pub fn cleanup_stale(&mut self, timeout_secs: u64) {
         let timeout = std::time::Duration::from_secs(timeout_secs);
         let now = Instant::now();
+        let mut to_remove = Vec::new();
 
-        self.processes.retain(|key, info| {
-            let elapsed = now.duration_since(info.started_at);
-            if elapsed > timeout {
-                println!("WARN: Cleaning up stale process for {}", key);
-                false
-            } else {
-                true
+        for (key, info) in &self.processes {
+            if now.duration_since(info.started_at) > timeout {
+                to_remove.push(key.clone());
             }
-        });
+        }
+
+        for key in to_remove {
+            println!("WARN: Cleaning up stale process for {}", key);
+            self.cancel(&key); // This will remove from map AND kill process
+        }
     }
 
     /// Get number of active processes

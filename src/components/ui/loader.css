@@ -41,7 +41,7 @@
   border: 3px solid var(--bg-page);
   background-color: var(--action-primary-bg);
 
-  border-radius: 8px;
+  border-radius: 4px;
   transform-origin: bottom center;
   box-sizing: border-box;
   box-shadow: var(--shadow-s);

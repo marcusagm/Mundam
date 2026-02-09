@@ -14,7 +14,10 @@ use axum::{
     http::{StatusCode, header},
     body::Body,
 };
+use axum::extract::Query;
+use std::collections::HashMap;
 use tower_http::cors::{CorsLayer, Any};
+use std::time::Duration;
 use std::sync::Arc;
 use std::path::PathBuf;
 use tokio::sync::RwLock;
@@ -61,9 +64,20 @@ impl StreamingServer {
 
         let state = AppState {
             cache,
-            process_manager,
+            process_manager: process_manager.clone(),
             app_handle: self.app_handle.clone(),
         };
+
+        // Spawn cleanup task
+        let pm_clone = process_manager.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                let mut pm = pm_clone.write().await;
+                pm.cleanup_stale(30); // 30 seconds timeout
+            }
+        });
 
         let cors = CorsLayer::new()
             .allow_origin(Any)
@@ -126,8 +140,10 @@ async fn probe_handler(
 async fn playlist_handler(
     State(state): State<AppState>,
     Path(path): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Response {
     let file_path = decode_path(&path);
+    let quality = params.get("quality").map(|s| s.as_str()).unwrap_or("standard");
 
     // First, probe the video to get duration
     let info = match probe::get_video_info(&state.app_handle, &file_path).await {
@@ -140,7 +156,7 @@ async fn playlist_handler(
         }
     };
 
-    let m3u8 = playlist::generate_m3u8(&path, info.duration_secs, SEGMENT_DURATION);
+    let m3u8 = playlist::generate_m3u8(&path, info.duration_secs, SEGMENT_DURATION, quality);
 
     Response::builder()
         .status(StatusCode::OK)
@@ -154,7 +170,9 @@ async fn playlist_handler(
 async fn segment_handler(
     State(state): State<AppState>,
     Path(path): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Response {
+    let quality = params.get("quality").map(|s| s.as_str()).unwrap_or("standard");
     // Path format: /segment/{encoded_file_path}/{index}
     // We need to parse out the index from the end
     let (file_path, index) = match parse_segment_path(&path) {
@@ -174,6 +192,7 @@ async fn segment_handler(
         &file_path,
         index,
         SEGMENT_DURATION,
+        quality,
     ).await {
         Ok(data) => {
             Response::builder()
