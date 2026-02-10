@@ -437,7 +437,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                     src={props.src}
                     class="ui-video-element"
                     autoplay={props.autoPlay}
-                    preload="metadata"
+                    preload="auto"
                     onPlay={() => {
                         setIsPlaying(true);
                         videoActions.setActivePlayer(playerId);

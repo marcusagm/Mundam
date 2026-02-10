@@ -61,12 +61,14 @@ pub fn generate_thumbnail(
     // OPTIMIZATION: Open file handle ONCE here to avoid re-opening in detection and native generation
     let mut open_file = std::fs::File::open(input_path).ok();
 
-    let strategy = if let Some(ref mut file) = open_file {
+    let (strategy, is_video) = if let Some(ref mut file) = open_file {
         FileFormat::detect_header(file, input_path)
-            .map(|f| f.strategy.clone())
-            .unwrap_or_else(|| get_thumbnail_strategy(input_path))
+            .map(|f| (f.strategy.clone(), f.type_category == crate::formats::MediaType::Video))
+            .unwrap_or_else(|| (get_thumbnail_strategy(input_path), false))
     } else {
-        get_thumbnail_strategy(input_path)
+        FileFormat::detect(input_path)
+            .map(|f| (f.strategy.clone(), f.type_category == crate::formats::MediaType::Video))
+            .unwrap_or_else(|| (ThumbnailStrategy::Icon, false))
     };
 
     let start = std::time::Instant::now();
@@ -80,7 +82,7 @@ pub fn generate_thumbnail(
     let is_zip_project = ["afphoto", "afdesign", "afpub", "clip", "xmind"].contains(&ext.as_str());
 
     if ffmpeg_available && !is_zip_project && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
-         if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px) {
+         if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px, is_video) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
              return Ok(hashed_filename.to_string());

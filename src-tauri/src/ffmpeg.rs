@@ -75,6 +75,7 @@ pub fn generate_with_ffmpeg(
     input_path: &Path,
     output_path: &Path,
     size_px: u32,
+    is_video: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input_str = input_path.to_string_lossy();
     let output_str = output_path.to_string_lossy();
@@ -82,21 +83,33 @@ pub fn generate_with_ffmpeg(
     // FFmpeg command for thumbnail generation:
     // Try seeking 1 second first (better for movies)
     // If that fails, try 0 seconds (better for short clips/SWF)
-    let run_ffmpeg = |time: &str| -> Result<(), String> {
+    // FFmpeg command for thumbnail generation:
+    // Try seeking 1 second first (better for movies)
+    // If that fails, try 0 seconds (better for short clips/SWF)
+    let run_ffmpeg = |time: Option<&str>| -> Result<(), String> {
+        let mut args = vec![
+            "-hide_banner".to_string(),
+            "-loglevel".to_string(), "error".to_string(),
+        ];
+
+        if let Some(t) = time {
+            args.push("-ss".to_string());
+            args.push(t.to_string());
+        }
+
+        args.extend_from_slice(&[
+            "-i".to_string(), input_str.to_string(),
+            "-vf".to_string(), format!("scale={}:-1:flags=lanczos", size_px),
+            "-vframes".to_string(), "1".to_string(),
+            "-c:v".to_string(), "libwebp".to_string(),
+            "-strict".to_string(), "unofficial".to_string(),
+            "-q:v".to_string(), "80".to_string(),
+            "-y".to_string(),
+            output_str.to_string(),
+        ]);
+
         let output = Command::new(ffmpeg_path)
-            .args([
-                "-hide_banner",
-                "-loglevel", "error",
-                "-ss", time,
-                "-i", &input_str,
-                "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
-                "-vframes", "1",
-                "-c:v", "libwebp",
-                "-strict", "unofficial",
-                "-q:v", "80",
-                "-y",
-                &output_str,
-            ])
+            .args(&args)
             .output()
             .map_err(|e| e.to_string())?;
 
@@ -107,31 +120,25 @@ pub fn generate_with_ffmpeg(
         Ok(())
     };
 
-    // First attempt at 1s
-    if let Err(e1) = run_ffmpeg("00:00:01") {
-        // Second attempt at 0s
-        if let Err(e2) = run_ffmpeg("00:00:00") {
-            // Third attempt: No seek (let ffmpeg find first frame automatically)
-            // This often helps with corrupted headers where seeking logic fails
-            // but reading sequentially works.
-            let output_no_seek = Command::new(ffmpeg_path)
-                .args([
-                    "-hide_banner",
-                    "-loglevel", "error",
-                    "-i", &input_str,
-                    "-vf", &format!("scale={}:-1:flags=lanczos", size_px),
-                    "-vframes", "1",
-                    "-c:v", "libwebp",
-                    "-strict", "unofficial",
-                    "-q:v", "80",
-                    "-y",
-                    &output_str,
-                ])
-                .output()
-                .map_err(|e| e.to_string())?;
+    // If it's an image, skip seeking logic entirely and just convert
+    if !is_video {
+        if let Err(e) = run_ffmpeg(None) {
+             eprintln!("FFmpeg image conversion failed for {}: {}", input_str, e);
+             return Err(format!("FFmpeg failed: {}", e).into());
+        }
+        // Verify output was created
+        if !output_path.exists() {
+            return Err("FFmpeg did not create output file".into());
+        }
+        return Ok(());
+    }
 
-            if !output_no_seek.status.success() {
-                 let e3 = String::from_utf8_lossy(&output_no_seek.stderr);
+    // First attempt at 1s
+    if let Err(e1) = run_ffmpeg(Some("00:00:01")) {
+        // Second attempt at 0s
+        if let Err(e2) = run_ffmpeg(Some("00:00:00")) {
+            // Third attempt: No seek (let ffmpeg find first frame automatically)
+            if let Err(e3) = run_ffmpeg(None) {
                  eprintln!("Thumbnail ffmpeg failed for {}: 1s err: {}, 0s err: {}, no-seek err: {}", input_str, e1, e2, e3);
                  return Err(format!("FFmpeg failed: {}", e3).into());
             }
@@ -156,11 +163,12 @@ pub fn generate_thumbnail_ffmpeg_full(
     input_path: &Path,
     output_path: &Path,
     size_px: u32,
+    is_video: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let ffmpeg_path = get_ffmpeg_path(app_handle)
         .ok_or("FFmpeg not found (neither bundled nor in system PATH)")?;
 
-    generate_with_ffmpeg(&ffmpeg_path, input_path, output_path, size_px)
+    generate_with_ffmpeg(&ffmpeg_path, input_path, output_path, size_px, is_video)
 }
 
 /// Extract normalized audio waveform data using FFmpeg
