@@ -127,11 +127,10 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 
 Mundam provides extensive support for various media types, categorized by their rendering and thumbnail generation capabilities.
 
-Total de formatos registrados: 117 extensões
-- **Suporte Nativo/Completo:** 94 (Processamento de miniatura + Visualização interativa)
-- **Suporte Básico:** 23 (Visualização disponível, miniaturas via ícones do formato)
-- **Base de Testes:** 206 formatos monitorados para expansão futura.
-
+Total registered formats: 117 extensions
+*   **Native/Full Support**: 94 (Thumbnail processing + Interactive visualization)
+*   **Basic Support**: 23 (Visualization available, thumbnails via format icons)
+*   **Testing Base**: 206 formats monitored for future expansion.
 
 ### 🖼️ Images
 | Category | Formats | Status | Notes |
