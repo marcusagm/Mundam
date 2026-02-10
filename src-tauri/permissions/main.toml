@@ -201,3 +201,8 @@ commands.allow = ["transcode_file"]
 identifier = "allow-is-cached"
 description = "Enables is_cached for cache status check"
 commands.allow = ["is_cached"]
+
+[[permission]]
+identifier = "allow-set-thumbnail-priority"
+description = "Enables set_thumbnail_priority for prioritization"
+commands.allow = ["set_thumbnail_priority"]

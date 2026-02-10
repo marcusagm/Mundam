@@ -1,5 +1,6 @@
 import { createStore, reconcile } from "solid-js/store";
 import { getImages } from "../../lib/db";
+import { invoke } from "@tauri-apps/api/core";
 import { tagService } from "../../lib/tags";
 import { filterState, filterActions } from "./filterStore";
 
@@ -32,9 +33,9 @@ export const libraryActions = {
     const anyFilter = filterActions.hasActiveFilters();
     const sortBy = filterState.sortBy;
     const sortOrder = filterState.sortOrder;
-    
+
     const advancedQuery = filterState.advancedSearch ? JSON.stringify(filterState.advancedSearch) : undefined;
-    
+
     console.log("libraryStore.refreshImages", { reset, isUntagged, folderId, recursive, anyFilter, sortBy, sortOrder, advancedQuery });
 
     if (reset) {
@@ -88,10 +89,10 @@ export const libraryActions = {
       const anyFilter = filterActions.hasActiveFilters();
       const sortBy = filterState.sortBy;
       const sortOrder = filterState.sortOrder;
-      
+
       let nextBatch;
       const advancedQuery = filterState.advancedSearch ? JSON.stringify(filterState.advancedSearch) : undefined;
-      
+
       if (anyFilter) {
         nextBatch = await tagService.getImagesFiltered(
           BATCH_SIZE, currentOffset, filterState.selectedTags, true, isUntagged, folderId || undefined, recursive, sortBy, sortOrder, advancedQuery, filterState.searchQuery
@@ -176,7 +177,7 @@ export const libraryActions = {
               const toRemoveIDs: number[] = [];
 
               for (const item of payload.updated) {
-                  const isNowInView = !selectedFolderId || 
+                  const isNowInView = !selectedFolderId ||
                       (recursive ? isChildOf(item.folder_id, selectedFolderId) : item.folder_id === selectedFolderId);
 
                   const wasKnown = libraryState.items.some(i => i.id === item.id);
@@ -212,7 +213,18 @@ export const libraryActions = {
               }
           });
       }
+  },
+
+  setThumbnailPriority: async (ids: number[]) => {
+      try {
+          if (ids.length > 0) {
+              await invoke("set_thumbnail_priority", { ids });
+          }
+      } catch (err) {
+          console.error("Failed to set thumbnail priority:", err);
+      }
   }
+
 
 
 };

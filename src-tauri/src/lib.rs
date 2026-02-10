@@ -12,6 +12,7 @@ mod smart_folder_commands;
 mod tag_commands;
 mod thumbnail_commands;
 mod thumbnail_worker;
+mod thumbnail_priority;
 mod thumbnails;
 mod db_settings;
 mod settings_commands;
@@ -78,15 +79,19 @@ pub fn run() {
                         let app_config = crate::config::load_config(&db_arc).await;
                         let config_state = crate::config::ConfigState(std::sync::Mutex::new(app_config.clone()));
 
+                        let priority_state = std::sync::Arc::new(crate::thumbnail_priority::ThumbnailPriorityState::default());
+
                         handle.manage(db_arc.clone());
                         handle.manage(watcher_registry.clone());
                         handle.manage(config_state);
+                        handle.manage(priority_state.clone());
 
                         let worker = crate::thumbnail_worker::ThumbnailWorker::new(
                             db_arc.clone(),
                             thumbnails_dir,
                             handle.clone(),
                             app_config,
+                            priority_state,
                         );
                         worker.start().await;
 
@@ -132,6 +137,7 @@ pub fn run() {
             tag_commands::update_image_notes,
             metadata_commands::get_image_exif,
             thumbnail_commands::request_thumbnail_regenerate,
+            thumbnail_commands::set_thumbnail_priority,
             location_commands::add_location,
             location_commands::remove_location,
             location_commands::get_locations,

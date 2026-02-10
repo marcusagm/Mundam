@@ -1,9 +1,9 @@
 /**
  * useVirtualViewport
- * 
+ *
  * Shared hook for virtualized viewport management.
  * Creates and manages a ViewportController instance connected to the layout Worker.
- * 
+ *
  * Usage:
  *   const { visibleItems, totalHeight, ... } = useVirtualViewport("masonry", items);
  */
@@ -11,6 +11,7 @@
 import { createEffect, onCleanup, on } from "solid-js";
 import { createViewportController, type LayoutMode, type LayoutItemInput, type ItemPosition } from "../viewport";
 import { useFilters } from "./useFilters";
+import { useLibrary } from "./useLibrary";
 
 export interface UseVirtualViewportOptions {
   gap?: number;
@@ -36,7 +37,7 @@ export interface VirtualViewportResult {
 
 /**
  * Creates a virtualized viewport connected to the layout Worker.
- * 
+ *
  * @param mode - Layout mode (can be a string or accessor for reactive updates)
  * @param items - Reactive accessor for the items array
  * @param options - Optional configuration
@@ -94,6 +95,31 @@ export function useVirtualViewport(
   // Cleanup on unmount
   onCleanup(() => {
     controller.dispose();
+  });
+
+  /* Priority Thumbnail Generation */
+  const lib = useLibrary();
+  let priorityDebounce: any;
+
+  createEffect(() => {
+    const visible = controller.visibleItems();
+    if (visible.length === 0) return;
+
+    // Debounce to prevent excessive updates during fast scrolling
+    if (priorityDebounce) clearTimeout(priorityDebounce);
+    priorityDebounce = setTimeout(() => {
+      // Extract IDs from visible items
+      const ids = visible.map(item => item.id);
+
+      // Filter out items that already have thumbnails to reduce IPC payload
+      // But we strictly don't need to because the backend also checks.
+      // However, optimizing the payload is good.
+      // Accessing lib.items might be O(N) unless we have a Map, but here lib.items is an array.
+      // So we'll skip the frontend filtering to assume backend is fast enough with ID lookup.
+      // Actually, let's just send the visible IDs.
+
+      lib.setThumbnailPriority(ids);
+    }, 150); // 150ms debounce
   });
 
   return {

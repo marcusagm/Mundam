@@ -184,6 +184,30 @@ impl Db {
         Ok(rows)
     }
 
+    pub async fn get_images_needing_thumbnails_by_ids(
+        &self,
+        ids: &[i64],
+    ) -> Result<Vec<(i64, String)>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Dynamically build the query for IN clause
+        let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+        let query = format!(
+            "SELECT id, path FROM images WHERE id IN ({}) AND thumbnail_path IS NULL AND thumbnail_attempts < 3",
+            placeholders.join(",")
+        );
+
+        let mut query_builder = sqlx::query_as::<_, (i64, String)>(&query);
+        for id in ids {
+            query_builder = query_builder.bind(id);
+        }
+
+        let rows = query_builder.fetch_all(&self.pool).await?;
+        Ok(rows)
+    }
+
     pub async fn record_thumbnail_error(&self, image_id: i64, error: String) -> Result<(), sqlx::Error> {
         sqlx::query(
             "UPDATE images SET thumbnail_attempts = thumbnail_attempts + 1, thumbnail_last_error = ? WHERE id = ?"

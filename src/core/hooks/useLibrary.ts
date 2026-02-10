@@ -6,12 +6,13 @@ export const useLibrary = () => {
     get items() { return libraryState.items; },
     get isFetching() { return libraryState.isFetching; },
     get totalItems() { return libraryState.totalItems; },
-    
+
     // Actions
     refreshImages: libraryActions.refreshImages,
     loadMore: libraryActions.loadMore,
     updateItemRating: libraryActions.updateItemRating,
     updateItemNotes: libraryActions.updateItemNotes,
-    updateThumbnail: libraryActions.updateThumbnail
+    updateThumbnail: libraryActions.updateThumbnail,
+    setThumbnailPriority: libraryActions.setThumbnailPriority
   };
 };

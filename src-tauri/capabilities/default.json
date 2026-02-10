@@ -48,6 +48,7 @@
     "allow-get-cache-stats",
     "allow-cleanup-cache",
     "allow-clear-cache",
+    "allow-set-thumbnail-priority",
     {
       "identifier": "http:default",
       "allow": [

@@ -1,12 +1,12 @@
-import { Component, createMemo, Show } from "solid-js";
-import { Table, Column } from "../../ui/Table";
-import { useLibrary, useSelection, useViewport, useFilters } from "../../../core/hooks";
-import { ImageItem } from "../../../types";
-import { formatFileSize, formatDate } from "../../../utils/format";
-import { assetDnD } from "../../../core/dnd";
-import { ImageOff } from "lucide-solid";
-import { EmptyState } from "./EmptyState";
-import { createConditionalScope } from "../../../core/input";
+import { Component, createMemo, Show } from 'solid-js';
+import { Table, Column } from '../../ui/Table';
+import { useLibrary, useSelection, useViewport, useFilters } from '../../../core/hooks';
+import { ImageItem } from '../../../types';
+import { formatFileSize, formatDate } from '../../../utils/format';
+import { assetDnD } from '../../../core/dnd';
+import { ImageOff } from 'lucide-solid';
+import { EmptyState } from './EmptyState';
+import { createConditionalScope } from '../../../core/input';
 
 export const VirtualListView: Component = () => {
     const lib = useLibrary();
@@ -30,22 +30,22 @@ export const VirtualListView: Component = () => {
 
     const columns = createMemo<Column<ImageItem>[]>(() => [
         {
-            header: "",
-            accessorKey: "thumbnail_path",
+            header: '',
+            accessorKey: 'thumbnail_path',
             width: listThumbWidth() + 16,
-            align: "center",
-            cell: (item) => (
-                <div 
+            align: 'center',
+            cell: item => (
+                <div
                     class="list-view-thumbnail-container"
-                    style={{ 
-                        width: `${listThumbWidth()}px`, 
+                    style={{
+                        width: `${listThumbWidth()}px`,
                         height: `${listThumbHeight()}px`
                     }}
                 >
                     {item.thumbnail_path && (
-                        <img 
-                            src={getThumbUrl(item.thumbnail_path)} 
-                            alt="" 
+                        <img
+                            src={getThumbUrl(item.thumbnail_path)}
+                            alt=""
                             draggable={false}
                             class="list-view-thumbnail"
                         />
@@ -54,77 +54,81 @@ export const VirtualListView: Component = () => {
             )
         },
         {
-            header: "Name",
-            accessorKey: "filename",
+            header: 'Name',
+            accessorKey: 'filename',
             sortable: true,
             width: 300
         },
         {
-            header: "Rating",
-            accessorKey: "rating",
+            header: 'Rating',
+            accessorKey: 'rating',
             sortable: true,
             width: 100,
-            align: "center",
-            cell: (item) => <span class="list-view-rating-cell">{item.rating ? "★".repeat(item.rating) : "-"}</span>
-        },
-        {
-            header: "Type",
-            accessorKey: "format",
-            sortable: true,
-            width: 80,
-            align: "center",
-            cell: (item) => <span class="list-view-type-cell">{item.format?.toUpperCase() || "N/A"}</span>
-        },
-        {
-            header: "Size",
-            accessorKey: "size",
-            sortable: true,
-            width: 100,
-            align: "right",
-            cell: (item) => <span>{formatFileSize(item.size)}</span>
-        },
-        {
-            header: "Dimensions",
-            accessorKey: "width",
-            width: 120,
-            align: "center",
-            cell: (item) => (
-                <span>
-                    {item.width && item.height ? `${item.width} × ${item.height}` : "-"}
+            align: 'center',
+            cell: item => (
+                <span class="list-view-rating-cell">
+                    {item.rating ? '★'.repeat(item.rating) : '-'}
                 </span>
             )
         },
         {
-            header: "Created",
-            accessorKey: "created_at",
+            header: 'Type',
+            accessorKey: 'format',
             sortable: true,
-            width: 160,
-            cell: (item) => <span class="list-view-date-cell">{formatDate(item.created_at)}</span>
+            width: 80,
+            align: 'center',
+            cell: item => (
+                <span class="list-view-type-cell">{item.format?.toUpperCase() || 'N/A'}</span>
+            )
         },
         {
-            header: "Modified",
-            accessorKey: "modified_at",
+            header: 'Size',
+            accessorKey: 'size',
             sortable: true,
-            width: 160,
-            cell: (item) => <span class="list-view-date-cell">{formatDate(item.modified_at)}</span>
+            width: 100,
+            align: 'right',
+            cell: item => <span>{formatFileSize(item.size)}</span>
         },
         {
-            header: "Added",
-            accessorKey: "added_at",
+            header: 'Dimensions',
+            accessorKey: 'width',
+            width: 120,
+            align: 'center',
+            cell: item => (
+                <span>{item.width && item.height ? `${item.width} × ${item.height}` : '-'}</span>
+            )
+        },
+        {
+            header: 'Created',
+            accessorKey: 'created_at',
             sortable: true,
             width: 160,
-            cell: (item) => <span class="list-view-date-cell">{formatDate(item.added_at)}</span>
+            cell: item => <span class="list-view-date-cell">{formatDate(item.created_at)}</span>
+        },
+        {
+            header: 'Modified',
+            accessorKey: 'modified_at',
+            sortable: true,
+            width: 160,
+            cell: item => <span class="list-view-date-cell">{formatDate(item.modified_at)}</span>
+        },
+        {
+            header: 'Added',
+            accessorKey: 'added_at',
+            sortable: true,
+            width: 160,
+            cell: item => <span class="list-view-date-cell">{formatDate(item.added_at)}</span>
         }
     ]);
 
     const handleSort = (key: string) => {
         if (filters.sortBy === key) {
             // Cycle: asc -> desc -> asc
-            const nextOrder = filters.sortOrder === "asc" ? "desc" : "asc";
+            const nextOrder = filters.sortOrder === 'asc' ? 'desc' : 'asc';
             filters.setSortOrder(nextOrder);
         } else {
             filters.setSortBy(key as any);
-            filters.setSortOrder("desc"); // Default to desc for new columns (usually more useful for dates/size)
+            filters.setSortOrder('desc'); // Default to desc for new columns (usually more useful for dates/size)
         }
     };
 
@@ -135,7 +139,7 @@ export const VirtualListView: Component = () => {
         }
     };
 
-    // Navigation logic for Table is currently internal or via Table props. 
+    // Navigation logic for Table is currently internal or via Table props.
     // Table component needs to expose a way to be driven by external shortcuts OR use shortcuts internally.
     // Assuming Table handles its own focus/navigation, we just need to ensure it respects scopes?
     // If Table uses native onKeyDown, it won't respect our 'image-viewer' scope which blocks.
@@ -143,12 +147,15 @@ export const VirtualListView: Component = () => {
 
     return (
         <div class="virtual-list-view">
-            <Show when={lib.items.length > 0} fallback={
-                <EmptyState 
-                    title="No images found"
-                    description="Try adjusting your filters or add images to your library."
-                />
-            }>
+            <Show
+                when={lib.items.length > 0}
+                fallback={
+                    <EmptyState
+                        title="No images found"
+                        description="Try adjusting your filters or add images to your library."
+                    />
+                }
+            >
                 <Table
                     data={lib.items}
                     columns={columns()}
@@ -156,22 +163,28 @@ export const VirtualListView: Component = () => {
                     rowHeight={rowHeight()}
                     selectedIds={selection.selectedIds}
                     sortKey={filters.sortBy}
-                    sortOrder={filters.sortOrder as "asc" | "desc"}
+                    sortOrder={filters.sortOrder as 'asc' | 'desc'}
                     onSort={handleSort}
                     onScroll={handleScroll}
                     onRowClick={(item, multi) => selection.toggle(item.id, multi)}
-                    onRowDoubleClick={(item) => viewport.openItem(item.id.toString())}
-                    onRowMount={(el, item) => assetDnD(el, () => ({ 
-                        item, 
-                        selected: selection.selectedIds.includes(item.id),
-                        selectedIds: selection.selectedIds,
-                        allItems: lib.items
-                    }))}
+                    onRowDoubleClick={item => viewport.openItem(item.id.toString())}
+                    onRowMount={(el, item) =>
+                        assetDnD(el, () => ({
+                            item,
+                            selected: selection.selectedIds.includes(item.id),
+                            selectedIds: selection.selectedIds,
+                            allItems: lib.items
+                        }))
+                    }
                     keyField="id"
                     label="Image library list view"
                     emptyMessage="No images found"
                     emptyDescription="Try adjusting your filters or add images to your library."
                     emptyIcon={ImageOff}
+                    onVisibleItemsChange={items => {
+                        const ids = items.map(i => i.id);
+                        lib.setThumbnailPriority(ids);
+                    }}
                 />
             </Show>
         </div>
