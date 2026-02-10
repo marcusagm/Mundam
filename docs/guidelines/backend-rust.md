@@ -6,19 +6,27 @@ This document outlines the coding standards, patterns, and best practices for th
 
 ## 🏗️ Architecture
 
-### Command Pattern
+### Command Pattern & Organization
 - **Thin Commands**: Tauri commands (`#[tauri::command]`) should be thin wrappers. They should validate input, call business logic functions, and handle errors. They should rarely contain complex business logic themselves.
-- **Modules**: Organize code into semantic modules (e.g., `transcoding`, `thumbnails`, `library`).
+- **Domain Modules**: Commands must be organized into semantic domain modules. Avoid putting commands in the root `src-tauri/src/`.
+  - **`library/commands/`**: Core assets management (tags, folders, metadata).
+  - **Specialized Modules**: Modules like `thumbnails`, `media`, or `transcoding` should have their own `commands.rs` or `commands/` submodule.
 - **State Management**: Use `app.manage()` to inject state. Access state in commands using `tauri::State<T>`.
 
+#### 🛡️ Tauri Permissions
+Whenever a new command is created, you **MUST** update the Tauri permissions:
+1.  **`src-tauri/permissions/main.toml`**: Define a new permission for the command.
+2.  **`src-tauri/capabilities/default.json`**: Add the new permission to the default visibility list (or appropriate capability set).
+
 ```rust
-// ✅ Correct
+// ✅ Correct Example: Organzed Command
+// Localized in src/library/commands/tags.rs
 #[tauri::command]
-pub async fn generate_thumbnail(
-    path: String,
-    state: State<'_, AppState>
-) -> Result<String, String> {
-    thumbnails::generator::process(&path, &state.config).map_err(|e| e.to_string())
+pub async fn create_tag(
+    db: State<'_, Arc<Db>>,
+    name: String,
+) -> AppResult<i64> {
+    Ok(db.create_tag(&name).await?)
 }
 ```
 

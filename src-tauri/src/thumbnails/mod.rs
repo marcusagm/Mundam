@@ -10,6 +10,7 @@ pub mod icon;
 pub mod svg;
 pub mod font;
 pub mod model;
+pub mod commands;
 
 /// Determines the best strategy for generating a thumbnail based on file detection.
 ///

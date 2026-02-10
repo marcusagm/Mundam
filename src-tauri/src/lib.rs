@@ -2,48 +2,24 @@ pub mod db;
 pub mod error;
 mod ffmpeg;
 mod indexer;
-mod location_commands;
-mod metadata_commands;
 mod metadata_reader;
 mod protocols;
-mod smart_folder_commands;
-mod tag_commands;
-mod thumbnail_commands;
 mod thumbnail_worker;
 mod thumbnail_priority;
 mod thumbnails;
-mod settings_commands;
 pub mod formats;
-mod format_commands;
-mod audio_commands;
 mod config;
 mod transcoding;
 mod streaming;
+pub mod library;
+mod media;
+mod settings;
 
 
 use crate::db::Db;
-use crate::error::AppResult;
 use crate::indexer::Indexer;
-use std::path::PathBuf;
 use tauri::Manager;
 
-#[tauri::command]
-async fn start_indexing(path: String, app: tauri::AppHandle) -> AppResult<()> {
-    println!("COMMAND: start_indexing called with path: {}", path);
-
-    // Get DB from state with safety
-    let db = app.try_state::<std::sync::Arc<Db>>()
-        .ok_or_else(|| crate::error::AppError::Internal("Database not initialized".to_string()))?;
-
-    let registry = app.try_state::<std::sync::Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>()
-        .ok_or_else(|| crate::error::AppError::Internal("Registry not initialized".to_string()))?;
-
-    let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
-
-    let root = PathBuf::from(path);
-    indexer.start_scan(root).await;
-    Ok(())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -115,39 +91,39 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_mcp_bridge::init())
         .invoke_handler(tauri::generate_handler![
-            start_indexing,
-            tag_commands::create_tag,
-            tag_commands::update_tag,
-            tag_commands::delete_tag,
-            tag_commands::get_all_tags,
-            tag_commands::get_library_stats,
-            tag_commands::add_tag_to_image,
-            tag_commands::remove_tag_from_image,
-            tag_commands::get_tags_for_image,
-            tag_commands::add_tags_to_images_batch,
-            tag_commands::get_images_filtered,
-            tag_commands::get_image_count_filtered,
-            tag_commands::update_image_rating,
-            tag_commands::update_image_notes,
-            metadata_commands::get_image_exif,
-            thumbnail_commands::request_thumbnail_regenerate,
-            thumbnail_commands::set_thumbnail_priority,
-            location_commands::add_location,
-            location_commands::remove_location,
-            location_commands::get_locations,
-            location_commands::get_all_subfolders,
-            location_commands::get_subfolder_counts,
-            location_commands::get_location_root_counts,
-            smart_folder_commands::get_smart_folders,
-            smart_folder_commands::save_smart_folder,
-            smart_folder_commands::update_smart_folder,
-            smart_folder_commands::delete_smart_folder,
-            settings_commands::get_setting,
-            settings_commands::set_setting,
-            settings_commands::run_db_maintenance,
+            library::commands::indexing::start_indexing,
+            library::commands::tags::create_tag,
+            library::commands::tags::update_tag,
+            library::commands::tags::delete_tag,
+            library::commands::tags::get_all_tags,
+            library::commands::tags::get_library_stats,
+            library::commands::tags::add_tag_to_image,
+            library::commands::tags::remove_tag_from_image,
+            library::commands::tags::get_tags_for_image,
+            library::commands::tags::add_tags_to_images_batch,
+            library::commands::tags::get_images_filtered,
+            library::commands::tags::get_image_count_filtered,
+            library::commands::tags::update_image_rating,
+            library::commands::tags::update_image_notes,
+            library::commands::metadata::get_image_exif,
+            thumbnails::commands::request_thumbnail_regenerate,
+            thumbnails::commands::set_thumbnail_priority,
+            library::commands::folders::add_location,
+            library::commands::folders::remove_location,
+            library::commands::folders::get_locations,
+            library::commands::folders::get_all_subfolders,
+            library::commands::folders::get_subfolder_counts,
+            library::commands::folders::get_location_root_counts,
+            library::commands::smart_folders::get_smart_folders,
+            library::commands::smart_folders::save_smart_folder,
+            library::commands::smart_folders::update_smart_folder,
+            library::commands::smart_folders::delete_smart_folder,
+            settings::commands::get_setting,
+            settings::commands::set_setting,
+            settings::commands::run_db_maintenance,
 
-            format_commands::get_library_supported_formats,
-            audio_commands::get_audio_waveform_data,
+            library::commands::formats::get_library_supported_formats,
+            media::commands::get_audio_waveform_data,
 
             // Transcoding commands
             transcoding::commands::needs_transcoding,
