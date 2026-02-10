@@ -357,10 +357,34 @@ impl Db {
         folder_id: i64,
         img: &crate::indexer::metadata::ImageMetadata,
     ) -> Result<(i64, Option<i64>, bool), sqlx::Error> {
+        let mut conn = self.pool.acquire().await?;
+        self.save_image_internal(&mut *conn, folder_id, img).await
+    }
+
+    pub async fn save_images_batch(
+        &self,
+        items: Vec<(i64, crate::indexer::metadata::ImageMetadata)>,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        for (folder_id, img) in items {
+            if let Err(e) = self.save_image_internal(&mut *tx, folder_id, &img).await {
+                eprintln!("Failed to save image in batch: {}", e);
+            }
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn save_image_internal(
+        &self,
+        conn: &mut sqlx::SqliteConnection,
+        folder_id: i64,
+        img: &crate::indexer::metadata::ImageMetadata,
+    ) -> Result<(i64, Option<i64>, bool), sqlx::Error> {
         // 1. Check if path already exists
         let existing: Option<(i64, i64)> = sqlx::query_as("SELECT id, folder_id FROM images WHERE path = ?")
             .bind(&img.path)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&mut *conn)
             .await?;
 
         if let Some((id, old_fid)) = existing {
@@ -378,7 +402,7 @@ impl Db {
             .bind(&img.format)
             .bind(img.modified_at)
             .bind(&img.path)
-            .execute(&self.pool)
+            .execute(&mut *conn)
             .await?;
 
             let old_fid_if_changed = if old_fid != folder_id { Some(old_fid) } else { None };
@@ -391,7 +415,7 @@ impl Db {
         )
         .bind(img.size)
         .bind(img.created_at)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *conn)
         .await?;
 
         for (id, old_fid, old_path) in candidates {
@@ -408,7 +432,7 @@ impl Db {
                 .bind(&img.format)
                 .bind(img.modified_at)
                 .bind(id)
-                .execute(&self.pool)
+                .execute(&mut *conn)
                 .await?;
                 return Ok((id, Some(old_fid), false));
             }
@@ -437,7 +461,7 @@ impl Db {
         .bind(&img.format)
         .bind(img.created_at)
         .bind(img.modified_at)
-        .execute(&self.pool)
+        .execute(conn)
         .await?;
 
         Ok((res.last_insert_rowid(), None, true))

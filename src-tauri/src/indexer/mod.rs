@@ -46,7 +46,7 @@ pub struct RemovedItemContext {
 /// Struct to hold image path with its parent directory path
 struct IndexedImage {
     metadata: ImageMetadata,
-    parent_dir: String, 
+    parent_dir: String,
 }
 
 #[derive(Default)]
@@ -83,7 +83,7 @@ impl Indexer {
         // Normalize root path (absolute and resolve symlinks)
         let root_path = root_path.canonicalize().unwrap_or(root_path);
         let root_str = normalize_path(&root_path.to_string_lossy());
-        
+
         println!("DEBUG: Indexer::start_scan for {}", root_str);
         let app = self.app_handle.clone();
         let db = self.db.clone();
@@ -131,9 +131,9 @@ impl Indexer {
                  Ok(list) => list,
                  Err(_) => Vec::new()
              };
-             
+
              let valid_paths: std::collections::HashSet<String> = folder_map.keys().cloned().collect();
-             
+
              for (id, path) in db_folders {
                  let normalized_db_path = normalize_path(&path);
                  if !valid_paths.contains(&normalized_db_path) {
@@ -141,7 +141,7 @@ impl Indexer {
                      let _ = db.delete_folder(id).await;
                  }
              }
-        } 
+        }
 
         if total_files > 0 {
             let chunk_size = (total_files / 100).clamp(1, 200);
@@ -151,14 +151,14 @@ impl Indexer {
             let app_worker = app.clone();
             let db_worker = db.clone();
             let folder_map_worker = folder_map.clone();
-            
+
             tokio::spawn(async move {
                 let mut processed: usize = 0;
                 let mut batch: Vec<(i64, ImageMetadata)> = Vec::new();
 
                 while let Some(indexed) = rx.recv().await {
                     processed += 1;
-                    
+
                     if let Some(&folder_id) = folder_map_worker.get(&indexed.parent_dir) {
                         batch.push((folder_id, indexed.metadata.clone()));
                     }
@@ -173,10 +173,8 @@ impl Indexer {
                             },
                         );
 
-                        for (fid, img) in batch.drain(..) {
-                            if let Err(e) = db_worker.save_image(fid, &img).await {
-                                eprintln!("Failed to save image: {}", e);
-                            }
+                        if let Err(e) = db_worker.save_images_batch(batch.drain(..).collect()).await {
+                            eprintln!("Failed to save images batch: {}", e);
                         }
                     }
                 }
@@ -203,7 +201,7 @@ impl Indexer {
         // 6. Start File Watcher
         self.start_watcher(root_for_watcher, root_str);
     }
-    
+
     async fn ensure_folder_hierarchy(
         &self,
         folders: std::collections::HashSet<String>,
@@ -212,13 +210,13 @@ impl Indexer {
         let mut path_to_id: HashMap<String, i64> = HashMap::new();
         let mut sorted_dirs: Vec<String> = folders.into_iter().collect();
         sorted_dirs.sort_by_key(|a| a.len());
-        
+
         for dir_path in sorted_dirs {
             let dir_path = normalize_path(&dir_path);
             let path_buf = PathBuf::from(&dir_path);
             let name = path_buf.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
             let parent_path_str = path_buf.parent().map(|p| normalize_path(&p.to_string_lossy()));
-            
+
             let mut parent_id = None;
             if let Some(pp) = parent_path_str {
                 if let Some(id) = path_to_id.get(&pp) {
@@ -227,7 +225,7 @@ impl Indexer {
                     parent_id = Some(id);
                 }
             }
-            
+
             let is_root = dir_path == root_path;
             match self.db.upsert_folder(&dir_path, &name, parent_id, is_root).await {
                 Ok(id) => { path_to_id.insert(dir_path, id); }
@@ -246,11 +244,11 @@ impl Indexer {
         let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from(""));
         let root_str_clone = root_str.clone();
         let registry = self.registry.clone();
-        
+
         tokio::spawn(async move {
             let (tx, mut rx) = mpsc::channel::<Event>(100);
             let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
-            
+
             // Register stop handle
             {
                 let mut reg = registry.lock().await;
@@ -261,7 +259,7 @@ impl Indexer {
             }
 
             let debouncer_window = Duration::from_millis(600);
-            
+
             let mut watcher = RecommendedWatcher::new(
                 move |res: notify::Result<Event>| {
                     if let Ok(event) = res {
@@ -280,9 +278,9 @@ impl Indexer {
             let mut buffer_renamed: HashMap<String, String> = HashMap::new();
             let mut pending_renames: HashMap<usize, String> = HashMap::new();
             let mut refresh_needed = false;
-            
+
             let mut timer = tokio::time::interval(debouncer_window);
-            
+
             loop {
                 tokio::select! {
                     _ = &mut stop_rx => {
@@ -298,7 +296,7 @@ impl Indexer {
                                 if event.paths.len() == 2 {
                                     let from = normalize_path(&event.paths[0].to_string_lossy());
                                     let to = normalize_path(&event.paths[1].to_string_lossy());
-                                    
+
                                     if buffer_added_folders.remove(&from) {
                                         buffer_added_folders.insert(to);
                                     } else if let Some(meta) = buffer_added.remove(&from) {
@@ -381,7 +379,7 @@ impl Indexer {
                         let removed_list: Vec<String> = buffer_removed.iter().cloned().collect();
                         for from_path in removed_list {
                             if !buffer_removed.contains(&from_path) { continue; }
-                            
+
                             let from_buf = Path::new(&from_path);
                             // Folder Heuristic: Share parent
                             let folder_match = buffer_added_folders.iter().find(|to_path| {
@@ -413,7 +411,7 @@ impl Indexer {
                             }
                         }
 
-                        if buffer_added.is_empty() && buffer_added_folders.is_empty() && 
+                        if buffer_added.is_empty() && buffer_added_folders.is_empty() &&
                            buffer_removed.is_empty() && buffer_renamed.is_empty() && !refresh_needed {
                             continue;
                         }
@@ -426,7 +424,7 @@ impl Indexer {
                         for (from, to) in buffer_renamed.drain() {
                             let to_path = PathBuf::from(&to);
                             let new_name = to_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
-                            
+
                             if to_path.is_dir() {
                                 println!("DEBUG: Watcher - Processing FOLDER RENAME: {} -> {}", from, to);
                                 match db.rename_folder(&from, &to, &new_name).await {
@@ -444,7 +442,7 @@ impl Indexer {
                                     Ok(Some(id)) => id,
                                     _ => db.ensure_folder_hierarchy(&parent).await.unwrap_or(0)
                                 };
-                                
+
                                 if folder_id > 0 {
                                     match db.rename_image(&from, &to, &new_name, folder_id).await {
                                         Ok(Some((meta, old_fid))) => {
@@ -470,7 +468,7 @@ impl Indexer {
                             let app = app.clone();
                             let path_clone = path.clone();
                             let app_data_dir = app_data_dir.clone();
-                            
+
                             // Immediate UI feedback for images
                             if let Ok(Some((img_id, fid, tags))) = db.get_image_context(&path_clone).await {
                                 res_removed.push(RemovedItemContext { id: img_id, folder_id: fid, tag_ids: tags });
@@ -478,7 +476,7 @@ impl Indexer {
 
                             tokio::spawn(async move {
                                 tokio::time::sleep(Duration::from_secs(2)).await;
-                                
+
                                 // Before deleting, check if it's a folder or an image
                                 match db.get_image_context(&path_clone).await {
                                     Ok(Some((_img_id, _fid, _tags))) => {
@@ -487,8 +485,8 @@ impl Indexer {
                                             println!("DEBUG: Watcher - Finalized removal for: {}", path_clone);
                                             let thumb = app_data_dir.join("thumbnails").join(format!("{}.webp", deleted_id));
                                             let _ = std::fs::remove_file(thumb);
-                                            
-                                            // No need to emit again if we already gave immediate feedback, 
+
+                                            // No need to emit again if we already gave immediate feedback,
                                             // UNLESS it was a brand new detection (but it wouldn't be here).
                                             // Actually, immediate feedback is better.
                                         }
@@ -526,13 +524,13 @@ impl Indexer {
                                     Ok((id, old_fid, is_new)) => {
                                         let mut meta_with_id = meta.clone();
                                         meta_with_id.id = id;
-                                        
-                                        let ctx = AddedItemContext { 
-                                            metadata: meta_with_id, 
-                                            folder_id: fid, 
-                                            old_folder_id: old_fid 
+
+                                        let ctx = AddedItemContext {
+                                            metadata: meta_with_id,
+                                            folder_id: fid,
+                                            old_folder_id: old_fid
                                         };
-                                        
+
                                         if is_new {
                                             res_added.push(ctx);
                                         } else {
