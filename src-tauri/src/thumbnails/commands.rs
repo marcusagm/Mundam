@@ -16,7 +16,7 @@ pub async fn request_thumbnail_regenerate(
 #[tauri::command]
 pub async fn set_thumbnail_priority(
     ids: Vec<i64>,
-    state: State<'_, Arc<crate::thumbnail_priority::ThumbnailPriorityState>>,
+    state: State<'_, Arc<crate::thumbnails::priority::ThumbnailPriorityState>>,
 ) -> AppResult<()> {
     state.set_priority(ids);
     Ok(())

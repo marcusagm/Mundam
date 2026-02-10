@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 
 
-use crate::ffmpeg::get_ffmpeg_path;
+use crate::media::ffmpeg::get_ffmpeg_path;
 use crate::transcoding::detector;
 
 /// Video information returned by probe

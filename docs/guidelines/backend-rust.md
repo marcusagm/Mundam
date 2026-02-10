@@ -10,7 +10,10 @@ This document outlines the coding standards, patterns, and best practices for th
 - **Thin Commands**: Tauri commands (`#[tauri::command]`) should be thin wrappers. They should validate input, call business logic functions, and handle errors. They should rarely contain complex business logic themselves.
 - **Domain Modules**: Commands must be organized into semantic domain modules. Avoid putting commands in the root `src-tauri/src/`.
   - **`library/commands/`**: Core assets management (tags, folders, metadata).
-  - **Specialized Modules**: Modules like `thumbnails`, `media`, or `transcoding` should have their own `commands.rs` or `commands/` submodule.
+  - **`media/commands.rs`**: Audio/Video processing and metadata extraction commands.
+  - **`thumbnails/commands.rs`**: Thumbnail generation and priority management.
+  - **`settings/commands.rs`**: Configuration and maintenance.
+  - **`transcoding/commands.rs`**: Streaming and transcoding logic.
 - **State Management**: Use `app.manage()` to inject state. Access state in commands using `tauri::State<T>`.
 
 #### 🛡️ Tauri Permissions
@@ -116,8 +119,8 @@ cargo clippy -- -D warnings
 
 ## 📖 Documentation Patterns
 
-### Public API & Internal Structures (Rustdoc)
-All code (functions, structs, enums, traits) **MUST** have robust documentation via `///`. The goal is for any developer to understand the intent and risks without having to read the implementation.
+### Mandatory Documentation
+Every item, including **functions, methods, structs, enums, traits, and their respective fields (properties)**, whether public or private, **MUST** have documentation via `///`. The goal is for any developer to understand the intent and risks without having to read the implementation.
 
 - **Summary**: A short, direct line describing the purpose.
 - **`# Errors` Section**: Mandatory if the function returns `Result`. Must list failure conditions.
@@ -153,7 +156,7 @@ Comments within functions must follow the **"Why, not What"** rule. Code should 
     - Security or performance notes.
     - `TODO` or `FIXME` with a clear description.
 - **What NOT to COMMENT (Pollution)**:
-    - The obvious: `let x = 10; // sets x to 10`.
+    - The obvious: `let count = 10; // sets count to 10`.
     - Commented-out code: If it's not useful, delete it. History is in Git.
     - Variable descriptions: Use descriptive names instead of comments next to them.
 
@@ -165,6 +168,78 @@ let images = db.get_images().await?; // fetches images from database
 // We start a manual transaction here to avoid multiple disk flushes,
 // which is critical for performance on traditional HDDs.
 let mut transaction = pool.begin().await?;
+```
+
+---
+
+## 📂 Supported File Formats
+
+The application relies on a centralized registry of supported file formats to consistently handle detection, thumbnail generation, and playback strategies.
+
+### 📍 Registry Location
+- **Definitions**: `src-tauri/src/formats/definitions.rs`
+- **Types**: `src-tauri/src/formats/types.rs`
+- **Logic**: `src-tauri/src/formats/mod.rs`
+
+### 🔍 How to Use
+Use the `crate::formats::FileFormat` struct for all format-related logic.
+
+```rust
+use crate::formats::FileFormat;
+use crate::formats::MediaType;
+
+// 1. Detect format (File signature > Extension)
+if let Some(format) = FileFormat::detect(path) {
+    match format.type_category {
+        MediaType::Image => { ... },
+        MediaType::Video => { ... },
+        _ => { ... }
+    }
+}
+
+// 2. Quick check (Indexer / File Walker)
+if FileFormat::is_supported_extension(path) {
+    // Process file...
+}
+```
+
+### ➕ How to Add a New Format
+1.  Open `src-tauri/src/formats/definitions.rs`.
+2.  Add a new `FileFormat` entry to the `SUPPORTED_FORMATS` array.
+3.  Specify the properties:
+    -   **`name`**: Human-readable name (e.g., "WebP Image").
+    -   **`extensions`**: List of lowercase extensions (e.g., `&["webp"]`).
+    -   **`mime_types`**: Standard MIME types.
+    -   **`type_category`**: `MediaType::Image`, `Video`, `Audio`, `Project`, etc.
+    -   **`strategy`**: How thumbnails are generated (`NativeImage`, `Ffmpeg`, `NativeExtractor`, etc.).
+    -   **`playback`**: How it is played in the UI (`Native`, `Hls`, `LinearHls`, `None`).
+
+```rust
+FileFormat {
+    name: "New Format",
+    extensions: &["new", "nf"],
+    mime_types: &["image/x-new"],
+    type_category: MediaType::Image,
+    strategy: ThumbnailStrategy::NativeImage,
+    playback: PlaybackStrategy::None,
+},
+```
+
+### 🌐 Frontend Usage
+To retrieve the list of supported formats in the frontend, invoke the `get_library_supported_formats` command:
+
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+interface FileFormat {
+    name: string;
+    extensions: string[];
+    mimeTypes: string[];
+    typeCategory: 'Image' | 'Video' | 'Audio' | 'Project' | 'Archive' | 'Model3D' | 'Font' | 'Unknown';
+    playback: 'Native' | 'Hls' | 'LinearHls' | 'AudioHls' | 'AudioLinearHls' | 'Transcode' | 'AudioTranscode' | 'None';
+}
+
+const formats = await invoke<FileFormat[]>('get_library_supported_formats');
 ```
 
 ---

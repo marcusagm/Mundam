@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::metadata_reader;
+use crate::media::metadata_reader;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

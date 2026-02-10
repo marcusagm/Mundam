@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::time::{sleep, Duration};
-use crate::thumbnail_priority::ThumbnailPriorityState;
+use crate::thumbnails::priority::ThumbnailPriorityState;
 
 pub struct ThumbnailWorker {
     db: Arc<Db>,
     thumbnails_dir: PathBuf,
     app_handle: AppHandle,
-    config: crate::config::AppConfig,
+    config: crate::settings::config::AppConfig,
     priority_state: Arc<ThumbnailPriorityState>,
 }
 
@@ -19,7 +19,7 @@ impl ThumbnailWorker {
         db: Arc<Db>,
         thumbnails_dir: PathBuf,
         app_handle: AppHandle,
-        config: crate::config::AppConfig,
+        config: crate::settings::config::AppConfig,
         priority_state: Arc<ThumbnailPriorityState>,
     ) -> Self {
         Self {

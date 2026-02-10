@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::ffmpeg::get_audio_waveform;
+use crate::media::ffmpeg::get_audio_waveform;
 use std::path::PathBuf;
 use tauri::command;
 

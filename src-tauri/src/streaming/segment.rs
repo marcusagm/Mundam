@@ -10,7 +10,7 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
-use crate::ffmpeg::get_ffmpeg_path;
+use crate::media::ffmpeg::get_ffmpeg_path;
 use crate::transcoding::cache::TranscodeCache;
 use super::process_manager::ProcessManager;
 

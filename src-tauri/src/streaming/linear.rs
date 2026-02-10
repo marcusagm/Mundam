@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use tokio::process::{Child, Command};
 use tokio::sync::RwLock;
 
-use crate::ffmpeg::get_ffmpeg_path;
+use crate::media::ffmpeg::get_ffmpeg_path;
 
 /// Manage linear transcoding sessions (Live HLS)
 #[derive(Clone)]

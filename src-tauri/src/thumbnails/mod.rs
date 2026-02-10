@@ -11,6 +11,8 @@ pub mod svg;
 pub mod font;
 pub mod model;
 pub mod commands;
+pub mod worker;
+pub mod priority;
 
 /// Determines the best strategy for generating a thumbnail based on file detection.
 ///
@@ -75,7 +77,7 @@ pub fn generate_thumbnail(
     let start = std::time::Instant::now();
 
     // OPTIMIZATION: Try external FFmpeg FIRST if available for Image/Video
-    let ffmpeg_available = crate::ffmpeg::is_ffmpeg_available();
+    let ffmpeg_available = crate::media::ffmpeg::is_ffmpeg_available();
 
     // Note: If we use FFmpeg, the open_file handle is ignored (FFmpeg opens its own).
     // EXCLUSION: Affinity, Clip, XMind should always use NativeExtractor first as they are proprietary zip formats.
@@ -83,7 +85,7 @@ pub fn generate_thumbnail(
     let is_zip_project = ["afphoto", "afdesign", "afpub", "clip", "xmind"].contains(&ext.as_str());
 
     if ffmpeg_available && !is_zip_project && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
-         if let Ok(_) = crate::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px, is_video) {
+         if let Ok(_) = crate::media::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px, is_video) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
              return Ok(hashed_filename.to_string());

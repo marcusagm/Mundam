@@ -17,7 +17,7 @@ impl FfmpegTranscoder {
     /// Create a new transcoder with the given cache
     pub fn new(cache: TranscodeCache) -> Self {
         // Use the centralized FFmpeg path detection from crate::ffmpeg
-        let ffmpeg_path = crate::ffmpeg::get_ffmpeg_path(None)
+        let ffmpeg_path = crate::media::ffmpeg::get_ffmpeg_path(None)
             .unwrap_or_else(|| PathBuf::from("ffmpeg"));
         Self { ffmpeg_path, cache }
     }
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn test_ffmpeg_detection() {
         // This test checks if we can find FFmpeg via the centralized path detection
-        let found = crate::ffmpeg::get_ffmpeg_path(None);
+        let found = crate::media::ffmpeg::get_ffmpeg_path(None);
         println!("FFmpeg found at: {:?}", found);
     }
 }

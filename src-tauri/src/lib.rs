@@ -1,14 +1,12 @@
 pub mod db;
 pub mod error;
-mod ffmpeg;
 mod indexer;
-mod metadata_reader;
+// Moved to media: metadata_reader, ffmpeg
 mod protocols;
-mod thumbnail_worker;
-mod thumbnail_priority;
+// Moved to thumbnails: thumbnail_worker, thumbnail_priority
 mod thumbnails;
 pub mod formats;
-mod config;
+// Moved to settings: config
 mod transcoding;
 mod streaming;
 pub mod library;
@@ -46,17 +44,17 @@ pub fn run() {
                         let watcher_registry = std::sync::Arc::new(tokio::sync::Mutex::new(crate::indexer::WatcherRegistry::default()));
 
                         // Load Config
-                        let app_config = crate::config::load_config(&db_arc).await;
-                        let config_state = crate::config::ConfigState(std::sync::Mutex::new(app_config.clone()));
+                        let app_config = crate::settings::config::load_config(&db_arc).await;
+                        let config_state = crate::settings::config::ConfigState(std::sync::Mutex::new(app_config.clone()));
 
-                        let priority_state = std::sync::Arc::new(crate::thumbnail_priority::ThumbnailPriorityState::default());
+                        let priority_state = std::sync::Arc::new(crate::thumbnails::priority::ThumbnailPriorityState::default());
 
                         handle.manage(db_arc.clone());
                         handle.manage(watcher_registry.clone());
                         handle.manage(config_state);
                         handle.manage(priority_state.clone());
 
-                        let worker = crate::thumbnail_worker::ThumbnailWorker::new(
+                        let worker = crate::thumbnails::worker::ThumbnailWorker::new(
                             db_arc.clone(),
                             thumbnails_dir,
                             handle.clone(),
