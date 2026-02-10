@@ -19,7 +19,7 @@
   - [ ] 1.2 Ingestão de Desktop e Sistema Operacional
     - [ ] Monitoramento e Importação
       - [x] Implementar Monitoramento em Tempo Real (Folder Watching)
-      - [ ] Opção de replicar hierarquia original de pastas
+      - [x] Opção de replicar hierarquia original de pastas
       - [x] Detecção de Alterações (sincronização de remoções/renomeações)
     - [ ] Integração via Clipboard
       - [ ] Colagem Direta (`Ctrl/Cmd + V`) de imagens e arquivos
@@ -49,19 +49,19 @@
       - [x] Grupos de Tags com cores
     - [ ] Operações Avançadas
       - [ ] Mesclagem de Tags (Merge)
-      - [ ] Painel de Gestão Global (Renomear, Mover, Excluir)
+      - [x] Painel de Gestão Global (Renomear, Mover, Excluir)
     - [ ] Atribuição Inteligente
       - [ ] Sugestão e Autocompletar etiquetas
-      - [ ] Edição em Lote (Bulk Tagging)
+      - [x] Edição em Lote (Bulk Tagging)
   - [ ] 2.3 Pastas Inteligentes e Filtros Dinâmicos
     - [ ] Motor de Regras
-      - [ ] Suporte a Lógica Booleana (AND, OR, NOT)
-      - [ ] Filtros por Nome, Extensão, URL
-      - [ ] Filtros por Tags (presença/ausência)
-      - [ ] Filtros por Datas (criação, importação, modificação)
-      - [ ] Filtros por Dimensões, Aspect Ratio, Tamanho
-      - [ ] Filtros por Cores e Ratings
-    - [ ] Atualização em Tempo Real (Auto-Update)
+      - [x] Suporte a Lógica Booleana (AND, OR, NOT)
+      - [x] Filtros por Nome, Extensão, URL
+      - [x] Filtros por Tags (presença/ausência)
+      - [x] Filtros por Datas (criação, importação, modificação)
+      - [x] Filtros por Dimensões, Aspect Ratio, Tamanho
+      - [x] Filtros por Cores e Ratings
+    - [x] Atualização em Tempo Real (Auto-Update)
   - [ ] 2.4 Análise Cromática e Inspeção Visual
     - [ ] Processamento de Cores
       - [ ] Extração Automática de Cores (Paleta de 5-10 tons)
@@ -74,7 +74,7 @@
     - [ ] Anotações e Comentários
       - [ ] Anotações em Área (Desenhar sobre a imagem)
       - [x] Notas de Ativo (Texto livre)
-      - [ ] Avaliação por Estrelas (Rating 1-5)
+      - [x] Avaliação por Estrelas (Rating 1-5)
 
 - [ ] 3. Visualização, Inspeção e Suporte a Formatos
   - [ ] 3.1 Motor de Renderização e Visualização Universal
@@ -83,7 +83,7 @@
       - [x] Renderização de Arquivos Proprietários (PSD, AI, XD, Sketch, Affinity, Fig)
       - [x] Formatos Web Modernos (WebP, AVIF, HEIC, SVG) e Pro (EXR, HDR, TIFF)
     - [ ] Performance de Visualização
-      - [ ] Previews Persistentes (Miniaturas de alta fidelidade)
+      - [x] Previews Persistentes (Miniaturas de alta fidelidade)
       - [ ] Carregamento Progressivo (Alta definição sob demanda)
   - [ ] 3.2 Experiência de Navegação e Layouts Dinâmicos
     - [ ] Modos de Visualização
@@ -99,7 +99,7 @@
       - [ ] Hover Preview (Scrubbing ao passar o mouse)
       - [ ] Anotações com Timestamp
       - [ ] Loop de Trecho (A-B Repeat)
-      - [ ] Ajuste de Velocidade (0.5x a 2x)
+      - [x] Ajuste de Velocidade (0.5x a 2x)
       - [ ] Visualização Frame a Frame
   - [ ] 3.4 Gerenciamento e Visualização de Fontes
     - [ ] Gestão Tipográfica
@@ -120,18 +120,18 @@
 - [ ] 4. Busca, Recuperação e Processamento em Lote
   - [ ] 4.1 Motor de Busca Global e Inteligente
     - [ ] Algoritmos de Busca
-      - [ ] Busca Fuzzy (Texto completo, tolerância a erros)
-      - [ ] Busca em Metadados (Tags, Notas, URL, Extensão)
+      - [x] Busca Fuzzy (Texto completo, tolerância a erros)
+      - [x] Busca em Metadados (Tags, Notas, URL, Extensão)
       - [ ] Busca por Fonte/Origem (URL original)
       - [ ] Busca por Paleta de Cores
   - [ ] 4.2 Construtor de Pesquisa Avançada
     - [ ] Interface de Consulta
-      - [ ] Construtor com Lógica Booleana (AND/OR/NOT)
-      - [ ] Salvar Consultas (Saved Searches)
+      - [x] Construtor com Lógica Booleana (AND/OR/NOT)
+      - [x] Salvar Consultas (Saved Searches)
     - [ ] Filtros Técnicos
-      - [ ] Filtro por Resolução e Proporção (Retrato/Paisagem)
-      - [ ] Filtro por Atributos (Extensão, Tamanho, Datas)
-      - [ ] Filtro por Qualidade/Status (Tags, Notas, Rating)
+      - [x] Filtro por Resolução e Proporção (Retrato/Paisagem)
+      - [x] Filtro por Atributos (Extensão, Tamanho, Datas)
+      - [x] Filtro por Qualidade/Status (Tags, Notas, Rating)
   - [ ] 4.3 Processamento e Ações em Lote
     - [ ] Ferramentas de Massa
       - [ ] Edição em Massa (Tags, Ratings, Mover)
@@ -164,7 +164,7 @@
       - [ ] Backup completo de Banco de Dados
   - [ ] 5.4 Personalização e Interface do Usuário
     - [ ] Customização
-      - [ ] Temas (Escuro, Claro, Cinza, Mono)
+      - [x] Temas (Escuro, Claro, Cinza, Mono)
       - [ ] CSS Customizado
       - [ ] Gestor de Atalhos (Hotkeys)
       - [ ] Preferências de Inicialização

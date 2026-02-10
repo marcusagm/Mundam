@@ -84,7 +84,7 @@ Um sistema flexível que permite múltiplas camadas de classificação.
 * [x] **Grupos de Tags:** Organização de etiquetas em grupos coloridos para facilitar a seleção em massa e a gestão visual.
 * **Operações Avançadas de Taxonomia:**
 * [ ] **Mesclagem (Tag Merge):** Consolidação de etiquetas duplicadas ou similares em uma única categoria.
-* [ ] **Gestão Global:** Painel centralizado para renomear, mover entre ramos ou excluir etiquetas em toda a biblioteca.
+* [x] **Gestão Global:** Painel centralizado para renomear, mover entre ramos ou excluir etiquetas em toda a biblioteca.
 
 
 * **Atribuição Inteligente:**
@@ -161,7 +161,7 @@ Ferramentas de "baixo nível" para análise de mídia temporal.
 * [ ] **Anotações com Timestamp:** Capacidade de adicionar comentários em momentos específicos do vídeo ou áudio, funcionando como marcadores de tempo.
 * [ ] **Controles de Reprodução Avançados:**
 * [ ] **Loop de Trecho:** Definição de pontos "A" e "B" para repetição contínua.
-* [ ] **Ajuste de Velocidade:** Reprodução de 0.5x a 2x para análise técnica.
+* [x] **Ajuste de Velocidade:** Reprodução de 0.5x a 2x para análise técnica.
 * [ ] **Visualização Frame a Frame:** Navegação por quadros individuais em GIFs e vídeos.
 
 

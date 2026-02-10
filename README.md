@@ -121,20 +121,50 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 
 ## 🎨 Supported Formats
 
-Elleven Library supports a wide range of formats out of the box, with specialized rendering for specific media types.
+Mundam provides extensive support for various media types, categorized by their rendering and thumbnail generation capabilities.
 
-| Category | Formats | Support Status | Notes |
-| :--- | :--- | :--- | :--- |
-| **Standard Images** | JPG, PNG, WebP, GIF, BMP, ICO, TGA, TIFF | ✅ Full Support | Native performance. |
-| **Vector & Design** | SVG | ✅ Full Support | Scalable rendering via WebView. |
-| **Fonts** | TTF, OTF, WOFF, WOFF2, TTC | ✅ Full Support | Live preview with custom text. |
-| **3D Models** | GLB, GLTF, OBJ, FBX, STL, BLEND, DAE | ✅ Full Support | Interactive 3D viewer with auto-rotate and grid. |
-| **Video** | MP4, WebM, MOV | ✅ Full Support | Auto-play on hover, full controls on inspect. |
-| **Raw Photos** | ARW, CR2, NEF, DNG, RAF, ORF, RW2 | 🚧 Visual Only | High-quality thumbnails generated; Full view pending. |
-| **Professional Design** | PSD, AI, EPS | 🚧 Visual Only | Extracts embedded previews via Ffmpeg. |
-| **Creative Apps** | Affinity (All), Clip Studio, XMind | 🚧 Visual Only | Extracts internal preview image from container. |
-| **Modern Formats** | HEIC, HEIF, AVIF | ⚠️ Experimental | Logic present; depends on OS codec availability. |
-| **Pro Video/HDR** | MXF, EXR, HDR | 🚧 Visual Only | Thumbnails generated; Player support varies. |
+### 🖼️ Images
+| Category | Formats | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **Standards** | `jpg`, `jpeg`, `jfif`, `webp`, `png`, `tiff`, `gif`, `bmp`, `ico`, `tga` | ✅ | Full support (Thumb + View). |
+| **Design** | `psd`, `afdesign`, `afphoto`, `afpub`, `xmind` | ✅ | Full support (Thumb + View). |
+| **RAW** | `dng`, `cr2` | ✅ | Full support (Thumb + View). |
+| **RAW** | `nef` | 👁️ | View only. |
+| **Specialized** | `pam`, `pbm`, `pgm`, `pnm`, `ppm`, `cur` | ✅ | Full support (Thumb + View). |
+| **Specialized** | `heic`, `heif`, `avif`, `exr`, `dds`* | 🖼️ | Thumb only. (*DDS view may have errors). |
+| **Vectors** | `svg` | ✅ | Full support (Thumb + View). |
+| **OS Dependent** | `ai` | 🚧 | View only (Dependent on WebView support). |
+| **No Support** | `clip`, `xcf`, `eps`, `hdr`, `raw` (others) | ❌ | No thumbnail or visualization support yet. |
+
+### 🧊 3D Models
+| Formats | Status | Notes |
+| :--- | :---: | :--- |
+| `glb`, `gltf`, `obj`, `fbx`, `stl`, `dae`, `3ds`, `dxf`, `lws`, `lwo` | 👁️ | View only (No thumbnails). |
+| `blend` | 👁️ | View as image (No thumbnails). |
+
+### 🔡 Fonts
+| Formats | Status | Notes |
+| :--- | :---: | :--- |
+| `ttf`, `otf`, `ttc`, `woff`, `woff2` | ✅ | Full support (Thumb + View). |
+
+### 🎬 Video & Audio
+| Category | Formats | Status | Method |
+| :--- | :--- | :---: | :--- |
+| **Native Video** | `mp4`, `m4v`, `mov` | ✅ | Native browser playback. |
+| **Transcoded Video** | `webm`, `mkv`, `wmv`, `avi`, `flv`, `ogv`, `mxf`, `ts`, `vob`, etc. | ✅ | HLS Streaming. |
+| **Linear Video** | `swf`, `m2v`, `mpg`, `mpeg`, `mjpeg` | ✅ | Linear HLS for legacy formats. |
+| **Native Audio** | `mp3`, `wav`, `aac`, `m4a`, `m4r`, `flac`, `mp2` | ✅* | Native browser playback. |
+| **Transcoded Audio** | `opus`, `ogg`, `oga`, `wma`, `ac3`, `dts`, `wv`, `amr`, `ape` | ✅* | HLS Streaming. |
+
+ ---
+ 
+ **Legend:**
+ *  ✅ **Full Support**: Thumbnail generation and interactive visualization.
+ *  ✅* **Audio Support**: Interactive visualization with format-specific icons as thumbnails.
+ *  🖼️ **Thumb Only**: Thumbnail available, but no deep inspection/view.
+ *  👁️ **View Only**: Interactive visualization available, but no thumbnail.
+ *  🚧 **OS Dependent**: Behavior varies depending on system-level codecs/WebView.
+ *  ❌ **No Support**: Currently not supported for preview or view.
 
 ---
 
