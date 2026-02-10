@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/branding/logo.svg" alt="Mundam Logo" width="400">
+</p>
+
 # Mundam
 
 **Mundam** is a high-performance, local-first image reference manager designed specifically for artists, concept designers, and illustrators. It allows you to organize, tag, and view massive collections of reference images with zero lag, keeping your workflow uninterrupted.
@@ -122,6 +126,12 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 ## 🎨 Supported Formats
 
 Mundam provides extensive support for various media types, categorized by their rendering and thumbnail generation capabilities.
+
+Total de formatos registrados: 117 extensões
+- **Suporte Nativo/Completo:** 94 (Processamento de miniatura + Visualização interativa)
+- **Suporte Básico:** 23 (Visualização disponível, miniaturas via ícones do formato)
+- **Base de Testes:** 206 formatos monitorados para expansão futura.
+
 
 ### 🖼️ Images
 | Category | Formats | Status | Notes |
