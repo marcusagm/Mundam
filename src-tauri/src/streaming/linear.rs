@@ -86,12 +86,9 @@ impl LinearManager {
         let ffmpeg_path = get_ffmpeg_path(Some(&self.app_handle))
             .ok_or("FFmpeg not found")?;
 
-        // bitrate based on quality
-        let video_bitrate = match quality {
-            "high" => "5000k",
-            "preview" => "1000k",
-            _ => "2500k"
-        };
+        // Detect media type
+        let media_type = crate::transcoding::detector::get_media_type(file_path);
+        let is_audio = media_type == crate::transcoding::detector::MediaType::Audio;
 
         // Spawn FFmpeg
         let mut cmd = Command::new(ffmpeg_path);
@@ -100,13 +97,36 @@ impl LinearManager {
             "-hide_banner",
             "-loglevel", "error",
             "-i", &key,
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-preset", "ultrafast",
-            "-tune", "zerolatency",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-b:v", video_bitrate,
+        ]);
+
+        if is_audio {
+            cmd.args([
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-ac", "2",
+                "-vn",
+                "-map", "0:a:0?",
+            ]);
+        } else {
+             // bitrate based on quality
+            let video_bitrate = match quality {
+                "high" => "5000k",
+                "preview" => "1000k",
+                _ => "2500k"
+            };
+
+            cmd.args([
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-preset", "ultrafast",
+                "-tune", "zerolatency",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-b:v", video_bitrate,
+            ]);
+        }
+
+        cmd.args([
             "-f", "hls",
             "-hls_time", "4",
             "-hls_list_size", "0",

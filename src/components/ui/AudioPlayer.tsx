@@ -26,6 +26,7 @@ import {
 } from 'lucide-solid';
 import { audioState, audioActions } from '../../core/store/audioStore';
 import { videoActions } from '../../core/store/videoStore';
+import { createHlsPlayer } from '../../lib/hls-player';
 import './audio-player.css';
 
 export interface AudioPlayerProps {
@@ -41,35 +42,43 @@ export interface AudioPlayerProps {
 }
 
 export const AudioPlayer: Component<AudioPlayerProps> = props => {
-    let audioRef: HTMLAudioElement | undefined;
+    const [audioRef, setAudioRef] = createSignal<HTMLAudioElement>();
     const [isPlaying, setIsPlaying] = createSignal(false);
     const [currentTime, setCurrentTime] = createSignal(0);
     const [duration, setDuration] = createSignal(0);
 
-    const [isLoading, setIsLoading] = createSignal(true);
     const [isWaveformLoading, setIsWaveformLoading] = createSignal(false);
-    const [error, setError] = createSignal<string | null>(null);
     // const [playbackRate, setPlaybackRate] = createSignal(1);
     const [buffered, setBuffered] = createSignal(0);
     const [waveform, setWaveform] = createSignal<number[]>([]);
     const [lastAction, setLastAction] = createSignal<'play' | 'pause' | null>(null);
     const playerId = createUniqueId();
 
+    // HLS Player Hook
+    const hlsPlayer = createHlsPlayer(audioRef, () => props.src, { autoStartLoad: true });
+
     // Single Active Player Logic
     createEffect(() => {
         const activeId = audioState.activePlayerId();
+        const ref = audioRef();
         // Use untrack so this effect only runs when activeId changes
         if (activeId && activeId !== playerId && untrack(() => isPlaying())) {
             // Another player started playing, pause this one
-            if (audioRef) {
-                audioRef.pause();
+            if (ref) {
+                ref.pause();
                 setIsPlaying(false);
             }
         }
     });
 
     // Derived loading state
-    const isActuallyLoading = () => isLoading() || isWaveformLoading();
+    const isActuallyLoading = () => hlsPlayer.isLoading() || isWaveformLoading();
+
+    // Native error state (for non-HLS playback)
+    const [nativeError, setNativeError] = createSignal<string | null>(null);
+
+    // Combined error state
+    const error = () => hlsPlayer.errorMessage() || nativeError();
 
     // Downsample waveform for better UI performance and adaptation
     const displayWaveform = createMemo(() => {
@@ -93,8 +102,7 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
         // const src = props.src;
 
         // Reset state on source change
-        setError(null);
-        setIsLoading(true);
+        setNativeError(null);
         setIsWaveformLoading(true);
         setWaveform([]);
         setCurrentTime(0);
@@ -106,32 +114,46 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
         }
 
         try {
-            const data = await invoke<number[]>('get_audio_waveform_data', { path });
+            // Create a timeout promise
+            const timeoutPromise = new Promise<number[]>((_, reject) => {
+                setTimeout(() => reject(new Error('timeout')), 15000);
+            });
+
+            // Race the invoke against the timeout
+            const data = await Promise.race([
+                invoke<number[]>('get_audio_waveform_data', { path }),
+                timeoutPromise
+            ]);
+
             setWaveform(data);
         } catch (e) {
             console.error('Failed to load waveform:', e);
+            setWaveform([]);
         } finally {
             setIsWaveformLoading(false);
         }
     });
 
     const handleRetry = () => {
-        setError(null);
-        setIsLoading(true);
-        if (audioRef) {
-            audioRef.load();
+        setNativeError(null);
+        const ref = audioRef();
+        if (hlsPlayer.isHlsActive()) {
+            hlsPlayer.getManager()?.startLoad();
+        } else if (ref) {
+            ref.load();
         }
     };
 
     const togglePlay = (e?: MouseEvent) => {
         if (e) e.stopPropagation();
-        if (!audioRef) return;
+        const ref = audioRef();
+        if (!ref) return;
 
-        if (audioRef.paused) {
-            audioRef.play();
+        if (ref.paused) {
+            ref.play();
             setLastAction('play');
         } else {
-            audioRef.pause();
+            ref.pause();
             setLastAction('pause');
         }
         setTimeout(() => setLastAction(null), 600);
@@ -148,14 +170,16 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
     };
 
     const handleTimeUpdate = () => {
-        if (!audioRef) return;
-        setCurrentTime(audioRef.currentTime);
+        const ref = audioRef();
+        if (!ref) return;
+        setCurrentTime(ref.currentTime);
     };
 
     const updateBuffered = () => {
-        if (!audioRef) return;
-        const b = audioRef.buffered;
-        const cur = audioRef.currentTime;
+        const ref = audioRef();
+        if (!ref) return;
+        const b = ref.buffered;
+        const cur = ref.currentTime;
         for (let i = 0; i < b.length; i++) {
             if (b.start(i) <= cur && b.end(i) >= cur) {
                 setBuffered(b.end(i));
@@ -165,22 +189,24 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
     };
 
     const handleLoadedMetadata = () => {
-        if (!audioRef) return;
-        setDuration(audioRef.duration);
-        setIsLoading(false);
+        const ref = audioRef();
+        if (!ref) return;
+        setDuration(ref.duration);
     };
 
     const handleVolumeChange = (val: number) => {
-        if (!audioRef) return;
+        const ref = audioRef();
+        if (!ref) return;
         const v = val / 100;
         audioActions.setVolume(v);
-        audioRef.volume = v;
+        ref.volume = v;
         if (v > 0) audioActions.setIsMuted(false);
     };
 
     const skip = (seconds: number) => {
-        if (!audioRef) return;
-        audioRef.currentTime = Math.min(Math.max(audioRef.currentTime + seconds, 0), duration());
+        const ref = audioRef();
+        if (!ref) return;
+        ref.currentTime = Math.min(Math.max(ref.currentTime + seconds, 0), duration());
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -200,7 +226,8 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
             case 'KeyM':
                 e.preventDefault();
                 audioActions.setIsMuted(!audioState.isMuted());
-                if (audioRef) audioRef.muted = audioState.isMuted();
+                const ref = audioRef();
+                if (ref) ref.muted = audioState.isMuted();
                 break;
         }
     };
@@ -216,11 +243,11 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
             tabindex="0"
         >
             <audio
-                ref={audioRef}
-                src={props.src}
+                ref={setAudioRef}
+                // src is managed by hlsPlayer
                 autoplay={props.autoPlay}
                 loop={audioState.isLooping()}
-                preload="metadata"
+                preload="auto"
                 onPlay={() => {
                     setIsPlaying(true);
                     audioActions.setActivePlayer(playerId);
@@ -230,16 +257,23 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
                 onTimeUpdate={handleTimeUpdate}
                 onProgress={updateBuffered}
                 onLoadedMetadata={handleLoadedMetadata}
-                onWaiting={() => setIsLoading(true)}
-                onPlaying={() => setIsLoading(false)}
+                onWaiting={() => {
+                    // Handled by hlsPlayer mostly, but can rely on native events too
+                }}
+                onPlaying={() => {
+                    // Handled by hlsPlayer mostly
+                }}
                 onEnded={props.onEnded}
                 onCanPlay={() => {
-                    if (audioRef) audioRef.volume = audioState.volume();
+                    const ref = audioRef();
+                    if (ref) ref.volume = audioState.volume();
                 }}
                 onError={() => {
-                    const msg = 'Error loading audio file';
-                    setError(msg);
-                    props.onError?.(msg);
+                    if (!hlsPlayer.isHlsActive()) {
+                        const msg = 'Error loading audio file';
+                        setNativeError(msg);
+                        props.onError?.(msg);
+                    }
                 }}
             />
 
@@ -328,7 +362,8 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
                             step={0.1}
                             value={currentTime()}
                             onValueChange={v => {
-                                if (audioRef) audioRef.currentTime = v;
+                                const ref = audioRef();
+                                if (ref) ref.currentTime = v;
                             }}
                             class="ui-audio-seekbar-slider"
                         />
@@ -344,7 +379,8 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
                                         onClick={() => {
                                             const muted = !audioState.isMuted();
                                             audioActions.setIsMuted(muted);
-                                            if (audioRef) audioRef.muted = muted;
+                                            const ref = audioRef();
+                                            if (ref) ref.muted = muted;
                                         }}
                                     >
                                         <Show
@@ -409,7 +445,7 @@ export const AudioPlayer: Component<AudioPlayerProps> = props => {
 
             <Show when={isActuallyLoading() && !error()}>
                 <div class="ui-audio-loader">
-                    <Loader size="lg" />
+                    <Loader size={props.variant === 'full' ? 'lg' : 'sm'} />
                 </div>
             </Show>
         </div>

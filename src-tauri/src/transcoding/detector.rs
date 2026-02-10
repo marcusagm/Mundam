@@ -8,6 +8,11 @@ const TRANSCODE_AUDIO: &[&str] = &[
     "spx",                  // Speex
     "ra", "rm",             // RealAudio
     "mka",                  // Matroska Audio
+    "dts",                  // Digital Theater Systems
+    "wv",                   // WavPack
+    "ape",                  // Monkey's Audio
+    "amr",                  // Adaptive Multi-Rate
+    "aifc",                 // Compressed AIFF
 ];
 
 /// Video extensions that require transcoding

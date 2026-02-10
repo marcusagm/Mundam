@@ -241,15 +241,16 @@ async fn linear_hls_handler(
     // Path might look like "Users/me/video.swf/index.m3u8"
     // We need to split the "resource" (last part) from "file path"
 
-    let decoded_full = urlencoding::decode(&path).unwrap_or(std::borrow::Cow::Borrowed(&path));
-
     // 1. Handle Playlist Request
-    if decoded_full.ends_with("/index.m3u8") {
-        let file_path_str = decoded_full.trim_end_matches("/index.m3u8");
-        // Handle potential double slash from trimming
-        let file_path_str = if file_path_str.ends_with('/') { &file_path_str[..file_path_str.len()-1] } else { file_path_str };
+    if path.ends_with("/index.m3u8") {
+        // Strip the suffix
+        let raw_path = path.trim_end_matches("/index.m3u8");
+        // Decode the file path
+        let decoded_path = urlencoding::decode(raw_path)
+            .map(|s| s.into_owned())
+            .unwrap_or_else(|_| raw_path.to_string());
 
-        let file_path = PathBuf::from(file_path_str);
+        let file_path = PathBuf::from(decoded_path);
         if !file_path.exists() {
              return Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -304,40 +305,46 @@ async fn linear_hls_handler(
         }
     }
     // 2. Handle Segment Request
-    else if decoded_full.ends_with(".ts") {
-        // Path format: /path/to/video.ext/segment_00001.ts
-        let path_buf = PathBuf::from(decoded_full.as_ref());
-        let segment_name = path_buf.file_name().unwrap().to_string_lossy();
+    else if path.ends_with(".ts") {
+        // Path format: /encoded/path/to/file.ext/segment_00001.ts
+        if let Some(last_slash) = path.rfind('/') {
+            let file_part_raw = &path[..last_slash];
+            let segment_name = &path[last_slash + 1..];
 
-        // The parent of the segment is the "file path" in our URL structure
-        let file_path_part = path_buf.parent().unwrap();
-        let file_path = PathBuf::from(file_path_part);
+            // Decode file path
+            let decoded_file_path = urlencoding::decode(file_part_raw)
+                .map(|s| s.into_owned())
+                .unwrap_or_else(|_| file_part_raw.to_string());
 
-        if let Some(temp_dir) = state.linear_manager.get_temp_dir(&file_path).await {
-             let segment_path = temp_dir.join(segment_name.as_ref());
-             if segment_path.exists() {
-                 match tokio::fs::read(&segment_path).await {
-                     Ok(data) => {
-                         Response::builder()
-                            .status(StatusCode::OK)
-                            .header(header::CONTENT_TYPE, "video/MP2T")
-                            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                            .header(header::CACHE_CONTROL, "no-cache")
-                            .body(Body::from(data))
-                            .unwrap()
+            let file_path = PathBuf::from(decoded_file_path);
+
+            if let Some(temp_dir) = state.linear_manager.get_temp_dir(&file_path).await {
+                 let segment_path = temp_dir.join(segment_name);
+                 if segment_path.exists() {
+                     match tokio::fs::read(&segment_path).await {
+                         Ok(data) => {
+                             Response::builder()
+                                .status(StatusCode::OK)
+                                .header(header::CONTENT_TYPE, "video/MP2T")
+                                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                                .header(header::CACHE_CONTROL, "no-cache")
+                                .body(Body::from(data))
+                                .unwrap()
+                         }
+                         Err(e) => {
+                             eprintln!("Error reading segment {:?}: {}", segment_path, e);
+                             Response::builder().status(StatusCode::NOT_FOUND).body(Body::empty()).unwrap()
+                         }
                      }
-                     Err(e) => {
-                         eprintln!("Error reading segment {:?}: {}", segment_path, e);
-                         Response::builder().status(StatusCode::NOT_FOUND).body(Body::empty()).unwrap()
-                     }
+                 } else {
+                     Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Segment file not found")).unwrap()
                  }
-             } else {
-                 Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Segment file not found")).unwrap()
-             }
+            } else {
+                 Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Session not active for this file")).unwrap()
+            }
         } else {
-             Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Session not active for this file")).unwrap()
+             Response::builder().status(StatusCode::BAD_REQUEST).body(Body::from("Invalid segment path")).unwrap()
         }
-
     } else {
         Response::builder()
             .status(StatusCode::BAD_REQUEST)

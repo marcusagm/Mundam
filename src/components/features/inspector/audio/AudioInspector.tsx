@@ -1,6 +1,6 @@
-import { Component, createSignal, createEffect, Show } from 'solid-js';
+import { Component } from 'solid-js';
 import { type ImageItem } from '../../../../types';
-import { Accordion, AudioPlayer, Loader } from '../../../ui';
+import { Accordion, AudioPlayer } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
 import { getAudioUrl } from '../../../../lib/stream-utils';
@@ -12,24 +12,10 @@ interface AudioInspectorProps {
 
 export const AudioInspector: Component<AudioInspectorProps> = props => {
     const assetUrl = () => getAudioUrl(props.item.path);
-    const [loading, setLoading] = createSignal(false);
-
-    // Provide a visual hint when switching items in the inspector
-    createEffect(() => {
-        props.item.id;
-        setLoading(true);
-        const timer = setTimeout(() => setLoading(false), 400);
-        return () => clearTimeout(timer);
-    });
 
     return (
         <div class="inspector-content">
             <div class="inspector-preview audio-preview">
-                <Show when={loading()}>
-                    <div class="ui-audio-loader">
-                        <Loader size="md" />
-                    </div>
-                </Show>
                 <AudioPlayer
                     src={assetUrl()}
                     filePath={props.item.path}

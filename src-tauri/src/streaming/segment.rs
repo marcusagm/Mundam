@@ -71,6 +71,10 @@ async fn transcode_segment(
 
     let start_time = segment_index as f64 * segment_duration;
 
+    // Detect media type to adjust FFmpeg flags
+    let media_type = crate::transcoding::detector::get_media_type(file_path);
+    let is_audio = media_type == crate::transcoding::detector::MediaType::Audio;
+
     // FFmpeg command for HLS segment
     // Using -ss before -i for fast seeking
     let mut cmd = Command::new(&ffmpeg_path);
@@ -88,36 +92,55 @@ async fn transcode_segment(
         "-i", &file_path.to_string_lossy(),
         // Duration
         "-t", &format!("{:.3}", segment_duration),
-        // Stream mapping (first video, first audio if exists)
-        "-map", "0:v:0",
-        "-map", "0:a:0?",
-        "-sn", // Disable subtitles (source of many seek errors)
-        // Video encoding
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
     ]);
 
-    // Apply quality settings
-    match quality {
-        "preview" => {
-            cmd.args(["-crf", "30", "-vf", "scale=-2:480"]);
+    if is_audio {
+        // Audio-only configuration
+        cmd.args([
+            "-map", "0:a:0?",           // Map first audio stream
+            "-vn",                     // No video
+            "-c:a", "aac",             // AAC codec
+            "-b:a", "192k",            // Good quality audio
+            "-ar", "48000",            // Standard sample rate
+            "-ac", "2",                // Stereo
+        ]);
+    } else {
+        // Video configuration
+        cmd.args([
+            // Stream mapping (first video, first audio if exists)
+            "-map", "0:v:0",
+            "-map", "0:a:0?",
+            "-sn", // Disable subtitles (source of many seek errors)
+            // Video encoding
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+        ]);
+
+        // Apply quality settings
+        match quality {
+            "preview" => {
+                cmd.args(["-crf", "30", "-vf", "scale=-2:480"]);
+            }
+            "high" => {
+                cmd.args(["-crf", "18", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
+            }
+            _ => { // standard
+                cmd.args(["-crf", "23", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
+            }
         }
-        "high" => {
-            cmd.args(["-crf", "18", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
-        }
-        _ => { // standard
-            cmd.args(["-crf", "23", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
-        }
+
+        cmd.args([
+            "-profile:v", "high",
+            "-level", "4.1",
+            "-pix_fmt", "yuv420p",
+            // Audio encoding (for video files)
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ar", "48000",
+        ]);
     }
 
     cmd.args([
-        "-profile:v", "high",
-        "-level", "4.1",
-        "-pix_fmt", "yuv420p",
-        // Audio encoding
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-ar", "48000",
         // Output format
         "-f", "mpegts",
         // Output to stdout

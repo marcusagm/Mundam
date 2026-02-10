@@ -119,7 +119,7 @@ export function isHlsUrl(url: string): boolean {
  */
 export class HlsPlayerManager {
     private hls: Hls | null = null;
-    private videoElement: HTMLVideoElement | null = null;
+    private mediaElement: HTMLMediaElement | null = null;
     private options: Required<HlsPlayerOptions>;
     private seekDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -135,20 +135,20 @@ export class HlsPlayerManager {
     }
 
     /**
-     * Attach the HLS player to a video element and load a playlist
-     * @param videoElement - The video element to attach to
+     * Attach the HLS player to a media element and load a playlist
+     * @param mediaElement - The media element to attach to
      * @param playlistUrl - The M3U8 playlist URL
      */
-    attach(videoElement: HTMLVideoElement, playlistUrl: string): void {
+    attach(mediaElement: HTMLMediaElement, playlistUrl: string): void {
         // Detach any existing instance
         this.detach();
 
-        this.videoElement = videoElement;
+        this.mediaElement = mediaElement;
 
         // Check native HLS support (Safari)
-        if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        if (mediaElement.canPlayType('application/vnd.apple.mpegurl')) {
             // Safari has native HLS support
-            videoElement.src = playlistUrl;
+            mediaElement.src = playlistUrl;
             return;
         }
 
@@ -170,7 +170,7 @@ export class HlsPlayerManager {
             levelLoadingMaxRetry: 3,
         });
 
-        this.hls.attachMedia(videoElement);
+        this.hls.attachMedia(mediaElement);
 
         this.hls.on(Hls.Events.MEDIA_ATTACHED, () => {
             this.hls?.loadSource(playlistUrl);
@@ -197,7 +197,7 @@ export class HlsPlayerManager {
     }
 
     /**
-     * Detach the HLS player from the video element
+     * Detach the HLS player from the media element
      */
     detach(): void {
         if (this.seekDebounceTimeout) {
@@ -209,10 +209,10 @@ export class HlsPlayerManager {
             this.hls.detachMedia();
         }
 
-        if (this.videoElement) {
-            this.videoElement.removeAttribute('src');
-            this.videoElement.load();
-            this.videoElement = null;
+        if (this.mediaElement) {
+            this.mediaElement.removeAttribute('src');
+            this.mediaElement.load();
+            this.mediaElement = null;
         }
     }
 
@@ -252,8 +252,8 @@ export class HlsPlayerManager {
         }
 
         this.seekDebounceTimeout = setTimeout(() => {
-            if (this.videoElement) {
-                this.videoElement.currentTime = time;
+            if (this.mediaElement) {
+                this.mediaElement.currentTime = time;
             }
         }, this.options.seekDebounceMs);
     }
@@ -266,23 +266,23 @@ export class HlsPlayerManager {
     }
 
     /**
-     * Get the video element
+     * Get the media element
      */
-    getVideoElement(): HTMLVideoElement | null {
-        return this.videoElement;
+    getMediaElement(): HTMLMediaElement | null {
+        return this.mediaElement;
     }
 }
 
 /**
  * SolidJS hook for using HLS player
  *
- * @param videoRef - Accessor for the video element reference
+ * @param mediaRef - Accessor for the media element reference
  * @param src - Accessor for the video source (file path or HLS URL)
  * @param options - HLS player options
  * @returns Player state and control functions
  */
 export function createHlsPlayer(
-    videoRef: Accessor<HTMLVideoElement | undefined>,
+    mediaRef: Accessor<HTMLMediaElement | undefined>,
     src: Accessor<string>,
     options: HlsPlayerOptions = {}
 ) {
@@ -295,10 +295,10 @@ export function createHlsPlayer(
 
     // Effect to handle source changes
     createEffect(() => {
-        const video = videoRef();
+        const media = mediaRef();
         const source = src();
 
-        if (!video || !source) return;
+        if (!media || !source) return;
 
         // Reset state
         setIsLoading(true);
@@ -315,13 +315,13 @@ export function createHlsPlayer(
         if (isHlsUrl(source)) {
             setIsHlsActive(true);
 
-            if (HlsPlayerManager.isSupported() || video.canPlayType('application/vnd.apple.mpegurl')) {
+            if (HlsPlayerManager.isSupported() || media.canPlayType('application/vnd.apple.mpegurl')) {
                 manager = new HlsPlayerManager(options);
-                manager.attach(video, source);
+                manager.attach(media, source);
 
                 // Listen for loading events
-                video.addEventListener('loadeddata', () => setIsLoading(false), { once: true });
-                video.addEventListener(
+                media.addEventListener('loadeddata', () => setIsLoading(false), { once: true });
+                media.addEventListener(
                     'error',
                     () => {
                         setHasError(true);
@@ -336,15 +336,15 @@ export function createHlsPlayer(
                 setIsLoading(false);
             }
         } else {
-            // Regular video source
+            // Regular media source
             setIsHlsActive(false);
-            video.src = source;
-            video.addEventListener('loadeddata', () => setIsLoading(false), { once: true });
-            video.addEventListener(
+            media.src = source;
+            media.addEventListener('loadeddata', () => setIsLoading(false), { once: true });
+            media.addEventListener(
                 'error',
                 () => {
                     setHasError(true);
-                    setErrorMessage('Failed to load video');
+                    setErrorMessage('Failed to load media');
                     setIsLoading(false);
                 },
                 { once: true }
@@ -372,9 +372,9 @@ export function createHlsPlayer(
             if (manager && isHlsActive()) {
                 manager.debouncedSeek(time);
             } else {
-                const video = videoRef();
-                if (video) {
-                    video.currentTime = time;
+                const media = mediaRef();
+                if (media) {
+                    media.currentTime = time;
                 }
             }
         },

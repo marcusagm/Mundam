@@ -5,7 +5,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
-import { HLS_SERVER_URL } from './hls-player';
+import { HLS_SERVER_URL, getHlsPlaylistUrl } from './hls-player';
 
 export { HLS_SERVER_URL };
 
@@ -94,6 +94,16 @@ const NATIVE_VIDEO_EXTENSIONS = new Set([
   'mp4', 'm4v', 'mov', 'qt',
 ]);
 
+// HLS Audio extensions (use HLS to prevent UI freezing during load)
+const HLS_AUDIO_EXTENSIONS = new Set([
+  'opus', 'oga', 'ogg',   // Ogg container
+  'wma',                  // Windows Media
+  'ac3',                  // Dolby Digital
+  'dts',                  // DTS
+  'wv',                   // WavPack
+  'aifc', 'amr', 'ape',   // Untested but likely problematic
+]);
+
 /**
  * Get the file extension from a path (lowercase, without dot)
  */
@@ -127,6 +137,14 @@ export function needsLinearTranscoding(path: string): boolean {
 }
 
 /**
+ * Check if a file extension requires HLS for audio (to avoid freezing)
+ */
+export function needsHlsAudio(path: string): boolean {
+  const ext = getExtension(path);
+  return HLS_AUDIO_EXTENSIONS.has(ext);
+}
+
+/**
  * Check if a file needs any kind of transcoding
  */
 export function needsTranscoding(path: string): boolean {
@@ -144,8 +162,13 @@ export function isNativeFormat(path: string): boolean {
 /**
  * Get the appropriate audio URL for a file path
  * Uses audio-stream:// for files that need transcoding, audio:// otherwise
+ * Uses HLS for formats that cause UI freezing
  */
 export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'): string {
+  if (needsHlsAudio(path)) {
+     return getHlsPlaylistUrl(path, quality);
+  }
+
   const encodedPath = encodeURIComponent(path);
 
   if (needsAudioTranscoding(path)) {
