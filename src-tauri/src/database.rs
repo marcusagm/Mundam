@@ -21,42 +21,10 @@ impl Db {
         pool.execute("PRAGMA journal_mode = WAL").await?;
         pool.execute("PRAGMA synchronous = NORMAL").await?;
 
-        // Initialize schema if tables don't exist
-        let schema = include_str!("schema.sql");
-        pool.execute(schema).await?;
-
-        // Manual Migrations (ensure existing DBs have the new columns)
-        let columns: Vec<(i64, String, String, i64, Option<String>, i64)> = sqlx::query_as("PRAGMA table_info(images)")
-            .fetch_all(&pool)
+        // Initialize schema and run migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
             .await?;
-
-        let column_names: Vec<String> = columns.into_iter().map(|c| c.1).collect();
-
-        if !column_names.contains(&"format".to_string()) {
-            println!("DEBUG: Migration - Adding 'format' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN format TEXT DEFAULT ''").await?;
-        }
-        if !column_names.contains(&"rating".to_string()) {
-            println!("DEBUG: Migration - Adding 'rating' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN rating INTEGER DEFAULT 0").await?;
-        }
-        if !column_names.contains(&"notes".to_string()) {
-            println!("DEBUG: Migration - Adding 'notes' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN notes TEXT").await?;
-        }
-        if !column_names.contains(&"added_at".to_string()) {
-            println!("DEBUG: Migration - Adding 'added_at' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN added_at DATETIME DEFAULT CURRENT_TIMESTAMP").await?;
-            pool.execute("UPDATE images SET added_at = created_at WHERE added_at IS NULL").await?;
-        }
-        if !column_names.contains(&"thumbnail_attempts".to_string()) {
-            println!("DEBUG: Migration - Adding 'thumbnail_attempts' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN thumbnail_attempts INTEGER DEFAULT 0").await?;
-        }
-        if !column_names.contains(&"thumbnail_last_error".to_string()) {
-            println!("DEBUG: Migration - Adding 'thumbnail_last_error' column to images table");
-            pool.execute("ALTER TABLE images ADD COLUMN thumbnail_last_error TEXT").await?;
-        }
 
         Ok(Self { pool })
     }

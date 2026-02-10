@@ -28,7 +28,7 @@ notify = "8.0"
 imagesize = "0.13"
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full", "time"] }
-sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio", "chrono"] }
+sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio", "chrono", "macros"] }
 image = { version = "0.25.9", features = ["webp"] }
 fast_image_resize = "6.0.0"
 mime_guess = "2.0"
