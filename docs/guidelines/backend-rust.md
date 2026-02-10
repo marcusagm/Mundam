@@ -85,15 +85,83 @@ cargo clippy -- -D warnings
 - Follow standard `rustfmt` rules.
 - Run `cargo fmt` before every commit.
 
-### Documentation (Rustdoc)
-- Use `///` for function/struct documentation.
-- Document **Panics**: If a function can panic, explicitly state under what conditions.
-- Document **Errors**: Explain what errors can be returned.
+## 📖 Documentation Patterns
+
+### Public API & Internal Structures (Rustdoc)
+All code (functions, structs, enums, traits) **MUST** have robust documentation via `///`. The goal is for any developer to understand the intent and risks without having to read the implementation.
+
+- **Summary**: A short, direct line describing the purpose.
+- **`# Errors` Section**: Mandatory if the function returns `Result`. Must list failure conditions.
+- **`# Panics` Section**: Mandatory if the function contains `unwrap()`, `expect()`, or could logically panic.
+- **`# Examples` Section**: Highly recommended for complex modules or global utilities.
 
 ```rust
-/// Configures the FFmpeg process.
-/// 
+/// Processes image resizing while maintaining aspect ratio.
+///
+/// # Arguments
+/// * `buffer` - Byte vector of the original image.
+/// * `dimensions` - Desired tuple (width, height).
+///
 /// # Errors
-/// Returns an error if the executable path is invalid.
-pub fn configure_ffmpeg() -> Result<Config, Error> { ... }
+/// Returns `Err` if the image format is unsupported or if the buffer is corrupted.
+///
+/// # Examples
+/// ```rust
+/// let resized = processor::resize(my_bytes, (300, 300)).await?;
+/// ```
+pub async fn resize(buffer: Vec<u8>, dimensions: (u32, u32)) -> Result<Vec<u8>, Error> { ... }
+```
+
+### Module Documentation
+Use `//!` at the top of files to describe the module's responsibility and how it integrates into the system. This provides the "Big Picture" necessary before diving into specific functions.
+
+### Implementation Comments (Clean Code)
+Comments within functions must follow the **"Why, not What"** rule. Code should be self-explanatory (What); comments should explain business logic or technical constraints (Why).
+
+- **What to COMMENT**:
+    - Non-obvious technical decisions (e.g., "We use 600ms debounce because the macOS file system takes time to release the lock").
+    - Complex algorithms or mathematical formulas.
+    - Security or performance notes.
+    - `TODO` or `FIXME` with a clear description.
+- **What NOT to COMMENT (Pollution)**:
+    - The obvious: `let x = 10; // sets x to 10`.
+    - Commented-out code: If it's not useful, delete it. History is in Git.
+    - Variable descriptions: Use descriptive names instead of comments next to them.
+
+```rust
+// ❌ POLLUTION: Redundant comment
+let images = db.get_images().await?; // fetches images from database
+
+// ✅ CORRECT: Explains technical motivation
+// We start a manual transaction here to avoid multiple disk flushes,
+// which is critical for performance on traditional HDDs.
+let mut transaction = pool.begin().await?;
+```
+
+---
+
+## 🗄️ Database & SQLx
+
+### SQLx Macro Safety
+- **Use `sqlx::query!` and `sqlx::query_as!`**: Favor macros over string-based `sqlx::query` for all fixed queries. This ensures compile-time validation of SQL syntax and schema mapping.
+- **Type Casting (`!`)**: SQLite types can be ambiguous. Use the force non-null syntax `AS "column!"` for primary keys or columns marked as `NOT NULL` in the schema to ensure the Rust type is not wrapped in `Option`.
+- **Compile-time checks**:
+  - Keep a `dev.db` file in `src-tauri/` synced with current migrations.
+  - Maintain a `.env` file with `DATABASE_URL=sqlite:dev.db`.
+  - Use `DATABASE_URL` during development so the compiler can validate queries.
+
+### Performance & Transactions
+- **Batch Operations**: NEVER perform mass insertions or updates in a loop without a transaction.
+- **Transactions**: Use `pool.begin()` to wrap multiple operations. If implementing a reusable database function that might be called inside a transaction, accept `&mut sqlx::SqliteConnection` as an argument.
+- **Write Optimization**: For bulk indexing, prefer `save_images_batch` patterns over individual `save_image` calls to minimize disk I/O overhead.
+
+```rust
+// ✅ Reusable internal helper for transactions/connections
+async fn internal_save(
+    conn: &mut sqlx::SqliteConnection, 
+    data: &Data 
+) -> Result<(), sqlx::Error> {
+    sqlx::query!("INSERT INTO ...", data.id).execute(conn).await?;
+    Ok(())
+}
 ```

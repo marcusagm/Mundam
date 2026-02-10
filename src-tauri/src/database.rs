@@ -30,18 +30,14 @@ impl Db {
     }
 
     pub async fn update_image_rating(&self, id: i64, rating: i32) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE images SET rating = ? WHERE id = ?")
-            .bind(rating)
-            .bind(id)
+        sqlx::query!("UPDATE images SET rating = ? WHERE id = ?", rating, id)
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
     pub async fn update_image_notes(&self, id: i64, notes: String) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE images SET notes = ? WHERE id = ?")
-            .bind(notes)
-            .bind(id)
+        sqlx::query!("UPDATE images SET notes = ? WHERE id = ?", notes, id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -49,29 +45,26 @@ impl Db {
 
 
     pub async fn get_folder_path(&self, id: i64) -> Result<Option<String>, sqlx::Error> {
-        let row: Option<(String,)> = sqlx::query_as("SELECT path FROM folders WHERE id = ?")
-            .bind(id)
+        let row = sqlx::query!("SELECT path AS \"path!\" FROM folders WHERE id = ?", id)
             .fetch_optional(&self.pool)
             .await?;
-        Ok(row.map(|r| r.0))
+        Ok(row.map(|r| r.path))
     }
 
     pub async fn get_folder_by_path(&self, path: &str) -> Result<Option<i64>, sqlx::Error> {
         let path = path.trim_end_matches('/');
-        let row: Option<(i64,)> = sqlx::query_as("SELECT id FROM folders WHERE path = ?")
-            .bind(path)
+        let row = sqlx::query!("SELECT id AS \"id!\" FROM folders WHERE path = ?", path)
             .fetch_optional(&self.pool)
             .await?;
 
-        if row.is_some() {
-            Ok(row.map(|r| r.0))
+        if let Some(r) = row {
+            Ok(Some(r.id))
         } else {
             // MacOS case-insensitivity fallback
-            let row_loose: Option<(i64,)> = sqlx::query_as("SELECT id FROM folders WHERE path = ? COLLATE NOCASE")
-                .bind(path)
+            let row_loose = sqlx::query!("SELECT id AS \"id!\" FROM folders WHERE path = ? COLLATE NOCASE", path)
                 .fetch_optional(&self.pool)
                 .await?;
-            Ok(row_loose.map(|r| r.0))
+            Ok(row_loose.map(|r| r.id))
         }
     }
 
@@ -144,12 +137,11 @@ impl Db {
         &self,
         limit: i32,
     ) -> Result<Vec<(i64, String)>, sqlx::Error> {
-        let rows: Vec<(i64, String)> =
-            sqlx::query_as("SELECT id, path FROM images WHERE thumbnail_path IS NULL AND thumbnail_attempts < 3 LIMIT ?")
-                .bind(limit)
+        let rows =
+            sqlx::query!("SELECT id AS \"id!\", path AS \"path!\" FROM images WHERE thumbnail_path IS NULL AND thumbnail_attempts < 3 LIMIT ?", limit)
                 .fetch_all(&self.pool)
                 .await?;
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.id, r.path)).collect())
     }
 
     pub async fn get_images_needing_thumbnails_by_ids(
@@ -177,11 +169,11 @@ impl Db {
     }
 
     pub async fn record_thumbnail_error(&self, image_id: i64, error: String) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "UPDATE images SET thumbnail_attempts = thumbnail_attempts + 1, thumbnail_last_error = ? WHERE id = ?"
+        sqlx::query!(
+            "UPDATE images SET thumbnail_attempts = thumbnail_attempts + 1, thumbnail_last_error = ? WHERE id = ?",
+            error,
+            image_id
         )
-        .bind(error)
-        .bind(image_id)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -192,9 +184,7 @@ impl Db {
         image_id: i64,
         path: &str,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE images SET thumbnail_path = ? WHERE id = ?")
-            .bind(path)
-            .bind(image_id)
+        sqlx::query!("UPDATE images SET thumbnail_path = ? WHERE id = ?", path, image_id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -202,8 +192,7 @@ impl Db {
 
     /// Clear thumbnail path to trigger regeneration by the worker
     pub async fn clear_thumbnail_path(&self, image_id: i64) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE images SET thumbnail_path = NULL WHERE id = ?")
-            .bind(image_id)
+        sqlx::query!("UPDATE images SET thumbnail_path = NULL WHERE id = ?", image_id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -228,8 +217,7 @@ impl Db {
 
     pub async fn delete_folder(&self, folder_id: i64) -> Result<(), sqlx::Error> {
         // CASCADE delete in schema handles children folders and images
-        sqlx::query("DELETE FROM folders WHERE id = ?")
-            .bind(folder_id)
+        sqlx::query!("DELETE FROM folders WHERE id = ?", folder_id)
             .execute(&self.pool)
             .await?;
 
@@ -278,7 +266,7 @@ impl Db {
 
     pub async fn get_folder_counts_recursive(&self) -> Result<Vec<(i64, i64)>, sqlx::Error> {
         // Recursive count of images in folders
-        let rows: Vec<(i64, i64)> = sqlx::query_as(
+        let rows = sqlx::query!(
             "WITH RECURSIVE folder_tree AS (
                 -- Base case: Direct folder
                 SELECT id as root_id, id as child_id
@@ -299,17 +287,17 @@ impl Db {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.folder_id.unwrap_or(0), r.count as i64)).collect())
     }
 
     pub async fn get_folder_counts_direct(&self) -> Result<Vec<(i64, i64)>, sqlx::Error> {
         // Direct image counts
-        let rows: Vec<(i64, i64)> = sqlx::query_as(
+        let rows = sqlx::query!(
             "SELECT folder_id, COUNT(*) as count FROM images GROUP BY folder_id"
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.folder_id, r.count as i64)).collect())
     }
 
     pub async fn ensure_folder_hierarchy(&self, path: &str) -> Result<i64, sqlx::Error> {
@@ -474,24 +462,18 @@ impl Db {
     ) -> Result<Option<(i64, i64, Vec<i64>)>, sqlx::Error> {
         // Returns (image_id, folder_id, vec<tag_id>)
         // We first get image ID and folder ID
-        let row: Option<(i64, i64)> = sqlx::query_as(
-            "SELECT id, folder_id FROM images WHERE path = ?"
-        )
-        .bind(path)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        if let Some((image_id, folder_id)) = row {
-            // Get tags
-            let tags: Vec<(i64,)> = sqlx::query_as(
-                "SELECT tag_id FROM image_tags WHERE image_id = ?"
-            )
-            .bind(image_id)
-            .fetch_all(&self.pool)
+        let row = sqlx::query!("SELECT id AS \"id!\", folder_id AS \"folder_id!\" FROM images WHERE path = ?", path)
+            .fetch_optional(&self.pool)
             .await?;
 
-            let tag_ids = tags.into_iter().map(|(id,)| id).collect();
-            Ok(Some((image_id, folder_id, tag_ids)))
+        if let Some(r) = row {
+            // Get tags
+            let tags = sqlx::query!("SELECT tag_id AS \"tag_id!\" FROM image_tags WHERE image_id = ?", r.id)
+                .fetch_all(&self.pool)
+                .await?;
+
+            let tag_ids = tags.into_iter().map(|t| t.tag_id).collect();
+            Ok(Some((r.id, r.folder_id, tag_ids)))
         } else {
             Ok(None)
         }
@@ -501,12 +483,13 @@ impl Db {
         &self,
         path: &str
     ) -> Result<Option<(i64, chrono::DateTime<chrono::Utc>)>, sqlx::Error> {
-        let row: Option<(i64, String)> = sqlx::query_as(
-            "SELECT size, created_at FROM images WHERE path = ?"
-        )
-        .bind(path)
-        .fetch_optional(&self.pool)
-        .await?;
+        // Since sqlite DATETIME can be returned as String or DateTime depending on the driver configuration,
+        // we use a standard query for now to avoid OffsetDateTime vs DateTime<Utc> mismatches in macros
+        // for this specific time-heavy function.
+        let row: Option<(i64, String)> = sqlx::query_as("SELECT size, created_at FROM images WHERE path = ?")
+            .bind(path)
+            .fetch_optional(&self.pool)
+            .await?;
 
         if let Some((s, c_at)) = row {
              let created_dt = chrono::DateTime::parse_from_rfc3339(&c_at)
@@ -666,26 +649,24 @@ impl Db {
     }
 
     pub async fn get_all_root_folders(&self) -> Result<Vec<(i64, String)>, sqlx::Error> {
-        let rows: Vec<(i64, String)> = sqlx::query_as(
-            "SELECT id, path FROM folders WHERE is_root = 1 OR parent_id IS NULL"
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        let rows = sqlx::query!("SELECT id AS \"id!\", path AS \"path!\" FROM folders WHERE is_root = 1 OR parent_id IS NULL")
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(|r| (r.id, r.path)).collect())
     }
 
     pub async fn get_folders_under_root(&self, root_path: &str) -> Result<Vec<(i64, String)>, sqlx::Error> {
         let root_path = root_path.trim_end_matches('/');
         let pattern = format!("{}/%", root_path);
-        let rows: Vec<(i64, String)> = sqlx::query_as(
-            "SELECT id, path FROM folders WHERE path = ? OR path LIKE ?"
+        let rows = sqlx::query!(
+            "SELECT id AS \"id!\", path AS \"path!\" FROM folders WHERE path = ? OR path LIKE ?",
+            root_path,
+            pattern
         )
-        .bind(root_path)
-        .bind(&pattern)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.id, r.path)).collect())
     }
 
     pub async fn run_maintenance(&self) -> Result<(), sqlx::Error> {
