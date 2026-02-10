@@ -4,6 +4,7 @@
 //! to database records and managing hierarchical relationships.
 
 use super::Db;
+use sqlx::SqliteConnection;
 
 impl Db {
     /// Retrieves the absolute filesystem path for a folder by its ID.
@@ -18,9 +19,19 @@ impl Db {
     ///
     /// Includes a case-insensitive fallback specifically for macOS.
     pub async fn get_folder_by_path(&self, path: &str) -> Result<Option<i64>, sqlx::Error> {
+        let mut conn = self.pool.acquire().await?;
+        self.get_folder_id_internal(&mut conn, path).await
+    }
+
+    /// Internal version of get_folder_by_path that accepts a connection.
+    async fn get_folder_id_internal(
+        &self,
+        conn: &mut SqliteConnection,
+        path: &str,
+    ) -> Result<Option<i64>, sqlx::Error> {
         let path = path.trim_end_matches('/');
         let row = sqlx::query!("SELECT id as \"id!\" FROM folders WHERE path = ?", path)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&mut *conn)
             .await?;
 
         if let Some(r) = row {
@@ -28,7 +39,7 @@ impl Db {
         } else {
             // Case-insensitive fallback for move detections on case-insensitive filesystems
             let row_loose = sqlx::query!("SELECT id as \"id!\" FROM folders WHERE path = ? COLLATE NOCASE", path)
-                .fetch_optional(&self.pool)
+                .fetch_optional(&mut *conn)
                 .await?;
             Ok(row_loose.map(|r| r.id))
         }
@@ -45,13 +56,26 @@ impl Db {
         parent_id: Option<i64>,
         is_root: bool,
     ) -> Result<i64, sqlx::Error> {
+        let mut conn = self.pool.acquire().await?;
+        self.upsert_folder_internal(&mut conn, path, name, parent_id, is_root).await
+    }
+
+    /// Internal version of upsert_folder that accepts a connection.
+    async fn upsert_folder_internal(
+        &self,
+        conn: &mut SqliteConnection,
+        path: &str,
+        name: &str,
+        parent_id: Option<i64>,
+        is_root: bool,
+    ) -> Result<i64, sqlx::Error> {
         let path = path.trim_end_matches('/');
 
-        if let Some(id) = self.get_folder_by_path(path).await? {
+        if let Some(id) = self.get_folder_id_internal(conn, path).await? {
             // Guard: Do not demote a root folder if it's already marked as such.
             let existing: Option<(bool, Option<i64>)> = sqlx::query_as("SELECT is_root, parent_id FROM folders WHERE id = ?")
                 .bind(id)
-                .fetch_optional(&self.pool)
+                .fetch_optional(&mut *conn)
                 .await?;
 
             if let Some((existing_is_root, _)) = existing {
@@ -62,39 +86,45 @@ impl Db {
 
             // Update parent relationship if needed.
             if is_root || parent_id.is_some() {
-                 let mut query = "UPDATE folders SET ".to_string();
-                 let mut updates = Vec::new();
-                 if is_root {
-                     updates.push("is_root = 1");
-                     updates.push("parent_id = NULL");
-                 } else if parent_id.is_some() {
-                     updates.push("parent_id = ?");
-                 }
+                let mut query = "UPDATE folders SET ".to_string();
+                let mut updates = Vec::new();
+                if is_root {
+                    updates.push("is_root = 1");
+                    updates.push("parent_id = NULL");
+                } else if parent_id.is_some() {
+                    updates.push("parent_id = ?");
+                }
 
-                 query.push_str(&updates.join(", "));
-                 query.push_str(" WHERE id = ?");
+                query.push_str(&updates.join(", "));
+                query.push_str(" WHERE id = ?");
 
-                 let mut q = sqlx::query(&query);
-                 if !is_root && parent_id.is_some() { q = q.bind(parent_id); }
-                 q = q.bind(id);
-                 q.execute(&self.pool).await?;
+                let mut q = sqlx::query(&query);
+                if !is_root && parent_id.is_some() {
+                    q = q.bind(parent_id);
+                }
+                q = q.bind(id);
+                q.execute(&mut *conn).await?;
             }
             return Ok(id);
         }
 
         let res = sqlx::query!(
             "INSERT INTO folders (path, name, parent_id, is_root) VALUES (?, ?, ?, ?)",
-            path, name, parent_id, is_root
+            path,
+            name,
+            parent_id,
+            is_root
         )
-        .execute(&self.pool)
+        .execute(&mut *conn)
         .await;
 
         match res {
             Ok(r) => Ok(r.last_insert_rowid()),
             Err(e) => {
                 if let Some(db_err) = e.as_database_error() {
-                    if db_err.code().as_deref() == Some("2067") { // Unique constraint
-                         return self.get_folder_by_path(path).await?.ok_or(e);
+                    if db_err.code().as_deref() == Some("2067") {
+                        // Unique constraint
+                        return self.get_folder_id_internal(conn, path).await?.ok_or(e);
                     }
                 }
                 Err(e)
@@ -190,41 +220,51 @@ impl Db {
     }
 
     /// Ensures all parent folders exist for a given path.
+    ///
+    /// This implementation is iterative and uses a single transaction to ensure
+    /// atomic hierarchy creation for deep paths.
     pub async fn ensure_folder_hierarchy(&self, path: &str) -> Result<i64, sqlx::Error> {
         let path = path.trim_end_matches('/');
 
-        let existing = sqlx::query_as::<_, (i64, bool)>("SELECT id, is_root FROM folders WHERE path = ?")
-            .bind(path)
-            .fetch_optional(&self.pool)
-            .await?;
-
-        if let Some((id, is_root)) = existing {
-            if is_root { return Ok(id); }
+        // 1. Quick check outside transaction
+        if let Some(id) = self.get_folder_by_path(path).await? {
+            return Ok(id);
         }
 
-        let path_obj = std::path::Path::new(path);
-        let name = path_obj.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown")
-            .to_string();
+        // 2. Iterative creation in a transaction
+        let mut tx = self.pool.begin().await?;
 
-        let parent_id = if let Some(parent) = path_obj.parent() {
-            let parent_str = parent.to_string_lossy();
+        // Determine if path is absolute (Unix)
+        let is_absolute = path.starts_with('/');
+        let components: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
-            if let Some(pid) = self.get_folder_by_path(&parent_str).await? {
-                Some(pid)
-            } else {
-                if parent_str.len() > 1 && parent_str != "/" {
-                     Some(Box::pin(self.ensure_folder_hierarchy(&parent_str)).await?)
-                } else {
-                    None
-                }
-            }
+        let mut current_path = if is_absolute {
+            "/".to_string()
         } else {
-            None
+            String::new()
         };
+        let mut last_id = None;
 
-        self.upsert_folder(path, &name, parent_id, false).await
+        for (i, component) in components.iter().enumerate() {
+            if is_absolute && i == 0 {
+                current_path.push_str(component);
+            } else if !current_path.is_empty() && current_path != "/" {
+                current_path.push('/');
+                current_path.push_str(component);
+            } else {
+                current_path.push_str(component);
+            }
+
+            // We use the transaction for both existence check and insertion
+            last_id = Some(
+                self.upsert_folder_internal(&mut *tx, &current_path, component, last_id, false)
+                    .await?,
+            );
+        }
+
+        tx.commit().await?;
+
+        last_id.ok_or(sqlx::Error::RowNotFound)
     }
 
     /// Renames a folder and recursively updates all paths for subfolders and images.

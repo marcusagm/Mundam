@@ -33,15 +33,16 @@ O Mundam utiliza um banco de dados **SQLite** relacional, gerenciado através do
 *   **Lógica de "Adoção"**: A função `save_image` tenta inteligentemente detectar se um arquivo foi *movido* (mesmo tamanho e data de criação, mas caminho novo) antes de inseri-lo como novo, preservando ID, Tags e Rating.
 *   **Manutenção**: Função `run_maintenance` executa `VACUUM` e `ANALYZE`, essencial para manter o SQLite rápido ao longo do tempo.
 
-### Pontos Críticos (Dívida Técnica)
-*   **Migrações Manuais**:
-    *   **Problema**: O método `Db::new` verifica a existência de colunas manualmente (`PRAGMA table_info`) e executa `ALTER TABLE` uma a uma.
+### Pontos Críticos (Dívida Técnica) ✅ *Resolvido*
+*   **<s>Migrações Manuais</s>**:
+    *   **Problema**: O método `Db::new` verificava a existência de colunas manualmente (`PRAGMA table_info`) e executava `ALTER TABLE` uma a uma.
     *   **Risco**: Isso é propenso a falhas, difícil de testar e não escala. Se um usuário pular várias versões, o estado do banco pode ficar inconsistente.
     *   **Solução**: Adotar **SQLx Migrations**. O `sqlx-cli` gerencia pastas `migrations/` com arquivos `.sql` versionados (ex: `202402101200_init.sql`). O binário incorpora essas migrações e as aplica atomicamente na inicialização.
 
-*   **Recursividade em Rust vs SQL**:
+*   **Recursividade em Rust vs SQL**: ✅ *Resolvido*
     *   **Problema**: A função `get_folder_counts_recursive` usa **Common Table Expressions (CTE)** (L314), o que é excelente. Porém, a função `ensure_folder_hierarchy` (L347) faz recursão no lado do Rust (`Box::pin`), o que pode ser lento para deep paths.
     *   **Melhoria**: Tentar resolver a criação de hierarquias também via CTE ou em uma única transação.
+    *   **Solução**: ✅ Implementada lógica **iterativa** dentro de uma **única transação** para garantir performance e atomicidade.
 
 ---
 
@@ -51,24 +52,26 @@ O Mundam utiliza um banco de dados **SQLite** relacional, gerenciado através do
 *   `idx_images_path`, `idx_images_folder`: Essenciais para joins e lookups.
 *   `idx_images_rating_created`, `idx_images_size`: Índices compostos e específicos para ordenação na UI (Sort by Rating, Size).
 
-### Oportunidades
+### Oportunidades - ✅ *Implementado*
 *   **Índice em `format`**: Não há índice na coluna `format`. Se o usuário filtrar muito por "Tipo de Arquivo" (ex: "Mostrar apenas Vídeos"), um índice aqui aceleraria a query.
+    *  Adicionado índice para acelerar filtros por tipo de arquivo.
 *   **Índice em `added_at`**: Existe índice para `created_at` e `modified_at`. Como `added_at` ("Data de Importação") é um critério de ordenação comum, vale a pena indexá-lo.
+    *  Adicionado índice para otimizar ordenação por data de importação.
 
 ---
 
 ## 4. Recomendações para o Banco de Dados
 
-1.  **Refatoração de Migrações (Urgente)**:
+1.  **<s>Refatoração de Migrações (Urgente)</s>**: ✅ *Concluído*
     *   Instalar `sqlx-cli`.
     *   Mover o `schema.sql` atual para `migrations/20260210000000_initial_schema.sql`.
     *   Substituir a lógica manual no `Db::new` por `sqlx::migrate!().run(&pool).await`.
 
-2.  **Otimização de Escrita**:
+2.  **Otimização de Escrita**:✅ *Resolvido*
     *   Em operações de bulk insert (indexação inicial), envolver as chamadas em uma Transação (`BEGIN TRANSACTION ... COMMIT`). O SQLite é muito mais rápido com transações grandes do que com centenas de commits individuais.
     *   O `indexer` atualmente chama `save_image` um a um. Implementar um método `save_images_batch` que receba um vetor e use uma transação.
 
-3.  **Segurança de Tipos**:
+3.  **Segurança de Tipos**:✅ *Resolvido*
     *   Usar macros `sqlx::query!` em vez de strings onde possível para verificação de sintaxe em tempo de compilação (requer banco de desenvolvimento presente ou `sqlx-data.json`).
 
 4.  **Busca por Cor (Futuro)**:
