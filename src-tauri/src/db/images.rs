@@ -229,6 +229,30 @@ impl Db {
         }
     }
 
+    /// Retrieves comparison data (size, modified_at) for all images under a root path.
+    /// Used for fast initial scanning.
+    pub async fn get_all_files_comparison_data(
+        &self,
+        root_path: &str,
+    ) -> Result<std::collections::HashMap<String, (i64, chrono::DateTime<chrono::Utc>)>, sqlx::Error> {
+        let pattern = format!("{}%", root_path);
+        let rows: Vec<(String, i64, String)> = sqlx::query_as(
+            "SELECT path, size, modified_at FROM images WHERE path LIKE ?"
+        )
+        .bind(pattern)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut map = std::collections::HashMap::with_capacity(rows.len());
+        for (path, size, m_at) in rows {
+            let dt = chrono::DateTime::parse_from_rfc3339(&m_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+            map.insert(path, (size, dt));
+        }
+        Ok(map)
+    }
+
     /// Deletes an image record and returns its metadata context.
     pub async fn delete_image_by_path_returning_context(
         &self,

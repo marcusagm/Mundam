@@ -4,7 +4,8 @@ use self::metadata::get_image_metadata;
 use crate::db::Db;
 use crate::db::models::ImageMetadata;
 use serde::Serialize;
-use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -91,24 +92,47 @@ impl Indexer {
         let root_for_watcher = root_path.clone();
 
         // 1. Initial Quick Scan - Collect files and folders
-        let mut files: Vec<(PathBuf, String)> = Vec::new();
-        let mut unique_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let comparison_cache = db.get_all_files_comparison_data(&root_str).await.unwrap_or_default();
+        let mut files_to_process: Vec<(PathBuf, String)> = Vec::new();
+        let mut clean_count: usize = 0;
+        let mut unique_dirs: HashSet<String> = HashSet::new();
 
         for entry in WalkDir::new(&root_path).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
+            let path_str = normalize_path(&path.to_string_lossy());
+
             if entry.file_type().is_dir() {
-                unique_dirs.insert(normalize_path(&path.to_string_lossy()));
+                unique_dirs.insert(path_str);
             } else if entry.file_type().is_file() && is_image_file(path) {
                 let parent = path.parent()
                     .map(|p| normalize_path(&p.to_string_lossy()))
                     .unwrap_or_default();
-                 unique_dirs.insert(parent.clone());
-                 files.push((path.to_path_buf(), parent));
+                unique_dirs.insert(parent.clone());
+
+                let mut is_dirty = true;
+                if let Some((db_size, db_mtime)) = comparison_cache.get(&path_str) {
+                    if let Ok(m) = entry.metadata() {
+                        let disk_size = m.len() as i64;
+                        let disk_mtime: DateTime<Utc> = m.modified().ok().map(|t| t.into()).unwrap_or_else(Utc::now);
+
+                        // Strict comparison: size must match and time difference < 1s
+                        if disk_size == *db_size && (disk_mtime - *db_mtime).num_seconds().abs() < 1 {
+                            is_dirty = false;
+                        }
+                    }
+                }
+
+                if is_dirty {
+                    files_to_process.push((path.to_path_buf(), parent));
+                } else {
+                    clean_count += 1;
+                }
             }
         }
 
-        let total_files = files.len();
-        println!("DEBUG: Indexer found {} images and {} folders", total_files, unique_dirs.len());
+        let total_files = files_to_process.len() + clean_count;
+        println!("DEBUG: Indexer found {} images ({} changed, {} unchanged) and {} folders",
+            total_files, files_to_process.len(), clean_count, unique_dirs.len());
 
         // Ensure root is in the set
         unique_dirs.insert(root_str.clone());
@@ -154,8 +178,20 @@ impl Indexer {
             let folder_map_worker = folder_map.clone();
 
             tokio::spawn(async move {
-                let mut processed: usize = 0;
+                let mut processed: usize = clean_count;
                 let mut batch: Vec<(i64, ImageMetadata)> = Vec::new();
+
+                // Initial progress for clean files
+                if clean_count > 0 {
+                    let _ = app_worker.emit(
+                        "indexer:progress",
+                        ProgressPayload {
+                            total: total_files,
+                            processed,
+                            current_file: "Verifying unchanged files...".to_string(),
+                        },
+                    );
+                }
 
                 while let Some(indexed) = rx.recv().await {
                     processed += 1;
@@ -180,11 +216,18 @@ impl Indexer {
                     }
                 }
 
+                // Final save for remaining items in batch if the loop finished but batch isn't empty
+                if !batch.is_empty() {
+                    if let Err(e) = db_worker.save_images_batch(batch).await {
+                        eprintln!("Failed to save final images batch: {}", e);
+                    }
+                }
+
                 let _ = app_worker.emit("indexer:complete", total_files);
             });
 
             // 5. Producer - Distribute work
-            for (path, parent_dir) in files {
+            for (path, parent_dir) in files_to_process {
                 let tx_clone = tx.clone();
                 tokio::spawn(async move {
                     if let Some(meta) = get_image_metadata(&path) {

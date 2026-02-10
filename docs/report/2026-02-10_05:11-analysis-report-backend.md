@@ -26,6 +26,7 @@ Responsável por manter o estado da biblioteca em sincronia com o disco.
     *   **Heurísticas de Rename**: O watcher implementa lógica inteligente para detectar quando um "delete" seguido de um "add" é, na verdade, um "rename" (movimentação de arquivo), preservando metadados e tags. Isso é crucial para a UX.
     *   **Worker Pattern**: Separação clara entre a *Producer* (scanner) e o *Consumer* (DB worker) via canais (`mpsc`), permitindo processamento paralelo.
 *   **⚠️ Risco**: A função `ensure_folder_hierarchy` pode se tornar um gargalo em discos lentos com milhares de pastas aninhadas, pois faz muitas queries sequenciais de "upsert". Um *bulk insert* seria mais performático.
+    *   ✅ **Otimizado (2026-02-10)**: Implementada lógica iterativa e atômica. O uso de uma única transação para toda a árvore de diretórios elimina o gargalo de I/O em discos lentos, consolidando as queries de upsert em um único flush de disco.
 
 ### 2.2 Streaming Server (`src-tauri/src/streaming/server.rs`)
 Um servidor HTTP completo embutido no app.
@@ -53,8 +54,8 @@ Um servidor HTTP completo embutido no app.
 
 ## 4. Recomendações Técnicas
 
-1.  **Migrações de Banco**: Como mencionado no relatório geral, substituir a criação manual de tabelas em `database.rs` por `sqlx migrate`. Isso é a dívida técnica mais urgente.
-2.  **Otimização do Indexer**: Em bibliotecas gigantes (>100k arquivos), o `WalkDir` inicial pode demorar. Considerar persistir o "last scan time" e scanear apenas diretórios modificados na inicialização.
+1.  **Migrações de Banco** ✅ *Resolvido*: Como mencionado no relatório geral, substituir a criação manual de tabelas em `database.rs` por `sqlx migrate`. Isso é a dívida técnica mais urgente.
+2.  **Otimização do Indexer** ✅ *Resolvido*: Em bibliotecas gigantes (>100k arquivos), o `WalkDir` inicial pode demorar. Considerar persistir o "last scan time" e scanear apenas diretórios modificados na inicialização.
 3.  **Refatoração de Erros**: Criar um tipo `AppError` centralizado (usando `thiserror`) para padronizar o retorno de erros para o frontend, em vez de retornar strings ou imprimir no console.
 
 ## 5. Conclusão do Backend
