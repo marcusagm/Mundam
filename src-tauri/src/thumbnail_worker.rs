@@ -1,4 +1,4 @@
-use crate::database::Db;
+use crate::db::Db;
 use crate::thumbnails::{generate_thumbnail, get_thumbnail_filename};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

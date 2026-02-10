@@ -1,5 +1,5 @@
 use tauri::State;
-use crate::database::Db;
+use crate::db::Db;
 use serde_json::Value;
 
 #[tauri::command]

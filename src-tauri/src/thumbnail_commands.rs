@@ -1,4 +1,4 @@
-use crate::database::Db;
+use crate::db::Db;
 use std::sync::Arc;
 use tauri::State;
 

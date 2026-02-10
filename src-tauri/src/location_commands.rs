@@ -1,4 +1,4 @@
-use crate::database::Db;
+use crate::db::Db;
 use crate::indexer::Indexer;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -22,9 +22,9 @@ pub async fn add_location(
     db: State<'_, Arc<Db>>,
 ) -> Result<FolderNode, String> {
     println!("COMMAND: add_location (add_root) called with path: {}", path);
-    
+
     let root = PathBuf::from(&path);
-    
+
     // Validate path exists and is a directory
     if !root.exists() {
         return Err("Path does not exist".to_string());
@@ -32,7 +32,7 @@ pub async fn add_location(
     if !root.is_dir() {
         return Err("Path is not a directory".to_string());
     }
-    
+
     // Check if a parent folder already exists
     let mut parent_id = None;
     let mut current = root.parent();
@@ -46,27 +46,27 @@ pub async fn add_location(
         }
         current = p.parent();
     }
-    
+
     let is_root = parent_id.is_none();
-    
+
     // Upsert folder
     let name = root
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or(&path)
         .to_string();
-    
+
     let id = db
         .upsert_folder(&path, &name, parent_id, is_root)
         .await
         .map_err(|e| format!("Failed to add folder: {}", e))?;
-    
+
     // Attempt to adopt orphaned roots (e.g. if we added a parent after its child)
     // Only strictly needed if this is a new folder
     if let Err(e) = db.adopt_orphaned_children(id, &path).await {
         eprintln!("Warning: Failed to adopt orphaned children: {}", e);
     }
-    
+
     // Start indexing in background
     let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
         Some(r) => r,
@@ -76,7 +76,7 @@ pub async fn add_location(
     tokio::spawn(async move {
         indexer.start_scan(root).await;
     });
-    
+
     Ok(FolderNode {
         id,
         path,
@@ -104,14 +104,14 @@ pub async fn remove_location(
         .get_location_thumbnails(location_id)
         .await
         .map_err(|e| format!("Failed to get thumbnails: {}", e))?;
-    
+
     // Delete thumbnails from filesystem
     let thumbnails_dir = app
         .path()
         .app_local_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?
         .join("thumbnails");
-    
+
     let mut deleted_count = 0;
     for thumb_filename in thumbnail_paths {
         let thumb_path = thumbnails_dir.join(&thumb_filename);
@@ -124,12 +124,12 @@ pub async fn remove_location(
         }
     }
     println!("DEBUG: Deleted {} thumbnail files", deleted_count);
-    
+
     // Delete from database
     db.delete_folder(location_id)
         .await
         .map_err(|e| format!("Failed to delete folder: {}", e))?;
-    
+
     // Stop the watcher via Indexer
     let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
         Some(r) => r,
@@ -152,7 +152,7 @@ pub async fn get_locations(
         .get_folder_hierarchy()
         .await
         .map_err(|e| format!("Failed to get folder hierarchy: {}", e))?;
-    
+
     Ok(folders
         .into_iter()
         .map(|(id, parent_id, path, name, is_root)| FolderNode {

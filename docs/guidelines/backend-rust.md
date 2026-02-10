@@ -139,29 +139,44 @@ let mut transaction = pool.begin().await?;
 ```
 
 ---
-
+ 
 ## 🗄️ Database & SQLx
-
+ 
+### Modular Database Architecture
+The database layer is organized into the `src/db/` module. **NEVER** place database logic in commands or multiple flat files. Follow the domain-driven modular structure:
+ 
+- **`db/mod.rs`**: Entry point, `Db` struct, initialization, and maintenance.
+- **`db/models.rs`**: **Single source of truth** for all database-related structs (DTOs). No duplication across the system.
+- **`db/images.rs`**: Image/File persistence.
+- **`db/folders.rs`**: Hierarchy and location management.
+- **`db/tags.rs`**: Taxonomy and relationships.
+- **`db/search.rs`**: Dynamic query building with `QueryBuilder`.
+ 
 ### SQLx Macro Safety
-- **Use `sqlx::query!` and `sqlx::query_as!`**: Favor macros over string-based `sqlx::query` for all fixed queries. This ensures compile-time validation of SQL syntax and schema mapping.
-- **Type Casting (`!`)**: SQLite types can be ambiguous. Use the force non-null syntax `AS "column!"` for primary keys or columns marked as `NOT NULL` in the schema to ensure the Rust type is not wrapped in `Option`.
-- **Compile-time checks**:
-  - Keep a `dev.db` file in `src-tauri/` synced with current migrations.
-  - Maintain a `.env` file with `DATABASE_URL=sqlite:dev.db`.
-  - Use `DATABASE_URL` during development so the compiler can validate queries.
-
+- **Use `sqlx::query!` and `sqlx::query_as!`**: Favor macros for compile-time validation.
+- **Non-Null Indicators**: SQLite nullability detection can fail. Use the "force non-null" syntax for columns you know are `NOT NULL`:
+  ```sql
+  SELECT id AS "id!", name FROM tags
+  ```
+- **Type Overrides**: For custom types (like `chrono::DateTime`), use explicit type hints in the query if detection fails:
+  ```sql
+  SELECT created_at AS "created_at: DateTime<Utc>" FROM images
+  ```
+- **Case Consistency**: Backend models should **avoid** `#[serde(rename_all = "camelCase")]` unless strictly required, to maintain consistency with the SQL schema and existing frontend property expectations (which often use `snake_case` from the API).
+ 
 ### Performance & Transactions
-- **Batch Operations**: NEVER perform mass insertions or updates in a loop without a transaction.
-- **Transactions**: Use `pool.begin()` to wrap multiple operations. If implementing a reusable database function that might be called inside a transaction, accept `&mut sqlx::SqliteConnection` as an argument.
-- **Write Optimization**: For bulk indexing, prefer `save_images_batch` patterns over individual `save_image` calls to minimize disk I/O overhead.
-
+- **Batch Operations**: Use dedicated `batch` functions for high-volume operations (indexing).
+- **Transactions**: Wrap multi-step logic in `pool.begin()`. Reusable helpers should accept `&mut SqliteConnection` or `&mut SqliteTransaction`.
+- **Wal Mode**: Optimized for concurrent reads and single writer.
+ 
 ```rust
-// ✅ Reusable internal helper for transactions/connections
-async fn internal_save(
-    conn: &mut sqlx::SqliteConnection, 
-    data: &Data 
-) -> Result<(), sqlx::Error> {
-    sqlx::query!("INSERT INTO ...", data.id).execute(conn).await?;
-    Ok(())
+// ✅ Implementation pattern in db/domain.rs
+impl Db {
+    pub async fn add_item(&self, name: &str) -> Result<i64, sqlx::Error> {
+        let res = sqlx::query!("INSERT INTO items (name) VALUES (?)", name)
+            .execute(&self.pool)
+            .await?;
+        Ok(res.last_insert_rowid())
+    }
 }
 ```

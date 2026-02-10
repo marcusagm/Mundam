@@ -1,20 +1,16 @@
-mod database;
-mod db_tags;
-mod db_smart_folders;
+pub mod db;
 mod ffmpeg;
 mod indexer;
 mod location_commands;
 mod metadata_commands;
 mod metadata_reader;
 mod protocols;
-mod search_logic;
 mod smart_folder_commands;
 mod tag_commands;
 mod thumbnail_commands;
 mod thumbnail_worker;
 mod thumbnail_priority;
 mod thumbnails;
-mod db_settings;
 mod settings_commands;
 pub mod formats;
 mod format_commands;
@@ -24,7 +20,7 @@ mod transcoding;
 mod streaming;
 
 
-use crate::database::Db;
+use crate::db::Db;
 use crate::indexer::Indexer;
 use std::path::PathBuf;
 use tauri::Manager;

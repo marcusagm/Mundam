@@ -1,6 +1,5 @@
-use crate::database::Db;
-use crate::db_tags::Tag;
-use crate::indexer::metadata::ImageMetadata;
+use crate::db::Db;
+use crate::db::models::{Tag, ImageMetadata, LibraryStats};
 use std::sync::Arc;
 use tauri::State;
 
@@ -43,7 +42,7 @@ pub async fn get_all_tags(db: State<'_, Arc<Db>>) -> Result<Vec<Tag>, String> {
 #[tauri::command]
 pub async fn get_library_stats(
     db: State<'_, Arc<Db>>,
-) -> Result<crate::db_tags::LibraryStats, String> {
+) -> Result<LibraryStats, String> {
     db.get_library_stats().await.map_err(|e| e.to_string())
 }
 

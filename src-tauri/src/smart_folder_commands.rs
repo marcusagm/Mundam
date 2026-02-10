@@ -1,5 +1,5 @@
-use crate::database::Db;
-use crate::db_smart_folders::SmartFolder;
+use crate::db::Db;
+use crate::db::models::SmartFolder;
 use std::sync::Arc;
 use tauri::State;
 

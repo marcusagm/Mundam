@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use crate::database::Db;
+use crate::db::Db;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {

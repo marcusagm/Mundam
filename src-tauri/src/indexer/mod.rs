@@ -1,7 +1,8 @@
 pub mod metadata;
 
-use self::metadata::{get_image_metadata, ImageMetadata};
-use crate::database::Db;
+use self::metadata::get_image_metadata;
+use crate::db::Db;
+use crate::db::models::ImageMetadata;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
