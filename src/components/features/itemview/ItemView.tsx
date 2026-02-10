@@ -22,7 +22,7 @@ import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
 import { AudioRenderer } from './renderers/audio/AudioRenderer';
 import { Loader } from '../../ui/Loader';
-import { getAudioUrl, getMediaType } from '../../../lib/stream-utils';
+import { getMediaType } from '../../../lib/stream-utils';
 import './item-view.css';
 
 export const ItemView: Component = () => {
@@ -211,7 +211,7 @@ const ItemViewContent: Component = () => {
                             <VideoPlayer path={item()!.path} />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'audio'}>
-                            <AudioRenderer src={getAudioUrl(item()!.path)} />
+                            <AudioRenderer path={item()!.path} />
                         </Match>
                         <Match when={mediaType() === 'font'}>
                             <FontView

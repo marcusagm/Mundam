@@ -4,7 +4,7 @@
  */
 
 import { Component, createSignal, For, Show } from 'solid-js';
-import { Keyboard, Palette, Settings, FolderOpen, Info } from 'lucide-solid';
+import { Keyboard, Palette, Settings, Info } from 'lucide-solid';
 import { cn } from '../../../lib/utils';
 import { Modal } from '../../ui/Modal';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';

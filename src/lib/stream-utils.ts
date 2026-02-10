@@ -6,7 +6,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { formatActions } from '../core/store/formatStore';
-import { HLS_SERVER_URL, getHlsPlaylistUrl } from './hls-player';
+import { HLS_SERVER_URL, getHlsPlaylistUrl, type VideoProbeResult } from './hls-player';
 
 export { HLS_SERVER_URL };
 
@@ -134,25 +134,37 @@ export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'
 }
 
 /**
- * Get the appropriate video URL for a file path
+ * Get the appropriate video URL for a file path.
+ * Optionally accepts a probe result to check for specific codecs that require linear transcoding.
  */
-export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'): string {
+export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard', probe?: VideoProbeResult | null): string {
   const encodedPath = encodeURIComponent(path);
 
-  if (needsLinearTranscoding(path)) {
-    // Linear HLS (Live) - e.g. SWF
+  // Determine if we need linear HLS (live transcoding)
+  // Check extension-based requirement OR probe-based codec requirement
+  const isLinear =
+    needsLinearTranscoding(path) ||
+    (probe &&
+      (probe.video_codec === 'mjpeg' ||
+        probe.video_codec === 'flv1' ||
+        probe.video_codec === 'vp6f'));
+
+  if (isLinear) {
+    // Linear HLS (Live) - e.g. SWF or MJPEG
     return `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}&mode=live`;
   }
 
-  if (needsHlsTranscoding(path)) {
-    // Standard HLS (VOD) - e.g. MKV, AVI
+  if (needsHlsTranscoding(path) || (probe && !probe.is_native)) {
+    // Standard HLS (VOD) - e.g. MKV, AVI or non-native codec found via probe
     return getHlsPlaylistUrl(path, quality);
   }
 
   if (needsVideoTranscoding(path)) {
+    // Standard progressive stream (deprecated in favor of HLS but kept for fallback)
     return `video-stream://localhost/${encodedPath}?quality=${quality}`;
   }
 
+  // Native format (MP4/MOV) - Direct file access
   return `video://localhost/${encodedPath}`;
 }
 

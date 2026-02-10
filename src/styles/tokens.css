@@ -6,7 +6,7 @@
   --theme-c: 0.15;
 
   /* --- 1. Primitive Layer (The Palette) --- */
-  
+
   /* Primary Palette (Dynamic) */
   --p-primary-50:  oklch(97% 0.02 var(--theme-h));
   --p-primary-100: oklch(92% 0.04 var(--theme-h));
@@ -133,12 +133,14 @@
   /* Backdrop / Glassmorphism */
   --bg-backdrop:   oklch(13% 0 0 / 0.7);
   --bg-overlay:    oklch(0% 0 0 / 0.4);
+  --bg-backdrop-filter: blur(12px);
 
   /* Border */
   --border-subtle:  var(--p-neutral-800);
   --border-default: var(--p-neutral-700);
   --border-strong:  var(--p-neutral-600);
   --border-active:  var(--p-primary-500);
+  --border-backdrop: oklch(100% 0.00011 271.152 / 0.1);
 
   /* Text & Icons */
   --text-primary:   var(--p-neutral-200);
@@ -160,11 +162,11 @@
   --action-primary-bg:       var(--p-primary-500);
   --action-primary-bg-hover: var(--p-primary-400);
   --action-primary-text:     var(--p-neutral-0);
-  
+
   --action-secondary-bg:       var(--p-neutral-800);
   --action-secondary-bg-hover: var(--p-neutral-700);
   --action-secondary-text:     var(--text-primary);
-  
+
   --action-destructive-bg:       var(--p-error-500);
   --action-destructive-text:     var(--p-neutral-0);
 
@@ -192,16 +194,16 @@
   --shadow-s:  0px 2px 4px oklch(0% 0 0 / 0.4);
   --shadow-m:  0px 4px 8px oklch(0% 0 0 / 0.5);
   --shadow-l:  0px 12px 24px oklch(0% 0 0 / 0.6);
-  
-  --shadow-focus: 
-    0px 0px 0px 2px var(--bg-page), 
+
+  --shadow-focus:
+    0px 0px 0px 2px var(--bg-page),
     0px 0px 0px 4px var(--p-primary-500);
 
   /* Transitions */
   --duration-fast:   100ms;
   --duration-normal: 200ms;
   --ease-out:        cubic-bezier(0, 0, 0.2, 1);
-  
+
   --transition-default: all var(--duration-normal) var(--ease-out);
   --transition-fast:    all var(--duration-fast) var(--ease-out);
 
@@ -214,16 +216,16 @@
 /* Light Mode Override (if needed/activated via class) */
 [data-theme="light"] {
   color-scheme: light;
-  
+
   /* Backgrounds: Darker -> Lighter for Depth */
   --bg-page:       var(--p-neutral-200);
   --bg-sidebar:    var(--p-neutral-100);
   --bg-header:     var(--p-neutral-200);
-  
+
   --bg-surface-1:  var(--p-neutral-200);
   --bg-surface-2:  var(--p-neutral-100);
   --bg-surface-3:  var(--p-neutral-50);
-  
+
   /* Fixed OKLCH parameter order (L C H) */
   --bg-surface-active: var(--p-primary-500);
 
@@ -257,11 +259,11 @@
   --action-primary-bg:       oklch(50% var(--theme-c) var(--theme-h));
   --action-primary-bg-hover: oklch(45% var(--theme-c) var(--theme-h));
   --action-primary-text:     var(--p-neutral-0);
-  
+
   --action-secondary-bg:       var(--p-neutral-200);
   --action-secondary-bg-hover: var(--p-neutral-300);
   --action-secondary-text:     var(--text-primary);
-  
+
   --action-destructive-bg:       oklch(50% 0.20 25);
   --action-destructive-text:     var(--p-neutral-0);
 
@@ -289,16 +291,16 @@
   --shadow-s:  0px 2px 4px oklch(0% 0 0 / 0.1);
   --shadow-m:  0px 4px 8px oklch(0% 0 0 / 0.1);
   --shadow-l:  0px 12px 24px oklch(0% 0 0 / 0.1);
-  
-  --shadow-focus: 
-    0px 0px 0px 2px var(--bg-page), 
+
+  --shadow-focus:
+    0px 0px 0px 2px var(--bg-page),
     0px 0px 0px 4px oklch(50% var(--theme-c) var(--theme-h));
 
   /* Transitions */
   --duration-fast:   100ms;
   --duration-normal: 200ms;
   --ease-out:        cubic-bezier(0, 0, 0.2, 1);
-  
+
   --transition-default: all var(--duration-normal) var(--ease-out);
   --transition-fast:    all var(--duration-fast) var(--ease-out);
 

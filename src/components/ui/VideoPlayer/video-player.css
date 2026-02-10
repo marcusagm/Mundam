@@ -102,11 +102,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--p-space-s);
-  backdrop-filter: blur(12px);
-  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: var(--bg-backdrop-filter);
+  background: var(--bg-backdrop);
   padding: var(--p-space-s) var(--p-space-m);
   border-radius: var(--radius-l);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-backdrop);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -326,9 +326,6 @@
 }
 
 /* --- Quality Menu --- */
-.ui-video-quality-btn {
-  color: var(--p-neutral-0);
-}
 
 .ui-video-quality-menu {
   display: flex;

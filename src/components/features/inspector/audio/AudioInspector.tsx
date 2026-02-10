@@ -3,7 +3,7 @@ import { type ImageItem } from '../../../../types';
 import { Accordion, AudioPlayer } from '../../../ui';
 import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
-import { getAudioUrl } from '../../../../lib/stream-utils';
+import { useAudioSource } from '../../../../core/hooks/useAudioSource';
 import './AudioInspector.css';
 
 interface AudioInspectorProps {
@@ -11,13 +11,13 @@ interface AudioInspectorProps {
 }
 
 export const AudioInspector: Component<AudioInspectorProps> = props => {
-    const assetUrl = () => getAudioUrl(props.item.path);
+    const { audioUrl } = useAudioSource(() => props.item.path);
 
     return (
         <div class="inspector-content">
             <div class="inspector-preview audio-preview">
                 <AudioPlayer
-                    src={assetUrl()}
+                    src={audioUrl()}
                     filePath={props.item.path}
                     variant="compact"
                     class="inspector-audio-player"

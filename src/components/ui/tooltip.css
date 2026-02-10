@@ -9,7 +9,7 @@
 .ui-tooltip {
   position: fixed;
   padding: var(--p-space-s) 0.75rem;
-  background-color: var(--bg-tooltip, #1a1a1a);
+  background-color: var(--bg-backdrop);
   color: var(--text-primary);
   font-size: var(--p-font-size-xs);
   font-weight: 500;
@@ -19,7 +19,7 @@
   pointer-events: none;
   animation: ui-tooltip-in 0.15s ease;
   box-shadow: 0 var(--p-space-xs)  0.375rem -1px rgba(0, 0, 0, 0.1), 0 var(--p-space-xxs) var(--p-space-xs) -1px rgba(0, 0, 0, 0.06);
-  
+
   /* Arrow config */
   --tooltip-arrow-size: 5px;
 }
@@ -28,8 +28,8 @@
 .ui-tooltip::after {
   content: '';
   position: absolute;
-  width: 0; 
-  height: 0; 
+  width: 0;
+  height: 0;
   border-style: solid;
 }
 
@@ -41,7 +41,7 @@
 }
 .ui-tooltip-top::after {
   border-width: var(--tooltip-arrow-size) var(--tooltip-arrow-size) 0 var(--tooltip-arrow-size);
-  border-color: var(--bg-tooltip, #1a1a1a) transparent transparent transparent;
+  border-color: var(--bg-backdrop) transparent transparent transparent;
   bottom: calc(var(--tooltip-arrow-size) * -1);
   left: 50%;
   transform: translateX(-50%);
@@ -53,7 +53,7 @@
 }
 .ui-tooltip-bottom::after {
   border-width: 0 var(--tooltip-arrow-size) var(--tooltip-arrow-size) var(--tooltip-arrow-size);
-  border-color: transparent transparent var(--bg-tooltip, #1a1a1a) transparent;
+  border-color: transparent transparent var(--bg-backdrop) transparent;
   top: calc(var(--tooltip-arrow-size) * -1);
   left: 50%;
   transform: translateX(-50%);
@@ -65,7 +65,7 @@
 }
 .ui-tooltip-left::after {
   border-width: var(--tooltip-arrow-size) 0 var(--tooltip-arrow-size) var(--tooltip-arrow-size);
-  border-color: transparent transparent transparent var(--bg-tooltip, #1a1a1a);
+  border-color: transparent transparent transparent var(--bg-backdrop);
   right: calc(var(--tooltip-arrow-size) * -1);
   top: 50%;
   transform: translateY(-50%);
@@ -77,7 +77,7 @@
 }
 .ui-tooltip-right::after {
   border-width: var(--tooltip-arrow-size) var(--tooltip-arrow-size) var(--tooltip-arrow-size) 0;
-  border-color: transparent var(--bg-tooltip, #1a1a1a) transparent transparent;
+  border-color: transparent var(--bg-backdrop) transparent transparent;
   left: calc(var(--tooltip-arrow-size) * -1);
   top: 50%;
   transform: translateY(-50%);

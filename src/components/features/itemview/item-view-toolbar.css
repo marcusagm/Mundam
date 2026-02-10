@@ -7,12 +7,12 @@
     align-items: center;
     gap: var(--p-space-m);
     padding:  0.375rem 0.75rem;
-    background-color: var(--bg-surface-2);
-    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-backdrop);
+    border: 1px solid var(--border-backdrop);
     border-radius: var(--radius-l);
     box-shadow: var(--shadow-m);
     z-index: 1000;
-    backdrop-filter: blur(12px);
+    backdrop-filter: var(--bg-backdrop-filter);
     /* -webkit-backdrop-filter: blur(12px); Removed to match original */
 }
 
@@ -25,7 +25,7 @@
 }
 
 /* Add separator between groups if needed, but original used gap: var(--p-space-m) */
-/* We successfully grouped items, let's keep the gap but maybe not the hard lines if they weren't there. 
+/* We successfully grouped items, let's keep the gap but maybe not the hard lines if they weren't there.
    User said "anterior era bonito". Anterior didn't have groups logic visible in CSS, likely just one flex container.
    I will adapt the group separator to be subtle using variables. */
 
