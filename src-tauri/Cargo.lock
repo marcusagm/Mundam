@@ -3064,6 +3064,7 @@ dependencies = [
  "tauri-plugin-mcp-bridge",
  "tauri-plugin-opener",
  "tauri-plugin-sql",
+ "thiserror 2.0.18",
  "tiny-skia",
  "tokio",
  "tokio-util",

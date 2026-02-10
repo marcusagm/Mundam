@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
+use crate::error::{AppError, AppResult};
 use super::cache::TranscodeCache;
 use super::detector;
 use super::ffmpeg_pipe::FfmpegTranscoder;
@@ -74,7 +75,7 @@ pub async fn transcode_file(
     app: AppHandle,
     path: String,
     quality: Option<String>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let file_path = PathBuf::from(&path);
     let quality = quality
         .and_then(|q| TranscodeQuality::from_str(&q))
@@ -83,15 +84,14 @@ pub async fn transcode_file(
     // Get app data dir for cache
     let app_data = app
         .path()
-        .app_local_data_dir()
-        .map_err(|e| e.to_string())?;
+        .app_local_data_dir()?;
 
     let cache = TranscodeCache::new(&app_data);
     let transcoder = FfmpegTranscoder::new(cache);
 
     // Check if FFmpeg is available
     if !transcoder.is_available() {
-        return Err("FFmpeg is not installed or not found in PATH".to_string());
+        return Err(AppError::Transcoding("FFmpeg is not installed or not found in PATH".to_string()));
     }
 
     // Transcode synchronously (in background thread)
@@ -99,11 +99,11 @@ pub async fn transcode_file(
         transcoder.transcode_sync(&file_path, quality)
     })
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::Internal(e.to_string()))?;
 
     match result {
         Ok(output_path) => Ok(output_path.to_string_lossy().to_string()),
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(AppError::Transcoding(e.to_string())),
     }
 }
 
@@ -125,8 +125,8 @@ pub fn is_cached(app: AppHandle, path: String, quality: Option<String>) -> bool 
 
 /// Get cache statistics
 #[tauri::command]
-pub fn get_cache_stats(app: AppHandle) -> Result<CacheStats, String> {
-    let app_data = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+pub fn get_cache_stats(app: AppHandle) -> AppResult<CacheStats> {
+    let app_data = app.path().app_local_data_dir()?;
     let cache = TranscodeCache::new(&app_data);
 
     Ok(CacheStats {
@@ -138,8 +138,8 @@ pub fn get_cache_stats(app: AppHandle) -> Result<CacheStats, String> {
 
 /// Clean up old cache entries
 #[tauri::command]
-pub fn cleanup_cache(app: AppHandle, max_age_days: Option<u64>) -> Result<usize, String> {
-    let app_data = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+pub fn cleanup_cache(app: AppHandle, max_age_days: Option<u64>) -> AppResult<usize> {
+    let app_data = app.path().app_local_data_dir()?;
     let cache = TranscodeCache::new(&app_data);
 
     let days = max_age_days.unwrap_or(30);
@@ -148,8 +148,8 @@ pub fn cleanup_cache(app: AppHandle, max_age_days: Option<u64>) -> Result<usize,
 
 /// Clear all cache entries
 #[tauri::command]
-pub fn clear_cache(app: AppHandle) -> Result<usize, String> {
-    let app_data = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+pub fn clear_cache(app: AppHandle) -> AppResult<usize> {
+    let app_data = app.path().app_local_data_dir()?;
     let cache = TranscodeCache::new(&app_data);
     Ok(cache.clear_all())
 }

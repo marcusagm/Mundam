@@ -56,7 +56,7 @@ Um servidor HTTP completo embutido no app.
 
 1.  **Migrações de Banco** ✅ *Resolvido*: Como mencionado no relatório geral, substituir a criação manual de tabelas em `database.rs` por `sqlx migrate`. Isso é a dívida técnica mais urgente.
 2.  **Otimização do Indexer** ✅ *Resolvido*: Em bibliotecas gigantes (>100k arquivos), o `WalkDir` inicial pode demorar. Considerar persistir o "last scan time" e scanear apenas diretórios modificados na inicialização.
-3.  **Refatoração de Erros**: Criar um tipo `AppError` centralizado (usando `thiserror`) para padronizar o retorno de erros para o frontend, em vez de retornar strings ou imprimir no console.
+3.  **Refatoração de Erros** ✅ *Resolvido*: Criar um tipo `AppError` centralizado (usando `thiserror`) para padronizar o retorno de erros para o frontend, em vez de retornar strings ou imprimir no console.
 
 ## 5. Conclusão do Backend
 

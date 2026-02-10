@@ -13,6 +13,7 @@ pub mod search;
 
 use sqlx::sqlite::SqlitePool;
 use std::path::PathBuf;
+use crate::error::AppResult;
 
 /// The main database handle, wrapping a SQLite connection pool.
 ///
@@ -35,7 +36,7 @@ impl Db {
     /// # Errors
     ///
     /// Returns a `sqlx::Error` if the connection fails or if migrations fail to run.
-    pub async fn new(path: PathBuf) -> Result<Self, sqlx::Error> {
+    pub async fn new(path: PathBuf) -> AppResult<Self> {
         use sqlx::sqlite::SqliteConnectOptions;
         use sqlx::Executor;
         use std::str::FromStr;
@@ -70,7 +71,7 @@ impl Db {
     /// # Errors
     ///
     /// Returns `Err` if the maintenance queries fail.
-    pub async fn run_maintenance(&self) -> Result<(), sqlx::Error> {
+    pub async fn run_maintenance(&self) -> AppResult<()> {
         println!("DEBUG: DB - Running Maintenance (VACUUM + ANALYZE)");
         sqlx::query("VACUUM").execute(&self.pool).await?;
         sqlx::query("ANALYZE").execute(&self.pool).await?;

@@ -50,10 +50,31 @@ pub async fn generate_thumbnail(
 - **Explicit Error Handling:**
   Always handle errors. Never swallow them without logging or context.
 
-### Error Handling
-- **No `unwrap()`**: Avoid `.unwrap()` or `.expect()` in production code (except in tests/initialization). Use strict error propagation with `Result` and the `?` operator.
-- **Custom Errors**: Define custom error enums using `thiserror` (if available) or standard implementation to provide meaningful error context to the frontend.
-- **Serialization**: Ensure errors are serializable (`derive(Serialize)`) so they can be returned to the JS frontend.
+### Error Handling & Centralized Management
+
+We use a centralized error management system to ensure consistency, tipability, and clear communication with the frontend.
+
+- **Centralized Enum (`AppError`)**: All errors are defined in `src/error.rs` using the `thiserror` crate. This allows for automatic conversion from external errors (SQLx, IO, Tauri) using `#[from]`.
+- **Primary Result Type (`AppResult<T>`)**: Almost all functions and commands should return `AppResult<T>`, which is an alias for `Result<T, AppError>`.
+- **No `unwrap()`**: Avoid `.unwrap()` or `.expect()` in production code (except in tests or unavoidable initialization). Use the `?` operator for clean propagation.
+- **Frontend Serialization**: `AppError` implements `serde::Serialize` to return structured information to the JavaScript/TypeScript frontend instead of raw strings.
+
+```rust
+// ✅ Correct Example: Using AppResult in a command
+#[tauri::command]
+pub async fn get_data(db: State<'_, Arc<Db>>) -> AppResult<Vec<Data>> {
+    // Automatic conversion from sqlx::Error to AppError via ?
+    let result = db.fetch_all().await?; 
+    Ok(result)
+}
+
+// ✅ Correct Example: Handling specific failures
+if !path.exists() {
+    return Err(AppError::NotFound(format!("Path missing: {}", path)));
+}
+```
+
+- **Logging**: Errors should be logged at the point of origin or in the command handler if they indicate critical failures.
 
 ### Async/Await
 - Use `.await` responsibly. Avoid blocking the async runtime (Tokio) with heavy CPU-bound tasks. Use `tokio::task::spawn_blocking` for heavy synchronous operations like image processing or file I/O.

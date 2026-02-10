@@ -1,4 +1,5 @@
 use crate::db::Db;
+use crate::error::{AppError, AppResult};
 use crate::indexer::Indexer;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -20,17 +21,17 @@ pub async fn add_location(
     path: String,
     app: AppHandle,
     db: State<'_, Arc<Db>>,
-) -> Result<FolderNode, String> {
+) -> AppResult<FolderNode> {
     println!("COMMAND: add_location (add_root) called with path: {}", path);
 
     let root = PathBuf::from(&path);
 
     // Validate path exists and is a directory
     if !root.exists() {
-        return Err("Path does not exist".to_string());
+        return Err(AppError::NotFound(format!("Path does not exist: {}", path)));
     }
     if !root.is_dir() {
-        return Err("Path is not a directory".to_string());
+        return Err(AppError::Generic(format!("Path is not a directory: {}", path)));
     }
 
     // Check if a parent folder already exists
@@ -38,9 +39,7 @@ pub async fn add_location(
     let mut current = root.parent();
     while let Some(p) = current {
         let p_str = p.to_string_lossy().to_string();
-        // We use get_folder_by_path, assuming it's exposed or we can access it
-        // db is State<Arc<Db>>, so db.get_folder_by_path should work
-        if let Some(id) = db.get_folder_by_path(&p_str).await.unwrap_or(None) {
+        if let Some(id) = db.get_folder_by_path(&p_str).await? {
             parent_id = Some(id);
             break;
         }
@@ -58,20 +57,17 @@ pub async fn add_location(
 
     let id = db
         .upsert_folder(&path, &name, parent_id, is_root)
-        .await
-        .map_err(|e| format!("Failed to add folder: {}", e))?;
+        .await?;
 
-    // Attempt to adopt orphaned roots (e.g. if we added a parent after its child)
-    // Only strictly needed if this is a new folder
+    // Attempt to adopt orphaned roots
     if let Err(e) = db.adopt_orphaned_children(id, &path).await {
         eprintln!("Warning: Failed to adopt orphaned children: {}", e);
     }
 
     // Start indexing in background
-    let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
-        Some(r) => r,
-        None => return Err("Registry not initialized".to_string()),
-    };
+    let registry = app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>()
+        .ok_or_else(|| AppError::Internal("Registry not initialized".to_string()))?;
+
     let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
     tokio::spawn(async move {
         indexer.start_scan(root).await;
@@ -92,24 +88,20 @@ pub async fn remove_location(
     location_id: i64,
     app: AppHandle,
     db: State<'_, Arc<Db>>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     // Get location path for stopping watcher
-    let location_path = match db.get_folder_path(location_id).await {
-        Ok(Some(p)) => p,
-        _ => return Err("Folder not found".to_string()),
-    };
+    let location_path = db.get_folder_path(location_id).await?
+        .ok_or_else(|| AppError::NotFound(format!("Folder not found: {}", location_id)))?;
 
-    // Get thumbnail paths before deletion using get_location_thumbnails (which uses CTE now)
+    // Get thumbnail paths before deletion using get_location_thumbnails
     let thumbnail_paths = db
         .get_location_thumbnails(location_id)
-        .await
-        .map_err(|e| format!("Failed to get thumbnails: {}", e))?;
+        .await?;
 
     // Delete thumbnails from filesystem
     let thumbnails_dir = app
         .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .app_local_data_dir()?
         .join("thumbnails");
 
     let mut deleted_count = 0;
@@ -126,15 +118,12 @@ pub async fn remove_location(
     println!("DEBUG: Deleted {} thumbnail files", deleted_count);
 
     // Delete from database
-    db.delete_folder(location_id)
-        .await
-        .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    db.delete_folder(location_id).await?;
 
     // Stop the watcher via Indexer
-    let registry = match app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>() {
-        Some(r) => r,
-        None => return Err("Registry not initialized".to_string()),
-    };
+    let registry = app.try_state::<Arc<tokio::sync::Mutex<crate::indexer::WatcherRegistry>>>()
+        .ok_or_else(|| AppError::Internal("Registry not initialized".to_string()))?;
+
     let indexer = Indexer::new(app.clone(), db.inner(), registry.inner().clone());
     indexer.stop_watcher(&location_path).await;
 
@@ -146,12 +135,10 @@ pub async fn remove_location(
 #[tauri::command]
 pub async fn get_locations(
     db: State<'_, Arc<Db>>,
-) -> Result<Vec<FolderNode>, String> {
-    // We return ALL folders now, frontend can build the tree
+) -> AppResult<Vec<FolderNode>> {
     let folders = db
         .get_folder_hierarchy()
-        .await
-        .map_err(|e| format!("Failed to get folder hierarchy: {}", e))?;
+        .await?;
 
     Ok(folders
         .into_iter()
@@ -170,25 +157,20 @@ pub async fn get_locations(
 #[tauri::command]
 pub async fn get_all_subfolders(
     db: State<'_, Arc<Db>>,
-) -> Result<Vec<FolderNode>, String> {
-    // Just alias to get_locations for now, or return empty if frontend expects distinct subfolders
-    // But better to fail fast or return same data
+) -> AppResult<Vec<FolderNode>> {
     get_locations(db).await
 }
 
 #[tauri::command]
 pub async fn get_subfolder_counts(
     db: State<'_, Arc<Db>>,
-) -> Result<Vec<(i64, i64)>, String> {
-    db.get_folder_counts_recursive()
-        .await
-        .map_err(|e| format!("Failed to get folder counts: {}", e))
+) -> AppResult<Vec<(i64, i64)>> {
+    Ok(db.get_folder_counts_recursive().await?)
 }
 
 #[tauri::command]
 pub async fn get_location_root_counts(
     _db: State<'_, Arc<Db>>,
-) -> Result<Vec<(i64, i64)>, String> {
-    // No longer relevant with unified folders
+) -> AppResult<Vec<(i64, i64)>> {
     Ok(vec![])
 }

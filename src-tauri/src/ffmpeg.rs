@@ -8,6 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::Manager;
+use crate::error::{AppError, AppResult};
 
 
 /// Get the path to the FFmpeg binary
@@ -76,17 +77,14 @@ pub fn generate_with_ffmpeg(
     output_path: &Path,
     size_px: u32,
     is_video: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     let input_str = input_path.to_string_lossy();
     let output_str = output_path.to_string_lossy();
 
     // FFmpeg command for thumbnail generation:
     // Try seeking 1 second first (better for movies)
     // If that fails, try 0 seconds (better for short clips/SWF)
-    // FFmpeg command for thumbnail generation:
-    // Try seeking 1 second first (better for movies)
-    // If that fails, try 0 seconds (better for short clips/SWF)
-    let run_ffmpeg = |time: Option<&str>| -> Result<(), String> {
+    let run_ffmpeg = |time: Option<&str>| -> AppResult<()> {
         let mut args = vec![
             "-hide_banner".to_string(),
             "-loglevel".to_string(), "error".to_string(),
@@ -110,12 +108,11 @@ pub fn generate_with_ffmpeg(
 
         let output = Command::new(ffmpeg_path)
             .args(&args)
-            .output()
-            .map_err(|e| e.to_string())?;
+            .output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(stderr.to_string());
+            return Err(AppError::Transcoding(stderr.to_string()));
         }
         Ok(())
     };
@@ -124,11 +121,11 @@ pub fn generate_with_ffmpeg(
     if !is_video {
         if let Err(e) = run_ffmpeg(None) {
              eprintln!("FFmpeg image conversion failed for {}: {}", input_str, e);
-             return Err(format!("FFmpeg failed: {}", e).into());
+             return Err(AppError::Transcoding(format!("FFmpeg failed: {}", e)));
         }
         // Verify output was created
         if !output_path.exists() {
-            return Err("FFmpeg did not create output file".into());
+            return Err(AppError::Transcoding("FFmpeg did not create output file".to_string()));
         }
         return Ok(());
     }
@@ -140,14 +137,14 @@ pub fn generate_with_ffmpeg(
             // Third attempt: No seek (let ffmpeg find first frame automatically)
             if let Err(e3) = run_ffmpeg(None) {
                  eprintln!("Thumbnail ffmpeg failed for {}: 1s err: {}, 0s err: {}, no-seek err: {}", input_str, e1, e2, e3);
-                 return Err(format!("FFmpeg failed: {}", e3).into());
+                 return Err(AppError::Transcoding(format!("FFmpeg failed: {}", e3)));
             }
         }
     }
 
     // Verify output was created
     if !output_path.exists() {
-        return Err("FFmpeg did not create output file".into());
+        return Err(AppError::Transcoding("FFmpeg did not create output file".to_string()));
     }
 
     Ok(())
@@ -164,20 +161,21 @@ pub fn generate_thumbnail_ffmpeg_full(
     output_path: &Path,
     size_px: u32,
     is_video: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     let ffmpeg_path = get_ffmpeg_path(app_handle)
-        .ok_or("FFmpeg not found (neither bundled nor in system PATH)")?;
+        .ok_or_else(|| AppError::Transcoding("FFmpeg not found (neither bundled nor in system PATH)".to_string()))?;
 
     generate_with_ffmpeg(&ffmpeg_path, input_path, output_path, size_px, is_video)
+        .map_err(|e| AppError::Transcoding(e.to_string()))
 }
 
 /// Extract normalized audio waveform data using FFmpeg
 pub fn get_audio_waveform(
     app_handle: &tauri::AppHandle,
     input_path: &Path,
-) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+) -> AppResult<Vec<f32>> {
     let ffmpeg_path = get_ffmpeg_path(Some(app_handle))
-        .ok_or("FFmpeg not found")?;
+        .ok_or_else(|| AppError::Transcoding("FFmpeg not found".to_string()))?;
 
     // Use a low sample rate (100Hz) to extract peaks quickly
     // -ar 100: Resample to 100Hz
@@ -197,7 +195,7 @@ pub fn get_audio_waveform(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg waveform extraction failed: {}", stderr).into());
+        return Err(AppError::Transcoding(format!("FFmpeg waveform extraction failed: {}", stderr)));
     }
 
     let raw_data = output.stdout;
