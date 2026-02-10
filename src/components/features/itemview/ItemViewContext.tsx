@@ -1,4 +1,12 @@
-import { createContext, useContext, createSignal, ParentComponent, Accessor, Setter } from "solid-js";
+import {
+    createContext,
+    useContext,
+    createSignal,
+    ParentComponent,
+    Accessor,
+    Setter
+} from 'solid-js';
+import { type MediaType } from '../../../core/store/formatStore';
 
 export interface FlipState {
     horizontal: boolean;
@@ -10,9 +18,7 @@ export interface Position {
     y: number;
 }
 
-export type ViewportTool = "pan" | "rotate";
-
-export type MediaType = 'image' | 'video' | 'audio' | 'font' | 'model' | 'unknown';
+export type ViewportTool = 'pan' | 'rotate';
 
 interface ItemViewContextState {
     zoom: Accessor<number>;
@@ -63,16 +69,16 @@ export interface ModelSettings {
 
 const ItemViewContext = createContext<ItemViewContextState>();
 
-export const ItemViewProvider: ParentComponent = (props) => {
+export const ItemViewProvider: ParentComponent = props => {
     // Zoom agora armazena a porcentagem real (ex: 100 = 100%).
     // O valor inicial pode ser sobrescrito pelo renderizador (ex: ImageViewer setando Fit on load).
-    const [zoom, setZoom] = createSignal(100); 
+    const [zoom, setZoom] = createSignal(100);
     const [rotation, setRotation] = createSignal(0);
     const [flip, setFlip] = createSignal<FlipState>({ horizontal: false, vertical: false });
-    const [tool, setTool] = createSignal<ViewportTool>("pan");
+    const [tool, setTool] = createSignal<ViewportTool>('pan');
     const [position, setPosition] = createSignal<Position>({ x: 0, y: 0 });
     const [mediaType, setMediaType] = createSignal<MediaType>('unknown');
-    
+
     // Timer / Slideshow
     const [slideshowPlaying, setSlideshowPlaying] = createSignal(false);
     const [slideshowDuration, setSlideshowDuration] = createSignal(5); // seconds
@@ -101,9 +107,9 @@ export const ItemViewProvider: ParentComponent = (props) => {
         setRotation(0);
         setFlip({ horizontal: false, vertical: false });
         setPosition({ x: 0, y: 0 });
-        setTool("pan");
+        setTool('pan');
         // DO NOT reset mediaType here
-        
+
         // Reset Settings
         setFontSettings({
             color: '#ffffff',
@@ -123,31 +129,37 @@ export const ItemViewProvider: ParentComponent = (props) => {
     };
 
     const value: ItemViewContextState = {
-        zoom, setZoom,
-        rotation, setRotation,
-        flip, setFlip,
-        tool, setTool,
-        position, setPosition,
-        mediaType, setMediaType,
-        slideshowPlaying, setSlideshowPlaying,
-        slideshowDuration, setSlideshowDuration,
-        fontSettings, setFontSettings,
-        modelSettings, setModelSettings,
-        resetTrigger, 
+        zoom,
+        setZoom,
+        rotation,
+        setRotation,
+        flip,
+        setFlip,
+        tool,
+        setTool,
+        position,
+        setPosition,
+        mediaType,
+        setMediaType,
+        slideshowPlaying,
+        setSlideshowPlaying,
+        slideshowDuration,
+        setSlideshowDuration,
+        fontSettings,
+        setFontSettings,
+        modelSettings,
+        setModelSettings,
+        resetTrigger,
         reset
     };
 
-    return (
-        <ItemViewContext.Provider value={value}>
-            {props.children}
-        </ItemViewContext.Provider>
-    );
+    return <ItemViewContext.Provider value={value}>{props.children}</ItemViewContext.Provider>;
 };
 
 export const useItemViewContext = () => {
     const context = useContext(ItemViewContext);
     if (!context) {
-        throw new Error("useItemViewContext must be used within a ItemViewProvider");
+        throw new Error('useItemViewContext must be used within a ItemViewProvider');
     }
     return context;
 };

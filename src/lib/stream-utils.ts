@@ -1,10 +1,11 @@
 /**
  * Stream utilities for handling media transcoding
  * Provides functions to detect if a file needs transcoding and generate appropriate URLs
+ * Now powered by the central Format Store (Backend Source of Truth)
  */
 
 import { invoke } from '@tauri-apps/api/core';
-
+import { formatActions } from '../core/store/formatStore';
 import { HLS_SERVER_URL, getHlsPlaylistUrl } from './hls-player';
 
 export { HLS_SERVER_URL };
@@ -33,77 +34,6 @@ export interface CacheStats {
   sizeBytes: number;
 }
 
-
-// Audio extensions that require transcoding
-const TRANSCODE_AUDIO_EXTENSIONS = new Set([
-  'ogg', 'oga', 'opus',   // Ogg container
-  'wma',                  // Windows Media
-  'ac3',                  // Dolby Digital (AC-3)
-  'dts',                  // DTS
-  'spx',                  // Speex
-  'ra', 'rm',             // RealAudio
-  'mka',                  // Matroska Audio
-  'aiff', 'aif', 'aifc',  // AIFF
-  'amr',                  // AMR (Mobile)
-  'ape',                  // Monkey's Audio
-  'wv',                   // WavPack
-]);
-
-// Video extensions that require transcoding
-const TRANSCODE_VIDEO_EXTENSIONS = new Set([
-  // Desktop containers
-  'mkv',                  // Matroska
-  'avi',                  // AVI
-  'flv', 'f4v',           // Flash Video
-  'wmv', 'asf',           // Windows Media
-  'ogv',                  // Ogg Video
-  'webm',                 // WebM (VP9 not supported on macOS WebView)
-  // Broadcast/Professional
-  'mpeg', 'mpg', 'm2v',   // MPEG-1/2
-  'vob',                  // DVD Video
-  'm2ts', 'mts', 'ts',    // MPEG Transport Stream
-  'mxf',                  // Material Exchange Format
-  'wtv',                  // Windows TV
-  // Legacy/Mobile
-  '3gp', '3g2',           // 3GPP
-  'rmvb',                 // RealMedia
-  'swf',                  // Flash (limited support)
-  'divx',                 // DivX
-  'hevc',                 // Raw HEVC
-  'mjpeg', 'mjpg',        // Motion JPEG
-]);
-
-// Native audio extensions (no transcoding needed)
-const NATIVE_AUDIO_EXTENSIONS = new Set([
-  'mp3', 'wav', 'aac', 'm4a', 'm4r', 'flac', 'mp2',
-]);
-
-// Video extensions that require linear transcoding (live HLS)
-const LINEAR_VIDEO_EXTENSIONS = new Set([
-  'swf',                  // Flash
-  'mpg', 'mpeg', 'm2v',   // MPEG-1/2 (Often has seeking issues)
-  'wtv',                  // Windows TV (MPEG-2 based, poor seeking)
-  'rm', 'rmvb',           // RealMedia (Proprietary, poor seeking)
-  '3gp', '3g2',           // 3GPP (Mobile, erratic timestamps)
-  'mjpeg', 'mjpg',        // Motion JPEG (Stream of images)
-  'ogv',                  // Ogg Theora (Often fails segmentation)
-]);
-
-// Native video extensions (no transcoding needed)
-const NATIVE_VIDEO_EXTENSIONS = new Set([
-  'mp4', 'm4v', 'mov', 'qt',
-]);
-
-// HLS Audio extensions (use HLS to prevent UI freezing during load)
-const HLS_AUDIO_EXTENSIONS = new Set([
-  'opus', 'oga', 'ogg',   // Ogg container
-  'wma',                  // Windows Media
-  'ac3',                  // Dolby Digital
-  'dts',                  // DTS
-  'wv',                   // WavPack
-  'aifc', 'amr', 'ape',   // Untested but likely problematic
-]);
-
 /**
  * Get the file extension from a path (lowercase, without dot)
  */
@@ -116,60 +46,85 @@ export function getExtension(path: string): string {
  * Check if a file extension requires transcoding for audio playback
  */
 export function needsAudioTranscoding(path: string): boolean {
-  const ext = getExtension(path);
-  return TRANSCODE_AUDIO_EXTENSIONS.has(ext);
+  const strategy = formatActions.getPlaybackStrategy(getExtension(path));
+  return strategy === 'audioTranscode';
 }
 
 /**
  * Check if a file extension requires transcoding for video playback
  */
 export function needsVideoTranscoding(path: string): boolean {
-  const ext = getExtension(path);
-  return TRANSCODE_VIDEO_EXTENSIONS.has(ext);
+  const strategy = formatActions.getPlaybackStrategy(getExtension(path));
+  return strategy === 'transcode';
 }
 
 /**
- * Check if a file extension requires linear transcoding (live HLS)
+ * Check if a file extension requires linear transcoding (live HLS - e.g. SWF, MPG)
  */
 export function needsLinearTranscoding(path: string): boolean {
-  const ext = getExtension(path);
-  return LINEAR_VIDEO_EXTENSIONS.has(ext);
+  return formatActions.getPlaybackStrategy(getExtension(path)) === 'linearHls';
 }
 
 /**
- * Check if a file extension requires HLS for audio (to avoid freezing)
+ * Check if a file extension requires standard HLS transcoding (e.g. MKV, AVI)
+ */
+export function needsHlsTranscoding(path: string): boolean {
+  return formatActions.getPlaybackStrategy(getExtension(path)) === 'hls';
+}
+
+/**
+ * Check if a file extension requires Linear HLS for audio
+ */
+export function needsLinearAudio(path: string): boolean {
+  return formatActions.getPlaybackStrategy(getExtension(path)) === 'audioLinearHls';
+}
+
+/**
+ * Check if a file extension requires Standard HLS for audio
+ */
+export function needsStandardHlsAudio(path: string): boolean {
+  return formatActions.getPlaybackStrategy(getExtension(path)) === 'audioHls';
+}
+
+/**
+ * Check if a file extension requires HLS for audio (deprecated, use specific helpers)
  */
 export function needsHlsAudio(path: string): boolean {
-  const ext = getExtension(path);
-  return HLS_AUDIO_EXTENSIONS.has(ext);
+  const strategy = formatActions.getPlaybackStrategy(getExtension(path));
+  return strategy === 'audioHls' || strategy === 'audioLinearHls';
 }
 
 /**
  * Check if a file needs any kind of transcoding
  */
 export function needsTranscoding(path: string): boolean {
-  return needsAudioTranscoding(path) || needsVideoTranscoding(path);
+  const strategy = formatActions.getPlaybackStrategy(getExtension(path));
+  return strategy === 'transcode' || strategy === 'linearHls' || strategy === 'hls' || strategy === 'audioTranscode' || strategy === 'audioHls' || strategy === 'audioLinearHls';
 }
 
 /**
  * Check if a file is natively supported
  */
 export function isNativeFormat(path: string): boolean {
-  const ext = getExtension(path);
-  return NATIVE_AUDIO_EXTENSIONS.has(ext) || NATIVE_VIDEO_EXTENSIONS.has(ext);
+  const strategy = formatActions.getPlaybackStrategy(getExtension(path));
+  return strategy === 'native';
 }
 
 /**
  * Get the appropriate audio URL for a file path
- * Uses audio-stream:// for files that need transcoding, audio:// otherwise
- * Uses HLS for formats that cause UI freezing
  */
 export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'): string {
-  if (needsHlsAudio(path)) {
-     return getHlsPlaylistUrl(path, quality);
+  const encodedPath = encodeURIComponent(path);
+
+  if (needsLinearAudio(path)) {
+     // Linear HLS (Live/Async)
+     return `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}&mode=audio`;
   }
 
-  const encodedPath = encodeURIComponent(path);
+  if (needsStandardHlsAudio(path)) {
+     // Standard HLS (Playlist/VOD)
+     return getHlsPlaylistUrl(path, quality);
+  }
 
   if (needsAudioTranscoding(path)) {
     return `audio-stream://localhost/${encodedPath}?quality=${quality}`;
@@ -180,14 +135,18 @@ export function getAudioUrl(path: string, quality: TranscodeQuality = 'standard'
 
 /**
  * Get the appropriate video URL for a file path
- * Uses video-stream:// for files that need transcoding, video:// otherwise
- * Uses HLS Live for linear formats
  */
 export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'): string {
   const encodedPath = encodeURIComponent(path);
 
   if (needsLinearTranscoding(path)) {
-    return `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}`;
+    // Linear HLS (Live) - e.g. SWF
+    return `${HLS_SERVER_URL}/hls-live/${encodedPath}/index.m3u8?quality=${quality}&mode=live`;
+  }
+
+  if (needsHlsTranscoding(path)) {
+    // Standard HLS (VOD) - e.g. MKV, AVI
+    return getHlsPlaylistUrl(path, quality);
   }
 
   if (needsVideoTranscoding(path)) {
@@ -199,19 +158,10 @@ export function getVideoUrl(path: string, quality: TranscodeQuality = 'standard'
 
 /**
  * Get the media type from file extension
+ * Delegates to the central store which has the authoritative categorization.
  */
-export function getMediaType(path: string): 'audio' | 'video' | 'unknown' {
-  const ext = getExtension(path);
-
-  if (NATIVE_AUDIO_EXTENSIONS.has(ext) || TRANSCODE_AUDIO_EXTENSIONS.has(ext)) {
-    return 'audio';
-  }
-
-  if (NATIVE_VIDEO_EXTENSIONS.has(ext) || TRANSCODE_VIDEO_EXTENSIONS.has(ext)) {
-    return 'video';
-  }
-
-  return 'unknown';
+export function getMediaType(path: string): 'audio' | 'video' | 'image' | 'font' | 'model3d' | 'project' | 'archive' | 'unknown' {
+  return formatActions.getMediaType(getExtension(path));
 }
 
 // --- Tauri Commands ---

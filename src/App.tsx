@@ -82,6 +82,9 @@ function App() {
         import('./core/store/appearanceStore').then(({ appearanceActions }) => {
             appearanceActions.initialize();
         });
+        import('./core/store/formatStore').then(({ formatActions }) => {
+            formatActions.initialize();
+        });
 
         // Register Strategies
         dndRegistry.register('TAG', TagDropStrategy);

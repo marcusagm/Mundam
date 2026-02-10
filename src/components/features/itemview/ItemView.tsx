@@ -22,133 +22,8 @@ import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
 import { AudioRenderer } from './renderers/audio/AudioRenderer';
 import { Loader } from '../../ui/Loader';
-import { getAudioUrl } from '../../../lib/stream-utils';
+import { getAudioUrl, getMediaType } from '../../../lib/stream-utils';
 import './item-view.css';
-
-// Helper to determine media type from extension
-const getMediaType = (
-    filename: string
-): 'image' | 'video' | 'audio' | 'font' | 'model' | 'unknown' => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (!ext) return 'unknown';
-
-    const imageExts = [
-        'jpg',
-        'jpeg',
-        'jpe',
-        'jfif',
-        'png',
-        'webp',
-        'gif',
-        'bmp',
-        'ico',
-        'svg',
-        'avif',
-        'afphoto',
-        'afdesign',
-        'afpub',
-        'psd',
-        'psb',
-        'arw',
-        'cr2',
-        'cr3',
-        'nef',
-        'dng',
-        'raf',
-        'orf',
-        'rw2',
-        'nrw',
-        'srf',
-        'sr2',
-        'crw',
-        'erf',
-        'pef',
-        'tga',
-        'tiff',
-        'tif',
-        'heic',
-        'heif',
-        'exr',
-        'hdr',
-        'clip',
-        'ai',
-        'eps',
-        'dds'
-    ];
-    const videoExts = [
-        'mp4',
-        'm4v',
-        'webm',
-        'mov',
-        'qt',
-        'mxf',
-        'mkv',
-        'avi',
-        'wmv',
-        'flv',
-        'mpg',
-        'mpeg',
-        'ts',
-        'mts',
-        'm2ts',
-        'vob',
-        'm2v',
-        'asf',
-        'f4v',
-        'swf',
-        '3gp',
-        '3g2',
-        'rm',
-        'rmvb',
-        'wtv',
-        'ogv',
-        'mjpeg',
-        'mjpg'
-    ];
-    const audioExts = [
-        'mp3',
-        'wav',
-        'ogg',
-        'aac',
-        'flac',
-        'm4a',
-        'oga',
-        'opus',
-        'wma',
-        'ac3',
-        'dts',
-        'spx',
-        'mka',
-        'aiff',
-        'aif',
-        'aifc',
-        'amr',
-        'ape',
-        'wv'
-    ];
-    const fontExts = ['ttf', 'otf', 'ttc', 'woff', 'woff2'];
-    const modelExts = [
-        'fbx',
-        'obj',
-        'glb',
-        'gltf',
-        'stl',
-        'dae',
-        '3ds',
-        'dxf',
-        'lwo',
-        'lws',
-        'blend'
-    ];
-
-    if (imageExts.includes(ext)) return 'image';
-    if (videoExts.includes(ext)) return 'video';
-    if (audioExts.includes(ext)) return 'audio';
-    if (fontExts.includes(ext)) return 'font';
-    if (modelExts.includes(ext)) return 'model';
-
-    return 'unknown';
-};
 
 export const ItemView: Component = () => {
     return (
@@ -291,13 +166,20 @@ const ItemViewContent: Component = () => {
         >
             <BaseToolbar>
                 <Switch>
-                    <Match when={mediaType() === 'image' || mediaType() === 'unknown'}>
+                    <Match
+                        when={
+                            mediaType() === 'image' ||
+                            mediaType() === 'unknown' ||
+                            mediaType() === 'project' ||
+                            mediaType() === 'archive'
+                        }
+                    >
                         <ImageToolbar />
                     </Match>
                     <Match when={mediaType() === 'font'}>
                         <FontToolbar />
                     </Match>
-                    <Match when={mediaType() === 'model'}>
+                    <Match when={mediaType() === 'model3d'}>
                         <ModelToolbar />
                     </Match>
                 </Switch>
@@ -315,7 +197,9 @@ const ItemViewContent: Component = () => {
                         <Match
                             when={
                                 getMediaType(item()!.filename) === 'image' ||
-                                getMediaType(item()!.filename) === 'unknown'
+                                getMediaType(item()!.filename) === 'unknown' ||
+                                getMediaType(item()!.filename) === 'project' ||
+                                getMediaType(item()!.filename) === 'archive'
                             }
                         >
                             <ImageViewer
@@ -335,7 +219,7 @@ const ItemViewContent: Component = () => {
                                 fontName={item()!.filename}
                             />
                         </Match>
-                        <Match when={getMediaType(item()!.filename) === 'model'}>
+                        <Match when={getMediaType(item()!.filename) === 'model3d'}>
                             <ModelViewer
                                 src={`model://localhost/${encodeURIComponent(item()!.path)}`}
                                 filename={item()!.filename}

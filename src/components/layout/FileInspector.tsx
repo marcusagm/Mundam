@@ -68,7 +68,7 @@ export const FileInspector: Component = () => {
                         <Match when={fileType() === 'font'}>
                             <FontInspector item={activeItem()!} />
                         </Match>
-                        <Match when={fileType() === 'model'}>
+                        <Match when={fileType() === 'model3d'}>
                             <ModelInspector item={activeItem()!} />
                         </Match>
                         <Match when={fileType() === 'image'}>
