@@ -47,8 +47,20 @@ impl FileFormat {
             let _ = std::io::Seek::seek(file, std::io::SeekFrom::Start(0));
 
             if let Some(kind) = infer::get(&buffer) {
-                // Check registry for the MIME returned by infer
-                if let Some(fmt) = SUPPORTED_FORMATS.iter().find(|f| f.mime_types.contains(&kind.mime_type())) {
+                let mime = kind.mime_type();
+
+                // CRITICAL FIX: If infer says it's a generic format like TIFF or ZIP,
+                // we check the extension FIRST because many professional formats (RAW, Adobe, Affinity)
+                // use these containers but need specific processing.
+                if mime == "image/tiff" || mime == "application/zip" || mime == "application/octet-stream" {
+                    if let Some(fmt) = Self::detect_extension(path_fallback) {
+                         // If the extension match is also a member of this container family or the strategy is specific, use it.
+                         return Some(fmt);
+                    }
+                }
+
+                // Normal path: Check registry for the MIME returned by infer
+                if let Some(fmt) = SUPPORTED_FORMATS.iter().find(|f| f.mime_types.contains(&mime)) {
                     return Some(fmt);
                 }
             }

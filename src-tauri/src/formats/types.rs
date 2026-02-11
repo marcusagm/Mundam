@@ -21,6 +21,7 @@ pub enum ThumbnailStrategy {
     Webview,     // SVG, HTML
     ZipPreview,  // Affinity, OpenOffice etc
     NativeExtractor, // For formats where we extract a preview (Affinity, RAW, PSD)
+    Raw,         // LibRaw based extraction for difficult formats
     Model3D,     // Uses Assimp to convert to GLB
     Font,        // Resvg with custom font loading
     Icon,        // Fallback for files without preview

@@ -25,12 +25,10 @@ pub fn extract_preview(path: &Path) -> Result<(Vec<u8>, String), Box<dyn std::er
             Ok((data, "image/png".to_string()))
         },
 
-        // RAW Photos
-        "arw" | "cr2" | "cr3" | "nef" | "nrw" | "dng" | "raf" | "orf" | "rw2" | "pef" | "erf" | "sr2" | "srf" | "crw" => {
-            let data = binary_jpeg::extract_embedded_jpeg(path)?;
-            Ok((data, "image/jpeg".to_string()))
-        },
-        
+        // RAW Photos - Delegated to rsraw (via ThumbnailStrategy::Raw)
+        // Kept here only if NativeExtractor strategy is explicitly requested, but definitions.rs now uses Raw strategy.
+        // We remove them to avoid confusion if NativeExtractor is accidentally used.
+
         // Adobe Photoshop
         "psd" | "psb" => {
             if let Ok(data) = extract_psd_composite(path) {
@@ -58,7 +56,7 @@ pub fn extract_preview(path: &Path) -> Result<(Vec<u8>, String), Box<dyn std::er
             let data = convert_to_png(path)?;
             Ok((data, "image/png".to_string()))
         },
-        
+
         _ => Err("No native extractor for this format".into()),
     }
 }
@@ -67,7 +65,7 @@ pub fn extract_preview(path: &Path) -> Result<(Vec<u8>, String), Box<dyn std::er
 fn extract_zip_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let file = std::fs::File::open(path)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    
+
     let candidates = [
         "preview.png",
         "Thumbnails/thumbnail.png",
@@ -84,7 +82,7 @@ fn extract_zip_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error
             return Ok(buf);
         }
     }
-    
+
     Err("No preview found in zip archive".into())
 }
 
@@ -105,7 +103,7 @@ fn extract_ai_pdf(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 
     // Search for "%PDF-" signature
     if let Some(start) = buffer.windows(5).position(|w| w == b"%PDF-") {
-        // AI files often have XML metadata AFTER the PDF. 
+        // AI files often have XML metadata AFTER the PDF.
         // We can try to finding the "%%EOF" which marks the end of PDF.
         if let Some(end_rel) = buffer[start..].windows(5).rposition(|w| w == b"%%EOF") {
             let end = start + end_rel + 5;
@@ -114,7 +112,7 @@ fn extract_ai_pdf(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         // Fallback: just return everything from start
         return Ok(buffer[start..].to_vec());
     }
-    
+
     Err("Not a PDF-compatible AI file".into())
 }
 
@@ -122,19 +120,19 @@ fn extract_ai_pdf(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 fn extract_psd_composite(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let bytes = std::fs::read(path)?;
     let psd = psd::Psd::from_bytes(&bytes).map_err(|e| format!("PSD parse error: {}", e))?;
-    
+
     let rgba = psd.rgba();
     let width = psd.width() as u32;
     let height = psd.height() as u32;
-    
+
     let mut png_data = Vec::new();
     let mut cursor = std::io::Cursor::new(&mut png_data);
-    
+
     // Use image crate to encode RGBA to PNG
     image::codecs::png::PngEncoder::new(&mut cursor)
         .write_image(&rgba, width, height, image::ExtendedColorType::Rgba8)
         .map_err(|e| format!("PNG encode error: {}", e))?;
-        
+
     Ok(png_data)
 }
 
@@ -145,7 +143,7 @@ pub fn generate_thumbnail_extracted(
     size_px: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (data, mime) = extract_preview(input_path)?;
-    
+
     // If it's a PDF, we cannot generate a thumbnail easily in native Rust without poppler/resvg-pdf.
     // For now, we return Error so it falls back to Icon, but the ItemView WILL work because it uses orig://
     if mime == "application/pdf" {
@@ -161,7 +159,7 @@ fn process_extracted_image(
     size_px: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use fast_image_resize as fr;
-    
+
     let img = match image::load_from_memory(data) {
         Ok(i) => i,
         Err(e) => {

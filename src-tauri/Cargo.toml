@@ -56,6 +56,9 @@ tokio-util = { version = "0.7", features = ["io"] }
 tauri-plugin-http = "2.5.7"
 uuid = { version = "1.20.0", features = ["v4"] }
 thiserror = "2.0.18"
+memmap2 = "0.9.9"
+quickraw = "0.1.6"
+rsraw = "0.1"
 
 
 

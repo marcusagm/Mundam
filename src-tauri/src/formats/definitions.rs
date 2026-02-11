@@ -83,7 +83,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["cr2", "cr3", "crw"],
         mime_types: &["image/x-canon-cr2", "image/x-canon-crw"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -91,7 +91,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["nef", "nrw"],
         mime_types: &["image/x-nikon-nef"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -99,7 +99,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["arw", "srf", "sr2"],
         mime_types: &["image/x-sony-arw", "image/x-sony-srf", "image/x-sony-sr2"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -107,7 +107,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["dng"],
         mime_types: &["image/x-adobe-dng"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -115,7 +115,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["raf"],
         mime_types: &["image/x-fuji-raf"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -123,7 +123,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["orf"],
         mime_types: &["image/x-olympus-orf"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -131,7 +131,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["rw2"],
         mime_types: &["image/x-panasonic-rw2"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -139,7 +139,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["pef", "erf"],
         mime_types: &["image/x-pentax-pef", "image/x-epson-erf"],
         type_category: MediaType::Image,
-        strategy: ThumbnailStrategy::NativeExtractor,
+        strategy: ThumbnailStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
 
