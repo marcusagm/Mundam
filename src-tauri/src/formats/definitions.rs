@@ -1,5 +1,5 @@
 use super::FileFormat;
-use super::types::{MediaType, ThumbnailStrategy, PlaybackStrategy};
+use super::types::{MediaType, ThumbnailStrategy, PlaybackStrategy, PreviewStrategy};
 
 // THE MASTER REGISTRY
 pub const SUPPORTED_FORMATS: &[FileFormat] = &[
@@ -10,6 +10,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/jpeg"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -18,6 +19,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/png"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -26,6 +28,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/webp"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -34,6 +37,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/gif"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -42,6 +46,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/bmp"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -50,6 +55,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-icon", "image/vnd.microsoft.icon"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -58,6 +64,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/tiff"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::Convert, // Browser support for TIFF is varied, better convert
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -66,6 +73,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-icon"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeImage,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -74,6 +82,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-tga", "image/targa"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::Convert,
         playback: PlaybackStrategy::None,
     },
 
@@ -84,6 +93,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-canon-cr2", "image/x-canon-crw"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -92,6 +102,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-nikon-nef"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -100,6 +111,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-sony-arw", "image/x-sony-srf", "image/x-sony-sr2"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -108,6 +120,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-adobe-dng"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -116,6 +129,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-fuji-raf"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -124,6 +138,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-olympus-orf"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -132,6 +147,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-panasonic-rw2"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -140,6 +156,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-pentax-pef", "image/x-epson-erf"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -148,6 +165,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-hasselblad-3fr", "image/x-hasselblad-fff"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -156,6 +174,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-kodak-dcr", "image/x-kodak-k25", "image/x-kodak-kdc"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -164,6 +183,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-samsung-srw"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -172,6 +192,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-sigma-x3f"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -180,6 +201,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-phaseone-iiq"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -188,6 +210,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-leaf-mos", "image/x-mamiya-mef"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -196,6 +219,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-leica-rwl"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -204,6 +228,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-minolta-mrw"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -212,6 +237,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-raw"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Raw,
+        preview_strategy: PreviewStrategy::Raw,
         playback: PlaybackStrategy::None,
     },
 
@@ -222,6 +248,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/heic", "image/heif"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::Ffmpeg,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -230,6 +257,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/avif"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::Ffmpeg,
         playback: PlaybackStrategy::None,
     },
 
@@ -240,6 +268,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/svg+xml"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::Webview,
+        preview_strategy: PreviewStrategy::BrowserNative,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -248,14 +277,25 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/vnd.adobe.photoshop"],
         type_category: MediaType::Project,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
         name: "Adobe Illustrator",
-        extensions: &["ai", "eps"],
-        mime_types: &["application/postscript", "application/illustrator"],
-        type_category: MediaType::Project,
+        extensions: &["ai"],
+        mime_types: &["application/postscript", "application/pdf"],
+        type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
+        playback: PlaybackStrategy::None,
+    },
+    FileFormat {
+        name: "Encapsulated PostScript",
+        extensions: &["eps"],
+        mime_types: &["application/postscript"],
+        type_category: MediaType::Image,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -263,7 +303,8 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["xcf"],
         mime_types: &["image/x-xcf"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Icon, // TODO: XCF parser
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
 
@@ -274,6 +315,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-blender"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::NativeExtractor, // Extract internal preview
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -282,6 +324,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/octet-stream"], // Often generic
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -290,6 +333,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["model/obj", "text/plain"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -298,6 +342,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["model/gltf+json"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -306,6 +351,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["model/gltf-binary"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -314,6 +360,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["model/vnd.collada+xml"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -322,6 +369,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["model/stl", "application/vnd.ms-pki.stl"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -330,6 +378,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-3ds"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -338,6 +387,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/vnd.dxf"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -346,6 +396,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-lwo"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -354,6 +405,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-lws"],
         type_category: MediaType::Model3D,
         strategy: ThumbnailStrategy::Model3D,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
 
@@ -364,6 +416,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["font/ttf"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Font,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -372,6 +425,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["font/otf"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Font,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -380,6 +434,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["font/collection", "font/ttc"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Font,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -388,6 +443,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["font/woff"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Font, // fontdb doesn't support WOFF
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -396,6 +452,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["font/woff2"],
         type_category: MediaType::Font,
         strategy: ThumbnailStrategy::Font, // fontdb doesn't support WOFF2
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::None,
     },
 
@@ -406,6 +463,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-affinity-design"],
         type_category: MediaType::Project,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -414,6 +472,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-affinity-photo"],
         type_category: MediaType::Project,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
      FileFormat {
@@ -422,6 +481,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-affinity-publisher"],
         type_category: MediaType::Project,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -429,7 +489,8 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["clip"],
         mime_types: &["application/x-clip-studio-paint"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::ZipPreview,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -437,7 +498,8 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["xmind"],
         mime_types: &["application/x-xmind"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::ZipPreview,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
 
@@ -448,6 +510,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-exr"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -456,6 +519,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/vnd.radiance"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -464,6 +528,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/vnd-ms.dds"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {
@@ -472,6 +537,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["image/x-portable-bitmap", "image/x-portable-graymap", "image/x-portable-pixmap", "image/x-portable-anymap"],
         type_category: MediaType::Image,
         strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::Convert, // Browsers don't support these reliably, convert to PNG
         playback: PlaybackStrategy::None,
     },
 
@@ -482,6 +548,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/mp4"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native,
     },
     FileFormat {
@@ -490,6 +557,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/webm"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: webm -> HLS
     },
     FileFormat {
@@ -498,6 +566,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/quicktime"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native,
     },
     FileFormat {
@@ -506,6 +575,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-matroska"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: mkv -> HLS
     },
      FileFormat {
@@ -514,6 +584,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/x-matroska"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER: Transcode replaced by LinearHLS
     },
     FileFormat {
@@ -522,6 +593,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/mxf", "video/mxf"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: mxf -> HLS
     },
     FileFormat {
@@ -530,6 +602,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-ms-wmv", "video/x-ms-asf"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: wmv, asf -> HLS
     },
     FileFormat {
@@ -538,6 +611,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-flv"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: flv, f4v -> HLS
     },
     FileFormat {
@@ -546,6 +620,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/x-shockwave-flash"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::LinearHls, // USER LIST: swf -> HLS Linear
     },
     FileFormat {
@@ -554,6 +629,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/mpeg", "video/mp2p"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::LinearHls, // USER LIST: mpg, mpeg, m2v -> HLS Linear
     },
     FileFormat {
@@ -562,6 +638,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/mp2t", "video/x-m2ts"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: ts, mts, vob, m2ts -> HLS
     },
     FileFormat {
@@ -570,6 +647,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-msvideo", "video/avi"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: avi -> HLS
     },
     FileFormat {
@@ -578,6 +656,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/3gpp", "video/3gpp2"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: 3gp, 3g2 -> HLS
     },
     FileFormat {
@@ -586,6 +665,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["application/vnd.rn-realmedia"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: rm -> HLS
     },
      FileFormat {
@@ -594,6 +674,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/vnd.rn-realaudio"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER: Transcode replaced by LinearHLS
     },
     FileFormat {
@@ -602,6 +683,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-wtv"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: wtv -> HLS
     },
     FileFormat {
@@ -610,6 +692,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/ogg"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Hls, // USER LIST: ogv -> HLS
     },
     FileFormat {
@@ -618,6 +701,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/x-motion-jpeg"],
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::LinearHls, // USER LIST: mjpeg -> HLS Linear
     },
     FileFormat {
@@ -626,6 +710,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["video/mp4"], // Often inside mp4 container usually, but raw hevc exists
         type_category: MediaType::Video,
         strategy: ThumbnailStrategy::Ffmpeg,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::LinearHls, // Assumption based on others, kept consistent
     },
 
@@ -636,6 +721,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/mpeg", "audio/mp3"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native, // USER LIST: mp3 -> Native
     },
      FileFormat {
@@ -644,6 +730,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/mpeg"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native, // USER LIST: mp2 -> Native
     },
     FileFormat {
@@ -652,6 +739,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/wav", "audio/x-wav", "audio/wave"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native, // USER LIST: wav -> Native
     },
     FileFormat {
@@ -660,6 +748,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/flac", "audio/x-flac"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native, // USER LIST: flac -> Native
     },
     FileFormat {
@@ -668,6 +757,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &[],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER LIST: ogg, oga -> LISTED IN BOTH HLS and Transcode. Prefer HLS for safety.
     },
     FileFormat {
@@ -676,6 +766,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/opus"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER: Transcode replaced by LinearHLS
     },
     FileFormat {
@@ -684,6 +775,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/mp4", "audio/aac", "audio/x-m4a"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::Native, // USER LIST: aac, m4a, m4r -> Native
     },
     FileFormat {
@@ -692,6 +784,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/x-ms-wma"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
     FileFormat {
@@ -700,6 +793,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/x-aiff", "audio/aiff"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER: Transcode replaced by LinearHLS
     },
     FileFormat {
@@ -708,6 +802,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/x-aiff"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER LIST: aifc -> HLS
     },
     FileFormat {
@@ -716,6 +811,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/ogg"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls, // USER: Transcode replaced by LinearHLS
     },
     FileFormat {
@@ -724,6 +820,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/ac3"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
     FileFormat {
@@ -732,6 +829,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/vnd.dts"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
     FileFormat {
@@ -740,6 +838,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/amr"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
     FileFormat {
@@ -748,6 +847,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/x-ape"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
     FileFormat {
@@ -756,6 +856,7 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         mime_types: &["audio/wavpack", "audio/x-wavpack"],
         type_category: MediaType::Audio,
         strategy: ThumbnailStrategy::Icon,
+        preview_strategy: PreviewStrategy::None,
         playback: PlaybackStrategy::AudioHls,
     },
 ];

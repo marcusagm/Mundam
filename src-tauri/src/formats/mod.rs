@@ -17,6 +17,7 @@ pub struct FileFormat {
     pub type_category: MediaType,
     #[serde(skip)]
     pub strategy: ThumbnailStrategy,
+    pub preview_strategy: PreviewStrategy, // How to show this in full-screen ItemView
     pub playback: PlaybackStrategy,
 }
 

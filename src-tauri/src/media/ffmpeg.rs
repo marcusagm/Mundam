@@ -232,6 +232,78 @@ pub fn get_audio_waveform(
     }
 }
 
+/// Extract a single frame (usually the first) to memory as JPEG data.
+/// Handles tone mapping for HDR files automatically.
+pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
+    let ffmpeg_path = get_ffmpeg_path(None)
+        .ok_or_else(|| AppError::Transcoding("FFmpeg not found".to_string()))?;
+
+    let input_str = input_path.to_string_lossy();
+    let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+
+    let mut args = vec![
+        "-hide_banner".to_string(),
+        "-loglevel".to_string(), "error".to_string(),
+    ];
+
+    // Seek logic for videos (same as generate_with_ffmpeg)
+    let is_video = matches!(ext.as_str(),
+        "mp4" | "mkv" | "mov" | "webm" | "avi" | "wmv" | "flv" | "m4v" | "mxf" |
+        "asf" | "ts" | "mts" | "m2ts" | "vob" | "3gp" | "rm" | "ogv" | "swf" | "mpg" | "mpeg" | "m2v"
+    );
+    if is_video {
+        args.push("-ss".to_string());
+        args.push("00:00:01".to_string());
+    }
+
+    args.push("-i".to_string());
+    args.push(input_str.to_string());
+
+    // Tone mapping for HDR (Radiance HDR, OpenEXR, or HDR video)
+    if ext == "hdr" || ext == "exr" {
+        // Simple but robust tonemapping
+        args.push("-vf".to_string());
+        args.push("zscale=t=linear:npl=100,tonemap=tonemap=hable,zscale=p=709:t=709".to_string());
+    }
+
+    args.extend_from_slice(&[
+        "-vframes".to_string(), "1".to_string(),
+        "-f".to_string(), "image2".to_string(),
+        "-c:v".to_string(), "mjpeg".to_string(),
+        "-".to_string(),
+    ]);
+
+    let output = Command::new(ffmpeg_path)
+        .args(&args)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // If it failed and we sought to 1s, try again without seek
+        if is_video {
+             let retry_args = vec![
+                "-hide_banner".to_string(),
+                "-loglevel".to_string(), "error".to_string(),
+                "-i".to_string(), input_str.to_string(),
+                "-vframes".to_string(), "1".to_string(),
+                "-f".to_string(), "image2".to_string(),
+                "-c:v".to_string(), "mjpeg".to_string(),
+                "-".to_string(),
+            ];
+            let retry_output = Command::new(get_ffmpeg_path(None).unwrap())
+                .args(&retry_args)
+                .output()?;
+
+            if retry_output.status.success() {
+                return Ok(retry_output.stdout);
+            }
+        }
+        return Err(AppError::Transcoding(format!("FFmpeg frame extraction failed: {}", stderr)));
+    }
+
+    Ok(output.stdout)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

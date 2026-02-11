@@ -29,7 +29,7 @@ imagesize = "0.13"
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full", "time"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio", "chrono", "macros"] }
-image = { version = "0.25.9", features = ["webp"] }
+image = { version = "0.25.9", features = ["webp", "hdr", "exr", "dds", "tga", "png", "tiff"] }
 fast_image_resize = "6.0.0"
 mime_guess = "2.0"
 percent-encoding = "2.3"
@@ -59,6 +59,7 @@ thiserror = "2.0.18"
 memmap2 = "0.9.9"
 quickraw = "0.1.6"
 rsraw = "0.1"
+base64 = "0.22"
 
 
 

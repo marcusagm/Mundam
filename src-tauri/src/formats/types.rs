@@ -40,3 +40,14 @@ pub enum PlaybackStrategy {
     AudioTranscode,  // Legacy audio transcoding
     None,            // No playback support
 }
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PreviewStrategy {
+    BrowserNative,   // Directly renderable by browser (JPEG, PNG, WebP, SVG, etc.)
+    Raw,             // Extraction via rsraw/LibRaw
+    Ffmpeg,          // Extraction via FFmpeg (HEIC, HDR, AVIF)
+    NativeExtractor, // Specialty extraction (PSD, Affinity, ZIP-based)
+    Convert,         // On-the-fly conversion using 'image' crate (DDS, TGA, EXR)
+    None,            // No preview available
+}
