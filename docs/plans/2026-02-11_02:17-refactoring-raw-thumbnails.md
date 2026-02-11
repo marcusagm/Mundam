@@ -391,4 +391,33 @@ Abaixo comparamos os tempos de geração entre o **Brute-force (Scanner Binário
 
 **Veredito:** O **`rsraw`** é a escolha técnica superior para o Mundam. Ele oferece a melhor performance em produção e abre caminho para funcionalidades futuras de visualização "full-res" de RAWs.
 
+## 16. Lista de Formatos RAW Suportados (Expandida)
+
+Para garantir a transparência e facilitar a manutenção, consolidamos aqui as extensões que o Mundam agora reconhece e processa via motor RAW (`rsraw/LibRaw`).
+
+### Formatos Originais (V1)
+Estes foram os formatos inicialmente identificados e mapeados para o suporte a câmeras profissionais mais comuns:
+*   **Canon**: `.cr2`, `.cr3`, `.crw`
+*   **Nikon**: `.nef`, `.nrw`
+*   **Sony**: `.arw`, `.srf`, `.sr2`
+*   **Adobe**: `.dng` (Digital Negative)
+*   **Fujifilm**: `.raf`
+*   **Olympus**: `.orf`
+*   **Panasonic**: `.rw2`
+*   **Pentax/Epson**: `.pef`, `.erf`
+
+### Novos Formatos Adicionados (LibRaw Full Support)
+Estes novos formatos foram integrados em 11/02/2026 para aproveitar a cobertura completa da biblioteca LibRaw em modo produção:
+*   **Hasselblad**: `.3fr`, `.fff`
+*   **Kodak**: `.dcr`, `.k25`, `.kdc`, `.dc2`, `.kc2`
+*   **Samsung**: `.srw`
+*   **Sigma (Foveon)**: `.x3f`
+*   **Phase One**: `.iiq`, `.cap`
+*   **Leaf/Mamiya**: `.mos`, `.mef`
+*   **Leica**: `.rwl`
+*   **Minolta**: `.mrw`, `.mdc`
+*   **Cinema/Genéricos**: `.cine` (Phantom), `.bay`, `.cs1`, `.sti`, `.qtk`, `.pxn`, `.bmq`, `.rwz`, `.rdc`, `.raw`
+
+**Resumo**: O Mundam agora suporta nativamente **37 extensões RAW** distintas, garantindo que profissionais de fotografia possam gerenciar seus catálogos de qualquer câmera moderna ou legado com alta performance.
+
 ---

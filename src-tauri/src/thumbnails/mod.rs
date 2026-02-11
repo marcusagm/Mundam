@@ -86,7 +86,11 @@ pub fn generate_thumbnail(
     let is_zip_project = ["afphoto", "afdesign", "afpub", "clip", "xmind"].contains(&ext.as_str());
 
     // Explicitly exclude RAW formats from FFmpeg priority, as they should always go to rsraw.
-    let is_raw_format = matches!(strategy, ThumbnailStrategy::Raw) || ["cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "dng", "raf", "orf", "rw2", "pef", "erf"].contains(&ext.as_str());
+    let is_raw_format = matches!(strategy, ThumbnailStrategy::Raw) || [
+        "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "dng", "raf", "orf", "rw2", "pef", "erf",
+        "3fr", "fff", "dcr", "k25", "kdc", "dc2", "kc2", "srw", "x3f", "iiq", "cap", "mos", "rwl", "mrw", "mdc",
+        "cine", "bay", "cs1", "sti", "qtk", "pxn", "bmq", "rwz", "rdc", "raw", "mef"
+    ].contains(&ext.as_str());
 
     if ffmpeg_available && !is_zip_project && !is_raw_format && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
          if let Ok(_) = crate::media::ffmpeg::generate_thumbnail_ffmpeg_full(None, input_path, &output_path, size_px, is_video) {
