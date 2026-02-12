@@ -108,6 +108,10 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                     let data = extract_zip_preview(path)?;
                     Ok((data, "image/png".to_string()))
                 },
+                "kra" | "krz" | "kra~" => {
+                    let data = extract_krita_preview(path)?;
+                    Ok((data, "image/png".to_string()))
+                },
                 "aseprite" | "ase" => {
                     aseprite::extract_aseprite_preview(path)
                 },
@@ -175,6 +179,28 @@ fn extract_zip_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error
     }
 
     Err("No preview found in zip archive".into())
+}
+
+/// Specialized extractor for Krita files.
+fn extract_krita_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let file = std::fs::File::open(path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+
+    // mergedimage.png is the full rendered canvas, best for preview
+    if let Ok(mut entry) = archive.by_name("mergedimage.png") {
+        let mut buf = Vec::new();
+        entry.read_to_end(&mut buf)?;
+        return Ok(buf);
+    }
+
+    // fallback to preview.png if mergedimage.png is missing (e.g. .krz or specific save settings)
+    if let Ok(mut entry) = archive.by_name("preview.png") {
+        let mut buf = Vec::new();
+        entry.read_to_end(&mut buf)?;
+        return Ok(buf);
+    }
+
+    Err("No valid preview (mergedimage.png or preview.png) found in Krita file".into())
 }
 
 fn convert_to_png(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {

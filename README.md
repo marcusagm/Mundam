@@ -136,7 +136,7 @@ Total registered formats: 137 extensions
 | Category | Formats | Status | Notes |
 | :--- | :--- | :---: | :--- |
 | **Standards** | `jpg`, `jpeg`, `jpe`, `jfif`, `webp`, `png`, `tiff`, `gif`, `bmp`, `ico`, `tga` | ✅ | Full support (Thumb + View). |
-| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind`, `aseprite` | ✅ | Full support (Thumb + View). |
+| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind`, `aseprite`, `kra` | ✅ | Full support (Thumb + View). |
 | **RAW** | `dng`, `cr2`, `nef`, `nrw`, `rw2`, `raf`, `orf`, `pef`, `erf`, `sr2`, `srf`, `cr3`, `crw`, `arw`, `3fr`, `srw`, `kdc` | ✅ | Full support (Thumb + View). |
 | **RAW (Stubs)** | `braw`, `r3d`, `ari`, `gpr`, `iiq`, `x3f`, `dcr`, `fff`, `iiq`, `mos` | �️ | Thumb only or Pending Enhancement. |
 | **Specialized** | `pam`, `pbm`, `pgm`, `pnm`, `ppm`, `cur`, `heic`, `heif`, `avif`, `exr`, `dds` | ✅ | Full support (Thumb + View). |

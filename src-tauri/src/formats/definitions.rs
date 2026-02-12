@@ -389,6 +389,15 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         playback: PlaybackStrategy::None,
     },
     FileFormat {
+        name: "Krita Project",
+        extensions: &["kra", "krz", "kra~"],
+        mime_types: &["application/x-krita"],
+        type_category: MediaType::Project,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
+        playback: PlaybackStrategy::None,
+    },
+    FileFormat {
         name: "Adobe InDesign",
         extensions: &["indd", "idml"],
         mime_types: &["application/x-indesign", "application/vnd.adobe.indesign-idml-package"],
