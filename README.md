@@ -127,43 +127,46 @@ This project intentionally diverges from typical Electron/Web apps to prioritize
 
 Mundam provides extensive support for various media types, categorized by their rendering and thumbnail generation capabilities.
 
-Total registered formats: 117 extensions
-*   **Native/Full Support**: 94 (Thumbnail processing + Interactive visualization)
-*   **Basic Support**: 23 (Visualization available, thumbnails via format icons)
+Total registered formats: 137 extensions
+*   **Native/Full Support**: 98 (Thumbnail processing + Interactive visualization)
+*   **Basic Support**: 39 (Visualization available, thumbnails via format icons or stubs)
 *   **Testing Base**: 206 formats monitored for future expansion.
 
 ### 🖼️ Images
 | Category | Formats | Status | Notes |
 | :--- | :--- | :---: | :--- |
 | **Standards** | `jpg`, `jpeg`, `jpe`, `jfif`, `webp`, `png`, `tiff`, `gif`, `bmp`, `ico`, `tga` | ✅ | Full support (Thumb + View). |
-| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind` | ✅ | Full support (Thumb + View). |
-| **RAW** | `dng`, `cr2` | ✅ | Full support (Thumb + View). |
-| **RAW** | `nef` | 👁️ | View only. |
-| **Specialized** | `pam`, `pbm`, `pgm`, `pnm`, `ppm`, `cur` | ✅ | Full support (Thumb + View). |
-| **Specialized** | `heic`, `heif`, `avif`, `exr`, `dds`* | 🖼️ | Thumb only. (*DDS view may have errors). |
+| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind`, `aseprite` | ✅ | Full support (Thumb + View). |
+| **RAW** | `dng`, `cr2`, `nef`, `nrw`, `rw2`, `raf`, `orf`, `pef`, `erf`, `sr2`, `srf`, `cr3`, `crw`, `arw`, `3fr`, `srw`, `kdc` | ✅ | Full support (Thumb + View). |
+| **RAW (Stubs)** | `braw`, `r3d`, `ari`, `gpr`, `iiq`, `x3f`, `dcr`, `fff`, `iiq`, `mos` | �️ | Thumb only or Pending Enhancement. |
+| **Specialized** | `pam`, `pbm`, `pgm`, `pnm`, `ppm`, `cur`, `heic`, `heif`, `avif`, `exr`, `dds` | ✅ | Full support (Thumb + View). |
 | **Vectors** | `svg` | ✅ | Full support (Thumb + View). |
-| **OS Dependent** | `ai` | 🚧 | View only (Dependent on WebView support). |
-| **No Support** | `clip`, `xcf`, `eps`, `hdr`, `nrw`, `rw2`, `raf`, `orf`, `pef`, `erf`, `sr2`, `srf`, `cr3`, `crw`, `arw` | ❌ | No thumbnail or visualization support yet. |
+| **Publishing** | `indd`, `idml`, `sketch`, `fig`, `cdr`, `pdf` | 🚧 | Stubs or OS Dependent (Native Extractor). |
+| **Adobe/OS** | `ai`, `eps` | 👁️ | View usually works via WebView/OS. |
+| **No Support** | `clip`, `xcf` | ❌ | No thumbnail or visualization support yet. |
 
 ### 🧊 3D Models
-| Formats | Status | Notes |
-| :--- | :---: | :--- |
-| `glb`, `gltf`, `obj`, `fbx`, `stl`, `dae`, `3ds`, `dxf`, `lws`, `lwo` | 👁️ | View only (No thumbnails). |
-| `blend` | 👁️ | View as image (No thumbnails). |
+| Category | Formats | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **Standard 3D** | `glb`, `gltf`, `obj`, `fbx`, `stl`, `dae`, `3ds`, `dxf`, `lws`, `lwo` | 👁️ | View only (Thumbnails pending). |
+| **Project** | `blend` | 👁️ | View as image (Internal preview). |
+| **USD & CAD** | `usdz`, `usd`, `usda`, `usdc`, `step`, `stp`, `iges`, `igs` | 🚧 | Planned support. |
 
 ### 🔡 Fonts
 | Formats | Status | Notes |
 | :--- | :---: | :--- |
 | `ttf`, `otf`, `ttc`, `woff`, `woff2` | ✅ | Full support (Thumb + View). |
+| `eof` | 🚧 | Planned support. |
 
 ### 🎬 Video & Audio
 | Category | Formats | Status | Method |
 | :--- | :--- | :---: | :--- |
 | **Native Video** | `mp4`, `m4v`, `mov`, `qt` | ✅ | Native browser playback. |
 | **Transcoded Video** | `webm`, `wmv`, `asf`, `mkv`, `flv`, `f4v`, `avi`, `divx`, `mxf`, `ts`, `mts`, `vob`, `m2ts`, `3gp`, `3g2`, `wtv`, `rm`, `rmvb`, `ogv` | ✅ | HLS Streaming. |
-| **Linear Video** | `swf`, `m2v`, `mpg`, `mpeg`, `mjpeg`, `mjpg`, `hevc` | ✅ | Linear HLS for legacy formats. |
+| **Linear Video** | `swf`, `m2v`, `mpg`, `mpeg`, `mjpeg`, `mjpg`, `hevc`, `h264`, `h265`, `y4m` | ✅ | Linear HLS for legacy/raw formats. |
+| **Video Projects** | `aep`, `prproj`, `fcpxml`, `drp` | 🚧 | Planned support (Icons). |
 | **Native Audio** | `mp3`, `wav`, `aac`, `m4a`, `m4r`, `flac`, `mp2` | ✅* | Native browser playback. |
-| **Transcoded Audio** | `opus`, `oga`, `ogg`, `wma`, `ac3`, `dts`, `wv`, `aifc`, `amr`, `ape`, `spx`, `ra`, `mka`, `aiff`, `aif` | ✅* | HLS / Linear HLS Streaming. |
+| **Transcoded Audio** | `opus`, `oga`, `ogg`, `wma`, `ac3`, `dts`, `wv`, `aifc`, `amr`, `ape`, `spx`, `ra`, `mka`, `aiff`, `aif`, `caf`, `aax`, `mid`, `midi`, `bwf` | ✅* | HLS / Linear HLS Streaming. |
 
  ---
  
