@@ -17,12 +17,18 @@ impl FfmpegTranscoder {
     /// Create a new transcoder with the given cache
     pub fn new(cache: TranscodeCache) -> Self {
         // Use the centralized FFmpeg path detection from crate::ffmpeg
-        let ffmpeg_path = crate::media::ffmpeg::get_ffmpeg_path(None)
+        // We use Wry as default runtime here for type inference
+        let ffmpeg_path = crate::media::ffmpeg::get_ffmpeg_path::<tauri::Wry>(None)
             .unwrap_or_else(|| PathBuf::from("ffmpeg"));
         Self { ffmpeg_path, cache }
     }
 
-    // with_app_handle removed as it was unused
+    /// Create a new transcoder with the given cache and app handle for bundled FFmpeg
+    pub fn new_with_app<R: tauri::Runtime>(cache: TranscodeCache, app: &tauri::AppHandle<R>) -> Self {
+        let ffmpeg_path = crate::media::ffmpeg::get_ffmpeg_path(Some(app))
+            .unwrap_or_else(|| PathBuf::from("ffmpeg"));
+        Self { ffmpeg_path, cache }
+    }
 
     /// Check if FFmpeg is available
     pub fn is_available(&self) -> bool {
@@ -171,7 +177,7 @@ mod tests {
     #[test]
     fn test_ffmpeg_detection() {
         // This test checks if we can find FFmpeg via the centralized path detection
-        let found = crate::media::ffmpeg::get_ffmpeg_path(None);
+        let found = crate::media::ffmpeg::get_ffmpeg_path::<tauri::Wry>(None);
         println!("FFmpeg found at: {:?}", found);
     }
 }

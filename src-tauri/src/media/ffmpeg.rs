@@ -6,19 +6,15 @@
 //! - Design: psd, psb, ai, eps, svg, tiff
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::io::Read;
+use std::time::Duration;
+use wait_timeout::ChildExt;
 use tauri::Manager;
 use crate::error::{AppError, AppResult};
 
-
 /// Get the path to the FFmpeg binary
-///
-/// Searches in order:
-/// 1. Bundled in resources (production)
-/// 2. Bundled in src-tauri/ffmpeg (development)
-/// 3. System PATH
-pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf> {
-    // Try bundled FFmpeg in resources (production)
+pub fn get_ffmpeg_path<R: tauri::Runtime>(app_handle: Option<&tauri::AppHandle<R>>) -> Option<PathBuf> {
     if let Some(handle) = app_handle {
         if let Ok(resource_dir) = handle.path().resource_dir() {
             let bundled_path = if cfg!(target_os = "windows") {
@@ -33,11 +29,7 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
         }
     }
 
-    // Try bundled FFmpeg in src-tauri/ffmpeg (development)
-    // The binary is at: src-tauri/ffmpeg/ffmpeg
-    // Current exe is at: src-tauri/target/debug/mundam
     if let Ok(exe_path) = std::env::current_exe() {
-        // Go up from target/debug to src-tauri
         if let Some(target_dir) = exe_path.parent() {
             if let Some(debug_dir) = target_dir.parent() {
                 if let Some(src_tauri) = debug_dir.parent() {
@@ -50,7 +42,6 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
         }
     }
 
-    // Fallback to system FFmpeg
     if Command::new("ffmpeg").arg("-version").output().map(|o| o.status.success()).unwrap_or(false) {
         return Some(PathBuf::from("ffmpeg"));
     }
@@ -58,19 +49,36 @@ pub fn get_ffmpeg_path(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf>
     None
 }
 
-
-/// Check if FFmpeg is available (system or bundled)
 pub fn is_ffmpeg_available() -> bool {
-    get_ffmpeg_path(None).is_some()
+    get_ffmpeg_path::<tauri::Wry>(None).is_some()
 }
 
+/// Helper to run a command with a timeout to avoid application freezes.
+fn run_command_with_timeout(mut cmd: Command, timeout_secs: u64) -> AppResult<std::process::Output> {
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
 
-/// Generate a thumbnail using FFmpeg subprocess
-///
-/// This handles:
-/// - RAW camera files (cr2, arw, nef, etc.)
-/// - Modern codecs (heic, avif, jxl)
-/// - Design files (psd first layer, svg, tiff)
+    match child.wait_timeout(Duration::from_secs(timeout_secs))? {
+        Some(status) => {
+            let mut stdout = Vec::new();
+            let mut stderr = Vec::new();
+            if let Some(mut s) = child.stdout {
+                 s.read_to_end(&mut stdout).ok();
+            }
+            if let Some(mut s) = child.stderr {
+                 s.read_to_end(&mut stderr).ok();
+            }
+            Ok(std::process::Output { status, stdout, stderr })
+        }
+        None => {
+            child.kill().ok();
+            Err(AppError::Transcoding(format!("Command timed out after {}s", timeout_secs)))
+        }
+    }
+}
+
 pub fn generate_with_ffmpeg(
     ffmpeg_path: &Path,
     input_path: &Path,
@@ -81,9 +89,6 @@ pub fn generate_with_ffmpeg(
     let input_str = input_path.to_string_lossy();
     let output_str = output_path.to_string_lossy();
 
-    // FFmpeg command for thumbnail generation:
-    // Try seeking 1 second first (better for movies)
-    // If that fails, try 0 seconds (better for short clips/SWF)
     let run_ffmpeg = |time: Option<&str>| -> AppResult<()> {
         let mut args = vec![
             "-hide_banner".to_string(),
@@ -106,9 +111,10 @@ pub fn generate_with_ffmpeg(
             output_str.to_string(),
         ]);
 
-        let output = Command::new(ffmpeg_path)
-            .args(&args)
-            .output()?;
+        let mut cmd = Command::new(ffmpeg_path);
+        cmd.args(&args);
+
+        let output = run_command_with_timeout(cmd, 15)?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -117,24 +123,19 @@ pub fn generate_with_ffmpeg(
         Ok(())
     };
 
-    // If it's an image, skip seeking logic entirely and just convert
     if !is_video {
         if let Err(e) = run_ffmpeg(None) {
              eprintln!("FFmpeg image conversion failed for {}: {}", input_str, e);
              return Err(AppError::Transcoding(format!("FFmpeg failed: {}", e)));
         }
-        // Verify output was created
         if !output_path.exists() {
             return Err(AppError::Transcoding("FFmpeg did not create output file".to_string()));
         }
         return Ok(());
     }
 
-    // First attempt at 1s
     if let Err(e1) = run_ffmpeg(Some("00:00:01")) {
-        // Second attempt at 0s
         if let Err(e2) = run_ffmpeg(Some("00:00:00")) {
-            // Third attempt: No seek (let ffmpeg find first frame automatically)
             if let Err(e3) = run_ffmpeg(None) {
                  eprintln!("Thumbnail ffmpeg failed for {}: 1s err: {}, 0s err: {}, no-seek err: {}", input_str, e1, e2, e3);
                  return Err(AppError::Transcoding(format!("FFmpeg failed: {}", e3)));
@@ -142,7 +143,6 @@ pub fn generate_with_ffmpeg(
         }
     }
 
-    // Verify output was created
     if !output_path.exists() {
         return Err(AppError::Transcoding("FFmpeg did not create output file".to_string()));
     }
@@ -150,13 +150,8 @@ pub fn generate_with_ffmpeg(
     Ok(())
 }
 
-/// Generate thumbnail with fallback strategies
-///
-/// 1. Try FFmpeg from bundled resources
-/// 2. Try system FFmpeg
-/// 3. Return error if neither works
-pub fn generate_thumbnail_ffmpeg_full(
-    app_handle: Option<&tauri::AppHandle>,
+pub fn generate_thumbnail_ffmpeg_full<R: tauri::Runtime>(
+    app_handle: Option<&tauri::AppHandle<R>>,
     input_path: &Path,
     output_path: &Path,
     size_px: u32,
@@ -169,29 +164,25 @@ pub fn generate_thumbnail_ffmpeg_full(
         .map_err(|e| AppError::Transcoding(e.to_string()))
 }
 
-/// Extract normalized audio waveform data using FFmpeg
-pub fn get_audio_waveform(
-    app_handle: &tauri::AppHandle,
+pub fn get_audio_waveform<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
     input_path: &Path,
 ) -> AppResult<Vec<f32>> {
     let ffmpeg_path = get_ffmpeg_path(Some(app_handle))
         .ok_or_else(|| AppError::Transcoding("FFmpeg not found".to_string()))?;
 
-    // Use a low sample rate (100Hz) to extract peaks quickly
-    // -ar 100: Resample to 100Hz
-    // -ac 1: Downmix to mono
-    // -f f32le: Output 32-bit floats
-    let output = Command::new(ffmpeg_path)
-        .args([
-            "-hide_banner",
-            "-loglevel", "error",
-            "-i", &input_path.to_string_lossy(),
-            "-ar", "100",
-            "-ac", "1",
-            "-f", "f32le",
-            "-",
-        ])
-        .output()?;
+    let mut cmd = Command::new(ffmpeg_path);
+    cmd.args([
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", &input_path.to_string_lossy(),
+        "-ar", "100",
+        "-ac", "1",
+        "-f", "f32le",
+        "-",
+    ]);
+
+    let output = run_command_with_timeout(cmd, 30)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -211,7 +202,6 @@ pub fn get_audio_waveform(
         return Ok(vec![]);
     }
 
-    // Downsample to exactly 500 points for a consistent UI waveform
     let target_points = 500;
     let result = if floats.len() <= target_points {
         floats
@@ -223,7 +213,6 @@ pub fn get_audio_waveform(
             .collect()
     };
 
-    // Global normalization
     let max = result.iter().fold(0.0f32, |max, &val| max.max(val));
     if max > 0.0 {
         Ok(result.iter().map(|&v| v / max).collect())
@@ -232,10 +221,8 @@ pub fn get_audio_waveform(
     }
 }
 
-/// Extract a single frame (usually the first) to memory as JPEG data.
-/// Handles tone mapping for HDR files automatically.
-pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
-    let ffmpeg_path = get_ffmpeg_path(None)
+pub fn extract_frame_to_memory<R: tauri::Runtime>(app_handle: Option<&tauri::AppHandle<R>>, input_path: &Path) -> AppResult<Vec<u8>> {
+    let ffmpeg_path = get_ffmpeg_path(app_handle)
         .ok_or_else(|| AppError::Transcoding("FFmpeg not found".to_string()))?;
 
     let input_str = input_path.to_string_lossy();
@@ -246,7 +233,6 @@ pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
         "-loglevel".to_string(), "error".to_string(),
     ];
 
-    // Seek logic for videos (same as generate_with_ffmpeg)
     let is_video = matches!(ext.as_str(),
         "mp4" | "mkv" | "mov" | "webm" | "avi" | "wmv" | "flv" | "m4v" | "mxf" |
         "asf" | "ts" | "mts" | "m2ts" | "vob" | "3gp" | "rm" | "ogv" | "swf" | "mpg" | "mpeg" | "m2v"
@@ -259,9 +245,7 @@ pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
     args.push("-i".to_string());
     args.push(input_str.to_string());
 
-    // Tone mapping for HDR (Radiance HDR, OpenEXR, or HDR video)
     if ext == "hdr" || ext == "exr" {
-        // Simple but robust tonemapping
         args.push("-vf".to_string());
         args.push("zscale=t=linear:npl=100,tonemap=tonemap=hable,zscale=p=709:t=709".to_string());
     }
@@ -273,13 +257,12 @@ pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
         "-".to_string(),
     ]);
 
-    let output = Command::new(ffmpeg_path)
-        .args(&args)
-        .output()?;
+    let mut cmd = Command::new(&ffmpeg_path);
+    cmd.args(&args);
+    let output = run_command_with_timeout(cmd, 15)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // If it failed and we sought to 1s, try again without seek
         if is_video {
              let retry_args = vec![
                 "-hide_banner".to_string(),
@@ -289,10 +272,10 @@ pub fn extract_frame_to_memory(input_path: &Path) -> AppResult<Vec<u8>> {
                 "-f".to_string(), "image2".to_string(),
                 "-c:v".to_string(), "mjpeg".to_string(),
                 "-".to_string(),
-            ];
-            let retry_output = Command::new(get_ffmpeg_path(None).unwrap())
-                .args(&retry_args)
-                .output()?;
+             ];
+            let mut retry_cmd = Command::new(&ffmpeg_path);
+            retry_cmd.args(&retry_args);
+            let retry_output = run_command_with_timeout(retry_cmd, 10)?;
 
             if retry_output.status.success() {
                 return Ok(retry_output.stdout);
@@ -310,8 +293,6 @@ mod tests {
 
     #[test]
     fn test_ffmpeg_available() {
-        // This test will pass if FFmpeg is installed on the system
         let available = is_ffmpeg_available();
-        // println!("FFmpeg available: {}", available);
     }
 }

@@ -36,7 +36,8 @@
     ],
     "resources": {
       "ffmpeg/*": "ffmpeg/",
-      "assimp/*": "assimp/"
+      "assimp/*": "assimp/",
+      "binaries/pdfium/*": "binaries/pdfium/"
     }
   }
 }

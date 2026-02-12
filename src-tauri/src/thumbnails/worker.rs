@@ -86,6 +86,7 @@ impl ThumbnailWorker {
                 // Clone thumb_dir for the move closure
                 let thumb_dir_clone = thumb_dir.clone();
                 let num_threads = config.thumbnail_threads;
+                let app_for_blocking = app.clone();
 
                 // Use a blocking thread for CPU-intensive work
                 let db_updates = tauri::async_runtime::spawn_blocking(move || {
@@ -111,7 +112,7 @@ impl ThumbnailWorker {
 
 
                                 // Generate thumbnail
-                                match generate_thumbnail(input_path, &thumb_dir_clone, &thumb_name, 300) {
+                                match generate_thumbnail(Some(&app_for_blocking), input_path, &thumb_dir_clone, &thumb_name, 300) {
                                     Ok(generated_filename) => {
                                         (*id, Ok(generated_filename))
                                     }

@@ -87,7 +87,7 @@ pub async fn transcode_file(
         .app_local_data_dir()?;
 
     let cache = TranscodeCache::new(&app_data);
-    let transcoder = FfmpegTranscoder::new(cache);
+    let transcoder = FfmpegTranscoder::new_with_app(cache, &app);
 
     // Check if FFmpeg is available
     if !transcoder.is_available() {
@@ -159,7 +159,7 @@ pub fn clear_cache(app: AppHandle) -> AppResult<usize> {
 pub fn ffmpeg_available(app: AppHandle) -> bool {
     if let Ok(app_data) = app.path().app_local_data_dir() {
         let cache = TranscodeCache::new(&app_data);
-        let transcoder = FfmpegTranscoder::new(cache);
+        let transcoder = FfmpegTranscoder::new_with_app(cache, &app);
         transcoder.is_available()
     } else {
         false

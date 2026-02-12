@@ -16,8 +16,8 @@ pub fn register_all<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bui
         .register_uri_scheme_protocol("thumb", move |ctx, request| {
             thumb::handler(ctx.app_handle(), &request)
         })
-        .register_uri_scheme_protocol("image", move |_ctx, request| {
-            image::handler(&request)
+        .register_uri_scheme_protocol("image", move |ctx, request| {
+            image::handler(ctx.app_handle(), &request)
         })
         .register_uri_scheme_protocol("audio", move |_ctx, request| {
             audio::handler(&request)
