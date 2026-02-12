@@ -1,4 +1,5 @@
 pub mod binary_jpeg;
+pub mod aseprite;
 
 use std::path::Path;
 use std::io::Read;
@@ -106,6 +107,9 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                 "clip" | "xmind" => {
                     let data = extract_zip_preview(path)?;
                     Ok((data, "image/png".to_string()))
+                },
+                "aseprite" | "ase" => {
+                    aseprite::extract_aseprite_preview(path)
                 },
                 "blend" | "xcf" => {
                     let (data, mime) = binary_jpeg::extract_any_embedded(path)?;

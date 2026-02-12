@@ -29,7 +29,7 @@ imagesize = "0.13"
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full", "time"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio", "chrono", "macros"] }
-image = { version = "0.25.9", features = ["webp", "hdr", "exr", "dds", "tga", "png", "tiff"] }
+image = { version = "0.25.9", features = ["webp", "hdr", "exr", "dds", "tga", "png", "tiff", "gif"] }
 fast_image_resize = "6.0.0"
 mime_guess = "2.0"
 percent-encoding = "2.3"
@@ -49,6 +49,7 @@ tiny-skia = "0.11" # Backend for resvg
 wuff = "0.2.3"
 psd = "0.3"
 urlencoding = "2.1"
+asefile = "0.3.7"
 
 # HLS Streaming Server
 axum = "0.7"
