@@ -83,7 +83,7 @@ pub fn generate_thumbnail<R: tauri::Runtime>(
     let ffmpeg_available = crate::media::ffmpeg::is_ffmpeg_available();
 
     let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-    let is_special_project = ["afphoto", "afdesign", "afpub", "clip", "xmind", "xcf", "aseprite", "ase"].contains(&ext.as_str());
+    let is_special_project = ["afphoto", "afdesign", "afpub", "clip", "xmind", "xcf", "aseprite", "ase", "mdp", "sketch", "fig"].contains(&ext.as_str());
 
     // Explicitly exclude RAW formats from FFmpeg priority
     let is_raw_format = matches!(strategy, ThumbnailStrategy::Raw) || [

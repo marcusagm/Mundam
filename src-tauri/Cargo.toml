@@ -64,6 +64,8 @@ rsraw = "0.1"
 base64 = "0.22"
 wait-timeout = "0.2"
 byteorder = "1.5"
+flate2 = "1.0"
+quick-xml = "0.37"
 
 
 

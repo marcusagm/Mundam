@@ -11,8 +11,10 @@ pub enum XcfError {
     Io(#[from] std::io::Error),
     #[error("Invalid XCF format")]
     InvalidFormat,
+    #[allow(dead_code)]
     #[error("Unsupported XCF version: {0}")]
     UnsupportedVersion(u16),
+    #[allow(dead_code)]
     #[error("Unsupported color depth or type")]
     UnsupportedColor,
     #[error("No layers found in XCF")]

@@ -416,6 +416,15 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         playback: PlaybackStrategy::None,
     },
     FileFormat {
+        name: "MediBang Project",
+        extensions: &["mdp"],
+        mime_types: &["application/x-medibang-mdp"],
+        type_category: MediaType::Project,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
+        playback: PlaybackStrategy::None,
+    },
+    FileFormat {
         name: "Figma Project",
         extensions: &["fig"],
         mime_types: &["application/x-figma"],

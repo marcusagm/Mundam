@@ -3,6 +3,7 @@ pub mod aseprite;
 pub mod xcf;
 pub mod sketch;
 pub mod clip;
+pub mod mdp;
 
 use std::path::Path;
 use std::io::Read;
@@ -126,6 +127,9 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                 },
                 "xcf" => {
                     xcf::extract_xcf_preview(path)
+                },
+                "mdp" => {
+                    mdp::extract_mdp_preview(path)
                 },
                 "blend" => {
                     let (data, mime) = binary_jpeg::extract_any_embedded(path)?;
