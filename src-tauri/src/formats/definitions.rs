@@ -420,8 +420,8 @@ pub const SUPPORTED_FORMATS: &[FileFormat] = &[
         extensions: &["fig"],
         mime_types: &["application/x-figma"],
         type_category: MediaType::Project,
-        strategy: ThumbnailStrategy::Icon,
-        preview_strategy: PreviewStrategy::None,
+        strategy: ThumbnailStrategy::NativeExtractor,
+        preview_strategy: PreviewStrategy::NativeExtractor,
         playback: PlaybackStrategy::None,
     },
     FileFormat {

@@ -137,6 +137,10 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                     let (data, mime) = binary_jpeg::extract_any_embedded(path)?;
                     Ok((data, mime))
                 },
+                "fig" => {
+                    let data = extract_figma_preview(path)?;
+                    Ok((data, "image/png".to_string()))
+                },
                 _ => Err("No native extractor for this extension".into()),
             }
         },
@@ -209,6 +213,30 @@ fn extract_krita_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Err
     }
 
     Err("No valid preview (mergedimage.png or preview.png) found in Krita file".into())
+}
+
+/// Specialized extractor for Figma files (.fig).
+/// Most modern .fig files (from 'Save local copy') are ZIP archives with a 'thumbnail.png' at the root.
+fn extract_figma_preview(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let file = std::fs::File::open(path)?;
+
+    // Attempt to open as ZIP. Fallback to binary scanner if it's a legacy fig-kiwi file.
+    let mut archive = match zip::ZipArchive::new(file) {
+        Ok(archive) => archive,
+        Err(_) => {
+            // Non-ZIP .fig files might have embedded JPEGs or thumbnails in XMP
+            let (data, _) = binary_jpeg::extract_any_embedded(path)?;
+            return Ok(data);
+        }
+    };
+
+    if let Ok(mut entry) = archive.by_name("thumbnail.png") {
+        let mut buffer = Vec::new();
+        entry.read_to_end(&mut buffer)?;
+        return Ok(buffer);
+    }
+
+    Err("No thumbnail.png found in Figma ZIP archive".into())
 }
 
 fn convert_to_png(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
