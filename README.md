@@ -8,6 +8,12 @@
 
 Built with **Tauri v2**, **Rust**, and **SolidJS**, Mundam combines the raw power of native code with the reactivity of modern web interfaces.
 
+### 💖 Support the Project
+
+**Mundam** is a free, open-source project built to empower artists. If this tool helps your creative process and you'd like to support its continuous development and maintenance, consider making a donation. Your support keeps the project alive, independent, and free for everyone!
+
+[![PayPal](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=86CZGZQXBBQ6C)
+
 ---
 
 ## 🚀 Key Features
