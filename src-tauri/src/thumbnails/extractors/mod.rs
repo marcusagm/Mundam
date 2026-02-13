@@ -4,6 +4,8 @@ pub mod xcf;
 pub mod sketch;
 pub mod clip;
 pub mod mdp;
+pub mod sai;
+pub mod sai2;
 
 use std::path::Path;
 use std::io::Read;
@@ -130,6 +132,14 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                 },
                 "mdp" => {
                     mdp::extract_mdp_preview(path)
+                },
+                // PaintTool SAI
+                "sai" => {
+                    sai::extract_sai_preview(path)
+                },
+                // PaintTool SAI v2
+                "sai2" => {
+                    sai2::extract_sai2_preview(path)
                 },
                 "blend" => {
                     let (data, mime) = binary_jpeg::extract_any_embedded(path)?;
