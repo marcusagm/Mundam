@@ -1,6 +1,7 @@
 pub mod binary_jpeg;
 pub mod aseprite;
 pub mod xcf;
+pub mod clip;
 
 use std::path::Path;
 use std::io::Read;
@@ -105,9 +106,12 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                     Err("No preview found in EPS".into())
                 },
                 // ZIP-based Project Previews
-                "clip" | "xmind" => {
+                "xmind" => {
                     let data = extract_zip_preview(path)?;
                     Ok((data, "image/png".to_string()))
+                },
+                "clip" => {
+                    clip::extract_clip_preview(path)
                 },
                 "kra" | "krz" | "kra~" => {
                     let data = extract_krita_preview(path)?;
