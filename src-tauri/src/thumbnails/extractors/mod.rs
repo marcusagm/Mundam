@@ -1,5 +1,6 @@
 pub mod binary_jpeg;
 pub mod aseprite;
+pub mod xcf;
 
 use std::path::Path;
 use std::io::Read;
@@ -115,7 +116,10 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                 "aseprite" | "ase" => {
                     aseprite::extract_aseprite_preview(path)
                 },
-                "blend" | "xcf" => {
+                "xcf" => {
+                    xcf::extract_xcf_preview(path)
+                },
+                "blend" => {
                     let (data, mime) = binary_jpeg::extract_any_embedded(path)?;
                     Ok((data, mime))
                 },

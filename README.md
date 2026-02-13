@@ -136,14 +136,14 @@ Total registered formats: 137 extensions
 | Category | Formats | Status | Notes |
 | :--- | :--- | :---: | :--- |
 | **Standards** | `jpg`, `jpeg`, `jpe`, `jfif`, `webp`, `png`, `tiff`, `gif`, `bmp`, `ico`, `tga` | ✅ | Full support (Thumb + View). |
-| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind`, `aseprite`, `kra` | ✅ | Full support (Thumb + View). |
+| **Design** | `psd`, `psb`, `afdesign`, `afphoto`, `afpub`, `xmind`, `aseprite`, `kra`, `xcf` | ✅ | Full support (Thumb + View). |
 | **RAW** | `dng`, `cr2`, `nef`, `nrw`, `rw2`, `raf`, `orf`, `pef`, `erf`, `sr2`, `srf`, `cr3`, `crw`, `arw`, `3fr`, `srw`, `kdc` | ✅ | Full support (Thumb + View). |
-| **RAW (Stubs)** | `braw`, `r3d`, `ari`, `gpr`, `iiq`, `x3f`, `dcr`, `fff`, `iiq`, `mos` | �️ | Thumb only or Pending Enhancement. |
+| **RAW (Stubs)** | `braw`, `r3d`, `ari`, `gpr`, `iiq`, `x3f`, `dcr`, `fff`, `iiq`, `mos` | 🚧 | Planned support. |
 | **Specialized** | `pam`, `pbm`, `pgm`, `pnm`, `ppm`, `cur`, `heic`, `heif`, `avif`, `exr`, `dds` | ✅ | Full support (Thumb + View). |
 | **Vectors** | `svg` | ✅ | Full support (Thumb + View). |
-| **Publishing** | `indd`, `idml`, `sketch`, `fig`, `cdr`, `pdf` | 🚧 | Stubs or OS Dependent (Native Extractor). |
+| **Publishing** | `indd`, `idml`, `sketch`, `fig`, `cdr`, `pdf`, `mdp` | 🚧 | Planned support. |
 | **Adobe/OS** | `ai`, `eps` | 👁️ | View usually works via WebView/OS. |
-| **No Support** | `clip`, `xcf` | ❌ | No thumbnail or visualization support yet. |
+| **No Support** | `clip` | ❌ | No thumbnail or visualization support yet. |
 
 ### 🧊 3D Models
 | Category | Formats | Status | Notes |

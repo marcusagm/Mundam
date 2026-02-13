@@ -83,7 +83,7 @@ pub fn generate_thumbnail<R: tauri::Runtime>(
     let ffmpeg_available = crate::media::ffmpeg::is_ffmpeg_available();
 
     let ext = input_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-    let is_zip_project = ["afphoto", "afdesign", "afpub", "clip", "xmind"].contains(&ext.as_str());
+    let is_special_project = ["afphoto", "afdesign", "afpub", "clip", "xmind", "xcf", "aseprite", "ase"].contains(&ext.as_str());
 
     // Explicitly exclude RAW formats from FFmpeg priority
     let is_raw_format = matches!(strategy, ThumbnailStrategy::Raw) || [
@@ -92,7 +92,7 @@ pub fn generate_thumbnail<R: tauri::Runtime>(
         "cine", "bay", "cs1", "sti", "qtk", "pxn", "bmq", "rwz", "rdc", "raw", "mef"
     ].contains(&ext.as_str());
 
-    if ffmpeg_available && !is_zip_project && !is_raw_format && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
+    if ffmpeg_available && !is_special_project && !is_raw_format && matches!(strategy, ThumbnailStrategy::Ffmpeg | ThumbnailStrategy::NativeImage | ThumbnailStrategy::NativeExtractor) {
          if let Ok(_) = crate::media::ffmpeg::generate_thumbnail_ffmpeg_full(app_handle, input_path, &output_path, size_px, is_video) {
              let elapsed = start.elapsed();
              println!("THUMB (FFmpeg Priority): SUCCESS | {:?} | {:?}", elapsed, input_path.file_name().unwrap_or_default());
@@ -130,9 +130,7 @@ pub fn generate_thumbnail<R: tauri::Runtime>(
     };
 
     let elapsed = start.elapsed();
-    if elapsed.as_millis() > 100 {
-        println!("THUMB: {:?} | {:?} | {:?}", strategy, elapsed, input_path.file_name().unwrap_or_default());
-    }
+    println!("THUMB: {:?} | {:?} | {:?}", strategy, elapsed, input_path.file_name().unwrap_or_default());
 
     final_result
 }
