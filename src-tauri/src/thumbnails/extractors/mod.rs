@@ -1,6 +1,7 @@
 pub mod binary_jpeg;
 pub mod aseprite;
 pub mod xcf;
+pub mod sketch;
 pub mod clip;
 
 use std::path::Path;
@@ -112,6 +113,9 @@ pub fn extract_preview<R: Runtime>(app_handle: Option<&AppHandle<R>>, path: &Pat
                 },
                 "clip" => {
                     clip::extract_clip_preview(path)
+                },
+                "sketch" => {
+                    sketch::extract_sketch_preview(path)
                 },
                 "kra" | "krz" | "kra~" => {
                     let data = extract_krita_preview(path)?;
