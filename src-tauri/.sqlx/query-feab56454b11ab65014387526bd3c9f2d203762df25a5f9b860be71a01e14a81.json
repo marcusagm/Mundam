@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT \n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\", \n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\", \n            a.created_at as \"created_at: DateTime<Utc>\", \n            a.modified_at as \"modified_at: DateTime<Utc>\", \n            a.added_at as \"added_at: DateTime<Utc>\", \n            a.updated_at as \"updated_at: DateTime<Utc>\", \n            a.folder_id as \"folder_id?\", a.thumbnail_path as \"thumbnail_path?\", \n            a.rating as \"rating?\", a.notes as \"notes?\", \n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at: DateTime<Utc>\", \n            m.width as \"width?\", m.height as \"height?\", \n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        WHERE a.file_size = ? \n          AND (? IS NULL OR a.state = ?)\n        ",
+  "query": "\n        SELECT \n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\", \n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\", \n            a.created_at as \"created_at: DateTime<Utc>\", \n            a.modified_at as \"modified_at: DateTime<Utc>\", \n            a.added_at as \"added_at: DateTime<Utc>\", \n            a.updated_at as \"updated_at: DateTime<Utc>\", \n            a.folder_id as \"folder_id?\", a.thumbnail_path as \"thumbnail_path?\", \n            a.rating as \"rating?\", a.notes as \"notes?\", \n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at?: DateTime<Utc>\", \n            m.width as \"width?\", m.height as \"height?\", \n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        WHERE a.file_size = ? \n          AND (? IS NULL OR a.state = ?)\n        ",
   "describe": {
     "columns": [
       {
@@ -84,7 +84,7 @@
         "type_info": "Bool"
       },
       {
-        "name": "deleted_at: DateTime<Utc>",
+        "name": "deleted_at?: DateTime<Utc>",
         "ordinal": 16,
         "type_info": "Datetime"
       },
@@ -148,5 +148,5 @@
       true
     ]
   },
-  "hash": "e5b23d286cfa9eb349aaa3153fec7094136f5685a2280db41f4a7c0dee86b801"
+  "hash": "feab56454b11ab65014387526bd3c9f2d203762df25a5f9b860be71a01e14a81"
 }

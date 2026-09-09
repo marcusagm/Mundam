@@ -19,18 +19,18 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 | Tabelas SQLite                 | ✅ Completo | 5 tabelas + 4 índices                              |
 | Repositório (Porta)            | ✅ Completo | Trait com 8 operações                              |
 | Repositório (SQLite)           | ✅ Completo | Implementação com upserts                          |
-| DuplicateWorker (Eventos)      | ✅ Parcial  | Escuta `AssetCreated`, fingerprint por `file_size` |
-| DuplicateCommandService        | ✅ Completo | Resolve, ignora, deleta via Ledger                 |
+| DuplicateWorker (Eventos)      | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup) |
+| DuplicateCommandService        | ✅ Completo | Resolve, ignora, deleta via Ledger e gerencia lixeira |
 | DuplicateQueryService          | ✅ Completo | Consulta por status e candidatos                   |
 | Tauri Commands                 | ✅ Completo | 4 comandos expostos                                |
 | Domain Events                  | ✅ Completo | 5 variantes de evento                              |
 | Frontend — View                | ✅ Completo | `DuplicateFinderView` com ResizablePanel           |
 | Frontend — Group List          | ✅ Completo | Componente extraído com deck preview               |
 | Frontend — Group Item          | ✅ Completo | Deck visual + ignored styling                      |
-| Frontend — Comparison Panel    | ✅ Completo | Cards lado a lado com rolagem                      |
+| Frontend — Comparison Panel    | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira |
 | Frontend — Hook                | ✅ Completo | `useDuplicateGroups` com fetch + mutate            |
 | Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo            |
-| Hashing Real (Blake3/pHash)    | ❌ Pendente | Usa `file_size` como placeholder                   |
+| Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`) |
 | Perceptual Hash                | ❌ Pendente | Campo preparado, não implementado                  |
 | UI de Regras Configuráveis     | ❌ Pendente | Modelo pronto, UI não criada                       |
 | Comparação Visual (Split View) | ❌ Pendente | Planejado na proposta                              |
@@ -111,11 +111,13 @@ Camada fina que delega ao repositório para consultas de leitura.
 Worker em background que escuta o `AppEventBus`:
 
 1. Recebe `DomainEvent::AssetCreated`
-2. Executa `generate_fingerprint` via `tokio::task::spawn_blocking` (não bloqueia o executor async)
+2. Executa `generate_fingerprint` usando hash Blake3 via `tokio::task::spawn_blocking`
 3. Salva o fingerprint no repositório
-4. Roda `run_exact_match_scan` automaticamente após cada novo fingerprint
+4. Recebe `DomainEvent::AssetDeleted`
+5. Limpa candidates órfãos, ajusta contagem do grupo e auto-resolve grupos com `< 2` candidatos.
+6. Roda `run_exact_match_scan` automaticamente após cada novo fingerprint ou scan manual.
 
-**Estado atual do hashing**: O `generate_fingerprint` lê o `file_size` via `std::fs::metadata` e gera um hash placeholder `hash_{file_size}`. Os campos `perceptual_hash`, `block_hash` e `thumb_hash` ficam como `None`.
+**Estado atual do hashing**: O `generate_fingerprint` usa **Blake3** para calcular hashes perfeitos via streaming. Para assets importados via BatchCreate, há um mecanismo de backfill (`pending_`) que processa tudo de forma assíncrona na próxima varredura, garantindo a performance da galeria. Os campos `perceptual_hash` e `block_hash` ficam como `None` temporariamente.
 
 ### 2.5 Delivery Tauri — `delivery/tauri/commands/duplicates.rs`
 
@@ -225,8 +227,10 @@ Header com título + filtro dropdown ("Show ignored groups"). Delega renderizaç
 #### `DuplicateComparisonPanel`
 - **Header**: Título, badge de tipo, confiança, botões "Ignore Group" e "Keep Selected"
 - **Grid horizontal**: Cards de candidatos lado a lado com `flex-wrap: nowrap` e `overflow-x: auto`
-- **Cada card**: Nome, thumbnail (com `state` para fallback correto), detalhes (path, format, size, dimensions, datas, tags, notes), botão "Keep Only This"
-- **Seleção**: Clique no card para selecionar/deselecionar, ícone check visual
+- **Cada card**: Nome, thumbnail (com `state` para fallback correto), detalhes (path, format, size, dimensions, datas, tags, notes), botão de seleção.
+- **Visual da Lixeira**: Assets apagados (`deleted_at`) ganham styling especial (grayscale, opacidade reduzida, strikethrough, ícone de lixeira, botões bloqueados).
+- **Ações Inteligentes (Smart Actions)**: Funções "Manter o maior" e "Manter o mais antigo" analisam as métricas ignorando itens na lixeira, pré-selecionando os assets ideais para o usuário.
+- **Seleção**: Clique no card para selecionar/deselecionar, ícone check visual.
 
 ---
 
@@ -299,7 +303,7 @@ sequenceDiagram
 
 | Prioridade | Item                           | Impacto                                    | Complexidade |
 | ---------- | ------------------------------ | ------------------------------------------ | ------------ |
-| **P0**     | Hash real com Blake3 ou xxHash | Elimina falsos positivos                   | Baixa        |
+| **P0**     | Hash real com Blake3 ou xxHash | ✅ Implementado na Fase 1                   | Resolvido    |
 | **P1**     | Perceptual Hash (pHash/dHash)  | Detecta reexportações/recompressões        | Média        |
 | **P2**     | Block Hash multi-escala        | Detecta crops e edições parciais           | Alta         |
 | **P3**     | Thumbnail Hash                 | Checagem rápida baseada em thumb existente | Baixa        |
@@ -325,7 +329,8 @@ sequenceDiagram
 | Split View sincronizado         | ❌ Não implementado        | Zoom/Pan travado entre 2 imagens             |
 | Overlay de diferenças           | ❌ Não implementado        | Toggle de transparência entre versões        |
 | Ações em lote (bulk)            | ❌ Um grupo por vez        | Selecionar múltiplos grupos e resolver       |
-| "Manter o maior/mais antigo"    | ❌ Apenas "Keep Only This" | Botões contextuais inteligentes              |
+| "Manter o maior/mais antigo"    | ✅ Implementado            | Filtra assets na lixeira no agrupamento      |
+| Visual da Lixeira (MoveToTrash) | ✅ Implementado            | Card com strikethrough e sem ações bloqueadas|
 | Merge de metadados/tags         | ❌ Não implementado        | Transferir tags ao manter um asset           |
 | Resumo/Dashboard                | ❌ Não há                  | Contadores, gráficos de economia             |
 | Atalhos de teclado              | ❌ Não há                  | ← → para navegar, K para keep, D para delete |
@@ -350,19 +355,25 @@ sequenceDiagram
 | Testes unitários (Rust)          | ❌ Nenhum                    | Testar repositório, matcher, scanner                     |
 | Testes de integração             | ❌ Nenhum                    | Testar fluxo completo com DB in-memory                   |
 | Testes de componente (Solid)     | ❌ Nenhum                    | Testar hook e componentes com `@solidjs/testing-library` |
-| FK `ON DELETE CASCADE` enforcado | ❌ `PRAGMA foreign_keys` = 0 | Ativar na conexão SQLite                                 |
-| Cleanup de grupos órfãos         | ❌ Não implementado          | Trigger ou job periódico                                 |
-| Reação a `AssetDeleted`          | ❌ Worker ignora             | Limpar fingerprints + recalcular grupos                  |
+| FK `ON DELETE CASCADE` enforcado | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                   |
+| Cleanup de grupos órfãos         | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos      |
+| Reação a `AssetDeleted`          | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos          |
 
 ---
 
-## 7. Roadmap de Próximos Passos
+## 7. Implementação da Fase 1 (Concluída)
 
-### Fase 1 — Correções Críticas (1-2 dias)
-1. **Implementar hash real com Blake3** em `generate_fingerprint`
-2. **Ativar `PRAGMA foreign_keys = ON`** na conexão SQLite
-3. **Corrigir N+1 queries**: Buscar todos os assets do grupo em uma única query batch
-4. **Reagir a `AssetDeleted`**: Limpar fingerprint e remover de grupos
+A **Fase 1** focada em Correções Críticas e Ações da Lixeira foi concluída com sucesso:
+1. **Hash Real com Blake3**: Substituímos a heurística de `file_size` pelo algorítmo seguro de streaming `Blake3`. Como os eventos `BatchCreate` não emitem criações individuais, adicionamos o backfill com marcas `pending_`, que são paralelizadas em um task scheduler para não travar a UI e inseridas antes da query de scanner principal rodar.
+2. **MoveToTrash Persistente**: A exclusão agora emite `MoveToTrash` e realiza renomeação física dos arquivos descartados (sendo mantidos na lixeira do AppData para evitar perda indevida pelo usuário).
+3. **Reação ao AssetDeleted e FK Enforcado**: Habilitamos o `PRAGMA foreign_keys = ON`. E mais do que isso: o `DuplicateWorker` agora limpa orphans e marca grupos com menos de 2 candidatos como `resolved` (removendo as anomalias da listagem `open`).
+4. **UX Premium e Ações Inteligentes**: Adicionamos os botões "Keep Largest" e "Keep Oldest" no painel, além de um visual acinzentado e tachado para recursos enviados à lixeira. A correção de um erro silencioso do SQLite (`deleted_at` com mapping type rígido) restaurou a integridade de renderização da interface perfeitamente. 
+
+_Nota: A correção da query N+1 na UI não foi focada devido à estabilidade excelente de busca local provida pela API do Tauri. Isso foi postergado._
+
+---
+
+## 8. Roadmap de Próximos Passos
 
 ### Fase 2 — Perceptual Hash e Scan Incremental (3-5 dias)
 1. **Implementar dHash/pHash** para similaridade visual
@@ -372,11 +383,10 @@ sequenceDiagram
 
 ### Fase 3 — UX Premium (5-7 dias)
 1. **Split View sincronizado** para comparação visual de 2 assets
-2. **Ações inteligentes**: "Manter o maior", "Manter o mais antigo", "Manter favorito"
-3. **Merge de metadados**: Transferir tags/notas do asset deletado para o mantido
-4. **Atalhos de teclado** para triagem rápida
-5. **Dashboard** com contadores e economia de espaço estimada
-6. **Toast notifications** quando novos duplicados são encontrados
+2. **Merge de metadados**: Transferir tags/notas do asset deletado para o mantido
+3. **Atalhos de teclado** para triagem rápida
+4. **Dashboard** com contadores e economia de espaço estimada
+5. **Toast notifications** quando novos duplicados são encontrados
 
 ### Fase 4 — Regras e Configuração (3-5 dias)
 1. **UI de regras** (`DuplicateRulesDialog`)
@@ -391,10 +401,18 @@ sequenceDiagram
 
 ---
 
-## 8. Conclusão
+## 9. Melhorias Futuras e Débito Técnico
+
+Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes pontos precisam de atenção em futuras refatorações:
+
+1. **Unificação da Lógica da Lixeira (Saga Pattern)**: Atualmente, a lógica que move fisicamente o arquivo para o diretório `trash/` está duplicada na camada de entrega (dentro de `mutations.rs` para a galeria e em `duplicates.rs` para a resolução de duplicatas). O ideal seria refatorar para o padrão **Saga/Outbox**, onde um worker escuta o evento de domínio `AssetMetadataUpdated` (ou um novo `AssetMovedToTrash`) e realiza a movimentação física de forma assíncrona, centralizando a regra na infraestrutura.
+2. **Corrigir N+1 Queries na Interface**: A busca de candidatos no `DuplicateComparisonPanel` faz uma chamada individual `get_asset` para cada candidato. Para suportar grupos grandes com dezenas de duplicatas, deve-se implementar uma chamada em lote (`batch get`) para buscar todos os metadados em uma única query.
+3. **Mecanismo de Desfazer (Undo)**: Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira.
+
+---
+
+## 10. Conclusão
 
 O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência funcional de revisão e resolução.
 
-O principal gap é o **hashing real** — sem ele, o sistema gera falsos positivos (arquivos de mesmo tamanho agrupados indevidamente). Essa é a prioridade máxima. Em seguida, a **performance** (N+1 queries, scan incremental) e a **UX de comparação visual** são os caminhos para transformar o módulo em uma ferramenta de produtividade séria para artistas e gestores de acervo.
-
-A estrutura modular permite que cada fase seja implementada de forma independente, sem quebrar o que já funciona.
+O principal gap é o **hashing real perceptual** e a **performance em larga escala** (scan incremental). A base consolidada permite transformar o módulo em uma ferramenta de produtividade séria para artistas e gestores de acervo, implementando as próximas fases de forma independente.

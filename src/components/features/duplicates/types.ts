@@ -2,6 +2,7 @@ export interface DuplicateCandidate {
     id: string;
     name: string;
     size: string;
+    sizeBytes: number;
     dimensions: string;
     score: number;
     path: string;
@@ -14,6 +15,7 @@ export interface DuplicateCandidate {
     thumbnailUrl?: string;
     mediaType?: string;
     state?: string;
+    isTrashed?: boolean;
 }
 
 export interface DuplicateGroup {

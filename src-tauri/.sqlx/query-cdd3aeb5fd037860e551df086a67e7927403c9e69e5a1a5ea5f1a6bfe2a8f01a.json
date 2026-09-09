@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) as \"count: i32\" FROM duplicate_candidates WHERE group_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "count: i32",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cdd3aeb5fd037860e551df086a67e7927403c9e69e5a1a5ea5f1a6bfe2a8f01a"
+}

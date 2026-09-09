@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE duplicate_groups SET status = 'resolved', candidate_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "26ed13f611d6ab45665f9c327b796bdc4283b3957fa96715be2080631e8a2217"
+}

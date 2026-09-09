@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\",\n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\",\n            a.created_at as \"created_at: DateTime<Utc>\",\n            a.modified_at as \"modified_at: DateTime<Utc>\",\n            a.added_at as \"added_at: DateTime<Utc>\",\n            a.updated_at as \"updated_at: DateTime<Utc>\",\n            a.folder_id as \"folder_id?\",\n            a.thumbnail_path as \"thumbnail_path?\",\n            a.rating as \"rating: i64\",\n            a.notes as \"notes?\",\n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at: DateTime<Utc>\",\n            m.width as \"width: i64\",\n            m.height as \"height: i64\",\n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        WHERE a.id = ?\n        ",
+  "query": "\n        SELECT\n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\",\n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\",\n            a.created_at as \"created_at: DateTime<Utc>\",\n            a.modified_at as \"modified_at: DateTime<Utc>\",\n            a.added_at as \"added_at: DateTime<Utc>\",\n            a.updated_at as \"updated_at: DateTime<Utc>\",\n            a.folder_id as \"folder_id?\",\n            a.thumbnail_path as \"thumbnail_path?\",\n            m.width as \"width: i64\",\n            m.height as \"height: i64\",\n            a.rating as \"rating: i64\",\n            a.notes as \"notes?\",\n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at?: DateTime<Utc>\",\n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        ",
   "describe": {
     "columns": [
       {
@@ -69,34 +69,34 @@
         "type_info": "Text"
       },
       {
-        "name": "rating: i64",
+        "name": "width: i64",
         "ordinal": 13,
         "type_info": "Integer"
       },
       {
-        "name": "notes?",
+        "name": "height: i64",
         "ordinal": 14,
+        "type_info": "Integer"
+      },
+      {
+        "name": "rating: i64",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "notes?",
+        "ordinal": 16,
         "type_info": "Text"
       },
       {
         "name": "is_favorite: bool",
-        "ordinal": 15,
+        "ordinal": 17,
         "type_info": "Bool"
       },
       {
-        "name": "deleted_at: DateTime<Utc>",
-        "ordinal": 16,
-        "type_info": "Datetime"
-      },
-      {
-        "name": "width: i64",
-        "ordinal": 17,
-        "type_info": "Integer"
-      },
-      {
-        "name": "height: i64",
+        "name": "deleted_at?: DateTime<Utc>",
         "ordinal": 18,
-        "type_info": "Integer"
+        "type_info": "Datetime"
       },
       {
         "name": "duration_secs: f64",
@@ -120,7 +120,7 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
       true,
@@ -138,9 +138,9 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
-      true,
-      true,
       true,
       true,
       true,
@@ -148,5 +148,5 @@
       true
     ]
   },
-  "hash": "350af90071c39cada3f1c068938c9465e6afd1fd553798391188c2f45bd2c128"
+  "hash": "1cb0b8ba350853c52e5bd7b3a427676aee937d4f274534ad32afb2196d47c480"
 }

@@ -30,7 +30,8 @@ impl DbManager {
             .journal_mode(SqliteJournalMode::Wal)
             .synchronous(SqliteSynchronous::Normal)
             .busy_timeout(Duration::from_secs(30))
-            .log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(10));
+            .log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(10))
+            .foreign_keys(true);
         // PRAGMA default_cache_size is usually set via SQL query if needed,
         // but many are covered by SQLx options.
 

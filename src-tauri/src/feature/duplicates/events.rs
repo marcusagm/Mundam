@@ -94,27 +94,56 @@ impl DuplicateWorker {
                     }
                 }
             }
-            // For future: Handle AssetDeleted to clean up fingerprints, etc.
+            DomainEvent::AssetDeleted { asset_id, .. } => {
+                info!("DuplicateWorker: cleaning up fingerprint and candidates for deleted asset {}", asset_id);
+                
+                if let Err(error) = self.duplicates_repo.delete_fingerprint(&asset_id).await {
+                    error!("DuplicateWorker: failed to delete fingerprint for {}: {}", asset_id, error);
+                }
+
+                if let Err(error) = self.duplicates_repo.remove_candidate_from_groups(&asset_id).await {
+                    error!("DuplicateWorker: failed to remove candidate {} from groups: {}", asset_id, error);
+                }
+            }
             _ => {}
         }
     }
 
-    /// Synchronous function to read the file and compute hashes.
-    /// Runs inside `spawn_blocking`.
+    /// Synchronous function to read the file and compute a Blake3 content hash.
+    /// Runs inside `spawn_blocking` to avoid blocking the async executor.
+    ///
+    /// Uses streaming hashing via Blake3 to avoid loading the entire file into memory,
+    /// which is critical for large assets (RAW photos, videos, etc.).
     fn generate_fingerprint(
         asset_id: &str,
         path: &str,
         format: &str,
     ) -> Result<DuplicateFingerprint, String> {
+        use std::io::Read;
+
         // Read file size
         let metadata = std::fs::metadata(path)
-            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+            .map_err(|e| format!("Failed to read metadata for {}: {}", path, e))?;
             
         let file_size = metadata.len() as i64;
 
-        // TODO: Implement actual hashing logic (Blake3, Phash, etc.)
-        // This is a placeholder for the actual extraction pipeline.
-        let content_hash = Some(format!("hash_{}", file_size)); 
+        // Compute Blake3 hash using streaming (8KB chunks) to avoid loading the whole file
+        let mut file = std::fs::File::open(path)
+            .map_err(|e| format!("Failed to open file {}: {}", path, e))?;
+        
+        let mut hasher = blake3::Hasher::new();
+        let mut buffer = [0u8; 8192];
+        
+        loop {
+            let bytes_read = file.read(&mut buffer)
+                .map_err(|e| format!("Failed to read file {}: {}", path, e))?;
+            if bytes_read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..bytes_read]);
+        }
+
+        let content_hash = Some(hasher.finalize().to_hex().to_string());
         
         Ok(DuplicateFingerprint {
             asset_id: asset_id.to_string(),
@@ -129,7 +158,7 @@ impl DuplicateWorker {
             format_family: Some(format.to_string()),
             color_profile: None,
             orientation: None,
-            fingerprint_version: 1,
+            fingerprint_version: 2, // Bumped to v2 for Blake3 hashing
             updated_at: chrono::Utc::now(),
         })
     }

@@ -324,8 +324,9 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
             AppError::Database(e)
         })?;
 
-        // Backfill missing fingerprints for existing assets
-        // This ensures files added before the duplicate system was implemented are scanned
+        // Backfill missing fingerprints for existing assets.
+        // Assets added before the duplicate module get a placeholder hash
+        // that will be replaced with a real Blake3 hash on next access/rescan.
         sqlx::query!(
             r#"
             INSERT OR IGNORE INTO duplicate_fingerprints (
@@ -333,10 +334,10 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
             )
             SELECT 
                 a.id, 
-                'hash_' || CAST(a.file_size as TEXT), 
+                'pending_' || a.id, 
                 a.file_size, 
                 a.family, 
-                1, 
+                0, 
                 CURRENT_TIMESTAMP
             FROM assets a
             WHERE NOT EXISTS (
@@ -355,10 +356,12 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
             r#"
             SELECT content_hash, COUNT(asset_id) as count
             FROM duplicate_fingerprints df
-            WHERE content_hash IS NOT NULL AND NOT EXISTS (
+            WHERE content_hash IS NOT NULL 
+              AND content_hash NOT LIKE 'pending_%'
+              AND NOT EXISTS (
                 SELECT 1 FROM duplicate_candidates dc 
                 JOIN duplicate_groups dg ON dc.group_id = dg.id
-                WHERE dc.asset_id = df.asset_id AND dg.status = 'open'
+                WHERE dc.asset_id = df.asset_id AND dg.status IN ('open', 'ignored')
             )
             GROUP BY content_hash
             HAVING COUNT(asset_id) > 1
@@ -407,4 +410,178 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
         Ok(())
     }
+
+    async fn rehash_pending_fingerprints(&self) -> AppResult<usize> {
+        // Find all fingerprints that still have pending or legacy placeholder hashes
+        let pending_assets = sqlx::query!(
+            r#"
+            SELECT df.asset_id as "asset_id!", a.path as "path!"
+            FROM duplicate_fingerprints df
+            JOIN assets a ON df.asset_id = a.id
+            WHERE df.content_hash LIKE 'pending_%' 
+               OR df.content_hash LIKE 'hash_%'
+               OR df.fingerprint_version < 2
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to query pending fingerprints: {:?}", e);
+            AppError::Database(e)
+        })?;
+
+        let total_pending = pending_assets.len();
+        if total_pending == 0 {
+            tracing::info!("rehash_pending_fingerprints: no pending fingerprints found");
+            return Ok(0);
+        }
+
+        tracing::info!("rehash_pending_fingerprints: found {} fingerprints to rehash", total_pending);
+
+        let mut rehashed_count: usize = 0;
+
+        for record in pending_assets {
+            let asset_id = record.asset_id.clone();
+            let path = record.path.clone();
+
+            // Compute Blake3 hash in a blocking task
+            let hash_result = tokio::task::spawn_blocking(move || {
+                use std::io::Read;
+                let mut file = match std::fs::File::open(&path) {
+                    Ok(file) => file,
+                    Err(error) => return Err(format!("Cannot open {}: {}", path, error)),
+                };
+                let metadata = match file.metadata() {
+                    Ok(metadata) => metadata,
+                    Err(error) => return Err(format!("Cannot read metadata for {}: {}", path, error)),
+                };
+
+                let mut hasher = blake3::Hasher::new();
+                let mut buffer = [0u8; 8192];
+                loop {
+                    let bytes_read = match file.read(&mut buffer) {
+                        Ok(bytes) => bytes,
+                        Err(error) => return Err(format!("Read error for {}: {}", path, error)),
+                    };
+                    if bytes_read == 0 {
+                        break;
+                    }
+                    hasher.update(&buffer[..bytes_read]);
+                }
+
+                Ok((hasher.finalize().to_hex().to_string(), metadata.len() as i64))
+            })
+            .await;
+
+            match hash_result {
+                Ok(Ok((content_hash, file_size))) => {
+                    if let Err(error) = sqlx::query!(
+                        r#"
+                        UPDATE duplicate_fingerprints 
+                        SET content_hash = ?, file_size = ?, fingerprint_version = 2, updated_at = CURRENT_TIMESTAMP
+                        WHERE asset_id = ?
+                        "#,
+                        content_hash,
+                        file_size,
+                        asset_id
+                    )
+                    .execute(&self.pool)
+                    .await
+                    {
+                        tracing::error!("Failed to update fingerprint for {}: {:?}", asset_id, error);
+                    } else {
+                        rehashed_count += 1;
+                    }
+                }
+                Ok(Err(error)) => {
+                    tracing::warn!("rehash_pending_fingerprints: skipping {}: {}", asset_id, error);
+                }
+                Err(error) => {
+                    tracing::error!("rehash_pending_fingerprints: blocking task failed for {}: {}", asset_id, error);
+                }
+            }
+        }
+
+        tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending);
+        Ok(rehashed_count)
+    }
+
+    async fn delete_fingerprint(&self, asset_id: &str) -> AppResult<()> {
+        sqlx::query!(
+            r#"DELETE FROM duplicate_fingerprints WHERE asset_id = ?"#,
+            asset_id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to delete fingerprint for asset {}: {:?}", asset_id, e);
+            AppError::Database(e)
+        })?;
+
+        Ok(())
+    }
+
+    async fn remove_candidate_from_groups(&self, asset_id: &str) -> AppResult<()> {
+        // Find all groups this asset belongs to
+        let affected_group_ids: Vec<String> = sqlx::query_scalar!(
+            r#"SELECT group_id as "group_id!" FROM duplicate_candidates WHERE asset_id = ?"#,
+            asset_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to find groups for asset {}: {:?}", asset_id, e);
+            AppError::Database(e)
+        })?;
+
+        // Remove the candidate from all groups
+        sqlx::query!(
+            r#"DELETE FROM duplicate_candidates WHERE asset_id = ?"#,
+            asset_id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to remove candidate {} from groups: {:?}", asset_id, e);
+            AppError::Database(e)
+        })?;
+
+        // For each affected group, update the count and auto-resolve if < 2 candidates remain
+        for group_id in affected_group_ids {
+            let remaining_count: i32 = sqlx::query_scalar!(
+                r#"SELECT COUNT(*) as "count: i32" FROM duplicate_candidates WHERE group_id = ?"#,
+                group_id
+            )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(AppError::Database)?;
+
+            if remaining_count < 2 {
+                // Auto-resolve: a group with 0 or 1 candidates is no longer a duplicate
+                sqlx::query!(
+                    r#"UPDATE duplicate_groups SET status = 'resolved', candidate_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"#,
+                    remaining_count,
+                    group_id
+                )
+                .execute(&self.pool)
+                .await
+                .map_err(AppError::Database)?;
+
+                tracing::info!("DuplicateRepo: auto-resolved group {} (only {} candidate(s) remain)", group_id, remaining_count);
+            } else {
+                // Just update the count
+                sqlx::query!(
+                    r#"UPDATE duplicate_groups SET candidate_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"#,
+                    remaining_count,
+                    group_id
+                )
+                .execute(&self.pool)
+                .await
+                .map_err(AppError::Database)?;
+            }
+        }
+
+        Ok(())
+    }
 }
+

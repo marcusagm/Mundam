@@ -33,6 +33,7 @@ export interface BackendAsset {
     thumbnail_path?: string | null;
     created_at: string;
     updated_at: string;
+    deleted_at?: string | null;
 }
 
 export const duplicatesApi = {
@@ -83,6 +84,7 @@ export const duplicatesApi = {
                     size: assetData.size
                         ? `${(assetData.size / 1024 / 1024).toFixed(2)} MB`
                         : 'Unknown',
+                    sizeBytes: assetData.size || 0,
                     dimensions:
                         assetData.width && assetData.height
                             ? `${assetData.width}x${assetData.height}`
@@ -96,7 +98,8 @@ export const duplicatesApi = {
                     isFavorite: false,
                     thumbnailUrl: assetData.thumbnail_path || undefined,
                     mediaType: assetData.mime_type,
-                    state: assetData.state
+                    state: assetData.state,
+                    isTrashed: !!assetData.deleted_at
                 });
             }
         }

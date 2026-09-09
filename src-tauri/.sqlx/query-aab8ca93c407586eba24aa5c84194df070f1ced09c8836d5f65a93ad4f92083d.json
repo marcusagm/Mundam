@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_candidates WHERE asset_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "aab8ca93c407586eba24aa5c84194df070f1ced09c8836d5f65a93ad4f92083d"
+}

@@ -132,7 +132,7 @@ pub async fn fetch_asset_by_id(
             ame.semantic_payload as "semantic_payload: serde_json::Value",
             a.dominant_color as "dominant_color: serde_json::Value",
             a.is_favorite as "is_favorite: bool",
-            a.deleted_at as "deleted_at: DateTime<Utc>"
+            a.deleted_at as "deleted_at?: DateTime<Utc>"
         FROM assets a
         LEFT JOIN asset_metadata_envelope ame ON a.id = ame.asset_id
         WHERE a.id = ?

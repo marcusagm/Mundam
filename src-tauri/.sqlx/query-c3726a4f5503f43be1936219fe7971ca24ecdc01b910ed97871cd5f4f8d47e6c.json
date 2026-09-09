@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT group_id as \"group_id!\" FROM duplicate_candidates WHERE asset_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "group_id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c3726a4f5503f43be1936219fe7971ca24ecdc01b910ed97871cd5f4f8d47e6c"
+}

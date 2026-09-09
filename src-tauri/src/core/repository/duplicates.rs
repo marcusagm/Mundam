@@ -89,4 +89,33 @@ pub trait DuplicatesRepository: Send + Sync {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query fails.
     async fn run_exact_match_scan(&self) -> AppResult<()>;
+
+    /// Rehashes all fingerprints that have a pending or placeholder hash.
+    /// This is necessary because BatchCreate during indexing does not emit
+    /// individual AssetCreated events, so the DuplicateWorker never gets
+    /// a chance to compute real hashes for those files.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query or update fails.
+    async fn rehash_pending_fingerprints(&self) -> AppResult<usize>;
+
+    /// Deletes the fingerprint for a given asset.
+    ///
+    /// # Arguments
+    /// * `asset_id` - The unique identifier of the asset.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the delete fails.
+    async fn delete_fingerprint(&self, asset_id: &str) -> AppResult<()>;
+
+    /// Removes a candidate from all groups it belongs to.
+    /// If removing the candidate leaves a group with fewer than 2 candidates,
+    /// the group is automatically resolved as it is no longer a duplicate.
+    ///
+    /// # Arguments
+    /// * `asset_id` - The unique identifier of the asset to remove.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the operation fails.
+    async fn remove_candidate_from_groups(&self, asset_id: &str) -> AppResult<()>;
 }

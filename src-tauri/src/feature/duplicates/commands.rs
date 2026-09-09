@@ -80,11 +80,11 @@ impl DuplicateCommandService {
                 let candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
                 for candidate in candidates {
                     if !kept_ids.contains(&candidate.asset_id) {
-                        let _ = self.ledger.execute(crate::core::ledger::command::LedgerCommand::DeleteAsset {
-                            asset_id: Some(candidate.asset_id),
-                            path: None,
-                            physical_delete: false, // Move to trash, don't permanently delete yet
-                        }).await;
+                        let _ = self.ledger.execute(crate::core::ledger::command::LedgerCommand::MoveToTrash(
+                            crate::core::ledger::command::MoveToTrashPayload {
+                                asset_id: candidate.asset_id.clone(),
+                            }
+                        )).await;
                     }
                 }
             }
@@ -101,9 +101,18 @@ impl DuplicateCommandService {
 
     /// Triggers a scan to find new duplicates.
     ///
+    /// First rehashes any fingerprints that still have pending/placeholder hashes
+    /// (e.g. assets created via BatchCreate which doesn't emit individual AssetCreated events).
+    /// Then runs the exact match scan to group files with identical content.
+    ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
     pub async fn start_duplicate_scan(&self) -> AppResult<()> {
+        // Step 1: Ensure all fingerprints have real Blake3 hashes
+        let rehashed = self.duplicates_repo.rehash_pending_fingerprints().await?;
+        tracing::info!("DuplicateCommandService: rehashed {} pending fingerprints before scan", rehashed);
+
+        // Step 2: Run the exact match grouping
         self.duplicates_repo.run_exact_match_scan().await?;
         
         // Let the system know new groups might be available

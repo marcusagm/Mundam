@@ -39,6 +39,7 @@ rexif = "0.7"
 infer = "0.15"       # Magic bytes detection
 strum = { version = "0.26", features = ["derive"] } # Enum iteration
 strum_macros = "0.26"
+blake3 = "1"
 
 # Color Analysis - K-Means clustering in LAB space
 kmeans_colors = "0.6"

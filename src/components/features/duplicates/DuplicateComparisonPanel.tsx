@@ -1,8 +1,8 @@
-import { Component, For, Show, createSignal } from 'solid-js';
+import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import { Button, Badge } from '../../ui';
-import { CheckCircle2 } from 'lucide-solid';
+import { CheckCircle2, Trash2 } from 'lucide-solid';
 import { Thumbnail } from '../viewport/assets/Thumbnail';
-import { DuplicateGroup } from './types';
+import { DuplicateGroup, DuplicateCandidate } from './types';
 import './duplicate-comparison-panel.css';
 export interface DuplicateComparisonPanelProperties {
     /** The duplicate group to display and resolve */
@@ -24,6 +24,34 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         }
         setSelectedCandidates(newSet);
     };
+
+    /** Finds the candidate with the largest file size, ignoring trashed ones. */
+    const largestCandidate = createMemo(() => {
+        const validCandidates = props.group.candidates.filter(c => !c.isTrashed);
+        if (validCandidates.length === 0) return null;
+        return validCandidates.reduce((prev: DuplicateCandidate, current: DuplicateCandidate) => {
+            return current.sizeBytes > prev.sizeBytes ? current : prev;
+        });
+    });
+
+    /** Finds the candidate created earliest, ignoring trashed ones. */
+    const oldestCandidate = createMemo(() => {
+        const validCandidates = props.group.candidates.filter(c => !c.isTrashed);
+        if (validCandidates.length === 0) return null;
+        return validCandidates.reduce((oldest: DuplicateCandidate, current: DuplicateCandidate) =>
+            new Date(current.createdAt).getTime() < new Date(oldest.createdAt).getTime()
+                ? current
+                : oldest
+        );
+    });
+
+    /** Finds the first candidate marked as favorite, if any. */
+    const favoriteCandidate = createMemo(() => {
+        return (
+            props.group.candidates.find((candidate: DuplicateCandidate) => candidate.isFavorite) ||
+            null
+        );
+    });
 
     const handleIgnoreGroup = async () => {
         setProcessing(true);
@@ -61,6 +89,11 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         }
     };
 
+    const handleSmartAction = async (candidate: DuplicateCandidate | null) => {
+        if (!candidate) return;
+        await handleKeepOnlyThis(candidate.id);
+    };
+
     return (
         <div class="comparison-panel">
             <div class="comparison-header">
@@ -86,23 +119,66 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                 </div>
             </div>
 
+            <Show when={props.group.candidates.length > 1}>
+                <div class="smart-actions-bar">
+                    <span class="smart-actions-label">Quick Actions</span>
+                    <div class="smart-actions-buttons">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={processing() || !largestCandidate()}
+                            onClick={() => handleSmartAction(largestCandidate())}
+                        >
+                            Keep Largest
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={processing() || !oldestCandidate()}
+                            onClick={() => handleSmartAction(oldestCandidate())}
+                        >
+                            Keep Oldest
+                        </Button>
+                        <Show when={favoriteCandidate()}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={processing()}
+                                onClick={() => handleSmartAction(favoriteCandidate())}
+                            >
+                                Keep Favorite
+                            </Button>
+                        </Show>
+                    </div>
+                </div>
+            </Show>
+
             <div class="comparison-grid">
                 <For each={props.group.candidates}>
                     {candidate => {
                         const isSelected = () => selectedCandidates().has(candidate.id);
                         return (
                             <div
-                                tabIndex={0}
-                                class={`candidate-card ${isSelected() ? 'is-selected' : ''}`}
-                                onClick={() => toggleCandidate(candidate.id)}
+                                tabIndex={candidate.isTrashed ? -1 : 0}
+                                class={`candidate-card ${isSelected() ? 'is-selected' : ''} ${candidate.isTrashed ? 'is-trashed' : ''}`}
+                                onClick={() => {
+                                    if (!candidate.isTrashed) toggleCandidate(candidate.id);
+                                }}
                                 onKeyDown={e => {
+                                    if (candidate.isTrashed) return;
                                     if (e.key === 'Enter' || e.key === ' ') {
                                         e.preventDefault();
                                         toggleCandidate(candidate.id);
                                     }
                                 }}
                             >
-                                <div class="candidate-card-body">
+                                <div class="candidate-card-body" style={{ position: 'relative' }}>
+                                    <Show when={candidate.isTrashed}>
+                                        <div class="candidate-trashed-overlay">
+                                            <Trash2 size={48} />
+                                            <span>Moved to Trash</span>
+                                        </div>
+                                    </Show>
                                     <div class="candidate-header">
                                         <h3 class="candidate-name">{candidate.name}</h3>
                                         <div class="candidate-badges">
