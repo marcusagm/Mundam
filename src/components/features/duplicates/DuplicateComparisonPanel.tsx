@@ -4,6 +4,7 @@ import { Columns } from 'lucide-solid';
 import { DuplicateGroup, DuplicateCandidate } from './types';
 import { DuplicateSplitView } from './DuplicateSplitView';
 import { DuplicateCandidateCard } from './DuplicateCandidateCard';
+import { MetadataMergeModal } from './MetadataMergeModal';
 import { createShortcut } from '../../../core/input';
 import './duplicate-comparison-panel.css';
 
@@ -14,33 +15,49 @@ export interface DuplicateComparisonPanelProperties {
     onResolve: (groupId: string, action: string, keptAssetIds?: string[]) => Promise<void>;
 }
 
+/**
+ * Displays the detail panel for a selected duplicate group.
+ *
+ * After the user selects assets to keep and clicks "Keep Selected" or
+ * "Keep Only This", a MetadataMergeModal opens so the user can review
+ * metadata from discarded candidates field-by-field before confirming.
+ *
+ * @param {DuplicateComparisonPanelProperties} props - Component properties.
+ * @returns {JSX.Element} The rendered comparison panel.
+ */
 export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelProperties> = props => {
     const [selectedCandidates, setSelectedCandidates] = createSignal<Set<string>>(new Set());
     const [processing, setProcessing] = createSignal(false);
     const [isSplitViewOpen, setIsSplitViewOpen] = createSignal(false);
 
+    /** IDs of assets the user has chosen to keep, pending merge confirmation. */
+    const [pendingKeptIds, setPendingKeptIds] = createSignal<string[]>([]);
+    const [isMergeModalOpen, setIsMergeModalOpen] = createSignal(false);
+
     const toggleCandidate = (id: string) => {
-        const newSet = new Set(selectedCandidates());
-        if (newSet.has(id)) {
-            newSet.delete(id);
+        const updatedSet = new Set(selectedCandidates());
+        if (updatedSet.has(id)) {
+            updatedSet.delete(id);
         } else {
-            newSet.add(id);
+            updatedSet.add(id);
         }
-        setSelectedCandidates(newSet);
+        setSelectedCandidates(updatedSet);
     };
 
     /** Finds the candidate with the largest file size, ignoring trashed ones. */
     const largestCandidate = createMemo(() => {
-        const validCandidates = props.group.candidates.filter(c => !c.isTrashed);
+        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
         if (validCandidates.length === 0) return null;
-        return validCandidates.reduce((prev: DuplicateCandidate, current: DuplicateCandidate) => {
-            return current.sizeBytes > prev.sizeBytes ? current : prev;
-        });
+        return validCandidates.reduce(
+            (previous: DuplicateCandidate, current: DuplicateCandidate) => {
+                return current.sizeBytes > previous.sizeBytes ? current : previous;
+            }
+        );
     });
 
     /** Finds the candidate created earliest, ignoring trashed ones. */
     const oldestCandidate = createMemo(() => {
-        const validCandidates = props.group.candidates.filter(c => !c.isTrashed);
+        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
         if (validCandidates.length === 0) return null;
         return validCandidates.reduce((oldest: DuplicateCandidate, current: DuplicateCandidate) =>
             new Date(current.createdAt).getTime() < new Date(oldest.createdAt).getTime()
@@ -57,6 +74,31 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         );
     });
 
+    /**
+     * Derives the kept and discarded candidate lists from the pending kept IDs.
+     * Used to populate the MetadataMergeModal.
+     */
+    const keptCandidates = createMemo(() =>
+        props.group.candidates.filter(candidate => pendingKeptIds().includes(candidate.id))
+    );
+
+    const discardedCandidates = createMemo(() =>
+        props.group.candidates.filter(
+            candidate => !pendingKeptIds().includes(candidate.id) && !candidate.isTrashed
+        )
+    );
+
+    /**
+     * Opens the MetadataMergeModal with the given kept asset IDs.
+     * The modal handles the actual resolve call after the user confirms.
+     *
+     * @param {string[]} keptIds - The asset IDs the user chose to keep.
+     */
+    const openMergeModal = (keptIds: string[]) => {
+        setPendingKeptIds(keptIds);
+        setIsMergeModalOpen(true);
+    };
+
     const handleIgnoreGroup = async () => {
         setProcessing(true);
         try {
@@ -68,34 +110,24 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         }
     };
 
-    const handleKeepSelected = async () => {
+    const handleKeepSelected = () => {
         if (selectedCandidates().size === 0) return;
-
-        setProcessing(true);
-        try {
-            const keptIds = Array.from(selectedCandidates());
-            await props.onResolve(props.group.id, 'custom_selection', keptIds);
-        } catch (error) {
-            console.error('Failed to keep selected candidates:', error);
-        } finally {
-            setProcessing(false);
-        }
+        openMergeModal(Array.from(selectedCandidates()));
     };
 
-    const handleKeepOnlyThis = async (candidateId: string) => {
-        setProcessing(true);
-        try {
-            await props.onResolve(props.group.id, 'custom_selection', [candidateId]);
-        } catch (error) {
-            console.error('Failed to keep candidate:', error);
-        } finally {
-            setProcessing(false);
-        }
+    const handleKeepOnlyThis = (candidateId: string) => {
+        openMergeModal([candidateId]);
     };
 
-    const handleSmartAction = async (candidate: DuplicateCandidate | null) => {
+    const handleSmartAction = (candidate: DuplicateCandidate | null) => {
         if (!candidate) return;
-        await handleKeepOnlyThis(candidate.id);
+        handleKeepOnlyThis(candidate.id);
+    };
+
+    const handleMergeModalClose = () => {
+        setIsMergeModalOpen(false);
+        setPendingKeptIds([]);
+        setProcessing(false);
     };
 
     const handleOpenSplitView = () => {
@@ -111,9 +143,13 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
 
         if (selectedCandidateIds.length >= 2) {
             firstCandidate =
-                props.group.candidates.find(c => c.id === selectedCandidateIds[0]) || null;
+                props.group.candidates.find(
+                    candidate => candidate.id === selectedCandidateIds[0]
+                ) || null;
             secondCandidate =
-                props.group.candidates.find(c => c.id === selectedCandidateIds[1]) || null;
+                props.group.candidates.find(
+                    candidate => candidate.id === selectedCandidateIds[1]
+                ) || null;
         } else if (validCandidates.length >= 2) {
             firstCandidate = validCandidates[0];
             secondCandidate = validCandidates[1];
@@ -179,7 +215,10 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                     <Button
                         variant="secondary"
                         onClick={handleOpenSplitView}
-                        disabled={props.group.candidates.filter(c => !c.isTrashed).length < 2}
+                        disabled={
+                            props.group.candidates.filter(candidate => !candidate.isTrashed)
+                                .length < 2
+                        }
                     >
                         <Columns size={16} class="mr-2" />
                         Split View
@@ -249,6 +288,16 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                 onClose={() => setIsSplitViewOpen(false)}
                 candidateA={splitViewCandidates().firstCandidate}
                 candidateB={splitViewCandidates().secondCandidate}
+            />
+
+            <MetadataMergeModal
+                isOpen={isMergeModalOpen()}
+                groupId={props.group.id}
+                candidates={props.group.candidates}
+                keptCandidates={keptCandidates()}
+                discardedCandidates={discardedCandidates()}
+                onResolve={props.onResolve}
+                onClose={handleMergeModalClose}
             />
         </div>
     );

@@ -183,6 +183,9 @@ pub enum DomainEvent {
         processed: usize,
         matched: usize,
         groups_created: usize,
+        /// Total number of assets to process in this scan phase.
+        /// Zero means the total is not yet known (indeterminate).
+        total: usize,
     },
     /// A duplicate scan finished.
     DuplicateScanFinished {

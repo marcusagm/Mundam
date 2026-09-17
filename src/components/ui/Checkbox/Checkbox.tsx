@@ -57,7 +57,9 @@ export const Checkbox: Component<CheckboxProperties> = properties => {
     /**
      * Handles user interaction to toggle the checkbox state.
      */
-    const handleActionTrigger = () => {
+    const handleActionTrigger = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
         if (localProperties.disabled) {
             return;
         }

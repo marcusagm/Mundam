@@ -91,7 +91,8 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
         crate::feature::duplicates::commands::DuplicateCommandService::new(
             duplicates_repo.clone(),
             asset_ledger.clone(),
-            event_bus.clone()
+            event_bus.clone(),
+            asset_query_handler.clone(),
         );
     app.manage(duplicates_command_service);
 

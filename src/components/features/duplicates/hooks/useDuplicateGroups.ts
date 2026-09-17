@@ -13,6 +13,8 @@ export interface ScanProgress {
     matched: number;
     /** Number of new duplicate groups created. */
     groupsCreated: number;
+    /** Total number of fingerprints to process in this phase. Zero means indeterminate. */
+    total: number;
 }
 
 /**
@@ -43,6 +45,10 @@ export interface UseDuplicateGroupsReturn {
     isScanning: Accessor<boolean>;
     /** Current scan progress, or null if no scan is in progress. */
     scanProgress: Accessor<ScanProgress | null>;
+    /** Count of new duplicate groups found in background scans since last reset. */
+    newGroupsFoundCount: Accessor<number>;
+    /** Resets the new-groups counter after the user acknowledges the notification. */
+    resetNewGroupsCount: () => void;
 }
 
 /**
@@ -57,6 +63,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const [showIgnored, setShowIgnored] = createSignal(false);
     const [isScanning, setIsScanning] = createSignal(false);
     const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
+    const [newGroupsFoundCount, setNewGroupsFoundCount] = createSignal(0);
 
     const [groups, { mutate, refetch }] = createResource(async () => {
         try {
@@ -79,12 +86,16 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             setScanProgress({
                 processed: eventData.processed || 0,
                 matched: eventData.matched || 0,
-                groupsCreated: eventData.groups_created || 0
+                groupsCreated: eventData.groups_created || 0,
+                total: eventData.total || 0
             });
             setIsScanning(true);
         } else if (domainEvent.type === 'DuplicateScanFinished') {
             setIsScanning(false);
             setScanProgress(null);
+            refetch();
+        } else if (domainEvent.type === 'DuplicateGroupCreated') {
+            setNewGroupsFoundCount(previous => previous + 1);
             refetch();
         }
     });
@@ -204,6 +215,16 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         }
     };
 
+    /**
+     * Resets the background-scan new-groups counter after the user acknowledges
+     * the notification banner or toast.
+     *
+     * @returns {void}
+     */
+    const resetNewGroupsCount = (): void => {
+        setNewGroupsFoundCount(0);
+    };
+
     return {
         groups,
         visibleGroups,
@@ -216,6 +237,8 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         showIgnored,
         setShowIgnored,
         isScanning,
-        scanProgress
+        scanProgress,
+        newGroupsFoundCount,
+        resetNewGroupsCount
     };
 }

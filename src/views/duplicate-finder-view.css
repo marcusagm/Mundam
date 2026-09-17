@@ -8,6 +8,47 @@
   color: var(--text-primary);
 }
 
+.duplicate-finder-new-groups-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+    font-size: 12px;
+    color: var(--accent-primary);
+    animation: banner-slide-in 0.22s ease;
+}
+
+@keyframes banner-slide-in {
+    from { opacity: 0; transform: translateY(-100%); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.duplicate-finder-banner-dismiss {
+    margin-left: auto;
+    background: none;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+    border-radius: 5px;
+    color: var(--accent-primary);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.duplicate-finder-banner-dismiss:hover {
+    background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.duplicate-finder-scan-progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+
 .duplicate-finder-body {
   flex: 1;
   overflow: hidden;

@@ -1,5 +1,5 @@
-import { Component, JSX, Show } from 'solid-js';
-import { RefreshCw, Search } from 'lucide-solid';
+import { Component, JSX, Show, createMemo } from 'solid-js';
+import { RefreshCw, Search, Bell } from 'lucide-solid';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui';
 import { DuplicateGroupList, DuplicateComparisonPanel } from '../components/features/duplicates';
 import { Button } from '../components/ui/Button';
@@ -34,7 +34,9 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         showIgnored,
         setShowIgnored,
         isScanning,
-        scanProgress
+        scanProgress,
+        newGroupsFoundCount,
+        resetNewGroupsCount
     } = useDuplicateGroups();
 
     const selectedGroup = () => {
@@ -43,6 +45,16 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         return currentGroups.find(group => group.id === selectedGroupId());
     };
 
+    /**
+     * Derives the real progress percentage when `total > 0`.
+     * Returns `undefined` when indeterminate (total is 0 or progress is null).
+     */
+    const scanProgressValue = createMemo(() => {
+        const progress = scanProgress();
+        if (!progress || progress.total === 0) return undefined;
+        return (progress.processed / progress.total) * 100;
+    });
+
     createShortcut({
         keys: 'ArrowDown',
         scope: 'viewport',
@@ -50,7 +62,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         action: () => {
             const currentVisible = visibleGroups();
             if (!currentVisible || currentVisible.length === 0) return;
-            const currentIndex = currentVisible.findIndex(g => g.id === selectedGroupId());
+            const currentIndex = currentVisible.findIndex(group => group.id === selectedGroupId());
             const nextIndex =
                 currentIndex < currentVisible.length - 1 ? currentIndex + 1 : currentIndex;
             if (currentVisible[nextIndex]) selectGroup(currentVisible[nextIndex].id);
@@ -64,7 +76,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         action: () => {
             const currentVisible = visibleGroups();
             if (!currentVisible || currentVisible.length === 0) return;
-            const currentIndex = currentVisible.findIndex(g => g.id === selectedGroupId());
+            const currentIndex = currentVisible.findIndex(group => group.id === selectedGroupId());
             const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
             if (currentVisible[prevIndex]) selectGroup(currentVisible[prevIndex].id);
         }
@@ -73,6 +85,24 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
     return (
         <div class="duplicate-finder">
             {props.header}
+
+            <Show when={newGroupsFoundCount() > 0}>
+                <div class="duplicate-finder-new-groups-banner" role="alert">
+                    <Bell size={14} />
+                    <span>
+                        {newGroupsFoundCount()} new duplicate group
+                        {newGroupsFoundCount() > 1 ? 's' : ''} found in background scan.
+                    </span>
+                    <button
+                        class="duplicate-finder-banner-dismiss"
+                        onClick={resetNewGroupsCount}
+                        aria-label="Dismiss notification"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            </Show>
+
             <ResizablePanelGroup direction="horizontal" class="duplicate-finder-body">
                 <ResizablePanel id="list-panel" defaultSize={30} minSize={20} maxSize={50}>
                     <div class="duplicate-finder-sidebar">
@@ -104,13 +134,23 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 <div class="duplicate-finder-scan-progress-row">
                                     <Show
                                         when={scanProgress()}
-                                        fallback={<span>Scanning library...</span>}
+                                        fallback={<span>Preparing scan…</span>}
                                     >
-                                        <span>Processed: {scanProgress()?.processed || 0}</span>
+                                        <span>
+                                            {scanProgress()?.processed || 0}
+                                            <Show when={scanProgressValue() !== undefined}>
+                                                {' / '}
+                                                {scanProgress()?.total}
+                                            </Show>{' '}
+                                            files hashed
+                                        </span>
                                         <span>Groups: {scanProgress()?.groupsCreated || 0}</span>
                                     </Show>
                                 </div>
-                                <ProgressBar value={0} isIndeterminate={true} />
+                                <ProgressBar
+                                    value={scanProgressValue() ?? 0}
+                                    isIndeterminate={scanProgressValue() === undefined}
+                                />
                             </Show>
                         </div>
                         <Show

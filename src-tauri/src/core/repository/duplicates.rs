@@ -101,9 +101,18 @@ pub trait DuplicatesRepository: Send + Sync {
     /// individual AssetCreated events, so the DuplicateWorker never gets
     /// a chance to compute real hashes for those files.
     ///
+    /// The optional `progress_sender` receives `(processed, total)` tuples after
+    /// each asset is hashed. The command service listens on the receiver and
+    /// publishes `DuplicateScanProgressed` events so the frontend can render
+    /// a real percentage progress bar instead of an indeterminate spinner.
+    ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query or update fails.
-    async fn rehash_pending_fingerprints(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
+    async fn rehash_pending_fingerprints(
+        &self,
+        token: Option<tokio_util::sync::CancellationToken>,
+        progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+    ) -> AppResult<usize>;
 
     /// Deletes the fingerprint for a given asset.
     ///

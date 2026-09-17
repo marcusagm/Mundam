@@ -130,7 +130,7 @@ export const DuplicateCandidateCard: Component<DuplicateCandidateCardProperties>
                         <div class="candidate-detail-item full-width">
                             <span class="candidate-detail-label">Tags</span>
                             <span class="candidate-detail-value">
-                                {props.candidate.tags.join(', ')}
+                                {props.candidate.tags.map(t => t.name).join(', ')}
                             </span>
                         </div>
                     </Show>

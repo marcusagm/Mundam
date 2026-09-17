@@ -13,27 +13,27 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 
 ### 1.1 Status Atual
 
-| Componente                     | Status     | Observações                                        |
-| ------------------------------ | ---------- | -------------------------------------------------- |
-| Modelo de Domínio (Rust)       | ✅ Completo | 6 entidades, 3 enums                               |
-| Tabelas SQLite                 | ✅ Completo | 5 tabelas + 4 índices                              |
-| Repositório (Porta)            | ✅ Completo | Trait com 8 operações                              |
-| Repositório (SQLite)           | ✅ Completo | Implementação com upserts                          |
+| Componente                     | Status     | Observações                                                |
+| ------------------------------ | ---------- | ---------------------------------------------------------- |
+| Modelo de Domínio (Rust)       | ✅ Completo | 6 entidades, 3 enums                                       |
+| Tabelas SQLite                 | ✅ Completo | 5 tabelas + 4 índices                                      |
+| Repositório (Porta)            | ✅ Completo | Trait com 8 operações                                      |
+| Repositório (SQLite)           | ✅ Completo | Implementação com upserts                                  |
 | DuplicateWorker (Eventos)      | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup) |
-| DuplicateCommandService        | ✅ Completo | Resolve, ignora, deleta via Ledger e gerencia lixeira |
-| DuplicateQueryService          | ✅ Completo | Consulta por status e candidatos                   |
-| Tauri Commands                 | ✅ Completo | 4 comandos expostos                                |
-| Domain Events                  | ✅ Completo | 5 variantes de evento                              |
-| Frontend — View                | ✅ Completo | `DuplicateFinderView` com ResizablePanel           |
-| Frontend — Group List          | ✅ Completo | Componente extraído com deck preview               |
-| Frontend — Group Item          | ✅ Completo | Deck visual + ignored styling                      |
-| Frontend — Comparison Panel    | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira |
-| Frontend — Hook                | ✅ Completo | `useDuplicateGroups` com fetch + mutate            |
-| Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo            |
-| Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`) |
-| Perceptual Hash                | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint` |
-| UI de Regras Configuráveis     | ❌ Pendente | Modelo pronto, UI não criada                       |
-| Comparação Visual (Split View) | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`   |
+| DuplicateCommandService        | ✅ Completo | Resolve, ignora, deleta via Ledger e gerencia lixeira      |
+| DuplicateQueryService          | ✅ Completo | Consulta por status e candidatos                           |
+| Tauri Commands                 | ✅ Completo | 4 comandos expostos                                        |
+| Domain Events                  | ✅ Completo | 5 variantes de evento                                      |
+| Frontend — View                | ✅ Completo | `DuplicateFinderView` com ResizablePanel                   |
+| Frontend — Group List          | ✅ Completo | Componente extraído com deck preview                       |
+| Frontend — Group Item          | ✅ Completo | Deck visual + ignored styling                              |
+| Frontend — Comparison Panel    | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira       |
+| Frontend — Hook                | ✅ Completo | `useDuplicateGroups` com fetch + mutate                    |
+| Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo                    |
+| Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)    |
+| Perceptual Hash                | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`           |
+| UI de Regras Configuráveis     | ❌ Pendente | Modelo pronto, UI não criada                               |
+| Comparação Visual (Split View) | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`           |
 
 ---
 
@@ -60,22 +60,22 @@ Todos os enums usam `strum::Display` e `strum::EnumString` para serialização s
 
 Define o trait `DuplicatesRepository` com 15 operações assíncronas:
 
-| Método                          | Tipo  | Descrição                                          |
-| ------------------------------- | ----- | -------------------------------------------------- |
-| `save_fingerprint`              | Write | Upsert de fingerprint (ON CONFLICT UPDATE)         |
-| `get_fingerprint`               | Read  | Busca por `asset_id`                               |
-| `get_rule_sets`                 | Read  | Lista todas as regras configuradas                 |
-| `save_group`                    | Write | Cria ou atualiza grupo (upsert)                    |
-| `save_candidate`                | Write | Adiciona candidato ao grupo (upsert)               |
-| `get_groups_by_status`          | Read  | Filtra grupos por status (`open`, `ignored`, etc.) |
-| `get_group_candidates`          | Read  | Lista candidatos de um grupo                       |
-| `save_resolution`               | Write | Registra decisão do usuário                        |
-| `update_group_status`           | Write | Altera status do grupo                             |
-| `run_exact_match_scan`          | Write | Varredura completa por hash exato (Blake3)         |
-| `run_visual_match_scan`         | Write | Varredura por hash perceptual (dHash)              |
-| `rehash_pending_fingerprints`   | Write | Rehash de fingerprints `pending_` em lote         |
-| `delete_fingerprint`            | Write | Remove o fingerprint de um asset deletado          |
-| `remove_candidate_from_groups`  | Write | Remove candidato de grupos; auto-resolve se < 2    |
+| Método                         | Tipo  | Descrição                                          |
+| ------------------------------ | ----- | -------------------------------------------------- |
+| `save_fingerprint`             | Write | Upsert de fingerprint (ON CONFLICT UPDATE)         |
+| `get_fingerprint`              | Read  | Busca por `asset_id`                               |
+| `get_rule_sets`                | Read  | Lista todas as regras configuradas                 |
+| `save_group`                   | Write | Cria ou atualiza grupo (upsert)                    |
+| `save_candidate`               | Write | Adiciona candidato ao grupo (upsert)               |
+| `get_groups_by_status`         | Read  | Filtra grupos por status (`open`, `ignored`, etc.) |
+| `get_group_candidates`         | Read  | Lista candidatos de um grupo                       |
+| `save_resolution`              | Write | Registra decisão do usuário                        |
+| `update_group_status`          | Write | Altera status do grupo                             |
+| `run_exact_match_scan`         | Write | Varredura completa por hash exato (Blake3)         |
+| `run_visual_match_scan`        | Write | Varredura por hash perceptual (dHash)              |
+| `rehash_pending_fingerprints`  | Write | Rehash de fingerprints `pending_` em lote          |
+| `delete_fingerprint`           | Write | Remove o fingerprint de um asset deletado          |
+| `remove_candidate_from_groups` | Write | Remove candidato de grupos; auto-resolve se < 2    |
 
 ### 2.3 Implementação SQLite — `infra/sqlite/duplicates_repository.rs`
 
@@ -311,7 +311,7 @@ sequenceDiagram
 | Prioridade | Item                           | Impacto                                    | Complexidade |
 | ---------- | ------------------------------ | ------------------------------------------ | ------------ |
 | **P0**     | Hash real com Blake3 ou xxHash | ✅ Implementado na Fase 1                   | Resolvido    |
-| **P1**     | Perceptual Hash (pHash/dHash)  | Detecta reexportações/recompressões        | Média        |
+| **P1**     | Perceptual Hash (pHash/dHash)  | ✅ Implementado na Fase 2                   | Resolvido    |
 | **P2**     | Block Hash multi-escala        | Detecta crops e edições parciais           | Alta         |
 | **P3**     | Thumbnail Hash                 | Checagem rápida baseada em thumb existente | Baixa        |
 
@@ -321,28 +321,28 @@ sequenceDiagram
 
 | Item                        | Estado Atual                                | Ideal                                     |
 | --------------------------- | ------------------------------------------- | ----------------------------------------- |
-| Scan incremental            | ❌ `run_exact_match_scan` refaz tudo         | Scan apenas de novos fingerprints         |
+| Scan incremental            | ✅ Implementado na Fase 3                   | Scan apenas de novos fingerprints         |
 | Batch loading de candidatos | ❌ N+1 queries (1 `get_asset` por candidato) | `SELECT ... WHERE id IN (...)` batch      |
-| Cancelamento de scan        | ❌ Não cancelável                            | `CancellationToken` para abort            |
-| Progresso de scan           | ❌ Progresso fixo em 0/0/0                   | Emissão real de `DuplicateScanProgressed` |
+| Cancelamento de scan        | ✅ Implementado na Fase 3                   | `CancellationToken` para abort            |
+| Progresso de scan           | ✅ Implementado na Fase 3                   | Emissão real de `DuplicateScanProgressed` |
 | Indexação paralela          | ❌ Sequencial (1 fingerprint por vez)        | Work-stealing pool com `rayon`            |
 | Paginação de grupos         | ❌ Carrega todos de uma vez                  | `LIMIT/OFFSET` ou cursor-based            |
 | Cache de thumbnails no deck | ❌ Cada deck item faz request                | Pré-carregar thumbnails com o grupo       |
 
 ### 6.3 Interface de Usuário
 
-| Item                            | Estado Atual              | Ideal (Estado da Arte)                       |
-| ------------------------------- | ------------------------- | -------------------------------------------- |
-| Split View sincronizado         | ❌ Não implementado        | Zoom/Pan travado entre 2 imagens             |
-| Overlay de diferenças           | ❌ Não implementado        | Toggle de transparência entre versões        |
-| Ações em lote (bulk)            | ❌ Um grupo por vez        | Selecionar múltiplos grupos e resolver       |
-| "Manter o maior/mais antigo"    | ✅ Implementado            | Filtra assets na lixeira no agrupamento      |
-| Visual da Lixeira (MoveToTrash) | ✅ Implementado            | Card com strikethrough e sem ações bloqueadas|
-| Merge de metadados/tags         | ❌ Não implementado        | Transferir tags ao manter um asset           |
-| Resumo/Dashboard                | ❌ Não há                  | Contadores, gráficos de economia             |
-| Atalhos de teclado              | ❌ Não há                  | ← → para navegar, K para keep, D para delete |
-| Filtros avançados               | ❌ Apenas por status       | Por tipo, confidence, pasta, formato         |
-| Notificação de novos duplicados | ❌ Não há                  | Toast/badge quando worker encontra grupo     |
+| Item                            | Estado Atual        | Ideal (Estado da Arte)                        |
+| ------------------------------- | ------------------- | --------------------------------------------- |
+| Split View sincronizado         | ✅ Implementado (Fase 2)| Zoom/Pan travado entre 2 imagens              |
+| Overlay de diferenças           | ❌ Não implementado  | Toggle de transparência entre versões         |
+| Ações em lote (bulk)            | ❌ Um grupo por vez  | Selecionar múltiplos grupos e resolver        |
+| "Manter o maior/mais antigo"    | ✅ Implementado      | Filtra assets na lixeira no agrupamento       |
+| Visual da Lixeira (MoveToTrash) | ✅ Implementado      | Card com strikethrough e sem ações bloqueadas |
+| Merge de metadados/tags         | ✅ Implementado (Fase 3)| Transferir tags ao manter um asset            |
+| Resumo/Dashboard                | ❌ Não há            | Contadores, gráficos de economia              |
+| Atalhos de teclado              | ✅ Implementado (Fase 2)| ← → para navegar, K para keep, D para delete  |
+| Filtros avançados               | ❌ Apenas por status | Por tipo, confidence, pasta, formato          |
+| Notificação de novos duplicados | ✅ Implementado (Fase 3)| Toast/badge quando worker encontra grupo      |
 
 ### 6.4 Regras Configuráveis
 
@@ -355,13 +355,13 @@ sequenceDiagram
 
 ### 6.5 Qualidade de Código e Arquitetura
 
-| Item                             | Status                      | Ação Necessária                                          |
-| -------------------------------- | --------------------------- | -------------------------------------------------------- |
-| Rustdoc em todos os arquivos     | ✅ Bom                       | Adicionar `# Errors` onde falta                          |
-| TSDoc no frontend                | ⚠️ Parcial                   | Adicionar `@example` nos hooks                           |
-| Testes unitários (Rust)          | ❌ Nenhum                    | Testar repositório, matcher, scanner                     |
-| Testes de integração             | ❌ Nenhum                    | Testar fluxo completo com DB in-memory                   |
-| Testes de componente (Solid)     | ❌ Nenhum                    | Testar hook e componentes com `@solidjs/testing-library` |
+| Item                             | Status                       | Ação Necessária                                          |
+| -------------------------------- | ---------------------------- | -------------------------------------------------------- |
+| Rustdoc em todos os arquivos     | ✅ Bom                        | Adicionar `# Errors` onde falta                          |
+| TSDoc no frontend                | ⚠️ Parcial                    | Adicionar `@example` nos hooks                           |
+| Testes unitários (Rust)          | ❌ Nenhum                     | Testar repositório, matcher, scanner                     |
+| Testes de integração             | ❌ Nenhum                     | Testar fluxo completo com DB in-memory                   |
+| Testes de componente (Solid)     | ❌ Nenhum                     | Testar hook e componentes com `@solidjs/testing-library` |
 | FK `ON DELETE CASCADE` enforcado | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                   |
 | Cleanup de grupos órfãos         | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos      |
 | Reação a `AssetDeleted`          | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos          |
@@ -392,13 +392,18 @@ _Nota: Itens como "Scan incremental puro" e "Interface gráfica de progresso de 
 
 ---
 
-## 9. Roadmap de Próximos Passos
+## 9. Implementação da Fase 3 (Concluída)
 
-### Fase 3 — UX Premium e Incrementabilidade (5-7 dias)
-1. **Scan Incremental e UI de Progresso**: Processar exclusivamente fingerprints novos (incremental puro) e exibir loader/progress bar na interface escutando `DuplicateScanProgressed`.
-2. **Merge de metadados**: Transferir tags e notas contextuais do asset deletado (candidato rejeitado) para o asset mantido (candidato selecionado).
-3. **Dashboard de Impacto**: Painel resumido com contadores globais e economia de espaço em disco (bytes liberados).
-4. **Toast Notifications**: Alertas sistêmicos quando novos grupos de duplicados são encontrados em varreduras de background.
+A **Fase 3** trouxe refinamento de experiência (UX) focado na incrementabilidade e no controle fino de resolução dos agrupamentos, consolidando uma revisão premium e granular dos dados:
+1. **Scan Incremental e UI de Progresso**: O backend agora emite eventos detalhados com a contagem total no `DuplicateScanProgressed`. A interface de usuário foi atualizada para exibir uma ProgressBar precisa durante varreduras longas.
+2. **Merge de metadados Interativo**: Criamos uma janela modal robusta que exibe as diferenças exatas entre candidatos descartados e o arquivo mantido. O usuário pode selecionar interativamente (via checkboxes) quais campos técnicos, rating, tags e notas deseja mesclar para o arquivo principal, acionando uma atualização em lote atômica antes de mover os itens para a lixeira.
+3. **Toast Notifications Reativos**: A UI foi atualizada com alertas contextuais não bloqueantes para notificar o usuário quando novos grupos de duplicados são encontrados silenciosamente durante as varreduras de background, melhorando a vivacidade da interface.
+
+_Nota: O "Dashboard de Impacto" planejado originalmente foi descartado nesta fase pois fará parte de um recurso mais amplo no futuro._
+
+---
+
+## 10. Roadmap de Próximos Passos
 
 ### Fase 4 — Regras e Configuração (3-5 dias)
 1. **UI de Regras** (`DuplicateRulesDialog`)
@@ -413,7 +418,7 @@ _Nota: Itens como "Scan incremental puro" e "Interface gráfica de progresso de 
 
 ---
 
-## 10. Melhorias Futuras e Débito Técnico
+## 11. Melhorias Futuras e Débito Técnico
 
 Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes pontos precisam de atenção em futuras refatorações:
 
@@ -423,8 +428,8 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 
 ---
 
-## 11. Conclusão
+## 12. Conclusão
 
-O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência funcional de revisão e resolução.
+O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência rica e interativa de revisão e resolução.
 
-Com o sucesso na entrega da **Fase 2**, o software agora é plenamente capaz de agrupar fotos visuais e exatas em larga escala. As fundações consolidadas nos preparam para as camadas finais de Inteligência e UX (Fases 3 a 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.
+Com o sucesso na entrega da **Fase 3**, o software agora possui uma UX premium no tratamento de deduplicação, fundindo metadados de forma inteligente. O agrupamento de fotos visuais e exatas está maduro e as fundações consolidadas nos preparam para as camadas finais de Inteligência e Detecção Avançada (Fases 4 a 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.

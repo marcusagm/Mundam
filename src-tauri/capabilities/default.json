@@ -120,6 +120,7 @@
     "allow-resolve-duplicate-group",
     "allow-start-duplicate-scan",
     "allow-cancel-duplicate-scan",
+    "allow-apply-duplicate-metadata-merge",
     {
       "identifier": "http:default",
       "allow": [

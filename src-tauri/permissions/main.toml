@@ -376,3 +376,8 @@ commands.allow = ["start_duplicate_scan"]
 identifier = "allow-cancel-duplicate-scan"
 description = "Enables cancel_duplicate_scan"
 commands.allow = ["cancel_duplicate_scan"]
+
+[[permission]]
+identifier = "allow-apply-duplicate-metadata-merge"
+description = "Enables apply_duplicate_metadata_merge"
+commands.allow = ["apply_duplicate_metadata_merge"]

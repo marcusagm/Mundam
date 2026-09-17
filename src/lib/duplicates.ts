@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand as invoke } from './api';
 import { DuplicateGroup, DuplicateCandidate } from '../components/features/duplicates/types';
 
 export interface BackendDuplicateGroup {
@@ -21,6 +21,14 @@ export interface BackendDuplicateCandidate {
     is_selected: boolean;
 }
 
+export interface BackendTag {
+    id: string;
+    name: string;
+    parent_id: string | null;
+    color: string | null;
+    order_index: number;
+}
+
 export interface BackendAsset {
     id: string;
     path: string;
@@ -34,6 +42,27 @@ export interface BackendAsset {
     created_at: string;
     updated_at: string;
     deleted_at?: string | null;
+    rating?: number | null;
+    notes?: string | null;
+    is_favorite: boolean;
+}
+
+/**
+ * The user-confirmed merge decisions sent to the backend after the
+ * MetadataMergeModal is submitted. Every field is nullable — `null` means
+ * the user chose to skip merging that field.
+ */
+export interface MetadataMergePayload {
+    /** Rating value (0–5) to apply to the kept assets. Null = no change. */
+    rating: number | null;
+    /** Whether to mark kept assets as favorite. Null = no change. */
+    isFavorite: boolean | null;
+    /** Final notes string (may be a user-edited concatenation). Null = no change. */
+    notes: string | null;
+    /** Tag IDs from discarded candidates to add to the kept assets. */
+    tagsToAdd: string[];
+    /** Technical metadata fields chosen by the user from discarded candidates. Null = no change. */
+    technicalPayloadOverride: Record<string, unknown> | null;
 }
 
 /**
@@ -41,11 +70,13 @@ export interface BackendAsset {
  *
  * @param {BackendDuplicateCandidate} backendCandidate - The raw candidate from the backend.
  * @param {BackendAsset} assetData - The full asset record fetched by ID.
+ * @param {BackendTag[]} tagsData - The tags associated with the asset.
  * @returns {DuplicateCandidate} The mapped frontend candidate object.
  */
 function buildCandidateFromBackendData(
     backendCandidate: BackendDuplicateCandidate,
-    assetData: BackendAsset
+    assetData: BackendAsset,
+    tagsData: BackendTag[]
 ): DuplicateCandidate {
     const fileName = assetData.path.split(/[/\\]/).pop() || backendCandidate.asset_id;
     const formattedSize = assetData.size
@@ -65,8 +96,10 @@ function buildCandidateFromBackendData(
         format: assetData.format,
         createdAt: assetData.created_at,
         updatedAt: assetData.updated_at,
-        tags: [],
-        isFavorite: false,
+        tags: tagsData.map(tag => ({ id: tag.id, name: tag.name })),
+        isFavorite: assetData.is_favorite,
+        rating: assetData.rating || undefined,
+        notes: assetData.notes || undefined,
         thumbnailUrl: assetData.thumbnail_path || undefined,
         mediaType: assetData.mime_type,
         state: assetData.state,
@@ -115,7 +148,12 @@ export const duplicatesApi = {
             });
 
             if (!assetData) return null;
-            return buildCandidateFromBackendData(backendCandidate, assetData);
+
+            const tagsData = await invoke<BackendTag[]>('get_tags_for_asset', {
+                assetId: backendCandidate.asset_id
+            }).catch(() => []);
+
+            return buildCandidateFromBackendData(backendCandidate, assetData, tagsData);
         });
 
         const resolvedCandidates = await Promise.all(candidatePromises);
@@ -160,5 +198,23 @@ export const duplicatesApi = {
      */
     cancelDuplicateScan: async (): Promise<void> => {
         return invoke('cancel_duplicate_scan');
+    },
+
+    /**
+     * Applies a user-confirmed metadata merge to the kept assets.
+     * Called after the user reviews and confirms the MetadataMergeModal.
+     *
+     * @param {string[]} keptAssetIds - The IDs of the assets that will receive merged metadata.
+     * @param {MetadataMergePayload} mergePayload - The user-confirmed merge decisions.
+     * @returns {Promise<void>}
+     */
+    applyMetadataMerge: async (
+        keptAssetIds: string[],
+        mergePayload: MetadataMergePayload
+    ): Promise<void> => {
+        return invoke('apply_duplicate_metadata_merge', {
+            keptAssetIds,
+            mergePayload
+        });
     }
 };

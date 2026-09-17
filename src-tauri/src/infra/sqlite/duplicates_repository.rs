@@ -566,7 +566,11 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
         Ok(())
     }
-    async fn rehash_pending_fingerprints(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
+    async fn rehash_pending_fingerprints(
+        &self,
+        token: Option<tokio_util::sync::CancellationToken>,
+        progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+    ) -> AppResult<usize> {
         // Find all fingerprints that still have pending or legacy placeholder hashes
         let pending_assets = sqlx::query!(
             r#"
@@ -595,14 +599,14 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
         let mut rehashed_count: usize = 0;
 
-        for record in pending_assets {
+        for (processed_index, record) in pending_assets.into_iter().enumerate() {
             if let Some(tok) = &token {
                 if tok.is_cancelled() {
                     tracing::info!("rehash_pending_fingerprints cancelled");
                     break;
                 }
             }
-            
+
             let asset_id = record.asset_id.clone();
             let path = record.path.clone();
 
@@ -662,11 +666,16 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
                     tracing::error!("rehash_pending_fingerprints: blocking task failed for {}: {}", asset_id, error);
                 }
             }
+
+            if let Some(sender) = &progress_sender {
+                let _ = sender.send((processed_index + 1, total_pending));
+            }
         }
 
         tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending);
         Ok(rehashed_count)
     }
+
 
     async fn delete_fingerprint(&self, asset_id: &str) -> AppResult<()> {
         sqlx::query!(

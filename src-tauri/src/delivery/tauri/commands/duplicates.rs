@@ -1,5 +1,5 @@
 use crate::core::error::AppResult;
-use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction};
+use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction, MetadataMergePayload};
 use crate::feature::duplicates::commands::DuplicateCommandService;
 use crate::feature::duplicates::queries::DuplicateQueryService;
 use tauri::State;
@@ -90,3 +90,24 @@ pub async fn cancel_duplicate_scan(
     command_service.cancel_duplicate_scan();
     Ok(())
 }
+
+/// Applies a user-confirmed metadata merge to the kept assets of a duplicate group.
+///
+/// This command is invoked after the user has reviewed the `MetadataMergeModal`
+/// and confirmed their field-by-field merge decisions. It delegates the actual
+/// ledger mutations to `DuplicateCommandService::apply_metadata_merge`.
+///
+/// # Arguments
+/// * `kept_asset_ids` - The IDs of the assets that will receive the merged metadata.
+/// * `merge_payload` - The user-confirmed merge decisions from the UI modal.
+#[tauri::command]
+pub async fn apply_duplicate_metadata_merge(
+    kept_asset_ids: Vec<String>,
+    merge_payload: MetadataMergePayload,
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<()> {
+    command_service
+        .apply_metadata_merge(&kept_asset_ids, merge_payload)
+        .await
+}
+

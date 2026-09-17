@@ -19,7 +19,10 @@ export const mockGroups: DuplicateGroup[] = [
                 format: 'JPEG',
                 createdAt: '2023-05-12T10:30:00Z',
                 updatedAt: '2023-05-12T10:30:00Z',
-                tags: ['vacation', 'beach'],
+                tags: [
+                    { id: 'tag-vacation', name: 'vacation' },
+                    { id: 'tag-beach', name: 'beach' }
+                ],
                 notes: 'Original photo',
                 isFavorite: true,
                 mediaType: 'Image'
@@ -59,7 +62,10 @@ export const mockGroups: DuplicateGroup[] = [
                 format: 'PNG',
                 createdAt: '2024-01-15T09:00:00Z',
                 updatedAt: '2024-01-15T09:00:00Z',
-                tags: ['profile', 'work'],
+                tags: [
+                    { id: 'tag-profile', name: 'profile' },
+                    { id: 'tag-work', name: 'work' }
+                ],
                 notes: 'High res profile picture',
                 isFavorite: true,
                 mediaType: 'Image'
@@ -75,7 +81,7 @@ export const mockGroups: DuplicateGroup[] = [
                 format: 'JPEG',
                 createdAt: '2024-01-15T09:15:00Z',
                 updatedAt: '2024-01-15T09:15:00Z',
-                tags: ['web'],
+                tags: [{ id: 'tag-web', name: 'web' }],
                 isFavorite: false,
                 mediaType: 'Image'
             }

@@ -8,6 +8,7 @@ pub mod smart_folder;
 pub use duplicates::{
     DuplicateCandidate, DuplicateFingerprint, DuplicateGroup, DuplicateGroupStatus,
     DuplicateGroupType, DuplicateResolution, DuplicateResolutionAction, DuplicateRuleSet,
+    MetadataMergePayload,
 };
 
 pub use asset::{

@@ -106,3 +106,32 @@ pub struct DuplicateRuleSet {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+/// Carries the user-confirmed merge decisions for a duplicate resolution.
+///
+/// Every field is `Option` — `None` means the user chose to skip merging
+/// that particular piece of metadata. Only non-None fields are written to
+/// the kept assets via the Asset Ledger.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataMergePayload {
+    /// The rating value the user chose to propagate (0–5).
+    /// None if the user opted to keep the kept asset's existing rating.
+    pub rating: Option<i32>,
+    /// Whether the kept asset(s) should be marked as favorite.
+    /// None means no change. True forces favorite on; false forces it off.
+    pub is_favorite: Option<bool>,
+    /// The final notes string the user confirmed (may be a concatenation of
+    /// notes from multiple candidates, edited freely by the user).
+    /// None if the user opted to skip notes merging.
+    pub notes: Option<String>,
+    /// Tag IDs to add to the kept asset(s). These are collected from the
+    /// discarded candidates and pre-selected in the merge UI.
+    pub tags_to_add: Vec<String>,
+    /// A JSON object containing technical metadata fields selected by the user
+    /// from the discarded candidates (e.g. EXIF Artist, Copyright, GPS data).
+    /// Written via `LedgerCommand::UpdateTechnicalMetadata`.
+    /// None if the user chose not to override any technical metadata.
+    pub technical_payload_override: Option<serde_json::Value>,
+}
+

@@ -9,8 +9,9 @@ export interface DuplicateCandidate {
     format: string;
     createdAt: string;
     updatedAt: string;
-    tags: string[];
+    tags: { id: string; name: string }[];
     notes?: string;
+    rating?: number;
     isFavorite: boolean;
     thumbnailUrl?: string;
     mediaType?: string;
