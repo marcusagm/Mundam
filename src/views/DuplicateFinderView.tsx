@@ -1,4 +1,4 @@
-import { Component, JSX, Show, createSignal } from 'solid-js';
+import { Component, JSX, Show } from 'solid-js';
 import { RefreshCw, Search } from 'lucide-solid';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui';
 import { DuplicateGroupList, DuplicateComparisonPanel } from '../components/features/duplicates';
@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Loader } from '../components/ui/Loader';
 import { useDuplicateGroups } from '../components/features/duplicates/hooks/useDuplicateGroups';
+import { createShortcut } from '../core/input';
 
 import './duplicate-finder-view.css';
 
@@ -29,10 +30,12 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         selectGroup,
         resolveGroup,
         startScan,
+        cancelScan,
         showIgnored,
-        setShowIgnored
+        setShowIgnored,
+        isScanning,
+        scanProgress
     } = useDuplicateGroups();
-    const [isScanning, setIsScanning] = createSignal(false);
 
     const selectedGroup = () => {
         const currentGroups = groups();
@@ -40,14 +43,32 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         return currentGroups.find(group => group.id === selectedGroupId());
     };
 
-    const handleStartScan = async () => {
-        setIsScanning(true);
-        try {
-            await startScan();
-        } finally {
-            setIsScanning(false);
+    createShortcut({
+        keys: 'ArrowDown',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            const currentVisible = visibleGroups();
+            if (!currentVisible || currentVisible.length === 0) return;
+            const currentIndex = currentVisible.findIndex(g => g.id === selectedGroupId());
+            const nextIndex =
+                currentIndex < currentVisible.length - 1 ? currentIndex + 1 : currentIndex;
+            if (currentVisible[nextIndex]) selectGroup(currentVisible[nextIndex].id);
         }
-    };
+    });
+
+    createShortcut({
+        keys: 'ArrowUp',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            const currentVisible = visibleGroups();
+            if (!currentVisible || currentVisible.length === 0) return;
+            const currentIndex = currentVisible.findIndex(g => g.id === selectedGroupId());
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+            if (currentVisible[prevIndex]) selectGroup(currentVisible[prevIndex].id);
+        }
+    });
 
     return (
         <div class="duplicate-finder">
@@ -56,22 +77,40 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                 <ResizablePanel id="list-panel" defaultSize={30} minSize={20} maxSize={50}>
                     <div class="duplicate-finder-sidebar">
                         <div class="duplicate-finder-toolbar">
-                            <Button
-                                variant="primary"
-                                class="w-full justify-center"
-                                onClick={handleStartScan}
-                                disabled={isScanning()}
+                            <Show
+                                when={isScanning()}
+                                fallback={
+                                    <Button
+                                        variant="primary"
+                                        class="duplicate-finder-toolbar-button"
+                                        onClick={startScan}
+                                    >
+                                        <Search size={16} class="mr-2" />
+                                        Scan Now
+                                    </Button>
+                                }
                             >
-                                <Show
-                                    when={isScanning()}
-                                    fallback={<Search size={16} class="mr-2" />}
+                                <Button
+                                    variant="secondary"
+                                    class="duplicate-finder-toolbar-button"
+                                    onClick={cancelScan}
                                 >
                                     <RefreshCw size={16} class="mr-2 animate-spin" />
-                                </Show>
-                                {isScanning() ? 'Scanning...' : 'Scan Now'}
-                            </Button>
+                                    Cancel Scan
+                                </Button>
+                            </Show>
+
                             <Show when={isScanning()}>
-                                <ProgressBar value={0} isIndeterminate={isScanning()} />
+                                <div class="duplicate-finder-scan-progress-row">
+                                    <Show
+                                        when={scanProgress()}
+                                        fallback={<span>Scanning library...</span>}
+                                    >
+                                        <span>Processed: {scanProgress()?.processed || 0}</span>
+                                        <span>Groups: {scanProgress()?.groupsCreated || 0}</span>
+                                    </Show>
+                                </div>
+                                <ProgressBar value={0} isIndeterminate={true} />
                             </Show>
                         </div>
                         <Show

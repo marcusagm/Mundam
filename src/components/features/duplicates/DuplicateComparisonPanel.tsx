@@ -1,9 +1,12 @@
 import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import { Button, Badge } from '../../ui';
-import { CheckCircle2, Trash2 } from 'lucide-solid';
-import { Thumbnail } from '../viewport/assets/Thumbnail';
+import { Columns } from 'lucide-solid';
 import { DuplicateGroup, DuplicateCandidate } from './types';
+import { DuplicateSplitView } from './DuplicateSplitView';
+import { DuplicateCandidateCard } from './DuplicateCandidateCard';
+import { createShortcut } from '../../../core/input';
 import './duplicate-comparison-panel.css';
+
 export interface DuplicateComparisonPanelProperties {
     /** The duplicate group to display and resolve */
     group: DuplicateGroup;
@@ -14,6 +17,7 @@ export interface DuplicateComparisonPanelProperties {
 export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelProperties> = props => {
     const [selectedCandidates, setSelectedCandidates] = createSignal<Set<string>>(new Set());
     const [processing, setProcessing] = createSignal(false);
+    const [isSplitViewOpen, setIsSplitViewOpen] = createSignal(false);
 
     const toggleCandidate = (id: string) => {
         const newSet = new Set(selectedCandidates());
@@ -94,6 +98,71 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         await handleKeepOnlyThis(candidate.id);
     };
 
+    const handleOpenSplitView = () => {
+        setIsSplitViewOpen(true);
+    };
+
+    const splitViewCandidates = createMemo(() => {
+        const selectedCandidateIds = Array.from(selectedCandidates());
+        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
+
+        let firstCandidate = null;
+        let secondCandidate = null;
+
+        if (selectedCandidateIds.length >= 2) {
+            firstCandidate =
+                props.group.candidates.find(c => c.id === selectedCandidateIds[0]) || null;
+            secondCandidate =
+                props.group.candidates.find(c => c.id === selectedCandidateIds[1]) || null;
+        } else if (validCandidates.length >= 2) {
+            firstCandidate = validCandidates[0];
+            secondCandidate = validCandidates[1];
+        }
+
+        return { firstCandidate, secondCandidate };
+    });
+
+    createShortcut({
+        keys: 'd',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            if (!processing()) handleIgnoreGroup();
+        }
+    });
+
+    createShortcut({
+        keys: 'Backspace',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            if (!processing()) handleIgnoreGroup();
+        }
+    });
+
+    createShortcut({
+        keys: 'Delete',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            if (!processing()) handleIgnoreGroup();
+        }
+    });
+
+    createShortcut({
+        keys: 'k',
+        scope: 'viewport',
+        system: true,
+        action: () => {
+            if (processing()) return;
+            if (selectedCandidates().size > 0) {
+                handleKeepSelected();
+            } else if (largestCandidate()) {
+                handleSmartAction(largestCandidate());
+            }
+        }
+    });
+
     return (
         <div class="comparison-panel">
             <div class="comparison-header">
@@ -107,6 +176,14 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                     </div>
                 </div>
                 <div class="comparison-actions">
+                    <Button
+                        variant="secondary"
+                        onClick={handleOpenSplitView}
+                        disabled={props.group.candidates.filter(c => !c.isTrashed).length < 2}
+                    >
+                        <Columns size={16} class="mr-2" />
+                        Split View
+                    </Button>
                     <Button variant="secondary" onClick={handleIgnoreGroup} disabled={processing()}>
                         Ignore Group
                     </Button>
@@ -155,132 +232,24 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
 
             <div class="comparison-grid">
                 <For each={props.group.candidates}>
-                    {candidate => {
-                        const isSelected = () => selectedCandidates().has(candidate.id);
-                        return (
-                            <div
-                                tabIndex={candidate.isTrashed ? -1 : 0}
-                                class={`candidate-card ${isSelected() ? 'is-selected' : ''} ${candidate.isTrashed ? 'is-trashed' : ''}`}
-                                onClick={() => {
-                                    if (!candidate.isTrashed) toggleCandidate(candidate.id);
-                                }}
-                                onKeyDown={e => {
-                                    if (candidate.isTrashed) return;
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        toggleCandidate(candidate.id);
-                                    }
-                                }}
-                            >
-                                <div class="candidate-card-body" style={{ position: 'relative' }}>
-                                    <Show when={candidate.isTrashed}>
-                                        <div class="candidate-trashed-overlay">
-                                            <Trash2 size={48} />
-                                            <span>Moved to Trash</span>
-                                        </div>
-                                    </Show>
-                                    <div class="candidate-header">
-                                        <h3 class="candidate-name">{candidate.name}</h3>
-                                        <div class="candidate-badges">
-                                            <Show when={isSelected()}>
-                                                <div class="candidate-selected-icon">
-                                                    <CheckCircle2
-                                                        size={20}
-                                                        fill="currentColor"
-                                                        color="var(--bg-secondary)"
-                                                    />
-                                                </div>
-                                            </Show>
-                                            <Show when={candidate.isFavorite}>
-                                                <Badge variant="secondary">Favorite</Badge>
-                                            </Show>
-                                            <Badge variant="secondary">
-                                                {(candidate.score * 100).toFixed(0)}%
-                                            </Badge>
-                                        </div>
-                                    </div>
-
-                                    <div class="candidate-preview">
-                                        <Thumbnail
-                                            id={candidate.id}
-                                            src={candidate.path}
-                                            thumbnail={candidate.thumbnailUrl || null}
-                                            alt={candidate.name}
-                                            mediaType={candidate.mediaType}
-                                            state={candidate.state}
-                                        />
-                                    </div>
-
-                                    <div class="candidate-details">
-                                        <div class="candidate-detail-item full-width">
-                                            <span class="candidate-detail-label">Path</span>
-                                            <span class="candidate-detail-value">
-                                                {candidate.path}
-                                            </span>
-                                        </div>
-                                        <div class="candidate-detail-item">
-                                            <span class="candidate-detail-label">Format</span>
-                                            <span class="candidate-detail-value">
-                                                {candidate.format}
-                                            </span>
-                                        </div>
-                                        <div class="candidate-detail-item">
-                                            <span class="candidate-detail-label">Size</span>
-                                            <span class="candidate-detail-value">
-                                                {candidate.size}
-                                            </span>
-                                        </div>
-                                        <div class="candidate-detail-item">
-                                            <span class="candidate-detail-label">Dimensions</span>
-                                            <span class="candidate-detail-value">
-                                                {candidate.dimensions}
-                                            </span>
-                                        </div>
-                                        <div class="candidate-detail-item">
-                                            <span class="candidate-detail-label">Created</span>
-                                            <span class="candidate-detail-value">
-                                                {new Date(candidate.createdAt).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        <div class="candidate-detail-item">
-                                            <span class="candidate-detail-label">Modified</span>
-                                            <span class="candidate-detail-value">
-                                                {new Date(candidate.updatedAt).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        <Show when={candidate.tags && candidate.tags.length > 0}>
-                                            <div class="candidate-detail-item full-width">
-                                                <span class="candidate-detail-label">Tags</span>
-                                                <span class="candidate-detail-value">
-                                                    {candidate.tags.join(', ')}
-                                                </span>
-                                            </div>
-                                        </Show>
-                                        <Show when={candidate.notes}>
-                                            <div class="candidate-detail-item full-width">
-                                                <span class="candidate-detail-label">Notes</span>
-                                                <span class="candidate-detail-value">
-                                                    {candidate.notes}
-                                                </span>
-                                            </div>
-                                        </Show>
-                                    </div>
-                                </div>
-
-                                <div class="candidate-actions">
-                                    <Button
-                                        class="candidate-button"
-                                        disabled={processing()}
-                                        onClick={() => handleKeepOnlyThis(candidate.id)}
-                                    >
-                                        Keep Only This
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    }}
+                    {candidate => (
+                        <DuplicateCandidateCard
+                            candidate={candidate}
+                            isSelected={selectedCandidates().has(candidate.id)}
+                            processing={processing()}
+                            onToggle={toggleCandidate}
+                            onKeepOnlyThis={handleKeepOnlyThis}
+                        />
+                    )}
                 </For>
             </div>
+
+            <DuplicateSplitView
+                isOpen={isSplitViewOpen()}
+                onClose={() => setIsSplitViewOpen(false)}
+                candidateA={splitViewCandidates().firstCandidate}
+                candidateB={splitViewCandidates().secondCandidate}
+            />
         </div>
     );
 };

@@ -55,3 +55,16 @@
   color: var(--text-secondary);
   height: 100%;
 }
+.duplicate-finder-toolbar-button {
+    width: 100%;
+    justify-content: center;
+}
+
+.duplicate-finder-scan-progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--text-xs, 0.75rem);
+    color: var(--text-secondary);
+    margin-top: 8px;
+    margin-bottom: 4px;
+}

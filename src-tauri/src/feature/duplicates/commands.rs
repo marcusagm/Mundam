@@ -6,11 +6,15 @@ use crate::core::events::payloads::DomainEvent;
 use crate::core::events::bus::AppEventBus;
 use std::sync::Arc;
 
+use tokio_util::sync::CancellationToken;
+use std::sync::Mutex;
+
 /// Command handler for duplicate operations.
 pub struct DuplicateCommandService {
     duplicates_repo: Arc<dyn DuplicatesRepository>,
     ledger: Arc<dyn TransactionalAssetLedger>,
     event_bus: Arc<dyn AppEventBus>,
+    scan_cancel_token: Mutex<Option<CancellationToken>>,
 }
 
 impl DuplicateCommandService {
@@ -29,6 +33,7 @@ impl DuplicateCommandService {
             duplicates_repo,
             ledger,
             event_bus,
+            scan_cancel_token: Mutex::new(None),
         }
     }
 
@@ -108,20 +113,52 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
     pub async fn start_duplicate_scan(&self) -> AppResult<()> {
-        // Step 1: Ensure all fingerprints have real Blake3 hashes
-        let rehashed = self.duplicates_repo.rehash_pending_fingerprints().await?;
-        tracing::info!("DuplicateCommandService: rehashed {} pending fingerprints before scan", rehashed);
+        let token = CancellationToken::new();
+        {
+            let mut guard = self.scan_cancel_token.lock().unwrap();
+            if let Some(old_token) = guard.replace(token.clone()) {
+                old_token.cancel();
+            }
+        }
 
-        // Step 2: Run the exact match grouping
-        self.duplicates_repo.run_exact_match_scan().await?;
+        // Step 1: Ensure all fingerprints have real Blake3 hashes
+        let rehashed = self.duplicates_repo.rehash_pending_fingerprints(Some(token.clone())).await?;
+        tracing::info!("DuplicateCommandService: rehashed {} pending fingerprints before scan", rehashed);
         
-        // Let the system know new groups might be available
         let _ = self.event_bus.publish(DomainEvent::DuplicateScanProgressed {
-            processed: 0,
+            processed: rehashed,
             matched: 0,
             groups_created: 0,
         });
+
+        // Step 2: Run the exact match grouping
+        self.duplicates_repo.run_exact_match_scan(Some(token.clone())).await?;
+
+        // Step 3: Run the visual match grouping using perceptual hashes
+        self.duplicates_repo.run_visual_match_scan(Some(token.clone())).await?;
         
+        // Let the system know new groups might be available
+        let _ = self.event_bus.publish(DomainEvent::DuplicateScanFinished {
+            groups_created: 0,
+        });
+        
+        // Clean up token
+        let mut guard = self.scan_cancel_token.lock().unwrap();
+        if let Some(current) = guard.as_ref() {
+            if current.is_cancelled() {
+                *guard = None;
+            }
+        }
+
         Ok(())
+    }
+
+    /// Cancels an ongoing duplicate scan.
+    pub fn cancel_duplicate_scan(&self) {
+        let mut guard = self.scan_cancel_token.lock().unwrap();
+        if let Some(token) = guard.take() {
+            token.cancel();
+            tracing::info!("DuplicateCommandService: cancelled ongoing scan");
+        }
     }
 }

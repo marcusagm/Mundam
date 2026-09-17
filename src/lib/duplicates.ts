@@ -36,29 +36,72 @@ export interface BackendAsset {
     deleted_at?: string | null;
 }
 
+/**
+ * Maps a raw backend asset + candidate pair into the frontend DuplicateCandidate type.
+ *
+ * @param {BackendDuplicateCandidate} backendCandidate - The raw candidate from the backend.
+ * @param {BackendAsset} assetData - The full asset record fetched by ID.
+ * @returns {DuplicateCandidate} The mapped frontend candidate object.
+ */
+function buildCandidateFromBackendData(
+    backendCandidate: BackendDuplicateCandidate,
+    assetData: BackendAsset
+): DuplicateCandidate {
+    const fileName = assetData.path.split(/[/\\]/).pop() || backendCandidate.asset_id;
+    const formattedSize = assetData.size
+        ? `${(assetData.size / 1024 / 1024).toFixed(2)} MB`
+        : 'Unknown';
+    const formattedDimensions =
+        assetData.width && assetData.height ? `${assetData.width}x${assetData.height}` : 'Unknown';
+
+    return {
+        id: backendCandidate.asset_id,
+        name: fileName,
+        size: formattedSize,
+        sizeBytes: assetData.size || 0,
+        dimensions: formattedDimensions,
+        score: backendCandidate.score,
+        path: assetData.path,
+        format: assetData.format,
+        createdAt: assetData.created_at,
+        updatedAt: assetData.updated_at,
+        tags: [],
+        isFavorite: false,
+        thumbnailUrl: assetData.thumbnail_path || undefined,
+        mediaType: assetData.mime_type,
+        state: assetData.state,
+        isTrashed: !!assetData.deleted_at
+    };
+}
+
 export const duplicatesApi = {
     /**
-     * Gets all duplicate groups by status.
-     * @param status The status (e.g. 'open', 'resolved')
+     * Gets all duplicate groups filtered by status.
+     *
+     * @param {string} status - The status filter (e.g. 'open', 'ignored', 'resolved').
+     * @returns {Promise<DuplicateGroup[]>} The mapped frontend duplicate groups.
      */
     getDuplicateGroups: async (status: string): Promise<DuplicateGroup[]> => {
         const groups = await invoke<BackendDuplicateGroup[]>('get_duplicate_groups', { status });
 
-        // Map backend DTO to frontend format
         return groups.map(group => ({
             id: group.id,
-            type: group.group_type.toLowerCase() as DuplicateGroup['type'], // 'exact' | 'visual' | 'derived'
+            type: group.group_type.toLowerCase() as DuplicateGroup['type'],
             status: group.status.toLowerCase() as DuplicateGroup['status'],
             confidence: group.confidence,
             candidateCount: group.candidate_count,
             candidatesLoaded: false,
-            candidates: [] // We fetch candidates separately on selection
+            candidates: []
         }));
     },
 
     /**
-     * Gets candidates for a given group.
-     * @param groupId The group ID
+     * Gets the full candidate list for a group, resolving each candidate's asset metadata.
+     * This performs N+1 fetches (one `get_asset` per candidate) as a known trade-off for
+     * simplicity. A batch endpoint should be implemented when groups grow large.
+     *
+     * @param {string} groupId - The group ID whose candidates to fetch.
+     * @returns {Promise<DuplicateCandidate[]>} The mapped frontend candidates.
      */
     getDuplicateCandidates: async (groupId: string): Promise<DuplicateCandidate[]> => {
         const backendCandidates = await invoke<BackendDuplicateCandidate[]>(
@@ -66,52 +109,28 @@ export const duplicatesApi = {
             { groupId }
         );
 
-        // To build the full candidate, we ideally need to fetch the assets too.
-        // For now, map the fields we know, and the view will fetch the asset info if missing,
-        // or we just fetch the asset here.
-        const candidates: DuplicateCandidate[] = [];
-
-        for (const cand of backendCandidates) {
-            // Fetch the actual asset using its ID
+        const candidatePromises = backendCandidates.map(async backendCandidate => {
             const assetData = await invoke<BackendAsset | null>('get_asset', {
-                id: cand.asset_id
+                id: backendCandidate.asset_id
             });
 
-            if (assetData) {
-                candidates.push({
-                    id: cand.asset_id,
-                    name: assetData.path.split(/[/\\]/).pop() || cand.asset_id,
-                    size: assetData.size
-                        ? `${(assetData.size / 1024 / 1024).toFixed(2)} MB`
-                        : 'Unknown',
-                    sizeBytes: assetData.size || 0,
-                    dimensions:
-                        assetData.width && assetData.height
-                            ? `${assetData.width}x${assetData.height}`
-                            : 'Unknown',
-                    score: cand.score,
-                    path: assetData.path,
-                    format: assetData.format,
-                    createdAt: assetData.created_at,
-                    updatedAt: assetData.updated_at,
-                    tags: [], // Could fetch if needed
-                    isFavorite: false,
-                    thumbnailUrl: assetData.thumbnail_path || undefined,
-                    mediaType: assetData.mime_type,
-                    state: assetData.state,
-                    isTrashed: !!assetData.deleted_at
-                });
-            }
-        }
+            if (!assetData) return null;
+            return buildCandidateFromBackendData(backendCandidate, assetData);
+        });
 
-        return candidates;
+        const resolvedCandidates = await Promise.all(candidatePromises);
+        return resolvedCandidates.filter(
+            (candidate): candidate is DuplicateCandidate => candidate !== null
+        );
     },
 
     /**
-     * Resolves a duplicate group.
-     * @param groupId The group ID
-     * @param action The resolution action (e.g., 'keep_oldest', 'ignore_group')
-     * @param selectedAssetId Optional selected asset to keep
+     * Resolves a duplicate group with a given action.
+     *
+     * @param {string} groupId - The group ID to resolve.
+     * @param {string} action - The resolution action (e.g., 'custom_selection', 'ignore_group').
+     * @param {string[]} [keptAssetIds] - Optional list of asset IDs to keep.
+     * @returns {Promise<void>}
      */
     resolveDuplicateGroup: async (
         groupId: string,
@@ -126,9 +145,20 @@ export const duplicatesApi = {
     },
 
     /**
-     * Triggers a scan to find new duplicates.
+     * Triggers a full duplicate scan on the backend (rehash + exact + visual).
+     *
+     * @returns {Promise<void>}
      */
     startDuplicateScan: async (): Promise<void> => {
         return invoke('start_duplicate_scan');
+    },
+
+    /**
+     * Cancels an ongoing duplicate scan via its CancellationToken.
+     *
+     * @returns {Promise<void>}
+     */
+    cancelDuplicateScan: async (): Promise<void> => {
+        return invoke('cancel_duplicate_scan');
     }
 };

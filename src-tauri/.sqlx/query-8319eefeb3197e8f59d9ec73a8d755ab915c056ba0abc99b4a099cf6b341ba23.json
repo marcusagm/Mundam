@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE duplicate_groups SET status = 'open' WHERE id = ? AND status = 'resolved'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "8319eefeb3197e8f59d9ec73a8d755ab915c056ba0abc99b4a099cf6b341ba23"
+}

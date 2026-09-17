@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT dg.id\n                FROM duplicate_groups dg\n                JOIN duplicate_candidates dc ON dg.id = dc.group_id\n                JOIN duplicate_fingerprints df ON dc.asset_id = df.asset_id\n                WHERE df.perceptual_hash = ? AND dg.rule_set_id = 'visual-match'\n                LIMIT 1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "9f7c428ff674b42b452e7f1091da25f29031b6ff9ba0a90bf0236d48870aa1ed"
+}

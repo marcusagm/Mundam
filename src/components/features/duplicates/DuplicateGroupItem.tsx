@@ -31,6 +31,7 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
 
     return (
         <div
+            role="button"
             tabIndex={0}
             onClick={() => props.onSelect()}
             onKeyDown={event => {

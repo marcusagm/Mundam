@@ -88,7 +88,13 @@ pub trait DuplicatesRepository: Send + Sync {
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query fails.
-    async fn run_exact_match_scan(&self) -> AppResult<()>;
+    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()>;
+
+    /// Runs a database-level scan to find similar visual duplicates and groups them.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query fails.
+    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()>;
 
     /// Rehashes all fingerprints that have a pending or placeholder hash.
     /// This is necessary because BatchCreate during indexing does not emit
@@ -97,7 +103,7 @@ pub trait DuplicatesRepository: Send + Sync {
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query or update fails.
-    async fn rehash_pending_fingerprints(&self) -> AppResult<usize>;
+    async fn rehash_pending_fingerprints(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
 
     /// Deletes the fingerprint for a given asset.
     ///

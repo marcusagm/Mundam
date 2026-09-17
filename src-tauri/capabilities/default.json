@@ -119,6 +119,7 @@
     "allow-get-duplicate-candidates",
     "allow-resolve-duplicate-group",
     "allow-start-duplicate-scan",
+    "allow-cancel-duplicate-scan",
     {
       "identifier": "http:default",
       "allow": [

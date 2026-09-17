@@ -306,7 +306,7 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         Ok(())
     }
 
-    async fn run_exact_match_scan(&self) -> AppResult<()> {
+    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
         // Ensure exact-match rule set exists to avoid Foreign Key errors
         sqlx::query!(
             r#"
@@ -354,17 +354,14 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
         let rows = sqlx::query!(
             r#"
-            SELECT content_hash, COUNT(asset_id) as count
+            SELECT df.content_hash
             FROM duplicate_fingerprints df
-            WHERE content_hash IS NOT NULL 
-              AND content_hash NOT LIKE 'pending_%'
-              AND NOT EXISTS (
-                SELECT 1 FROM duplicate_candidates dc 
-                JOIN duplicate_groups dg ON dc.group_id = dg.id
-                WHERE dc.asset_id = df.asset_id AND dg.status IN ('open', 'ignored')
-            )
-            GROUP BY content_hash
-            HAVING COUNT(asset_id) > 1
+            JOIN assets a ON df.asset_id = a.id
+            WHERE df.content_hash IS NOT NULL 
+              AND df.content_hash NOT LIKE 'pending_%'
+              AND a.state != 'trashed'
+            GROUP BY df.content_hash
+            HAVING COUNT(df.asset_id) > 1
             "#
         )
         .fetch_all(&self.pool)
@@ -375,31 +372,75 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         })?;
 
         for row in rows {
+            if let Some(tok) = &token {
+                if tok.is_cancelled() {
+                    tracing::info!("run_exact_match_scan cancelled");
+                    break;
+                }
+            }
+
             let hash = row.content_hash.unwrap();
-            let count = row.count;
-            let group_id = uuid::Uuid::new_v4().to_string();
+
+            let existing_group = sqlx::query!(
+                r#"
+                SELECT dg.id
+                FROM duplicate_groups dg
+                JOIN duplicate_candidates dc ON dg.id = dc.group_id
+                JOIN duplicate_fingerprints df ON dc.asset_id = df.asset_id
+                WHERE df.content_hash = ?
+                LIMIT 1
+                "#,
+                hash
+            ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
 
             let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
 
-            sqlx::query!(
-                r#"
-                INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
-                VALUES (?, 'exact-match', 'exact', 1.0, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                "#,
-                group_id, count
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(AppError::Database)?;
+            let group_id = if let Some(group) = existing_group {
+                // Reopen group if it was resolved but a new file was added
+                let id = group.id.unwrap_or_default();
+                sqlx::query!(
+                    r#"UPDATE duplicate_groups SET status = 'open' WHERE id = ? AND status = 'resolved'"#,
+                    id
+                ).execute(&mut *tx).await.map_err(AppError::Database)?;
+                id
+            } else {
+                let new_id = uuid::Uuid::new_v4().to_string();
+                sqlx::query!(
+                    r#"
+                    INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
+                    VALUES (?, 'exact-match', 'exact', 1.0, 'open', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    "#,
+                    new_id
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::Database)?;
+                new_id
+            };
 
             sqlx::query!(
                 r#"
                 INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
-                SELECT ?, asset_id, 1.0, '{}', 0
-                FROM duplicate_fingerprints
-                WHERE content_hash = ?
+                SELECT ?, df.asset_id, 1.0, '{}', 0
+                FROM duplicate_fingerprints df
+                JOIN assets a ON df.asset_id = a.id
+                WHERE df.content_hash = ? AND a.state != 'trashed'
+                ON CONFLICT(group_id, asset_id) DO NOTHING
                 "#,
                 group_id, hash
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+            
+            sqlx::query!(
+                r#"
+                UPDATE duplicate_groups
+                SET candidate_count = (SELECT COUNT(*) FROM duplicate_candidates WHERE group_id = ?),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                "#,
+                group_id, group_id
             )
             .execute(&mut *tx)
             .await
@@ -411,7 +452,121 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         Ok(())
     }
 
-    async fn rehash_pending_fingerprints(&self) -> AppResult<usize> {
+    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
+        sqlx::query!(
+            r#"
+            INSERT OR IGNORE INTO duplicate_rule_sets (
+                id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+            ) VALUES (
+                'visual-match', 'Visual Match', 'Finds similar images using perceptual hash', 0, 1, 0, 1, 1, 0, 0, 0.9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+            "#
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to seed visual-match rule set: {:?}", e);
+            AppError::Database(e)
+        })?;
+
+        let rows = sqlx::query!(
+            r#"
+            SELECT df.perceptual_hash
+            FROM duplicate_fingerprints df
+            JOIN assets a ON df.asset_id = a.id
+            WHERE df.perceptual_hash IS NOT NULL 
+              AND a.state != 'trashed'
+            GROUP BY df.perceptual_hash
+            HAVING COUNT(df.asset_id) > 1
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch visual match groups: {:?}", e);
+            AppError::Database(e)
+        })?;
+
+        for row in rows {
+            if let Some(tok) = &token {
+                if tok.is_cancelled() {
+                    tracing::info!("run_visual_match_scan cancelled");
+                    break;
+                }
+            }
+
+            let hash = row.perceptual_hash.unwrap();
+
+            let existing_group = sqlx::query!(
+                r#"
+                SELECT dg.id
+                FROM duplicate_groups dg
+                JOIN duplicate_candidates dc ON dg.id = dc.group_id
+                JOIN duplicate_fingerprints df ON dc.asset_id = df.asset_id
+                WHERE df.perceptual_hash = ? AND dg.rule_set_id = 'visual-match'
+                LIMIT 1
+                "#,
+                hash
+            ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
+
+            let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
+
+            let group_id = if let Some(group) = existing_group {
+                let id = group.id.unwrap_or_default();
+                sqlx::query!(
+                    r#"UPDATE duplicate_groups SET status = 'open' WHERE id = ? AND status = 'resolved'"#,
+                    id
+                ).execute(&mut *tx).await.map_err(AppError::Database)?;
+                id
+            } else {
+                let new_id = uuid::Uuid::new_v4().to_string();
+                sqlx::query!(
+                    r#"
+                    INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
+                    VALUES (?, 'visual-match', 'visual', 0.95, 'open', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    "#,
+                    new_id
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::Database)?;
+                new_id
+            };
+
+            sqlx::query!(
+                r#"
+                INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
+                SELECT ?, df.asset_id, 0.95, '{}', 0
+                FROM duplicate_fingerprints df
+                JOIN assets a ON df.asset_id = a.id
+                WHERE df.perceptual_hash = ? AND a.state != 'trashed'
+                ON CONFLICT(group_id, asset_id) DO NOTHING
+                "#,
+                group_id, hash
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+            
+            sqlx::query!(
+                r#"
+                UPDATE duplicate_groups
+                SET candidate_count = (SELECT COUNT(*) FROM duplicate_candidates WHERE group_id = ?),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                "#,
+                group_id, group_id
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+
+            tx.commit().await.map_err(AppError::Database)?;
+        }
+
+        Ok(())
+    }
+    async fn rehash_pending_fingerprints(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
         // Find all fingerprints that still have pending or legacy placeholder hashes
         let pending_assets = sqlx::query!(
             r#"
@@ -441,6 +596,13 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         let mut rehashed_count: usize = 0;
 
         for record in pending_assets {
+            if let Some(tok) = &token {
+                if tok.is_cancelled() {
+                    tracing::info!("rehash_pending_fingerprints cancelled");
+                    break;
+                }
+            }
+            
             let asset_id = record.asset_id.clone();
             let path = record.path.clone();
 

@@ -81,7 +81,7 @@ impl DuplicateWorker {
                             info!("DuplicateWorker: successfully generated and saved fingerprint for {}", asset_id);
                             
                             // Immediately run the exact match scan to auto-group if enabled
-                            if let Err(e) = self.duplicates_repo.run_exact_match_scan().await {
+                            if let Err(e) = self.duplicates_repo.run_exact_match_scan(None).await {
                                 warn!("DuplicateWorker: failed to auto-group exact matches: {}", e);
                             }
                         }
@@ -109,11 +109,23 @@ impl DuplicateWorker {
         }
     }
 
-    /// Synchronous function to read the file and compute a Blake3 content hash.
+    /// Synchronous function to read the file and compute a Blake3 content hash
+    /// and a perceptual (dHash) hash for image assets.
     /// Runs inside `spawn_blocking` to avoid blocking the async executor.
     ///
     /// Uses streaming hashing via Blake3 to avoid loading the entire file into memory,
     /// which is critical for large assets (RAW photos, videos, etc.).
+    ///
+    /// # Arguments
+    /// * `asset_id` - The UUID of the asset to fingerprint.
+    /// * `path` - The canonical filesystem path to the asset file.
+    /// * `format` - The asset's format family string as stored in the `assets.family` column
+    ///   (e.g. `"image"`, `"image/jpeg"`, `"video"`, `"audio"`). A value starting with
+    ///   `"image/"` or equal to `"image"` will trigger perceptual hash computation.
+    ///
+    /// # Errors
+    /// Returns a `String` error if the file cannot be opened, read, or its metadata
+    /// cannot be retrieved.
     fn generate_fingerprint(
         asset_id: &str,
         path: &str,
@@ -145,10 +157,35 @@ impl DuplicateWorker {
 
         let content_hash = Some(hasher.finalize().to_hex().to_string());
         
+        let perceptual_hash = {
+            if format.starts_with("image/") || format == "image" {
+                if let Ok(img) = image::open(path) {
+                    let grayscale = img.grayscale();
+                    let resized = image::imageops::resize(&grayscale, 9, 8, image::imageops::FilterType::Nearest);
+                    let mut hash = 0u64;
+                    for y in 0..8 {
+                        for x in 0..8 {
+                            let left = resized.get_pixel(x, y)[0];
+                            let right = resized.get_pixel(x + 1, y)[0];
+                            hash <<= 1;
+                            if left > right {
+                                hash |= 1;
+                            }
+                        }
+                    }
+                    Some(format!("{:016x}", hash))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        
         Ok(DuplicateFingerprint {
             asset_id: asset_id.to_string(),
             content_hash,
-            perceptual_hash: None,
+            perceptual_hash,
             block_hash: None,
             thumb_hash: None,
             width: None,
@@ -158,7 +195,7 @@ impl DuplicateWorker {
             format_family: Some(format.to_string()),
             color_profile: None,
             orientation: None,
-            fingerprint_version: 2, // Bumped to v2 for Blake3 hashing
+            fingerprint_version: 3, // Bumped to v3 for perceptual hash
             updated_at: chrono::Utc::now(),
         })
     }

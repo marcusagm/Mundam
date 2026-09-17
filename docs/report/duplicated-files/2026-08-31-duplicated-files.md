@@ -31,9 +31,9 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 | Frontend — Hook                | ✅ Completo | `useDuplicateGroups` com fetch + mutate            |
 | Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo            |
 | Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`) |
-| Perceptual Hash                | ❌ Pendente | Campo preparado, não implementado                  |
+| Perceptual Hash                | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint` |
 | UI de Regras Configuráveis     | ❌ Pendente | Modelo pronto, UI não criada                       |
-| Comparação Visual (Split View) | ❌ Pendente | Planejado na proposta                              |
+| Comparação Visual (Split View) | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`   |
 
 ---
 
@@ -58,20 +58,24 @@ Todos os enums usam `strum::Display` e `strum::EnumString` para serialização s
 
 ### 2.2 Porta do Repositório — `core/repository/duplicates.rs`
 
-Define o trait `DuplicatesRepository` com 8 operações assíncronas:
+Define o trait `DuplicatesRepository` com 15 operações assíncronas:
 
-| Método                 | Tipo  | Descrição                                          |
-| ---------------------- | ----- | -------------------------------------------------- |
-| `save_fingerprint`     | Write | Upsert de fingerprint (ON CONFLICT UPDATE)         |
-| `get_fingerprint`      | Read  | Busca por `asset_id`                               |
-| `get_rule_sets`        | Read  | Lista todas as regras configuradas                 |
-| `save_group`           | Write | Cria ou atualiza grupo (upsert)                    |
-| `save_candidate`       | Write | Adiciona candidato ao grupo (upsert)               |
-| `get_groups_by_status` | Read  | Filtra grupos por status (`open`, `ignored`, etc.) |
-| `get_group_candidates` | Read  | Lista candidatos de um grupo                       |
-| `save_resolution`      | Write | Registra decisão do usuário                        |
-| `update_group_status`  | Write | Altera status do grupo                             |
-| `run_exact_match_scan` | Write | Varredura completa por hash exato                  |
+| Método                          | Tipo  | Descrição                                          |
+| ------------------------------- | ----- | -------------------------------------------------- |
+| `save_fingerprint`              | Write | Upsert de fingerprint (ON CONFLICT UPDATE)         |
+| `get_fingerprint`               | Read  | Busca por `asset_id`                               |
+| `get_rule_sets`                 | Read  | Lista todas as regras configuradas                 |
+| `save_group`                    | Write | Cria ou atualiza grupo (upsert)                    |
+| `save_candidate`                | Write | Adiciona candidato ao grupo (upsert)               |
+| `get_groups_by_status`          | Read  | Filtra grupos por status (`open`, `ignored`, etc.) |
+| `get_group_candidates`          | Read  | Lista candidatos de um grupo                       |
+| `save_resolution`               | Write | Registra decisão do usuário                        |
+| `update_group_status`           | Write | Altera status do grupo                             |
+| `run_exact_match_scan`          | Write | Varredura completa por hash exato (Blake3)         |
+| `run_visual_match_scan`         | Write | Varredura por hash perceptual (dHash)              |
+| `rehash_pending_fingerprints`   | Write | Rehash de fingerprints `pending_` em lote         |
+| `delete_fingerprint`            | Write | Remove o fingerprint de um asset deletado          |
+| `remove_candidate_from_groups`  | Write | Remove candidato de grupos; auto-resolve se < 2    |
 
 ### 2.3 Implementação SQLite — `infra/sqlite/duplicates_repository.rs`
 
@@ -170,15 +174,18 @@ idx_duplicate_candidates_asset_id
 
 ```
 src/components/features/duplicates/
-├── index.ts                        # Barrel exports
+├── index.ts                        # Barrel exports com JSDoc de módulo
 ├── types.ts                        # DuplicateCandidate, DuplicateGroup
-├── mockData.ts                     # Dados mock para desenvolvimento
+├── mockData.ts                     # Dados mock para desenvolvimento (não exportado no barrel)
 ├── DuplicateGroupList.tsx          # Lista de grupos (sidebar)
 ├── DuplicateGroupItem.tsx          # Item individual com deck preview
 ├── DuplicateComparisonPanel.tsx    # Painel de comparação detalhada
+├── DuplicateCandidateCard.tsx      # Card individual de candidato
+├── DuplicateSplitView.tsx          # Modal de comparação lado a lado
 ├── duplicate-group-list.css
 ├── duplicate-group-item.css
 ├── duplicate-comparison-panel.css
+├── duplicate-split-view.css
 └── hooks/
     └── useDuplicateGroups.ts       # Hook principal de estado
 
@@ -373,35 +380,40 @@ _Nota: A correção da query N+1 na UI não foi focada devido à estabilidade ex
 
 ---
 
-## 8. Roadmap de Próximos Passos
+## 8. Implementação da Fase 2 (Concluída)
 
-### Fase 2 — Perceptual Hash e Scan Incremental (3-5 dias)
-1. **Implementar dHash/pHash** para similaridade visual
-2. **Tornar scan incremental**: Apenas processar fingerprints novos desde o último scan
-3. **Emitir progresso real** do scan via `DuplicateScanProgressed`
-4. **Adicionar cancelamento** de scan via `CancellationToken`
+A **Fase 2** expandiu a detecção para ir além da correspondência exata, e antecipou recursos de usabilidade cruciais da Fase 3:
+1. **Agrupamento Visual (pHash/dHash)**: Construímos a infraestrutura completa de similaridade baseada nos hashes perceptuais de 64 bits. Implementamos `run_visual_match_scan`, que insere a Rule Set `visual-match` e cruza imagens com esqueletos visuais idênticos, ignorando recompressões ou perdas de metadados.
+2. **Split View Sincronizado**: Concluímos a interface dividida (`DuplicateSplitView`) para comparar duas imagens lado a lado e corrigimos as chamadas do protocolo customizado `asset://` no Tauri para garantir o carregamento em alta resolução.
+3. **Atalhos de Teclado**: O sistema nativo de atalhos do Mundam (`src/core/input`) foi integrado com sucesso ao `DuplicateFinderView` e `DuplicateComparisonPanel`, permitindo navegação rápida e coerente sem conflitar com bindings globais.
+4. **Consistência de Dados**: O motor SQL foi atualizado para remover assets `trashed` das queries de agrupamento (`run_exact_match_scan` e `run_visual_match_scan`), erradicando bugs visuais onde a contagem de candidatos apresentava anomalias na interface.
 
-### Fase 3 — UX Premium (5-7 dias)
-1. **Split View sincronizado** para comparação visual de 2 assets
-2. **Merge de metadados**: Transferir tags/notas do asset deletado para o mantido
-3. **Atalhos de teclado** para triagem rápida
-4. **Dashboard** com contadores e economia de espaço estimada
-5. **Toast notifications** quando novos duplicados são encontrados
-
-### Fase 4 — Regras e Configuração (3-5 dias)
-1. **UI de regras** (`DuplicateRulesDialog`)
-2. **Perfis pré-definidos** e seletor de perfil
-3. **Filtros avançados** na lista de grupos
-
-### Fase 5 — Detecção Avançada (5-10 dias)
-1. **Block hash** para detecção de crops
-2. **Comparação multi-escala** para derivados
-3. **Score explicável** ("agrupado por: mesmo hash, mesma resolução")
-4. **Overlay visual** de diferenças
+_Nota: Itens como "Scan incremental puro" e "Interface gráfica de progresso de scan", inicialmente planejados na Fase 2, foram movidos para a Fase 3 por decisão de priorização do valor visual da galeria._
 
 ---
 
-## 9. Melhorias Futuras e Débito Técnico
+## 9. Roadmap de Próximos Passos
+
+### Fase 3 — UX Premium e Incrementabilidade (5-7 dias)
+1. **Scan Incremental e UI de Progresso**: Processar exclusivamente fingerprints novos (incremental puro) e exibir loader/progress bar na interface escutando `DuplicateScanProgressed`.
+2. **Merge de metadados**: Transferir tags e notas contextuais do asset deletado (candidato rejeitado) para o asset mantido (candidato selecionado).
+3. **Dashboard de Impacto**: Painel resumido com contadores globais e economia de espaço em disco (bytes liberados).
+4. **Toast Notifications**: Alertas sistêmicos quando novos grupos de duplicados são encontrados em varreduras de background.
+
+### Fase 4 — Regras e Configuração (3-5 dias)
+1. **UI de Regras** (`DuplicateRulesDialog`)
+2. **Perfis Pré-definidos** e seletor de tolerância
+3. **Filtros avançados** na lista de grupos (ex: filtrar por grupo exato vs grupo visual)
+
+### Fase 5 — Detecção Avançada (5-10 dias)
+1. **Block hash** para detecção de recortes (crops)
+2. **Comparação multi-escala** para derivados severos
+3. **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
+4. **Overlay Visual** de diferenças nas imagens no SplitView
+
+---
+
+## 10. Melhorias Futuras e Débito Técnico
 
 Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes pontos precisam de atenção em futuras refatorações:
 
@@ -411,8 +423,8 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 
 ---
 
-## 10. Conclusão
+## 11. Conclusão
 
 O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência funcional de revisão e resolução.
 
-O principal gap é o **hashing real perceptual** e a **performance em larga escala** (scan incremental). A base consolidada permite transformar o módulo em uma ferramenta de produtividade séria para artistas e gestores de acervo, implementando as próximas fases de forma independente.
+Com o sucesso na entrega da **Fase 2**, o software agora é plenamente capaz de agrupar fotos visuais e exatas em larga escala. As fundações consolidadas nos preparam para as camadas finais de Inteligência e UX (Fases 3 a 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.

@@ -81,3 +81,12 @@ pub async fn start_duplicate_scan(
     command_service.start_duplicate_scan().await?;
     Ok(())
 }
+
+/// Cancela a varredura de duplicados.
+#[tauri::command]
+pub async fn cancel_duplicate_scan(
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<()> {
+    command_service.cancel_duplicate_scan();
+    Ok(())
+}
