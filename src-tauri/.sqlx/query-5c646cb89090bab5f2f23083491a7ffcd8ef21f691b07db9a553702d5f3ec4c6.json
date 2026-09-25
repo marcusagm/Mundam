@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT id, min_score, consider_visual_match\n            FROM duplicate_rule_sets\n            WHERE consider_visual_match = 1\n            ORDER BY updated_at DESC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "min_score",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "consider_visual_match",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "5c646cb89090bab5f2f23083491a7ffcd8ef21f691b07db9a553702d5f3ec4c6"
+}

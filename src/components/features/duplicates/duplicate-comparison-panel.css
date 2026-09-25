@@ -112,6 +112,7 @@
 }
 
 .candidate-card-body {
+  position: relative;
   padding: var(--p-space-m);
   flex: 1;
   display: flex;
@@ -233,4 +234,8 @@
   color: var(--color-primary-500);
   display: flex;
   align-items: center;
+}
+
+.duplicate-comparison-button-icon {
+  margin-right: 8px;
 }

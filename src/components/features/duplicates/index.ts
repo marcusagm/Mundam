@@ -22,3 +22,4 @@ export * from './DuplicateComparisonPanel';
 export * from './DuplicateSplitView';
 export * from './DuplicateCandidateCard';
 export * from './MetadataMergeModal';
+export * from './DuplicateRulesModal';

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_groups WHERE status = 'open' AND group_type = 'visual'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "1100d6498b7ff245c87dc5b0c7e8fd3f13b30e88cdf77bff741c35eebc586d35"
+}

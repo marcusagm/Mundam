@@ -111,3 +111,13 @@ pub async fn apply_duplicate_metadata_merge(
         .await
 }
 
+/// Updates a duplicate rule set (e.g. from the settings modal).
+#[tauri::command]
+pub async fn update_duplicate_rule_set(
+    rule_set: crate::core::models::DuplicateRuleSet,
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<()> {
+    command_service.update_rule_set(rule_set).await
+}
+
+

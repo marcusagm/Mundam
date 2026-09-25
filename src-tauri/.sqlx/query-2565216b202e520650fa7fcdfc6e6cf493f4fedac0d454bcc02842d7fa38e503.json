@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                        UPDATE duplicate_fingerprints \n                        SET content_hash = ?, file_size = ?, perceptual_hash = ?, fingerprint_version = 3, updated_at = CURRENT_TIMESTAMP\n                        WHERE asset_id = ?\n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "2565216b202e520650fa7fcdfc6e6cf493f4fedac0d454bcc02842d7fa38e503"
+}

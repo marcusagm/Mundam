@@ -13,6 +13,8 @@ export interface DuplicateGroupListProperties {
     onSelectGroup: (groupId: string) => void;
     showIgnored: Accessor<boolean>;
     setShowIgnored: Setter<boolean>;
+    groupTypeFilter: Accessor<'all' | 'exact' | 'visual' | 'derived'>;
+    setGroupTypeFilter: Setter<'all' | 'exact' | 'visual' | 'derived'>;
 }
 
 export const DuplicateGroupList: Component<DuplicateGroupListProperties> = props => {
@@ -34,6 +36,39 @@ export const DuplicateGroupList: Component<DuplicateGroupListProperties> = props
                                 label: 'Show ignored groups',
                                 checked: props.showIgnored(),
                                 onCheckedChange: props.setShowIgnored
+                            },
+                            { type: 'separator' },
+                            {
+                                type: 'checkbox',
+                                label: 'All types',
+                                checked: props.groupTypeFilter() === 'all',
+                                onCheckedChange: checked => {
+                                    if (checked) props.setGroupTypeFilter('all');
+                                }
+                            },
+                            {
+                                type: 'checkbox',
+                                label: 'Exact match',
+                                checked: props.groupTypeFilter() === 'exact',
+                                onCheckedChange: checked => {
+                                    if (checked) props.setGroupTypeFilter('exact');
+                                }
+                            },
+                            {
+                                type: 'checkbox',
+                                label: 'Visual match',
+                                checked: props.groupTypeFilter() === 'visual',
+                                onCheckedChange: checked => {
+                                    if (checked) props.setGroupTypeFilter('visual');
+                                }
+                            },
+                            {
+                                type: 'checkbox',
+                                label: 'Derived / Edited',
+                                checked: props.groupTypeFilter() === 'derived',
+                                onCheckedChange: checked => {
+                                    if (checked) props.setGroupTypeFilter('derived');
+                                }
                             }
                         ]}
                     />

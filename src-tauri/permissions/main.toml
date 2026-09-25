@@ -378,6 +378,11 @@ description = "Enables cancel_duplicate_scan"
 commands.allow = ["cancel_duplicate_scan"]
 
 [[permission]]
+identifier = "allow-update-duplicate-rule-set"
+description = "Enables update_duplicate_rule_set"
+commands.allow = ["update_duplicate_rule_set"]
+
+[[permission]]
 identifier = "allow-apply-duplicate-metadata-merge"
 description = "Enables apply_duplicate_metadata_merge"
 commands.allow = ["apply_duplicate_metadata_merge"]

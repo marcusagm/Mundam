@@ -107,6 +107,22 @@ function buildCandidateFromBackendData(
     };
 }
 
+export interface BackendDuplicateRuleSet {
+    id: string;
+    name: string;
+    description?: string;
+    consider_exact_match: boolean;
+    consider_visual_match: boolean;
+    consider_crop_match: boolean;
+    ignore_resolution_difference: boolean;
+    ignore_recompression: boolean;
+    allow_rotation: boolean;
+    allow_mirroring: boolean;
+    min_score: number;
+    created_at: string;
+    updated_at: string;
+}
+
 export const duplicatesApi = {
     /**
      * Gets all duplicate groups filtered by status.
@@ -216,5 +232,15 @@ export const duplicatesApi = {
             keptAssetIds,
             mergePayload
         });
+    },
+
+    /**
+     * Updates a duplicate rule set.
+     *
+     * @param {BackendDuplicateRuleSet} ruleSet - The rule set to update.
+     * @returns {Promise<void>}
+     */
+    updateDuplicateRuleSet: async (ruleSet: BackendDuplicateRuleSet): Promise<void> => {
+        return invoke('update_duplicate_rule_set', { ruleSet });
     }
 };

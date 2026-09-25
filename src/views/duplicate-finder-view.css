@@ -96,9 +96,28 @@
   color: var(--text-secondary);
   height: 100%;
 }
+.duplicate-finder-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
 .duplicate-finder-toolbar-button {
-    width: 100%;
+    flex: 1;
     justify-content: center;
+}
+
+.duplicate-finder-toolbar-icon {
+    margin-right: 8px;
+}
+
+.duplicate-finder-spinner {
+    animation: duplicate-finder-spin 1s linear infinite;
+}
+
+@keyframes duplicate-finder-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .duplicate-finder-scan-progress-row {

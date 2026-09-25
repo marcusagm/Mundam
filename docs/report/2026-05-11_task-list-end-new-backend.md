@@ -10,6 +10,7 @@
 - [ ] Adicionar atalho para enviar um item para a lixeira (delete)
 - [ ] A seleção de filtros deve ter o padrão de selecionar apenas um filtro, caso o usuário selecione um filtro segurando ctrl, ele deve adicionar o filtro aos filtro ativos.
 - [ ] A seleção utilizando o mouse como shift+click e crtl_click não está sendo listada na tela de configurações de atalhos.
+- [ ] Verificar funcionamento padrão de botões adicionais do mouse que por padrão servem para voltar e avançar.
 
 ## Acessibilidade
 
@@ -82,6 +83,18 @@
   - [ ] Linux
 - [ ] Adicionar tags pelo menu de contexto seja a um asset ou a todos os assets selecionados.
 
+## Modo de desenvolvimento
+
+- [ ] Ativar modo de desenvolvimento no menu de configurações.
+- [ ] Restringir abertura do inspector do tauri para apenas o modo de desenvolvimento.
+- [ ] Adicionar hotkeys para desenvolvedor, para abrir o inspector e recarregar a aplicação.
+- [ ] Exibir contador de assests carregados no viewport apenas no modo desenvolvedor.
+- [ ] Criar tela para exibição de registros na tabela de `operations_log`, e outros logs gerados pelo sistema para permitir rasterio de bugs.
+- [ ] Restringir a abertura da tela do design system para apenas o modo de desenvolvimento.
+- [ ] Criar documentação de desenvolvedor em `docs/development`.
+- [ ] Atualizar o README.md com as mudanças realizadas.
+- [ ] Mesclar SQLs de criação de tabelas em um único arquivo `src/infra/sqlite/migrations/create_tables.sql`.
+
 ## Visualizador de assets
 
 ### Geral
@@ -90,6 +103,9 @@
 - [ ] Ao carregar o arquivo, mostrar um loader de forma que não trave a interface do usuário, permitindo que ele possa sair do itemview quando quiser, cancelando o processo se necessário.
 - [ ] Permitir acesso a detalhes do arquivo na item view.
 - [ ] Agora com a barra de título personalizada, é necessário resolver o problema de não conseguir mover a janela quando um item está sendo visualizado.
+- [ ] Criar sistema de atualização automática.
+- [ ] Criar splashscreen.
+- [ ] O sistema deve solicitar corretamente as permissões para o Sistema Operacional de acesso necessários para o funcionamento do aplicativo, principlamente no MacOS.
 
 ### Imagens
 
@@ -177,7 +193,6 @@
 - [x] Organização dos formatos e extratores de projetos
 - [x] Organização dos formatos e extratores de vetores
 - [x] Organização dos formatos e extratores de video
-
 
 ## Outros arquivos para verificar
 

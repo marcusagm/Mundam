@@ -32,7 +32,7 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 | Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo                    |
 | Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)    |
 | Perceptual Hash                | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`           |
-| UI de Regras Configuráveis     | ❌ Pendente | Modelo pronto, UI não criada                               |
+| UI de Regras Configuráveis     | ✅ Completo | `DuplicateRulesModal` implementado na Fase 4               |
 | Comparação Visual (Split View) | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`           |
 
 ---
@@ -223,7 +223,7 @@ Layout principal com `ResizablePanelGroup` horizontal:
 - **Painel direito (70%)**: Painel de comparação ou mensagem contextual
 
 #### `DuplicateGroupList`
-Header com título + filtro dropdown ("Show ignored groups"). Delega renderização de cada item para `DuplicateGroupItem`.
+Header com título + filtro dropdown ("Show ignored groups" e filtros de tipos `exact`, `visual`, `derived`). Delega renderização de cada item para `DuplicateGroupItem`.
 
 #### `DuplicateGroupItem`
 - **Deck preview**: Até 3 thumbnails empilhadas com rotação (inspirado no `MultiInspector`)
@@ -321,37 +321,37 @@ sequenceDiagram
 
 | Item                        | Estado Atual                                | Ideal                                     |
 | --------------------------- | ------------------------------------------- | ----------------------------------------- |
-| Scan incremental            | ✅ Implementado na Fase 3                   | Scan apenas de novos fingerprints         |
+| Scan incremental            | ✅ Implementado na Fase 3                    | Scan apenas de novos fingerprints         |
 | Batch loading de candidatos | ❌ N+1 queries (1 `get_asset` por candidato) | `SELECT ... WHERE id IN (...)` batch      |
-| Cancelamento de scan        | ✅ Implementado na Fase 3                   | `CancellationToken` para abort            |
-| Progresso de scan           | ✅ Implementado na Fase 3                   | Emissão real de `DuplicateScanProgressed` |
+| Cancelamento de scan        | ✅ Implementado na Fase 3                    | `CancellationToken` para abort            |
+| Progresso de scan           | ✅ Implementado na Fase 3                    | Emissão real de `DuplicateScanProgressed` |
 | Indexação paralela          | ❌ Sequencial (1 fingerprint por vez)        | Work-stealing pool com `rayon`            |
 | Paginação de grupos         | ❌ Carrega todos de uma vez                  | `LIMIT/OFFSET` ou cursor-based            |
 | Cache de thumbnails no deck | ❌ Cada deck item faz request                | Pré-carregar thumbnails com o grupo       |
 
 ### 6.3 Interface de Usuário
 
-| Item                            | Estado Atual        | Ideal (Estado da Arte)                        |
-| ------------------------------- | ------------------- | --------------------------------------------- |
-| Split View sincronizado         | ✅ Implementado (Fase 2)| Zoom/Pan travado entre 2 imagens              |
-| Overlay de diferenças           | ❌ Não implementado  | Toggle de transparência entre versões         |
-| Ações em lote (bulk)            | ❌ Um grupo por vez  | Selecionar múltiplos grupos e resolver        |
-| "Manter o maior/mais antigo"    | ✅ Implementado      | Filtra assets na lixeira no agrupamento       |
-| Visual da Lixeira (MoveToTrash) | ✅ Implementado      | Card com strikethrough e sem ações bloqueadas |
-| Merge de metadados/tags         | ✅ Implementado (Fase 3)| Transferir tags ao manter um asset            |
-| Resumo/Dashboard                | ❌ Não há            | Contadores, gráficos de economia              |
-| Atalhos de teclado              | ✅ Implementado (Fase 2)| ← → para navegar, K para keep, D para delete  |
-| Filtros avançados               | ❌ Apenas por status | Por tipo, confidence, pasta, formato          |
-| Notificação de novos duplicados | ✅ Implementado (Fase 3)| Toast/badge quando worker encontra grupo      |
+| Item                            | Estado Atual            | Ideal (Estado da Arte)                        |
+| ------------------------------- | ----------------------- | --------------------------------------------- |
+| Split View sincronizado         | ✅ Implementado (Fase 2) | Zoom/Pan travado entre 2 imagens              |
+| Overlay de diferenças           | ❌ Não implementado      | Toggle de transparência entre versões         |
+| Ações em lote (bulk)            | ❌ Um grupo por vez      | Selecionar múltiplos grupos e resolver        |
+| "Manter o maior/mais antigo"    | ✅ Implementado          | Filtra assets na lixeira no agrupamento       |
+| Visual da Lixeira (MoveToTrash) | ✅ Implementado          | Card com strikethrough e sem ações bloqueadas |
+| Merge de metadados/tags         | ✅ Implementado (Fase 3) | Transferir tags ao manter um asset            |
+| Resumo/Dashboard                | ❌ Não há                | Contadores, gráficos de economia              |
+| Atalhos de teclado              | ✅ Implementado (Fase 2) | ← → para navegar, K para keep, D para delete  |
+| Filtros avançados               | ✅ Implementado (Fase 4) | Por tipo (exact, visual, derived)             |
+| Notificação de novos duplicados | ✅ Implementado (Fase 3) | Toast/badge quando worker encontra grupo      |
 
 ### 6.4 Regras Configuráveis
 
 | Item                           | Estado Atual               | Ideal                                    |
 | ------------------------------ | -------------------------- | ---------------------------------------- |
 | Modelo `DuplicateRuleSet`      | ✅ Pronto no banco          | —                                        |
-| UI de criação/edição de regras | ❌ Não implementado         | `DuplicateRulesDialog` com toggles       |
+| UI de criação/edição de regras | ✅ Implementado             | `DuplicateRulesModal` com toggles        |
 | Aplicação de regra no scan     | ❌ Sempre usa `exact-match` | Seletor de perfil antes do scan          |
-| Perfis pré-definidos           | ❌ Apenas `exact-match`     | "Somente exatos", "Visuais", "Agressivo" |
+| Perfis pré-definidos           | ✅ Implementado             | "Somente exatos", "Visuais", "Agressivo" |
 
 ### 6.5 Qualidade de Código e Arquitetura
 
@@ -403,28 +403,41 @@ _Nota: O "Dashboard de Impacto" planejado originalmente foi descartado nesta fas
 
 ---
 
-## 10. Roadmap de Próximos Passos
+## 10. Implementação da Fase 4 (Concluída)
 
-### Fase 4 — Regras e Configuração (3-5 dias)
-1. **UI de Regras** (`DuplicateRulesDialog`)
-2. **Perfis Pré-definidos** e seletor de tolerância
-3. **Filtros avançados** na lista de grupos (ex: filtrar por grupo exato vs grupo visual)
-
-### Fase 5 — Detecção Avançada (5-10 dias)
-1. **Block hash** para detecção de recortes (crops)
-2. **Comparação multi-escala** para derivados severos
-3. **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
-4. **Overlay Visual** de diferenças nas imagens no SplitView
+A **Fase 4** introduziu as ferramentas de configuração e regras de filtragem para melhor gestão dos arquivos duplicados pela parte do usuário, além de mergulhar na matemática flexível de hashes:
+1. **Filtros avançados**: Foi implementada a possibilidade de filtrar no `DuplicateGroupList` se o usuário quer visualizar apenas grupos baseados em Similaridade Visual, Hashes Exatos ou grupos Derivados, em conjunto com o filtro de itens ignorados.
+2. **Modal de Configuração de Regras**: Criado o componente `DuplicateRulesModal`, que oferece os "Perfis Pré-definidos" (Strict Exact Match, Visual Similarity, Aggressive e Custom). A interface interage com o backend via o comando Tauri `update_duplicate_rule_set`, guardando a margem de tolerância.
+3. **Persistência de Regras**: Adicionado `save_rule_set` no SQLite para salvar permanentemente a configuração customizada (ex: `min_score` = 50%). O backend agora busca a regra mais recente e ativa para pautar a sua detecção visual.
+4. **Distância de Hamming (Similaridade Dinâmica)**: O `run_visual_match_scan` foi inteiramente reescrito. Em vez de exigir o mesmo string exacto no hash perceptual (100% iguais), agora o Rust roda a matemática bit a bit (Hamming Distance), avaliando se a margem de diferença dos 64-bits está dentro do slider do usuário. Imagens que sofreram tratamentos leves, compressão e filtros agora agrupam com precisão matemática!
 
 ---
 
-## 11. Melhorias Futuras e Débito Técnico
+## 11. Roadmap de Próximos Passos
+
+### Fase 4 — Regras e Configuração (Concluída)
+1. ✅ **UI de Regras** (`DuplicateRulesModal`)
+2. ✅ **Perfis Pré-definidos** e seletor de tolerância
+3. ✅ **Filtros avançados** na lista de grupos (ex: filtrar por grupo exato vs grupo visual)
+4. ✅ **Persistência de Regras** no backend interligada à varredura ativa
+
+### Fase 5 — Detecção Avançada (5-10 dias)
+1. ✅ **Comparação de Limiares flexível (Hamming distance)** para encontrar imagens com semelhança baseada no Custom Rule.
+2. ❌ **Block hash** para detecção de recortes (crops)
+3. ❌ **Comparação multi-escala** para derivados severos
+4. ❌ **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
+5. ❌ **Overlay Visual** de diferenças nas imagens no SplitView
+
+---
+
+## 12. Melhorias Futuras e Débito Técnico
 
 Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes pontos precisam de atenção em futuras refatorações:
 
 1. **Unificação da Lógica da Lixeira (Saga Pattern)**: Atualmente, a lógica que move fisicamente o arquivo para o diretório `trash/` está duplicada na camada de entrega (dentro de `mutations.rs` para a galeria e em `duplicates.rs` para a resolução de duplicatas). O ideal seria refatorar para o padrão **Saga/Outbox**, onde um worker escuta o evento de domínio `AssetMetadataUpdated` (ou um novo `AssetMovedToTrash`) e realiza a movimentação física de forma assíncrona, centralizando a regra na infraestrutura.
 2. **Corrigir N+1 Queries na Interface**: A busca de candidatos no `DuplicateComparisonPanel` faz uma chamada individual `get_asset` para cada candidato. Para suportar grupos grandes com dezenas de duplicatas, deve-se implementar uma chamada em lote (`batch get`) para buscar todos os metadados em uma única query.
-3. **Mecanismo de Desfazer (Undo)**: Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira.
+3. **Mecanismo de Desfazer (Undo)**: Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira. Alem da possibilidade de mostrar os grupos ignorados [DuplicateGroupList.tsx#L33-38](textBlock;file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx#L33-38)  deveria ter tambem a possibilidade de mostrar grupos que já foram resolvidos para que o usuário possa corrigir caso tenha tomado alguma decisão ruim
+4. **Fornecer configurações de algoritmos**: O usuário poderá configurar os algoritmos de detecção de duplicatas, bem como os parâmetros de cada algoritmo. Método de comparação usado (pHash/dHash/aHash/Block Hash), limiar de similaridade (0-100), etc...
 
 ---
 
@@ -432,4 +445,4 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 
 O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência rica e interativa de revisão e resolução.
 
-Com o sucesso na entrega da **Fase 3**, o software agora possui uma UX premium no tratamento de deduplicação, fundindo metadados de forma inteligente. O agrupamento de fotos visuais e exatas está maduro e as fundações consolidadas nos preparam para as camadas finais de Inteligência e Detecção Avançada (Fases 4 a 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.
+Com o andamento da **Fase 4**, o software agora possui uma UX premium no tratamento de deduplicação e ferramentas robustas de refinamento e filtragem de visualização. O agrupamento de fotos visuais e exatas está maduro e as fundações consolidadas nos preparam para as camadas finais de Inteligência e Detecção Avançada (Fase 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.

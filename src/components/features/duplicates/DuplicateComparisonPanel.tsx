@@ -220,7 +220,7 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                                 .length < 2
                         }
                     >
-                        <Columns size={16} class="mr-2" />
+                        <Columns size={16} class="duplicate-comparison-button-icon" />
                         Split View
                     </Button>
                     <Button variant="secondary" onClick={handleIgnoreGroup} disabled={processing()}>

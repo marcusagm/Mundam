@@ -14,7 +14,10 @@ export const historyActions = {
             searchFuzzy: filterState.searchFuzzy,
             advancedSearch: filterState.advancedSearch,
             sortBy: filterState.sortBy,
-            sortOrder: filterState.sortOrder
+            sortOrder: filterState.sortOrder,
+            filterHasTags: filterState.filterHasTags,
+            filterFavorites: filterState.filterFavorites,
+            filterTrash: filterState.filterTrash
         };
 
         // Check if the current state is different from the last history item

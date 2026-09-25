@@ -41,6 +41,10 @@ export interface UseDuplicateGroupsReturn {
     showIgnored: Accessor<boolean>;
     /** Setter for the showIgnored flag. */
     setShowIgnored: Setter<boolean>;
+    /** The current group type filter. */
+    groupTypeFilter: Accessor<'all' | 'exact' | 'visual' | 'derived'>;
+    /** Setter for the group type filter. */
+    setGroupTypeFilter: Setter<'all' | 'exact' | 'visual' | 'derived'>;
     /** Whether a scan is currently running. */
     isScanning: Accessor<boolean>;
     /** Current scan progress, or null if no scan is in progress. */
@@ -61,6 +65,9 @@ export interface UseDuplicateGroupsReturn {
 export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const [selectedGroupId, setSelectedGroupId] = createSignal<string | null>(null);
     const [showIgnored, setShowIgnored] = createSignal(false);
+    const [groupTypeFilter, setGroupTypeFilter] = createSignal<
+        'all' | 'exact' | 'visual' | 'derived'
+    >('all');
     const [isScanning, setIsScanning] = createSignal(false);
     const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
     const [newGroupsFoundCount, setNewGroupsFoundCount] = createSignal(0);
@@ -101,12 +108,21 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     });
 
     /**
-     * Derived list of groups visible in the sidebar after applying the ignored filter.
+     * Derived list of groups visible in the sidebar after applying filters.
      */
     const visibleGroups = createMemo(() => {
-        const allGroups = groups() || [];
-        if (showIgnored()) return allGroups;
-        return allGroups.filter(group => group.status !== 'ignored');
+        let filteredGroups = groups() || [];
+
+        if (!showIgnored()) {
+            filteredGroups = filteredGroups.filter(group => group.status !== 'ignored');
+        }
+
+        const typeFilter = groupTypeFilter();
+        if (typeFilter !== 'all') {
+            filteredGroups = filteredGroups.filter(group => group.type === typeFilter);
+        }
+
+        return filteredGroups;
     });
 
     /**
@@ -236,6 +252,8 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         cancelScan,
         showIgnored,
         setShowIgnored,
+        groupTypeFilter,
+        setGroupTypeFilter,
         isScanning,
         scanProgress,
         newGroupsFoundCount,

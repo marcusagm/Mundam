@@ -58,7 +58,7 @@ export const DuplicateCandidateCard: Component<DuplicateCandidateCardProperties>
                 }
             }}
         >
-            <div class="candidate-card-body" style={{ position: 'relative' }}>
+            <div class="candidate-card-body">
                 <Show when={props.candidate.isTrashed}>
                     <div class="candidate-trashed-overlay">
                         <Trash2 size={48} />

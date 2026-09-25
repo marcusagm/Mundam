@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)\n                VALUES (?, ?, 'visual', ?, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "d59de95b7b63b76b32502052d722304dd3eca2a7275fecd0d4648290d8e6ace9"
+}

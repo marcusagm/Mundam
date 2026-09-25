@@ -29,6 +29,15 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the query fails.
     async fn get_rule_sets(&self) -> AppResult<Vec<DuplicateRuleSet>>;
 
+    /// Saves or updates a rule set.
+    ///
+    /// # Arguments
+    /// * `rule_set` - The rule set to save.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the insert fails.
+    async fn save_rule_set(&self, rule_set: DuplicateRuleSet) -> AppResult<()>;
+
     /// Saves a new duplicate group.
     ///
     /// # Arguments

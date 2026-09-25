@@ -126,6 +126,54 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         Ok(records)
     }
 
+    async fn save_rule_set(&self, rule_set: DuplicateRuleSet) -> AppResult<()> {
+        sqlx::query!(
+            r#"
+            INSERT INTO duplicate_rule_sets (
+                id, name, description, 
+                consider_exact_match, consider_visual_match, consider_crop_match, 
+                ignore_resolution_difference, ignore_recompression, 
+                allow_rotation, allow_mirroring, min_score, 
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                consider_exact_match = excluded.consider_exact_match,
+                consider_visual_match = excluded.consider_visual_match,
+                consider_crop_match = excluded.consider_crop_match,
+                ignore_resolution_difference = excluded.ignore_resolution_difference,
+                ignore_recompression = excluded.ignore_recompression,
+                allow_rotation = excluded.allow_rotation,
+                allow_mirroring = excluded.allow_mirroring,
+                min_score = excluded.min_score,
+                updated_at = excluded.updated_at
+            "#,
+            rule_set.id,
+            rule_set.name,
+            rule_set.description,
+            rule_set.consider_exact_match,
+            rule_set.consider_visual_match,
+            rule_set.consider_crop_match,
+            rule_set.ignore_resolution_difference,
+            rule_set.ignore_recompression,
+            rule_set.allow_rotation,
+            rule_set.allow_mirroring,
+            rule_set.min_score,
+            rule_set.created_at,
+            rule_set.updated_at
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to save rule set: {:?}", e);
+            AppError::Database(e)
+        })?;
+
+        Ok(())
+    }
+
     async fn save_group(&self, group: DuplicateGroup) -> AppResult<()> {
         let group_type_str = group.group_type.to_string();
         let status_str = group.status.to_string();
@@ -469,100 +517,114 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
             AppError::Database(e)
         })?;
 
+        let rule_set_opt = sqlx::query!(
+            r#"
+            SELECT id, min_score, consider_visual_match
+            FROM duplicate_rule_sets
+            WHERE consider_visual_match = 1
+            ORDER BY updated_at DESC
+            LIMIT 1
+            "#
+        ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
+
+        let (rule_set_id, min_score) = match rule_set_opt {
+            Some(r) => (r.id, r.min_score),
+            None => return Ok(()),
+        };
+
+        let max_distance = (64.0 * (1.0 - min_score)).round() as u32;
+
+        struct AssetHash {
+            asset_id: String,
+            hash: u64,
+        }
+
         let rows = sqlx::query!(
             r#"
-            SELECT df.perceptual_hash
+            SELECT df.asset_id as "asset_id!", df.perceptual_hash
             FROM duplicate_fingerprints df
             JOIN assets a ON df.asset_id = a.id
             WHERE df.perceptual_hash IS NOT NULL 
               AND a.state != 'trashed'
-            GROUP BY df.perceptual_hash
-            HAVING COUNT(df.asset_id) > 1
             "#
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch visual match groups: {:?}", e);
-            AppError::Database(e)
-        })?;
+        .map_err(AppError::Database)?;
 
+        let mut assets = Vec::new();
         for row in rows {
+            if let Some(hash_str) = row.perceptual_hash {
+                if let Ok(hash_val) = u64::from_str_radix(&hash_str, 16) {
+                    assets.push(AssetHash {
+                        asset_id: row.asset_id,
+                        hash: hash_val,
+                    });
+                }
+            }
+        }
+
+        let mut grouped = vec![false; assets.len()];
+        let mut groups_to_create = Vec::new();
+
+        for i in 0..assets.len() {
+            if grouped[i] { continue; }
+            let mut current_group = vec![i];
+            
+            for j in (i + 1)..assets.len() {
+                if grouped[j] { continue; }
+                let distance = (assets[i].hash ^ assets[j].hash).count_ones();
+                if distance <= max_distance {
+                    current_group.push(j);
+                }
+            }
+            
+            if current_group.len() > 1 {
+                for &idx in &current_group {
+                    grouped[idx] = true;
+                }
+                groups_to_create.push(current_group);
+            }
+        }
+
+        let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
+
+        sqlx::query!(
+            r#"DELETE FROM duplicate_groups WHERE status = 'open' AND group_type = 'visual'"#
+        ).execute(&mut *tx).await.map_err(AppError::Database)?;
+
+        for group_indices in groups_to_create {
             if let Some(tok) = &token {
                 if tok.is_cancelled() {
                     tracing::info!("run_visual_match_scan cancelled");
                     break;
                 }
             }
-
-            let hash = row.perceptual_hash.unwrap();
-
-            let existing_group = sqlx::query!(
-                r#"
-                SELECT dg.id
-                FROM duplicate_groups dg
-                JOIN duplicate_candidates dc ON dg.id = dc.group_id
-                JOIN duplicate_fingerprints df ON dc.asset_id = df.asset_id
-                WHERE df.perceptual_hash = ? AND dg.rule_set_id = 'visual-match'
-                LIMIT 1
-                "#,
-                hash
-            ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
-
-            let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
-
-            let group_id = if let Some(group) = existing_group {
-                let id = group.id.unwrap_or_default();
-                sqlx::query!(
-                    r#"UPDATE duplicate_groups SET status = 'open' WHERE id = ? AND status = 'resolved'"#,
-                    id
-                ).execute(&mut *tx).await.map_err(AppError::Database)?;
-                id
-            } else {
-                let new_id = uuid::Uuid::new_v4().to_string();
-                sqlx::query!(
-                    r#"
-                    INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
-                    VALUES (?, 'visual-match', 'visual', 0.95, 'open', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    "#,
-                    new_id
-                )
-                .execute(&mut *tx)
-                .await
-                .map_err(AppError::Database)?;
-                new_id
-            };
-
-            sqlx::query!(
-                r#"
-                INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
-                SELECT ?, df.asset_id, 0.95, '{}', 0
-                FROM duplicate_fingerprints df
-                JOIN assets a ON df.asset_id = a.id
-                WHERE df.perceptual_hash = ? AND a.state != 'trashed'
-                ON CONFLICT(group_id, asset_id) DO NOTHING
-                "#,
-                group_id, hash
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(AppError::Database)?;
+            
+            let group_id = uuid::Uuid::new_v4().to_string();
+            let count = group_indices.len() as i64;
             
             sqlx::query!(
                 r#"
-                UPDATE duplicate_groups
-                SET candidate_count = (SELECT COUNT(*) FROM duplicate_candidates WHERE group_id = ?),
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
+                VALUES (?, ?, 'visual', ?, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 "#,
-                group_id, group_id
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(AppError::Database)?;
-
-            tx.commit().await.map_err(AppError::Database)?;
+                group_id, rule_set_id, min_score, count
+            ).execute(&mut *tx).await.map_err(AppError::Database)?;
+            
+            for idx in group_indices {
+                let asset_id = &assets[idx].asset_id;
+                sqlx::query!(
+                    r#"
+                    INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
+                    VALUES (?, ?, ?, 'Visual similarity', 0)
+                    "#,
+                    group_id, asset_id, min_score
+                ).execute(&mut *tx).await.map_err(AppError::Database)?;
+            }
         }
+
+        tx.commit().await.map_err(AppError::Database)?;
 
         Ok(())
     }
@@ -574,12 +636,12 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         // Find all fingerprints that still have pending or legacy placeholder hashes
         let pending_assets = sqlx::query!(
             r#"
-            SELECT df.asset_id as "asset_id!", a.path as "path!"
+            SELECT df.asset_id as "asset_id!", a.path as "path!", a.family as "format_family!"
             FROM duplicate_fingerprints df
             JOIN assets a ON df.asset_id = a.id
             WHERE df.content_hash LIKE 'pending_%' 
                OR df.content_hash LIKE 'hash_%'
-               OR df.fingerprint_version < 2
+               OR df.fingerprint_version < 3
             "#
         )
         .fetch_all(&self.pool)
@@ -609,6 +671,7 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
             let asset_id = record.asset_id.clone();
             let path = record.path.clone();
+            let format_family = record.format_family.clone();
 
             // Compute Blake3 hash in a blocking task
             let hash_result = tokio::task::spawn_blocking(move || {
@@ -635,20 +698,46 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
                     hasher.update(&buffer[..bytes_read]);
                 }
 
-                Ok((hasher.finalize().to_hex().to_string(), metadata.len() as i64))
+                let perceptual_hash = {
+                    if format_family.starts_with("image/") || format_family == "image" {
+                        if let Ok(img) = image::open(&path) {
+                            let grayscale = img.grayscale();
+                            let resized = image::imageops::resize(&grayscale, 9, 8, image::imageops::FilterType::Nearest);
+                            let mut hash = 0u64;
+                            for y in 0..8 {
+                                for x in 0..8 {
+                                    let left = resized.get_pixel(x, y)[0];
+                                    let right = resized.get_pixel(x + 1, y)[0];
+                                    hash <<= 1;
+                                    if left > right {
+                                        hash |= 1;
+                                    }
+                                }
+                            }
+                            Some(format!("{:016x}", hash))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                Ok((hasher.finalize().to_hex().to_string(), metadata.len() as i64, perceptual_hash))
             })
             .await;
 
             match hash_result {
-                Ok(Ok((content_hash, file_size))) => {
+                Ok(Ok((content_hash, file_size, perceptual_hash))) => {
                     if let Err(error) = sqlx::query!(
                         r#"
                         UPDATE duplicate_fingerprints 
-                        SET content_hash = ?, file_size = ?, fingerprint_version = 2, updated_at = CURRENT_TIMESTAMP
+                        SET content_hash = ?, file_size = ?, perceptual_hash = ?, fingerprint_version = 3, updated_at = CURRENT_TIMESTAMP
                         WHERE asset_id = ?
                         "#,
                         content_hash,
                         file_size,
+                        perceptual_hash,
                         asset_id
                     )
                     .execute(&self.pool)

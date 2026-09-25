@@ -246,12 +246,16 @@ impl DuplicateCommandService {
         Ok(())
     }
 
-    /// Cancels an ongoing duplicate scan.
     pub fn cancel_duplicate_scan(&self) {
         let mut guard = self.scan_cancel_token.lock().unwrap_or_else(|poison| poison.into_inner());
         if let Some(token) = guard.take() {
             token.cancel();
             tracing::info!("DuplicateCommandService: cancelled ongoing scan");
         }
+    }
+
+    /// Updates a rule set in the database.
+    pub async fn update_rule_set(&self, rule_set: crate::core::models::DuplicateRuleSet) -> AppResult<()> {
+        self.duplicates_repo.save_rule_set(rule_set).await
     }
 }

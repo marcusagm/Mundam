@@ -1,7 +1,11 @@
-import { Component, JSX, Show, createMemo } from 'solid-js';
-import { RefreshCw, Search, Bell } from 'lucide-solid';
+import { Component, JSX, Show, createMemo, createSignal } from 'solid-js';
+import { RefreshCw, Search, Bell, Settings } from 'lucide-solid';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui';
-import { DuplicateGroupList, DuplicateComparisonPanel } from '../components/features/duplicates';
+import {
+    DuplicateGroupList,
+    DuplicateComparisonPanel,
+    DuplicateRulesModal
+} from '../components/features/duplicates';
 import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Loader } from '../components/ui/Loader';
@@ -33,11 +37,15 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         cancelScan,
         showIgnored,
         setShowIgnored,
+        groupTypeFilter,
+        setGroupTypeFilter,
         isScanning,
         scanProgress,
         newGroupsFoundCount,
         resetNewGroupsCount
     } = useDuplicateGroups();
+
+    const [isRulesModalOpen, setIsRulesModalOpen] = createSignal(false);
 
     const selectedGroup = () => {
         const currentGroups = groups();
@@ -106,29 +114,50 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
             <ResizablePanelGroup direction="horizontal" class="duplicate-finder-body">
                 <ResizablePanel id="list-panel" defaultSize={30} minSize={20} maxSize={50}>
                     <div class="duplicate-finder-sidebar">
-                        <div class="duplicate-finder-toolbar">
-                            <Show
-                                when={isScanning()}
-                                fallback={
+                        <div
+                            class="duplicate-finder-toolbar"
+                            role="toolbar"
+                            aria-label="Duplicate actions"
+                        >
+                            <div class="duplicate-finder-toolbar-actions">
+                                <Show
+                                    when={isScanning()}
+                                    fallback={
+                                        <Button
+                                            variant="primary"
+                                            class="duplicate-finder-toolbar-button"
+                                            onClick={startScan}
+                                        >
+                                            <Search
+                                                size={16}
+                                                class="duplicate-finder-toolbar-icon"
+                                            />
+                                            Scan Now
+                                        </Button>
+                                    }
+                                >
                                     <Button
-                                        variant="primary"
+                                        variant="secondary"
                                         class="duplicate-finder-toolbar-button"
-                                        onClick={startScan}
+                                        onClick={cancelScan}
                                     >
-                                        <Search size={16} class="mr-2" />
-                                        Scan Now
+                                        <RefreshCw
+                                            size={16}
+                                            class="duplicate-finder-toolbar-icon duplicate-finder-spinner"
+                                        />
+                                        Cancel Scan
                                     </Button>
-                                }
-                            >
+                                </Show>
+
                                 <Button
                                     variant="secondary"
-                                    class="duplicate-finder-toolbar-button"
-                                    onClick={cancelScan}
+                                    onClick={() => setIsRulesModalOpen(true)}
+                                    title="Configure Rules"
+                                    size="icon"
                                 >
-                                    <RefreshCw size={16} class="mr-2 animate-spin" />
-                                    Cancel Scan
+                                    <Settings size={16} />
                                 </Button>
-                            </Show>
+                            </div>
 
                             <Show when={isScanning()}>
                                 <div class="duplicate-finder-scan-progress-row">
@@ -168,6 +197,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 onSelectGroup={selectGroup}
                                 showIgnored={showIgnored}
                                 setShowIgnored={setShowIgnored}
+                                groupTypeFilter={groupTypeFilter}
+                                setGroupTypeFilter={setGroupTypeFilter}
                             />
                         </Show>
                     </div>
@@ -215,6 +246,11 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+
+            <DuplicateRulesModal
+                isOpen={isRulesModalOpen()}
+                onClose={() => setIsRulesModalOpen(false)}
+            />
         </div>
     );
 };

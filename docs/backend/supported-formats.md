@@ -162,31 +162,31 @@
 
 ## Audio Formats
 
-| Format                        | Extensions      | Thumbnail | Playback | Metadata | Thumbnail strategy | Playback strategy | Extraction strategy | Notes                                               |
-| ----------------------------- | --------------- | --------- | -------- | -------- | ------------------ | ----------------- | ------------------- | --------------------------------------------------- |
-| Advanced Audio Coding         | aac             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Audible Audio                 | aax             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | ffmpeg              | Not tested.                                         |
-| Dolby Digital Audio           | ac3             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Audio Interchange File Format | aiff, aif, aifc | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Adaptive Multi-Rate           | amr             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              |                                                     |
-| Monkey's Audio                | ape             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              |                                                     |
-| Broadcast Wave Format         | bwf             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Not tested.                                         |
-| Core Audio Format             | caf             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Digital Theater Systems       | dts             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Free Lossless Audio Codec     | flac            | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Apple Lossless Audio Codec    | m4a             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls      | M4A ALAC converted to AAC on-the-fly.               |
-| MPEG-4 Ringtone               | m4r             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls      |                                                     |
-| Musical Instrument Digital    | mid, midi       | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls/Synth| Synthesizes to WAV on the fly.                      |
-| Matroska Audio                | mka             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              |                                                     |
-| MPEG-1 Audio Layer II         | mp2             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| MP3                           | mp3             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Ogg Audio                     | oga, ogg        | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Opus                          | opus            | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| RealAudio                     | ra              | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Speex                         | spx             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Waveform Audio File Format    | wav             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| Windows Media Audio           | wma             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
-| WavPack                       | wv              | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native              | Some files had missing waveforms depending on size. |
+| Format                        | Extensions      | Thumbnail | Playback | Metadata | Thumbnail strategy | Playback strategy | Extraction strategy  | Notes                                               |
+| ----------------------------- | --------------- | --------- | -------- | -------- | ------------------ | ----------------- | -------------------- | --------------------------------------------------- |
+| Advanced Audio Coding         | aac             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Audible Audio                 | aax             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | ffmpeg               | Not tested.                                         |
+| Dolby Digital Audio           | ac3             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Audio Interchange File Format | aiff, aif, aifc | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Adaptive Multi-Rate           | amr             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               |                                                     |
+| Monkey's Audio                | ape             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               |                                                     |
+| Broadcast Wave Format         | bwf             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Not tested.                                         |
+| Core Audio Format             | caf             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Digital Theater Systems       | dts             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Free Lossless Audio Codec     | flac            | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Apple Lossless Audio Codec    | m4a             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls       | M4A ALAC converted to AAC on-the-fly.               |
+| MPEG-4 Ringtone               | m4r             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls       |                                                     |
+| Musical Instrument Digital    | mid, midi       | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | AudioLinearHls/Synth | Synthesizes to WAV on the fly.                      |
+| Matroska Audio                | mka             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               |                                                     |
+| MPEG-1 Audio Layer II         | mp2             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| MP3                           | mp3             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Ogg Audio                     | oga, ogg        | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Opus                          | opus            | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| RealAudio                     | ra              | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Speex                         | spx             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Waveform Audio File Format    | wav             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| Windows Media Audio           | wma             | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
+| WavPack                       | wv              | 🟢         | 🟢        | 🟢        | Generic icon       | hls               | Native               | Some files had missing waveforms depending on size. |
 
 ## Video Formats
 
