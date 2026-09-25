@@ -354,27 +354,7 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         Ok(())
     }
 
-    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
-        // Ensure exact-match rule set exists to avoid Foreign Key errors
-        sqlx::query!(
-            r#"
-            INSERT OR IGNORE INTO duplicate_rule_sets (
-                id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
-            ) VALUES (
-                'exact-match', 'Exact Match', 'Finds identical files using hash', 1, 0, 0, 0, 0, 0, 0, 1.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-            )
-            "#
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to seed exact-match rule set: {:?}", e);
-            AppError::Database(e)
-        })?;
-
-        // Backfill missing fingerprints for existing assets.
-        // Assets added before the duplicate module get a placeholder hash
-        // that will be replaced with a real Blake3 hash on next access/rescan.
+    async fn backfill_missing_fingerprints(&self) -> AppResult<()> {
         sqlx::query!(
             r#"
             INSERT OR IGNORE INTO duplicate_fingerprints (
@@ -395,12 +375,35 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to backfill missing fingerprints: {:?}", e);
-            AppError::Database(e)
+        .map_err(|database_error| {
+            tracing::error!("Failed to backfill missing fingerprints: {:?}", database_error);
+            AppError::Database(database_error)
         })?;
 
-        let rows = sqlx::query!(
+        Ok(())
+    }
+
+    async fn run_exact_match_scan(&self, cancellation_token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
+        // Ensure exact-match rule set exists to avoid Foreign Key errors
+        sqlx::query!(
+            r#"
+            INSERT OR IGNORE INTO duplicate_rule_sets (
+                id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+            ) VALUES (
+                'exact-match', 'Exact Match', 'Finds identical files using hash', 1, 0, 0, 0, 0, 0, 0, 1.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+            "#
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|database_error| {
+            tracing::error!("Failed to seed exact-match rule set: {:?}", database_error);
+            AppError::Database(database_error)
+        })?;
+
+        self.backfill_missing_fingerprints().await?;
+
+        let duplicate_hash_records = sqlx::query!(
             r#"
             SELECT df.content_hash
             FROM duplicate_fingerprints df
@@ -414,20 +417,20 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch exact match groups: {:?}", e);
-            AppError::Database(e)
+        .map_err(|database_error| {
+            tracing::error!("Failed to fetch exact match groups: {:?}", database_error);
+            AppError::Database(database_error)
         })?;
 
-        for row in rows {
-            if let Some(tok) = &token {
-                if tok.is_cancelled() {
+        for hash_record in duplicate_hash_records {
+            if let Some(token) = &cancellation_token {
+                if token.is_cancelled() {
                     tracing::info!("run_exact_match_scan cancelled");
                     break;
                 }
             }
 
-            let hash = row.content_hash.unwrap();
+            let content_hash_value = hash_record.content_hash.unwrap();
 
             let existing_group = sqlx::query!(
                 r#"
@@ -438,49 +441,49 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
                 WHERE df.content_hash = ?
                 LIMIT 1
                 "#,
-                hash
+                content_hash_value
             ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
 
-            let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
+            let mut database_transaction = self.pool.begin().await.map_err(AppError::Database)?;
 
             let group_id = if let Some(group) = existing_group {
                 // Reopen group if it was resolved but a new file was added
-                let id = group.id.unwrap_or_default();
+                let existing_group_id = group.id.unwrap_or_default();
                 sqlx::query!(
                     r#"UPDATE duplicate_groups SET status = 'open' WHERE id = ? AND status = 'resolved'"#,
-                    id
-                ).execute(&mut *tx).await.map_err(AppError::Database)?;
-                id
+                    existing_group_id
+                ).execute(&mut *database_transaction).await.map_err(AppError::Database)?;
+                existing_group_id
             } else {
-                let new_id = uuid::Uuid::new_v4().to_string();
+                let new_group_id = uuid::Uuid::new_v4().to_string();
                 sqlx::query!(
                     r#"
                     INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
                     VALUES (?, 'exact-match', 'exact', 1.0, 'open', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     "#,
-                    new_id
+                    new_group_id
                 )
-                .execute(&mut *tx)
+                .execute(&mut *database_transaction)
                 .await
                 .map_err(AppError::Database)?;
-                new_id
+                new_group_id
             };
 
             sqlx::query!(
                 r#"
                 INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
-                SELECT ?, df.asset_id, 1.0, '{}', 0
+                SELECT ?, df.asset_id, 1.0, '["exact_content_hash"]', 0
                 FROM duplicate_fingerprints df
                 JOIN assets a ON df.asset_id = a.id
                 WHERE df.content_hash = ? AND a.state != 'trashed'
                 ON CONFLICT(group_id, asset_id) DO NOTHING
                 "#,
-                group_id, hash
+                group_id, content_hash_value
             )
-            .execute(&mut *tx)
+            .execute(&mut *database_transaction)
             .await
             .map_err(AppError::Database)?;
-            
+
             sqlx::query!(
                 r#"
                 UPDATE duplicate_groups
@@ -490,17 +493,17 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
                 "#,
                 group_id, group_id
             )
-            .execute(&mut *tx)
+            .execute(&mut *database_transaction)
             .await
             .map_err(AppError::Database)?;
 
-            tx.commit().await.map_err(AppError::Database)?;
+            database_transaction.commit().await.map_err(AppError::Database)?;
         }
 
         Ok(())
     }
 
-    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
+    async fn run_visual_match_scan(&self, cancellation_token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
         sqlx::query!(
             r#"
             INSERT OR IGNORE INTO duplicate_rule_sets (
@@ -512,36 +515,59 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to seed visual-match rule set: {:?}", e);
-            AppError::Database(e)
+        .map_err(|database_error| {
+            tracing::error!("Failed to seed visual-match rule set: {:?}", database_error);
+            AppError::Database(database_error)
         })?;
 
-        let rule_set_opt = sqlx::query!(
+        let rule_set_record = sqlx::query!(
             r#"
-            SELECT id, min_score, consider_visual_match
+            SELECT id, min_score, consider_visual_match, consider_crop_match
             FROM duplicate_rule_sets
-            WHERE consider_visual_match = 1
             ORDER BY updated_at DESC
             LIMIT 1
             "#
-        ).fetch_optional(&self.pool).await.map_err(AppError::Database)?;
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(AppError::Database)?;
 
-        let (rule_set_id, min_score) = match rule_set_opt {
-            Some(r) => (r.id, r.min_score),
+        let (rule_set_id, minimum_score, consider_visual_match, consider_crop_match) = match rule_set_record {
+            Some(record) => (
+                record.id,
+                record.min_score,
+                record.consider_visual_match != 0,
+                record.consider_crop_match != 0,
+            ),
             None => return Ok(()),
         };
 
-        let max_distance = (64.0 * (1.0 - min_score)).round() as u32;
-
-        struct AssetHash {
-            asset_id: String,
-            hash: u64,
+        if !consider_visual_match && !consider_crop_match {
+            tracing::info!("run_visual_match_scan: visual and crop matching both disabled in active rule set");
+            return Ok(());
         }
 
-        let rows = sqlx::query!(
+        struct VisualCandidateData {
+            asset_id: String,
+            content_hash: Option<String>,
+            perceptual_hash_value: u64,
+            spatial_block_hash: Option<String>,
+            multiscale_hash: Option<String>,
+            image_width: Option<i32>,
+            image_height: Option<i32>,
+            file_size_bytes: Option<i64>,
+        }
+
+        let database_rows = sqlx::query!(
             r#"
-            SELECT df.asset_id as "asset_id!", df.perceptual_hash
+            SELECT df.asset_id as "asset_id!",
+                   df.content_hash,
+                   df.perceptual_hash,
+                   df.block_hash,
+                   df.thumb_hash,
+                   df.width,
+                   df.height,
+                   df.file_size
             FROM duplicate_fingerprints df
             JOIN assets a ON df.asset_id = a.id
             WHERE df.perceptual_hash IS NOT NULL 
@@ -552,216 +578,333 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         .await
         .map_err(AppError::Database)?;
 
-        let mut assets = Vec::new();
-        for row in rows {
-            if let Some(hash_str) = row.perceptual_hash {
-                if let Ok(hash_val) = u64::from_str_radix(&hash_str, 16) {
-                    assets.push(AssetHash {
+        let mut candidate_assets: Vec<VisualCandidateData> = Vec::new();
+        for row in database_rows {
+            if let Some(hash_string) = row.perceptual_hash {
+                if let Ok(hash_integer) = u64::from_str_radix(&hash_string, 16) {
+                    candidate_assets.push(VisualCandidateData {
                         asset_id: row.asset_id,
-                        hash: hash_val,
+                        content_hash: row.content_hash,
+                        perceptual_hash_value: hash_integer,
+                        spatial_block_hash: row.block_hash,
+                        multiscale_hash: row.thumb_hash,
+                        image_width: row.width.map(|dimension_value| dimension_value as i32),
+                        image_height: row.height.map(|dimension_value| dimension_value as i32),
+                        file_size_bytes: row.file_size,
                     });
                 }
             }
         }
 
-        let mut grouped = vec![false; assets.len()];
-        let mut groups_to_create = Vec::new();
+        struct DiscoveredCandidateInfo {
+            asset_id: String,
+            score: f64,
+            reasons: Vec<String>,
+        }
 
-        for i in 0..assets.len() {
-            if grouped[i] { continue; }
-            let mut current_group = vec![i];
-            
-            for j in (i + 1)..assets.len() {
-                if grouped[j] { continue; }
-                let distance = (assets[i].hash ^ assets[j].hash).count_ones();
-                if distance <= max_distance {
-                    current_group.push(j);
+        struct DiscoveredGroupInfo {
+            group_type: String,
+            confidence: f64,
+            candidates: Vec<DiscoveredCandidateInfo>,
+        }
+
+        let total_assets_count = candidate_assets.len();
+        let mut grouped_asset_indices = vec![false; total_assets_count];
+        let mut discovered_groups: Vec<DiscoveredGroupInfo> = Vec::new();
+
+        for primary_index in 0..total_assets_count {
+            if grouped_asset_indices[primary_index] {
+                continue;
+            }
+
+            let primary_asset = &candidate_assets[primary_index];
+            let mut current_group_candidates: Vec<DiscoveredCandidateInfo> = Vec::new();
+            let mut detected_group_type = "visual".to_string();
+            let mut group_scores: Vec<f64> = Vec::new();
+
+            current_group_candidates.push(DiscoveredCandidateInfo {
+                asset_id: primary_asset.asset_id.clone(),
+                score: 1.0,
+                reasons: vec!["canonical_anchor".to_string()],
+            });
+
+            for comparison_index in (primary_index + 1)..total_assets_count {
+                if grouped_asset_indices[comparison_index] {
+                    continue;
+                }
+
+                let comparison_asset = &candidate_assets[comparison_index];
+
+                // If both assets have identical content hashes, they belong in exact scan
+                if let (Some(hash_one), Some(hash_two)) = (
+                    &primary_asset.content_hash,
+                    &comparison_asset.content_hash,
+                ) {
+                    if hash_one == hash_two {
+                        continue;
+                    }
+                }
+
+                let match_result = crate::feature::duplicates::matcher::evaluate_visual_and_crop_match(
+                    primary_asset.perceptual_hash_value,
+                    comparison_asset.perceptual_hash_value,
+                    primary_asset.spatial_block_hash.as_deref(),
+                    comparison_asset.spatial_block_hash.as_deref(),
+                    primary_asset.multiscale_hash.as_deref(),
+                    comparison_asset.multiscale_hash.as_deref(),
+                    (primary_asset.image_width, primary_asset.image_height),
+                    (comparison_asset.image_width, comparison_asset.image_height),
+                    primary_asset.file_size_bytes,
+                    comparison_asset.file_size_bytes,
+                    minimum_score,
+                    consider_crop_match,
+                );
+
+                if let Some(evaluation) = match_result {
+                    if evaluation.match_type == crate::core::models::DuplicateGroupType::Derived {
+                        detected_group_type = "derived".to_string();
+                    }
+                    group_scores.push(evaluation.score);
+                    current_group_candidates.push(DiscoveredCandidateInfo {
+                        asset_id: comparison_asset.asset_id.clone(),
+                        score: evaluation.score,
+                        reasons: evaluation.reasons,
+                    });
+                    grouped_asset_indices[comparison_index] = true;
                 }
             }
-            
-            if current_group.len() > 1 {
-                for &idx in &current_group {
-                    grouped[idx] = true;
-                }
-                groups_to_create.push(current_group);
+
+            if current_group_candidates.len() > 1 {
+                grouped_asset_indices[primary_index] = true;
+                let average_confidence = if !group_scores.is_empty() {
+                    group_scores.iter().sum::<f64>() / (group_scores.len() as f64)
+                } else {
+                    minimum_score
+                };
+
+                discovered_groups.push(DiscoveredGroupInfo {
+                    group_type: detected_group_type,
+                    confidence: average_confidence,
+                    candidates: current_group_candidates,
+                });
             }
         }
 
-        let mut tx = self.pool.begin().await.map_err(AppError::Database)?;
+        let mut database_transaction = self.pool.begin().await.map_err(AppError::Database)?;
 
         sqlx::query!(
-            r#"DELETE FROM duplicate_groups WHERE status = 'open' AND group_type = 'visual'"#
-        ).execute(&mut *tx).await.map_err(AppError::Database)?;
+            r#"DELETE FROM duplicate_groups WHERE status = 'open' AND (group_type = 'visual' OR group_type = 'derived' OR group_type = 'near')"#
+        )
+        .execute(&mut *database_transaction)
+        .await
+        .map_err(AppError::Database)?;
 
-        for group_indices in groups_to_create {
-            if let Some(tok) = &token {
-                if tok.is_cancelled() {
+        for discovered_group in discovered_groups {
+            if let Some(token) = &cancellation_token {
+                if token.is_cancelled() {
                     tracing::info!("run_visual_match_scan cancelled");
                     break;
                 }
             }
-            
-            let group_id = uuid::Uuid::new_v4().to_string();
-            let count = group_indices.len() as i64;
-            
+
+            let new_group_id = uuid::Uuid::new_v4().to_string();
+            let candidate_count = discovered_group.candidates.len() as i64;
+
             sqlx::query!(
                 r#"
                 INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
-                VALUES (?, ?, 'visual', ?, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 "#,
-                group_id, rule_set_id, min_score, count
-            ).execute(&mut *tx).await.map_err(AppError::Database)?;
-            
-            for idx in group_indices {
-                let asset_id = &assets[idx].asset_id;
+                new_group_id,
+                rule_set_id,
+                discovered_group.group_type,
+                discovered_group.confidence,
+                candidate_count
+            )
+            .execute(&mut *database_transaction)
+            .await
+            .map_err(AppError::Database)?;
+
+            for candidate_record in discovered_group.candidates {
+                let serialized_reasons = serde_json::to_string(&candidate_record.reasons)
+                    .unwrap_or_else(|_| "[]".to_string());
+
                 sqlx::query!(
                     r#"
                     INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
-                    VALUES (?, ?, ?, 'Visual similarity', 0)
+                    VALUES (?, ?, ?, ?, 0)
                     "#,
-                    group_id, asset_id, min_score
-                ).execute(&mut *tx).await.map_err(AppError::Database)?;
+                    new_group_id,
+                    candidate_record.asset_id,
+                    candidate_record.score,
+                    serialized_reasons
+                )
+                .execute(&mut *database_transaction)
+                .await
+                .map_err(AppError::Database)?;
             }
         }
 
-        tx.commit().await.map_err(AppError::Database)?;
+        database_transaction.commit().await.map_err(AppError::Database)?;
 
         Ok(())
     }
+
     async fn rehash_pending_fingerprints(
         &self,
-        token: Option<tokio_util::sync::CancellationToken>,
+        cancellation_token: Option<tokio_util::sync::CancellationToken>,
         progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
     ) -> AppResult<usize> {
-        // Find all fingerprints that still have pending or legacy placeholder hashes
         let pending_assets = sqlx::query!(
             r#"
-            SELECT df.asset_id as "asset_id!", a.path as "path!", a.family as "format_family!"
+            SELECT df.asset_id as "asset_id!", a.path as "path!", a.family as "format_family!", a.format_type as "format_type!"
             FROM duplicate_fingerprints df
             JOIN assets a ON df.asset_id = a.id
             WHERE df.content_hash LIKE 'pending_%' 
                OR df.content_hash LIKE 'hash_%'
-               OR df.fingerprint_version < 3
+               OR df.fingerprint_version < 4
+               OR (df.perceptual_hash IS NULL AND (a.family LIKE '%image%' OR a.format_type LIKE '%image%' OR a.format_type LIKE '%png%' OR a.format_type LIKE '%jpg%' OR a.format_type LIKE '%jpeg%'))
             "#
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to query pending fingerprints: {:?}", e);
-            AppError::Database(e)
+        .map_err(|database_error| {
+            tracing::error!("Failed to query pending fingerprints: {:?}", database_error);
+            AppError::Database(database_error)
         })?;
 
-        let total_pending = pending_assets.len();
-        if total_pending == 0 {
+        let total_pending_count = pending_assets.len();
+        if total_pending_count == 0 {
             tracing::info!("rehash_pending_fingerprints: no pending fingerprints found");
             return Ok(0);
         }
 
-        tracing::info!("rehash_pending_fingerprints: found {} fingerprints to rehash", total_pending);
+        tracing::info!("rehash_pending_fingerprints: found {} fingerprints to rehash", total_pending_count);
 
         let mut rehashed_count: usize = 0;
 
-        for (processed_index, record) in pending_assets.into_iter().enumerate() {
-            if let Some(tok) = &token {
-                if tok.is_cancelled() {
+        for (processed_index, asset_record) in pending_assets.into_iter().enumerate() {
+            if let Some(token) = &cancellation_token {
+                if token.is_cancelled() {
                     tracing::info!("rehash_pending_fingerprints cancelled");
                     break;
                 }
             }
 
-            let asset_id = record.asset_id.clone();
-            let path = record.path.clone();
-            let format_family = record.format_family.clone();
+            let asset_id = asset_record.asset_id.clone();
+            let file_path = asset_record.path.clone();
+            let format_family = asset_record.format_family.clone();
+            let format_type = asset_record.format_type.clone();
 
-            // Compute Blake3 hash in a blocking task
-            let hash_result = tokio::task::spawn_blocking(move || {
+            let hash_computation_result = tokio::task::spawn_blocking(move || {
                 use std::io::Read;
-                let mut file = match std::fs::File::open(&path) {
-                    Ok(file) => file,
-                    Err(error) => return Err(format!("Cannot open {}: {}", path, error)),
+                let mut target_file = match std::fs::File::open(&file_path) {
+                    Ok(opened_file) => opened_file,
+                    Err(file_error) => return Err(format!("Cannot open {}: {}", file_path, file_error)),
                 };
-                let metadata = match file.metadata() {
-                    Ok(metadata) => metadata,
-                    Err(error) => return Err(format!("Cannot read metadata for {}: {}", path, error)),
+                let file_metadata = match target_file.metadata() {
+                    Ok(retrieved_metadata) => retrieved_metadata,
+                    Err(metadata_error) => return Err(format!("Cannot read metadata for {}: {}", file_path, metadata_error)),
                 };
 
-                let mut hasher = blake3::Hasher::new();
-                let mut buffer = [0u8; 8192];
+                let mut blake_hasher = blake3::Hasher::new();
+                let mut read_buffer = [0u8; 8192];
                 loop {
-                    let bytes_read = match file.read(&mut buffer) {
-                        Ok(bytes) => bytes,
-                        Err(error) => return Err(format!("Read error for {}: {}", path, error)),
+                    let bytes_read = match target_file.read(&mut read_buffer) {
+                        Ok(bytes_count) => bytes_count,
+                        Err(read_error) => return Err(format!("Read error for {}: {}", file_path, read_error)),
                     };
                     if bytes_read == 0 {
                         break;
                     }
-                    hasher.update(&buffer[..bytes_read]);
+                    blake_hasher.update(&read_buffer[..bytes_read]);
                 }
 
-                let perceptual_hash = {
-                    if format_family.starts_with("image/") || format_family == "image" {
-                        if let Ok(img) = image::open(&path) {
-                            let grayscale = img.grayscale();
-                            let resized = image::imageops::resize(&grayscale, 9, 8, image::imageops::FilterType::Nearest);
-                            let mut hash = 0u64;
-                            for y in 0..8 {
-                                for x in 0..8 {
-                                    let left = resized.get_pixel(x, y)[0];
-                                    let right = resized.get_pixel(x + 1, y)[0];
-                                    hash <<= 1;
-                                    if left > right {
-                                        hash |= 1;
-                                    }
-                                }
-                            }
-                            Some(format!("{:016x}", hash))
+                let format_is_image = crate::feature::duplicates::fingerprints::is_image_media(&format_family, &format_type);
+
+                let (perceptual_hash, block_hash, thumb_hash, image_width, image_height) = {
+                    if format_is_image {
+                        if let Ok(dynamic_image) = image::open(&file_path) {
+                            use image::GenericImageView;
+                            let (width, height) = dynamic_image.dimensions();
+                            let dhash_value = crate::feature::duplicates::fingerprints::compute_perceptual_dhash_64(&dynamic_image);
+                            let multiscale_hash = crate::feature::duplicates::fingerprints::compute_multiscale_dhash_256(&dynamic_image);
+                            let spatial_block_hash = crate::feature::duplicates::fingerprints::compute_spatial_block_hash(&dynamic_image);
+
+                            (
+                                Some(format!("{:016x}", dhash_value)),
+                                Some(spatial_block_hash),
+                                Some(multiscale_hash),
+                                Some(width as i32),
+                                Some(height as i32),
+                            )
                         } else {
-                            None
+                            (None, None, None, None, None)
                         }
                     } else {
-                        None
+                        (None, None, None, None, None)
                     }
                 };
 
-                Ok((hasher.finalize().to_hex().to_string(), metadata.len() as i64, perceptual_hash))
+                Ok((
+                    blake_hasher.finalize().to_hex().to_string(),
+                    file_metadata.len() as i64,
+                    perceptual_hash,
+                    block_hash,
+                    thumb_hash,
+                    image_width,
+                    image_height,
+                ))
             })
             .await;
 
-            match hash_result {
-                Ok(Ok((content_hash, file_size, perceptual_hash))) => {
-                    if let Err(error) = sqlx::query!(
+            match hash_computation_result {
+                Ok(Ok((content_hash, file_size, perceptual_hash, block_hash, thumb_hash, image_width, image_height))) => {
+                    if let Err(database_error) = sqlx::query!(
                         r#"
                         UPDATE duplicate_fingerprints 
-                        SET content_hash = ?, file_size = ?, perceptual_hash = ?, fingerprint_version = 3, updated_at = CURRENT_TIMESTAMP
+                        SET content_hash = ?,
+                            file_size = ?,
+                            perceptual_hash = ?,
+                            block_hash = ?,
+                            thumb_hash = ?,
+                            width = COALESCE(?, width),
+                            height = COALESCE(?, height),
+                            fingerprint_version = 4,
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE asset_id = ?
                         "#,
                         content_hash,
                         file_size,
                         perceptual_hash,
+                        block_hash,
+                        thumb_hash,
+                        image_width,
+                        image_height,
                         asset_id
                     )
                     .execute(&self.pool)
                     .await
                     {
-                        tracing::error!("Failed to update fingerprint for {}: {:?}", asset_id, error);
+                        tracing::error!("Failed to update fingerprint for {}: {:?}", asset_id, database_error);
                     } else {
                         rehashed_count += 1;
                     }
                 }
-                Ok(Err(error)) => {
-                    tracing::warn!("rehash_pending_fingerprints: skipping {}: {}", asset_id, error);
+                Ok(Err(task_error)) => {
+                    tracing::warn!("rehash_pending_fingerprints: skipping {}: {}", asset_id, task_error);
                 }
-                Err(error) => {
-                    tracing::error!("rehash_pending_fingerprints: blocking task failed for {}: {}", asset_id, error);
+                Err(join_error) => {
+                    tracing::error!("rehash_pending_fingerprints: blocking task failed for {}: {}", asset_id, join_error);
                 }
             }
 
             if let Some(sender) = &progress_sender {
-                let _ = sender.send((processed_index + 1, total_pending));
+                let _ = sender.send((processed_index + 1, total_pending_count));
             }
         }
 
-        tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending);
+        tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending_count);
         Ok(rehashed_count)
     }
 

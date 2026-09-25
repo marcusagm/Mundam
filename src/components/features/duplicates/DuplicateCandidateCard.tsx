@@ -1,8 +1,81 @@
-import { Component, Show } from 'solid-js';
-import { Button, Badge } from '../../ui';
+import { Component, For, Show } from 'solid-js';
+import { Button, Badge, Tooltip } from '../../ui';
 import { CheckCircle2, Trash2 } from 'lucide-solid';
 import { Thumbnail } from '../viewport/assets/Thumbnail';
 import { DuplicateCandidate } from './types';
+
+/**
+ * Formats machine-readable reason tags into human-friendly badge labels and descriptions.
+ *
+ * @param {string} reasonIdentifier - Machine reason string from candidate evaluation.
+ * @returns {{ label: string; tooltipText: string; variant: 'outline' | 'secondary' | 'info' | 'success' }} Formatted presentation details.
+ */
+function formatCandidateReason(reasonIdentifier: string): {
+    label: string;
+    tooltipText: string;
+    variant: 'outline' | 'secondary' | 'info' | 'success';
+} {
+    if (reasonIdentifier === 'exact_content_hash') {
+        return {
+            label: 'Exact Hash',
+            tooltipText: 'Identical binary content (Blake3 content hash match)',
+            variant: 'success'
+        };
+    }
+    if (reasonIdentifier === 'canonical_anchor') {
+        return {
+            label: 'Reference',
+            tooltipText: 'Primary reference file for this duplicate group',
+            variant: 'outline'
+        };
+    }
+    if (reasonIdentifier.startsWith('visual_similarity:')) {
+        const percentageValue = reasonIdentifier.replace('visual_similarity:', '');
+        return {
+            label: `${percentageValue} Visual`,
+            tooltipText: `Visual perceptual gradient similarity of ${percentageValue}`,
+            variant: 'info'
+        };
+    }
+    if (reasonIdentifier.startsWith('crop_detected:')) {
+        const percentageValue = reasonIdentifier.replace('crop_detected:', '');
+        return {
+            label: `${percentageValue} Crop`,
+            tooltipText: `Sub-region / partial crop detected with ${percentageValue} match`,
+            variant: 'secondary'
+        };
+    }
+    if (reasonIdentifier === 'recompression_detected') {
+        return {
+            label: 'Recompressed',
+            tooltipText: 'Different binary byte size with equivalent visual image content',
+            variant: 'secondary'
+        };
+    }
+    if (reasonIdentifier.startsWith('resolution_variation:')) {
+        const dimensionsText = reasonIdentifier
+            .replace('resolution_variation:', '')
+            .replace('_vs_', ' vs ');
+        return {
+            label: 'Resolution Variant',
+            tooltipText: `Resolution difference: ${dimensionsText}`,
+            variant: 'outline'
+        };
+    }
+    if (reasonIdentifier.startsWith('multiscale_similarity:')) {
+        const percentageValue = reasonIdentifier.replace('multiscale_similarity:', '');
+        return {
+            label: `${percentageValue} Multi-scale`,
+            tooltipText: `Multi-scale pyramidal match of ${percentageValue}`,
+            variant: 'info'
+        };
+    }
+    return {
+        label: reasonIdentifier,
+        tooltipText: reasonIdentifier,
+        variant: 'outline'
+    };
+}
 
 /**
  * Properties for the DuplicateCandidateCard component.
@@ -85,6 +158,23 @@ export const DuplicateCandidateCard: Component<DuplicateCandidateCardProperties>
                         </Badge>
                     </div>
                 </div>
+
+                <Show when={props.candidate.reasons && props.candidate.reasons.length > 0}>
+                    <div class="candidate-reasons">
+                        <For each={props.candidate.reasons}>
+                            {reasonIdentifier => {
+                                const formattedReason = formatCandidateReason(reasonIdentifier);
+                                return (
+                                    <Tooltip content={formattedReason.tooltipText} placement="top">
+                                        <Badge variant={formattedReason.variant} size="sm">
+                                            {formattedReason.label}
+                                        </Badge>
+                                    </Tooltip>
+                                );
+                            }}
+                        </For>
+                    </div>
+                </Show>
 
                 <div class="candidate-preview">
                     <Thumbnail

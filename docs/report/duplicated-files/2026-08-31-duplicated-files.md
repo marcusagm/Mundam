@@ -423,10 +423,10 @@ A **Fase 4** introduziu as ferramentas de configuração e regras de filtragem p
 
 ### Fase 5 — Detecção Avançada (5-10 dias)
 1. ✅ **Comparação de Limiares flexível (Hamming distance)** para encontrar imagens com semelhança baseada no Custom Rule.
-2. ❌ **Block hash** para detecção de recortes (crops)
-3. ❌ **Comparação multi-escala** para derivados severos
-4. ❌ **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
-5. ❌ **Overlay Visual** de diferenças nas imagens no SplitView
+2. ✅ **Block hash** para detecção de recortes (crops)
+3. ✅ **Comparação multi-escala** para derivados severos
+4. ✅ **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
+5. ✅ **Overlay Visual** de diferenças nas imagens no SplitView
 
 ---
 

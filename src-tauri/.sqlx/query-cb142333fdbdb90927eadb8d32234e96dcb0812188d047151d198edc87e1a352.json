@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT df.asset_id as \"asset_id!\",\n                   df.content_hash,\n                   df.perceptual_hash,\n                   df.block_hash,\n                   df.thumb_hash,\n                   df.width,\n                   df.height,\n                   df.file_size\n            FROM duplicate_fingerprints df\n            JOIN assets a ON df.asset_id = a.id\n            WHERE df.perceptual_hash IS NOT NULL \n              AND a.state != 'trashed'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "asset_id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_hash",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "perceptual_hash",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "block_hash",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "thumb_hash",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "width",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "height",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 7,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "cb142333fdbdb90927eadb8d32234e96dcb0812188d047151d198edc87e1a352"
+}

@@ -1,6 +1,7 @@
 import { Component, For, Show, createMemo } from 'solid-js';
 import { Badge } from '../../ui';
 import { Thumbnail } from '../viewport/assets/Thumbnail';
+import { getGroupTypeBadgeVariant, formatGroupTypeLabel } from '../../../lib/duplicates';
 import { DuplicateGroup } from './types';
 import './duplicate-group-item.css';
 
@@ -44,7 +45,9 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
         >
             <div class="group-list-item-header">
                 <div class="group-list-item-badges">
-                    <Badge>{props.group.type}</Badge>
+                    <Badge variant={getGroupTypeBadgeVariant(props.group.type)}>
+                        {formatGroupTypeLabel(props.group.type)}
+                    </Badge>
                     <Show when={isIgnored()}>
                         <Badge variant="secondary">Ignored</Badge>
                     </Show>

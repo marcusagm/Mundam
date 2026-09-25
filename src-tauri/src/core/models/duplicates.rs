@@ -26,7 +26,9 @@ pub struct DuplicateFingerprint {
 #[serde(rename_all = "snake_case")]
 pub enum DuplicateGroupType {
     Exact,
-    Near,
+    #[strum(serialize = "visual", serialize = "near")]
+    #[serde(rename = "visual", alias = "near")]
+    Visual,
     Derived,
 }
 

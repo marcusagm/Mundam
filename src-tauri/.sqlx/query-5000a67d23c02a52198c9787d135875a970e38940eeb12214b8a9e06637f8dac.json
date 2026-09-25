@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT id, min_score, consider_visual_match\n            FROM duplicate_rule_sets\n            WHERE consider_visual_match = 1\n            ORDER BY updated_at DESC\n            LIMIT 1\n            ",
+  "query": "\n            SELECT id, min_score, consider_visual_match, consider_crop_match\n            FROM duplicate_rule_sets\n            ORDER BY updated_at DESC\n            LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "name": "consider_visual_match",
         "ordinal": 2,
         "type_info": "Integer"
+      },
+      {
+        "name": "consider_crop_match",
+        "ordinal": 3,
+        "type_info": "Integer"
       }
     ],
     "parameters": {
@@ -25,8 +30,9 @@
     "nullable": [
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "5c646cb89090bab5f2f23083491a7ffcd8ef21f691b07db9a553702d5f3ec4c6"
+  "hash": "5000a67d23c02a52198c9787d135875a970e38940eeb12214b8a9e06637f8dac"
 }

@@ -219,6 +219,8 @@ impl DuplicateCommandService {
             }
         });
 
+        self.duplicates_repo.backfill_missing_fingerprints().await?;
+
         let rehashed = self
             .duplicates_repo
             .rehash_pending_fingerprints(Some(token.clone()), Some(progress_sender))

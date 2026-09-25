@@ -148,6 +148,13 @@
   align-items: center;
 }
 
+.candidate-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--p-space-xxs);
+  margin-bottom: var(--p-space-s);
+}
+
 .candidate-preview {
   width: 100%;
   aspect-ratio: 1;

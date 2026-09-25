@@ -17,6 +17,7 @@ export interface DuplicateCandidate {
     mediaType?: string;
     state?: string;
     isTrashed?: boolean;
+    reasons?: string[];
 }
 
 export interface DuplicateGroup {

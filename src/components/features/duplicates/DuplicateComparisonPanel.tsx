@@ -5,6 +5,7 @@ import { DuplicateGroup, DuplicateCandidate } from './types';
 import { DuplicateSplitView } from './DuplicateSplitView';
 import { DuplicateCandidateCard } from './DuplicateCandidateCard';
 import { MetadataMergeModal } from './MetadataMergeModal';
+import { getGroupTypeBadgeVariant, formatGroupTypeLabel } from '../../../lib/duplicates';
 import { createShortcut } from '../../../core/input';
 import './duplicate-comparison-panel.css';
 
@@ -205,7 +206,9 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                 <div class="comparison-title-container">
                     <h2>Group Details</h2>
                     <div class="comparison-meta">
-                        <Badge>{props.group.type}</Badge>
+                        <Badge variant={getGroupTypeBadgeVariant(props.group.type)}>
+                            {formatGroupTypeLabel(props.group.type)}
+                        </Badge>
                         <span class="comparison-confidence">
                             Confidence: {(props.group.confidence * 100).toFixed(0)}%
                         </span>

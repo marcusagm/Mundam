@@ -3,26 +3,65 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-surface-1);
+    overflow: hidden;
 }
 
-.split-view-header {
+.split-view-toolbar {
     display: flex;
     justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+    padding: var(--p-space-s) var(--p-space-m);
+    background-color: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-subtle);
+    gap: var(--p-space-m);
+    flex-wrap: wrap;
+    z-index: 10;
 }
 
-.split-view-title {
-    font-size: var(--font-size-md);
-    font-weight: 600;
-    color: var(--text-primary);
+.split-view-modes {
+    display: flex;
+    gap: var(--p-space-xs);
+    align-items: center;
+}
+
+.split-view-mode-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-m);
+}
+
+.split-slider-control {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-s);
+    min-width: 240px;
+}
+
+.split-control-label {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+.split-difference-info {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-s);
+}
+
+.split-difference-hint {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 .split-view-body {
     flex: 1;
     overflow: hidden;
+    position: relative;
+    background-color: var(--bg-page);
 }
 
 .split-panel-content {
@@ -33,9 +72,9 @@
 }
 
 .split-panel-info {
-    padding: var(--spacing-sm);
-    background-color: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
+    padding: var(--p-space-xs) var(--p-space-m);
+    background-color: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -43,7 +82,7 @@
 
 .split-panel-name {
     font-weight: 500;
-    font-size: var(--font-size-sm);
+    font-size: var(--p-font-size-s);
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -52,15 +91,99 @@
 }
 
 .split-panel-meta {
-    font-size: var(--font-size-xs);
+    font-size: var(--p-font-size-xs);
     color: var(--text-secondary);
     display: flex;
-    gap: var(--spacing-md);
+    gap: var(--p-space-m);
 }
 
 .split-panel-image {
     flex: 1;
     overflow: hidden;
     position: relative;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-page);
 }
+
+/* Unified Overlay Stage for Wipe, Difference, and Onion Skin */
+.split-overlay-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    padding: var(--p-space-m);
+    user-select: none;
+}
+
+.split-overlay-container {
+    position: relative;
+    display: grid;
+    grid-template-areas: "overlay-layer";
+    place-items: center;
+    box-shadow: var(--shadow-l);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    background-color: var(--bg-surface-2);
+}
+
+.split-overlay-container.is-wipe-mode {
+    cursor: col-resize;
+}
+
+.split-overlay-layer {
+    grid-area: overlay-layer;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.split-overlay-layer.base-layer {
+    z-index: 1;
+}
+
+.split-overlay-layer.target-layer {
+    z-index: 2;
+    transition: opacity var(--transition-fast);
+}
+
+.split-overlay-layer.is-difference {
+    mix-blend-mode: difference;
+}
+
+.split-overlay-layer.is-difference-inverted {
+    mix-blend-mode: difference;
+    filter: invert(1);
+}
+
+/* Wipe Curtain Divider */
+.split-wipe-divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: var(--border-active);
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+.split-wipe-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background-color: var(--action-primary-bg);
+    border: 2px solid var(--text-inverse);
+    box-shadow: var(--shadow-m);
+}
+

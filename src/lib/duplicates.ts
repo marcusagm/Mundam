@@ -72,6 +72,64 @@ export interface MetadataMergePayload {
  * @param {BackendAsset} assetData - The full asset record fetched by ID.
  * @param {BackendTag[]} tagsData - The tags associated with the asset.
  * @returns {DuplicateCandidate} The mapped frontend candidate object.
+/**
+ * Parses raw JSON reasons from the backend into a clean array of reason tags.
+ *
+ * @param {string | null | undefined} reasonsJson - Raw string representation of reasons.
+ * @returns {string[]} Parsed array of reason strings.
+ */
+function parseBackendReasons(reasonsJson: string | null | undefined): string[] {
+    if (!reasonsJson || !reasonsJson.trim()) {
+        return [];
+    }
+    try {
+        const parsedData = JSON.parse(reasonsJson);
+        if (Array.isArray(parsedData)) {
+            return parsedData;
+        }
+        if (typeof parsedData === 'string') {
+            return [parsedData];
+        }
+    } catch {
+        return [reasonsJson];
+    }
+    return [];
+}
+
+/**
+ * Formats byte size into readable megabyte string.
+ *
+ * @param {number | null} sizeInBytes - File size in bytes.
+ * @returns {string} Formatted size string.
+ */
+function formatCandidateFileSize(sizeInBytes: number | null): string {
+    if (!sizeInBytes) {
+        return 'Unknown';
+    }
+    return `${(sizeInBytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+/**
+ * Formats image width and height into dimension label.
+ *
+ * @param {number | null} width - Image width.
+ * @param {number | null} height - Image height.
+ * @returns {string} Formatted dimension string.
+ */
+function formatCandidateDimensions(width: number | null, height: number | null): string {
+    if (width && height) {
+        return `${width}x${height}`;
+    }
+    return 'Unknown';
+}
+
+/**
+ * Maps a raw backend asset + candidate pair into the frontend DuplicateCandidate type.
+ *
+ * @param {BackendDuplicateCandidate} backendCandidate - The raw candidate from the backend.
+ * @param {BackendAsset} assetData - The full asset record fetched by ID.
+ * @param {BackendTag[]} tagsData - The tags associated with the asset.
+ * @returns {DuplicateCandidate} The mapped frontend candidate object.
  */
 function buildCandidateFromBackendData(
     backendCandidate: BackendDuplicateCandidate,
@@ -79,18 +137,13 @@ function buildCandidateFromBackendData(
     tagsData: BackendTag[]
 ): DuplicateCandidate {
     const fileName = assetData.path.split(/[/\\]/).pop() || backendCandidate.asset_id;
-    const formattedSize = assetData.size
-        ? `${(assetData.size / 1024 / 1024).toFixed(2)} MB`
-        : 'Unknown';
-    const formattedDimensions =
-        assetData.width && assetData.height ? `${assetData.width}x${assetData.height}` : 'Unknown';
 
     return {
         id: backendCandidate.asset_id,
         name: fileName,
-        size: formattedSize,
+        size: formatCandidateFileSize(assetData.size),
         sizeBytes: assetData.size || 0,
-        dimensions: formattedDimensions,
+        dimensions: formatCandidateDimensions(assetData.width, assetData.height),
         score: backendCandidate.score,
         path: assetData.path,
         format: assetData.format,
@@ -103,7 +156,8 @@ function buildCandidateFromBackendData(
         thumbnailUrl: assetData.thumbnail_path || undefined,
         mediaType: assetData.mime_type,
         state: assetData.state,
-        isTrashed: !!assetData.deleted_at
+        isTrashed: !!assetData.deleted_at,
+        reasons: parseBackendReasons(backendCandidate.reasons)
     };
 }
 
@@ -244,3 +298,43 @@ export const duplicatesApi = {
         return invoke('update_duplicate_rule_set', { ruleSet });
     }
 };
+
+/**
+ * Returns the Badge variant appropriate for a duplicate group type.
+ *
+ * @param {string} groupType - The group type ('exact', 'visual', 'derived').
+ * @returns {'success' | 'info' | 'warning' | 'default'} The badge variant.
+ */
+export function getGroupTypeBadgeVariant(
+    groupType: string
+): 'success' | 'info' | 'warning' | 'default' {
+    switch (groupType) {
+        case 'exact':
+            return 'success';
+        case 'visual':
+            return 'info';
+        case 'derived':
+            return 'warning';
+        default:
+            return 'default';
+    }
+}
+
+/**
+ * Returns the human-readable label for a duplicate group type.
+ *
+ * @param {string} groupType - The group type ('exact', 'visual', 'derived').
+ * @returns {string} The formatted label.
+ */
+export function formatGroupTypeLabel(groupType: string): string {
+    switch (groupType) {
+        case 'exact':
+            return 'Exact';
+        case 'visual':
+            return 'Visual';
+        case 'derived':
+            return 'Crop / Derived';
+        default:
+            return groupType;
+    }
+}

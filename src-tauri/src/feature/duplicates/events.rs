@@ -157,45 +157,46 @@ impl DuplicateWorker {
 
         let content_hash = Some(hasher.finalize().to_hex().to_string());
         
-        let perceptual_hash = {
-            if format.starts_with("image/") || format == "image" {
-                if let Ok(img) = image::open(path) {
-                    let grayscale = img.grayscale();
-                    let resized = image::imageops::resize(&grayscale, 9, 8, image::imageops::FilterType::Nearest);
-                    let mut hash = 0u64;
-                    for y in 0..8 {
-                        for x in 0..8 {
-                            let left = resized.get_pixel(x, y)[0];
-                            let right = resized.get_pixel(x + 1, y)[0];
-                            hash <<= 1;
-                            if left > right {
-                                hash |= 1;
-                            }
-                        }
-                    }
-                    Some(format!("{:016x}", hash))
+        let format_is_image = crate::feature::duplicates::fingerprints::is_image_media(format, format);
+
+        let (perceptual_hash, block_hash, thumb_hash, width, height) = {
+            if format_is_image {
+                if let Ok(dynamic_image) = image::open(path) {
+                    use image::GenericImageView;
+                    let (image_width, image_height) = dynamic_image.dimensions();
+                    let dhash_value = crate::feature::duplicates::fingerprints::compute_perceptual_dhash_64(&dynamic_image);
+                    let multiscale_hash = crate::feature::duplicates::fingerprints::compute_multiscale_dhash_256(&dynamic_image);
+                    let spatial_block_hash = crate::feature::duplicates::fingerprints::compute_spatial_block_hash(&dynamic_image);
+
+                    (
+                        Some(format!("{:016x}", dhash_value)),
+                        Some(spatial_block_hash),
+                        Some(multiscale_hash),
+                        Some(image_width as i32),
+                        Some(image_height as i32),
+                    )
                 } else {
-                    None
+                    (None, None, None, None, None)
                 }
             } else {
-                None
+                (None, None, None, None, None)
             }
         };
-        
+
         Ok(DuplicateFingerprint {
             asset_id: asset_id.to_string(),
             content_hash,
             perceptual_hash,
-            block_hash: None,
-            thumb_hash: None,
-            width: None,
-            height: None,
+            block_hash,
+            thumb_hash,
+            width,
+            height,
             file_size: Some(file_size),
             mime_type: None,
             format_family: Some(format.to_string()),
             color_profile: None,
             orientation: None,
-            fingerprint_version: 3, // Bumped to v3 for perceptual hash
+            fingerprint_version: 4, // Bumped to v4 for block hash and multi-scale hash
             updated_at: chrono::Utc::now(),
         })
     }

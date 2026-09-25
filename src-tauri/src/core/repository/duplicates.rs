@@ -99,6 +99,13 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the query fails.
     async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()>;
 
+    /// Backfills missing fingerprint rows for assets that are not yet in duplicate_fingerprints.
+    /// This ensures all newly indexed assets have placeholder records ready for rehashing.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query or insert fails.
+    async fn backfill_missing_fingerprints(&self) -> AppResult<()>;
+
     /// Runs a database-level scan to find similar visual duplicates and groups them.
     ///
     /// # Errors

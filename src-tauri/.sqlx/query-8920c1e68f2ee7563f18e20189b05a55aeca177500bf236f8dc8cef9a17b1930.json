@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)\n                SELECT ?, df.asset_id, 1.0, '[\"exact_content_hash\"]', 0\n                FROM duplicate_fingerprints df\n                JOIN assets a ON df.asset_id = a.id\n                WHERE df.content_hash = ? AND a.state != 'trashed'\n                ON CONFLICT(group_id, asset_id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "8920c1e68f2ee7563f18e20189b05a55aeca177500bf236f8dc8cef9a17b1930"
+}
