@@ -428,6 +428,17 @@ A **Fase 4** introduziu as ferramentas de configuração e regras de filtragem p
 4. ✅ **Score Explicável** na UI ("agrupado por: mesmo hash, resoluções diferentes")
 5. ✅ **Overlay Visual** de diferenças nas imagens no SplitView
 
+### Fase 5.1 — Correção de Falsos Positivos (matcher.rs)
+1. ✅ **Zero-hash guard**: Rejeita comparações quando qualquer uma das imagens possui hash perceptual `0x0` (`hash_one == 0 || hash_two == 0`). Imagens pretas, uniformes ou com falha de decodificação no `image::open` possuem entropia zero e não devem se associar a nenhuma imagem na detecção visual/crop.
+2. ✅ **Zero block-hash guard**: Rejeita crop matches quando qualquer uma das imagens possui block hash inteiramente composto de zeros (`is_zero_block_one || is_zero_block_two`), evitando falsas sobreposições em áreas vazias/transparentes.
+3. ✅ **Validação de Baixa Entropia (Jaccard / Sparse Hash Penalty)**: Imagens com fundos brancos, pretos ou transparentes (como ícones `.ico`, thumbnails `.png`, arquivos monocromáticos `.pbm` ou renders de produtos) possuem hashes com baixa densidade de bits ativos (`< 22` bits 1 em 64 bits, ou `< 80` bits 1 em 256 bits). Na distância de Hamming padrão, o pareamento artificial de bits zeros (`0 XOR 0 = 0`) gerava falsos 70%-80% de similaridade. O cálculo agora pondera pela sobreposição de feições ativas (Jaccard), eliminando correspondências espúrias de fundo.
+4. ✅ **Crop cross-validation (Floor 0.72 & Subgrid Separado)**: O sub-grid 2x2 do block hash possui apenas 64 bits de entropia testados em 18 posições de janela, o que gera um piso de ruído aleatório em torno de ~72% entre imagens totalmente desconexas. O matcher agora exige:
+   - Corroboração independente rigorosa (`visual_similarity >= 0.72` OU `actual_multiscale_similarity >= 0.72`), acima de qualquer ruído de bordas planas.
+   - O subgrid 3x3 (56,25% de cobertura) responde ao limiar configurado (`minimum_score_threshold`).
+   - O subgrid 2x2 (apenas 25% de cobertura) exige limiar mais estrito (`>= 0.85`), evitando acertos casuais de 4 azulejos vazios.
+5. ✅ **Validação Multiescala em Matches Visuais**: Para matches visuais com score na faixa flexível (`0.70 <= score < 0.85`), exige-se que o hash multiescala de 256 bits confirme a similaridade (`>= 0.65`), impedindo colisões acidentais de gradiente em 64 bits.
+6. ✅ **Testes unitários completos**: 11 testes unitários passando em `feature::duplicates::matcher`, cobrindo rejeição de zero hash individual e em par, rejeição de todos os falsos positivos reais reportados (`olka 3` vs `a casa 2`, `olka 3` vs `RAW_HASSELBLAD_CFV.PPM`, `e797` vs `10e7`, `single.afphoto` vs `original-4646`, etc.), e aceitação de matches legítimos.
+
 ---
 
 ## 12. Melhorias Futuras e Débito Técnico
@@ -438,6 +449,7 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 2. **Corrigir N+1 Queries na Interface**: A busca de candidatos no `DuplicateComparisonPanel` faz uma chamada individual `get_asset` para cada candidato. Para suportar grupos grandes com dezenas de duplicatas, deve-se implementar uma chamada em lote (`batch get`) para buscar todos os metadados em uma única query.
 3. **Mecanismo de Desfazer (Undo)**: Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira. Alem da possibilidade de mostrar os grupos ignorados [DuplicateGroupList.tsx#L33-38](textBlock;file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx#L33-38)  deveria ter tambem a possibilidade de mostrar grupos que já foram resolvidos para que o usuário possa corrigir caso tenha tomado alguma decisão ruim
 4. **Fornecer configurações de algoritmos**: O usuário poderá configurar os algoritmos de detecção de duplicatas, bem como os parâmetros de cada algoritmo. Método de comparação usado (pHash/dHash/aHash/Block Hash), limiar de similaridade (0-100), etc...
+5. **Thumbnails em alta resolução**: O sistema de thumbnails está mantendo imagens em alta resolução (formato JPG) na pasta de thumbnails. Isso consome espaço desnecessário e deve ser corrigido para gerar thumbnails em resolução reduzida. As thumbnails podem ser usadas como fonte de imagem real para o cálculo de hashes perceptuais de formatos exóticos (multi-frame TIF, HDR, EXR) que o `image::open()` decodifica incorretamente.
 
 ---
 
@@ -445,4 +457,4 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 
 O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência rica e interativa de revisão e resolução.
 
-Com o andamento da **Fase 4**, o software agora possui uma UX premium no tratamento de deduplicação e ferramentas robustas de refinamento e filtragem de visualização. O agrupamento de fotos visuais e exatas está maduro e as fundações consolidadas nos preparam para as camadas finais de Inteligência e Detecção Avançada (Fase 5), firmando o módulo como uma das ferramentas essenciais na gestão de acervos pesados.
+Com o andamento da **Fase 5.1**, o matcher agora possui proteções robustas contra falsos positivos: imagens degeneradas (hash zero) são rejeitadas, e crop matches exigem corroboração de sinais independentes. O agrupamento é significativamente mais preciso, reduzindo o ruído para o usuário na revisão de duplicatas.

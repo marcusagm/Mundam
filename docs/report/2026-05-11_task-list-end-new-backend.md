@@ -149,6 +149,7 @@
       **Solução:** A query `get_assets_needing_thumbnails` em `queries.rs` buscava `WHERE thumbnail_path IS NULL`. Quando um formato sem suporte era processado com erro, o `thumbnail_path` permanecia NULL mas o `state` era atualizado para `Thumbnailed`. O worker buscava os mesmos IDs infinitamente. Fix: adicionado `AND state != 'Thumbnailed'` na query SQL, excluindo assets já processados (independente de sucesso ou falha) da fila de trabalho.
       **Arquivos:** `src-tauri/src/infra/database/queries.rs`
 - [x] A geração de thumbnails deve sempre priorizar os assets que estão visiveis na tela. Atualmente na V2 a prioridade de geração de thumbnails parece não funcionar.
+- [ ] A chamada do frontend ao rolar a listagem de assets no viewport parece estar indo vazia `set_thumbnail_priority`. Verificar se o debounce está correto, e verificar po motivode estar sendo chamado , mesmo sem acontecer um evento de scroll.
 - [x] A extração de informação de cores tambem deve priorizar os assets visiveis ou selecionados.
 - [x] Ao mover uma pasta e todo seu conteúdo para outra pasta indexada, a hieraquia não foi refeita e a alteração do path não foi refletida corretamente no banco de dados.
 - [x] Erros de timeout (Process execution timed out after 30s) na geração de waveforms e streaming HLS.
