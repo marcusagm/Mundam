@@ -95,6 +95,8 @@
     "allow-reextract-all-colors",
     "allow-get-assets",
     "allow-get-asset",
+    "allow-get-assets-by-ids",
+    "allow-get-tags-for-assets",
     "allow-list-folders",
     "allow-list-tags",
     "allow-search-assets",

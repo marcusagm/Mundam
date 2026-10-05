@@ -742,3 +742,141 @@ pub async fn get_all_files_comparison_data(
         .collect())
 }
 
+/// Retrieves multiple assets by their unique identifiers in a single batch query.
+///
+/// Prevents N+1 query loops when fetching metadata for multiple assets.
+///
+/// # Arguments
+///
+/// * `pool` - The SQLite database connection pool.
+/// * `_registry` - The format registry reference.
+/// * `asset_identifiers` - Slice of asset unique identifiers to fetch.
+///
+/// # Returns
+///
+/// * `Ok(Vec<Asset>)` containing the matching assets.
+/// * `Err(AppError)` if the database query fails.
+pub async fn get_by_ids(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    asset_identifiers: &[String],
+) -> AppResult<Vec<Asset>> {
+    if asset_identifiers.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut query_builder: QueryBuilder<Sqlite> = QueryBuilder::new(
+        r#"
+        SELECT
+            a.id as id,
+            a.name as name,
+            a.path as path,
+            a.state as state,
+            a.format_type as format_type,
+            a.family as family,
+            a.file_size as file_size,
+            a.created_at as created_at,
+            a.modified_at as modified_at,
+            a.added_at as added_at,
+            a.updated_at as updated_at,
+            a.folder_id as folder_id,
+            a.thumbnail_path as thumbnail_path,
+            a.rating as rating,
+            a.notes as notes,
+            a.is_favorite as is_favorite,
+            a.deleted_at as deleted_at,
+            m.width as width,
+            m.height as height,
+            m.duration_secs as duration_secs,
+            a.dominant_color as dominant_color,
+            m.technical_payload as technical_payload,
+            m.semantic_payload as semantic_payload
+        FROM assets a
+        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id
+        WHERE a.id IN (
+        "#,
+    );
+
+    let mut separated_clause = query_builder.separated(", ");
+    for asset_identifier in asset_identifiers {
+        separated_clause.push_bind(asset_identifier);
+    }
+    separated_clause.push_unseparated(")");
+
+    let asset_database_records = query_builder
+        .build_query_as::<crate::infra::database::models::AssetDb>()
+        .fetch_all(pool)
+        .await?;
+
+    Ok(asset_database_records
+        .into_iter()
+        .map(Asset::from)
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::formats::registry::FormatRegistry;
+    use crate::infra::database::manager::DbManager;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_get_by_ids_empty() {
+        let temp_directory = tempdir().expect("Failed to create temporary directory");
+        let database_path = temp_directory.path().join("test_mundam.db");
+        let database_manager = DbManager::new(&database_path)
+            .await
+            .expect("Failed to initialize DbManager");
+        let format_registry = FormatRegistry::new();
+
+        let retrieved_assets = get_by_ids(database_manager.pool(), &format_registry, &[])
+            .await
+            .expect("Query must succeed for empty identifiers");
+        assert!(retrieved_assets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_by_ids_batch_fetching() {
+        let temp_directory = tempdir().expect("Failed to create temporary directory");
+        let database_path = temp_directory.path().join("test_mundam.db");
+        let database_manager = DbManager::new(&database_path)
+            .await
+            .expect("Failed to initialize DbManager");
+        let format_registry = FormatRegistry::new();
+
+        sqlx::query(
+            r#"
+            INSERT INTO assets (id, name, path, state, format_type, family, file_size)
+            VALUES
+                ('test-asset-identifier-1', 'photo1.jpg', '/test/photo1.jpg', 'Idle', 'image/jpeg', 'Image', 1024),
+                ('test-asset-identifier-2', 'photo2.jpg', '/test/photo2.jpg', 'Idle', 'image/jpeg', 'Image', 2048)
+            "#,
+        )
+        .execute(database_manager.pool())
+        .await
+        .expect("Failed to insert mock assets");
+
+        let requested_asset_identifiers = vec![
+            "test-asset-identifier-1".to_string(),
+            "test-asset-identifier-2".to_string(),
+            "non-existent-identifier".to_string(),
+        ];
+        let retrieved_assets = get_by_ids(
+            database_manager.pool(),
+            &format_registry,
+            &requested_asset_identifiers,
+        )
+        .await
+        .expect("Query must succeed");
+
+        assert_eq!(retrieved_assets.len(), 2);
+        let returned_asset_identifiers: Vec<String> = retrieved_assets
+            .into_iter()
+            .map(|asset| asset.id)
+            .collect();
+        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-1".to_string()));
+        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-2".to_string()));
+    }
+}
+

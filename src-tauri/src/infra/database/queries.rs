@@ -38,6 +38,27 @@ impl AssetQueryHandler for SqliteAssetQueries {
         crate::infra::database::query_handlers::asset_queries::get_by_id(&self.pool, &self.registry, id).await
     }
 
+    async fn get_by_ids(&self, asset_identifiers: &[String]) -> AppResult<Vec<Asset>> {
+        crate::infra::database::query_handlers::asset_queries::get_by_ids(
+            &self.pool,
+            &self.registry,
+            asset_identifiers,
+        )
+        .await
+    }
+
+    async fn get_tags_for_assets(
+        &self,
+        asset_identifiers: &[String],
+    ) -> AppResult<HashMap<String, Vec<Tag>>> {
+        crate::infra::database::query_handlers::tags_queries::get_tags_for_assets(
+            &self.pool,
+            &self.registry,
+            asset_identifiers,
+        )
+        .await
+    }
+
     async fn list_paginated(
         &self,
         filter: AssetFilter,

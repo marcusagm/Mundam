@@ -58,6 +58,44 @@ pub async fn get_asset(
     service.get_asset(&id).await
 }
 
+/// RPC Command to retrieve a list of assets by their unique identifiers in a single batch query.
+///
+/// # Arguments
+///
+/// * `service` - The asset query service.
+/// * `asset_ids` - The list of unique asset identifiers to retrieve.
+///
+/// # Returns
+///
+/// * `Ok(Vec<Asset>)` containing the assets found.
+/// * `Err(AppError)` if the query fails.
+#[tauri::command]
+pub async fn get_assets_by_ids(
+    service: State<'_, AssetQueryService>,
+    asset_ids: Vec<String>,
+) -> AppResult<Vec<Asset>> {
+    service.get_assets_by_ids(&asset_ids).await
+}
+
+/// RPC Command to retrieve tags associated with multiple assets in a single batch query.
+///
+/// # Arguments
+///
+/// * `service` - The asset query service.
+/// * `asset_ids` - The list of unique asset identifiers whose tags to retrieve.
+///
+/// # Returns
+///
+/// * `Ok(HashMap<String, Vec<Tag>>)` mapping each asset ID to its list of tags.
+/// * `Err(AppError)` if the query fails.
+#[tauri::command]
+pub async fn get_tags_for_assets(
+    service: State<'_, AssetQueryService>,
+    asset_ids: Vec<String>,
+) -> AppResult<std::collections::HashMap<String, Vec<Tag>>> {
+    service.get_tags_for_assets(&asset_ids).await
+}
+
 /// RPC Command to list folders under a parent.
 ///
 /// # Arguments

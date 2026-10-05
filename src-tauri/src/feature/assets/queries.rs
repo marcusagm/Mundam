@@ -59,6 +59,37 @@ impl AssetQueryService {
         self.repository.get_by_id(id).await
     }
 
+    /// Gets multiple assets by their unique identifiers in a single batch query.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_identifiers` - Slice of asset unique identifiers to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<Asset>)` containing all matching assets found.
+    /// * `Err(AppError)` if the query fails.
+    pub async fn get_assets_by_ids(&self, asset_identifiers: &[String]) -> AppResult<Vec<Asset>> {
+        self.repository.get_by_ids(asset_identifiers).await
+    }
+
+    /// Gets all tags associated with multiple assets in a single batch query.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_identifiers` - Slice of asset unique identifiers whose tags to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(HashMap<String, Vec<Tag>>)` mapping each asset identifier to its associated tags.
+    /// * `Err(AppError)` if the query fails.
+    pub async fn get_tags_for_assets(
+        &self,
+        asset_identifiers: &[String],
+    ) -> AppResult<std::collections::HashMap<String, Vec<Tag>>> {
+        self.repository.get_tags_for_assets(asset_identifiers).await
+    }
+
     /// Lists folders under a parent.
     ///
     /// # Arguments

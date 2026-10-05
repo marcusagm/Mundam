@@ -277,6 +277,16 @@ description = "Enables get_asset"
 commands.allow = ["get_asset"]
 
 [[permission]]
+identifier = "allow-get-assets-by-ids"
+description = "Enables get_assets_by_ids"
+commands.allow = ["get_assets_by_ids"]
+
+[[permission]]
+identifier = "allow-get-tags-for-assets"
+description = "Enables get_tags_for_assets"
+commands.allow = ["get_tags_for_assets"]
+
+[[permission]]
 identifier = "allow-list-folders"
 description = "Enables list_folders"
 commands.allow = ["list_folders"]

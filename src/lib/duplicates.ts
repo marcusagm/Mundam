@@ -37,7 +37,8 @@ export interface BackendAsset {
     width: number | null;
     height: number | null;
     format: string;
-    mime_type: string;
+    media_type?: string;
+    mime_type?: string;
     thumbnail_path?: string | null;
     created_at: string;
     updated_at: string;
@@ -65,13 +66,6 @@ export interface MetadataMergePayload {
     technicalPayloadOverride: Record<string, unknown> | null;
 }
 
-/**
- * Maps a raw backend asset + candidate pair into the frontend DuplicateCandidate type.
- *
- * @param {BackendDuplicateCandidate} backendCandidate - The raw candidate from the backend.
- * @param {BackendAsset} assetData - The full asset record fetched by ID.
- * @param {BackendTag[]} tagsData - The tags associated with the asset.
- * @returns {DuplicateCandidate} The mapped frontend candidate object.
 /**
  * Parses raw JSON reasons from the backend into a clean array of reason tags.
  *
@@ -154,7 +148,7 @@ function buildCandidateFromBackendData(
         rating: assetData.rating || undefined,
         notes: assetData.notes || undefined,
         thumbnailUrl: assetData.thumbnail_path || undefined,
-        mediaType: assetData.mime_type,
+        mediaType: assetData.media_type || assetData.mime_type || '',
         state: assetData.state,
         isTrashed: !!assetData.deleted_at,
         reasons: parseBackendReasons(backendCandidate.reasons)
@@ -200,8 +194,7 @@ export const duplicatesApi = {
 
     /**
      * Gets the full candidate list for a group, resolving each candidate's asset metadata.
-     * This performs N+1 fetches (one `get_asset` per candidate) as a known trade-off for
-     * simplicity. A batch endpoint should be implemented when groups grow large.
+     * Uses batch queries (`get_assets_by_ids` and `get_tags_for_assets`) to eliminate N+1 IPC overhead.
      *
      * @param {string} groupId - The group ID whose candidates to fetch.
      * @returns {Promise<DuplicateCandidate[]>} The mapped frontend candidates.
@@ -212,24 +205,43 @@ export const duplicatesApi = {
             { groupId }
         );
 
-        const candidatePromises = backendCandidates.map(async backendCandidate => {
-            const assetData = await invoke<BackendAsset | null>('get_asset', {
-                id: backendCandidate.asset_id
-            });
+        if (backendCandidates.length === 0) {
+            return [];
+        }
 
-            if (!assetData) return null;
-
-            const tagsData = await invoke<BackendTag[]>('get_tags_for_asset', {
-                assetId: backendCandidate.asset_id
-            }).catch(() => []);
-
-            return buildCandidateFromBackendData(backendCandidate, assetData, tagsData);
-        });
-
-        const resolvedCandidates = await Promise.all(candidatePromises);
-        return resolvedCandidates.filter(
-            (candidate): candidate is DuplicateCandidate => candidate !== null
+        const candidateAssetIdentifiers = backendCandidates.map(
+            backendCandidate => backendCandidate.asset_id
         );
+
+        const emptyTagsByAssetIdentifier: Record<string, BackendTag[]> = {};
+        const [assetList, tagsByAssetIdentifier] = await Promise.all([
+            invoke<BackendAsset[]>('get_assets_by_ids', {
+                assetIds: candidateAssetIdentifiers
+            }),
+            invoke<Record<string, BackendTag[]>>('get_tags_for_assets', {
+                assetIds: candidateAssetIdentifiers
+            }).catch(() => emptyTagsByAssetIdentifier)
+        ]);
+
+        const assetMapByIdentifier = new Map<string, BackendAsset>();
+        for (const assetItem of assetList) {
+            assetMapByIdentifier.set(assetItem.id, assetItem);
+        }
+
+        const resolvedCandidates: DuplicateCandidate[] = [];
+        for (const backendCandidate of backendCandidates) {
+            const assetData = assetMapByIdentifier.get(backendCandidate.asset_id);
+            if (!assetData) {
+                continue;
+            }
+
+            const candidateTags = tagsByAssetIdentifier[backendCandidate.asset_id] || [];
+            resolvedCandidates.push(
+                buildCandidateFromBackendData(backendCandidate, assetData, candidateTags)
+            );
+        }
+
+        return resolvedCandidates;
     },
 
     /**

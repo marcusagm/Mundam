@@ -64,10 +64,12 @@ pub fn run() {
             // IPC Commands
             delivery::tauri::commands::queries::get_assets,
             delivery::tauri::commands::queries::get_asset,
+            delivery::tauri::commands::queries::get_assets_by_ids,
             delivery::tauri::commands::queries::list_folders,
             delivery::tauri::commands::queries::list_tags,
             delivery::tauri::commands::queries::search_assets,
             delivery::tauri::commands::queries::get_tags_for_asset,
+            delivery::tauri::commands::queries::get_tags_for_assets,
             delivery::tauri::commands::queries::get_all_subfolders,
             delivery::tauri::commands::queries::get_subfolder_counts,
             delivery::tauri::commands::queries::get_location_root_counts,

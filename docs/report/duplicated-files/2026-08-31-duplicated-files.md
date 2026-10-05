@@ -1,7 +1,8 @@
 # Relatório Completo — Módulo de Detecção de Arquivos Duplicados
 
 **Projeto:** Mundam — Digital Asset Manager  
-**Data:** 2026-08-31  
+**Data Original:** 2026-08-31  
+**Última Atualização:** 2026-10-05  
 **Autor:** Gerado automaticamente a partir da análise de código  
 **Referências:** `gpt-overview.md`, `gpt-proprosal.md`, `implementation-plan.md`
 
@@ -13,27 +14,29 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 
 ### 1.1 Status Atual
 
-| Componente                     | Status     | Observações                                                |
-| ------------------------------ | ---------- | ---------------------------------------------------------- |
-| Modelo de Domínio (Rust)       | ✅ Completo | 6 entidades, 3 enums                                       |
-| Tabelas SQLite                 | ✅ Completo | 5 tabelas + 4 índices                                      |
-| Repositório (Porta)            | ✅ Completo | Trait com 8 operações                                      |
-| Repositório (SQLite)           | ✅ Completo | Implementação com upserts                                  |
-| DuplicateWorker (Eventos)      | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup) |
-| DuplicateCommandService        | ✅ Completo | Resolve, ignora, deleta via Ledger e gerencia lixeira      |
-| DuplicateQueryService          | ✅ Completo | Consulta por status e candidatos                           |
-| Tauri Commands                 | ✅ Completo | 4 comandos expostos                                        |
-| Domain Events                  | ✅ Completo | 5 variantes de evento                                      |
-| Frontend — View                | ✅ Completo | `DuplicateFinderView` com ResizablePanel                   |
-| Frontend — Group List          | ✅ Completo | Componente extraído com deck preview                       |
-| Frontend — Group Item          | ✅ Completo | Deck visual + ignored styling                              |
-| Frontend — Comparison Panel    | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira       |
-| Frontend — Hook                | ✅ Completo | `useDuplicateGroups` com fetch + mutate                    |
-| Frontend — Types/API           | ✅ Completo | `duplicates.ts` com mapeamento completo                    |
-| Hashing Real (Blake3)          | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)    |
-| Perceptual Hash                | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`           |
-| UI de Regras Configuráveis     | ✅ Completo | `DuplicateRulesModal` implementado na Fase 4               |
-| Comparação Visual (Split View) | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`           |
+| Componente                         | Status     | Observações                                                                             |
+| ---------------------------------- | ---------- | --------------------------------------------------------------------------------------- |
+| Modelo de Domínio (Rust)           | ✅ Completo | 6 entidades, 3 enums                                                                    |
+| Tabelas SQLite                     | ✅ Completo | 5 tabelas + 4 índices                                                                   |
+| Repositório (Porta)                | ✅ Completo | Trait com 15 operações assíncronas                                                      |
+| Repositório (SQLite / Database)    | ✅ Completo | Implementação modular em `infra/database/` (Facade, Handlers e Query Handlers segregados)|
+| Gerenciamento da Lixeira (Saga)    | ✅ Completo | Padrão Saga pós-commit no Ledger para `MoveToTrash`, `RestoreFromTrash` e `DeleteAsset`  |
+| Resolução de Caminhos da Lixeira   | ✅ Completo | Centralizada em `core::trash` (`resolve_trash_path` timestamped + fallback legado)      |
+| DuplicateWorker (Eventos)          | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup)                              |
+| DuplicateCommandService            | ✅ Completo | Resolve, ignora, despacha comandos atômicos via Ledger sem manipulação de FS direta     |
+| DuplicateQueryService              | ✅ Completo | Consulta por status e candidatos                                                        |
+| Tauri Commands                     | ✅ Completo | 4 comandos expostos no invoke_handler                                                   |
+| Domain Events                      | ✅ Completo | 5 variantes de evento de duplicados                                                     |
+| Frontend — View                    | ✅ Completo | `DuplicateFinderView` com ResizablePanel                                                |
+| Frontend — Group List              | ✅ Completo | Componente extraído com deck preview                                                    |
+| Frontend — Group Item              | ✅ Completo | Deck visual + ignored styling                                                           |
+| Frontend — Comparison Panel        | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira                                    |
+| Frontend — Hook                    | ✅ Completo | `useDuplicateGroups` com fetch + mutate                                                 |
+| Frontend — Types/API               | ✅ Completo | `duplicates.ts` com mapeamento completo                                                 |
+| Hashing Real (Blake3)              | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)                                 |
+| Perceptual Hash                    | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`                                        |
+| UI de Regras Configuráveis         | ✅ Completo | `DuplicateRulesModal` implementado na Fase 4                                            |
+| Comparação Visual (Split View)     | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`                                        |
 
 ---
 
@@ -77,10 +80,15 @@ Define o trait `DuplicatesRepository` com 15 operações assíncronas:
 | `delete_fingerprint`           | Write | Remove o fingerprint de um asset deletado          |
 | `remove_candidate_from_groups` | Write | Remove candidato de grupos; auto-resolve se < 2    |
 
-### 2.3 Implementação SQLite — `infra/sqlite/duplicates_repository.rs`
+### 2.3 Implementação do Banco de Dados — `infra/database/` (Evolução de `infra/sqlite/duplicates_repository.rs`)
 
-A implementação concreta usa `sqlx::Pool<Sqlite>` e segue padrões consistentes:
+Originalmente implementada como um arquivo monolítico de 991 linhas em `infra/sqlite/duplicates_repository.rs`, a camada de persistência foi refatorada e integrada à arquitetura modular padrão do banco de dados em `infra/database/`, eliminando completamente o diretório legado `infra/sqlite/`:
 
+- **Facade (`infra/database/duplicates.rs`)**: Implementação limpa do trait `DuplicatesRepository` que atua como ponto de entrada e orquestra a delegação para os handlers e query handlers especializados.
+- **Handlers de Escrita e Varredura (`infra/database/handlers/duplicates_handler.rs`)**: Concentra mutações atômicas, backfill, rehash de fingerprints pendentes e os algoritmos de varredura exata (`run_exact_match_scan`) e visual com distância de Hamming (`run_visual_match_scan`).
+- **Handlers de Leitura (`infra/database/query_handlers/duplicates_queries.rs`)**: Concentra consultas segregadas de grupos por status, fingerprints e candidatos.
+
+Padrões de persistência mantidos e consolidados:
 - **Upserts** via `INSERT ... ON CONFLICT DO UPDATE` para fingerprints, grupos e candidatos.
 - **Transações** (`pool.begin()` + `tx.commit()`) no `run_exact_match_scan` para garantir atomicidade ao criar grupo + candidatos.
 - **Backfill automático**: Ao rodar o scan, gera fingerprints para assets que existiam antes do módulo ser implementado:
@@ -98,13 +106,14 @@ WHERE NOT EXISTS (SELECT 1 FROM duplicate_fingerprints df WHERE df.asset_id = a.
 
 #### `commands.rs` — DuplicateCommandService
 
-Orquestra a resolução de grupos com integração ao **Asset Ledger**:
+Orquestra a resolução de grupos com integração atômica ao **Asset Ledger** via padrão Saga:
 
 1. Recebe a ação do usuário (`IgnoreGroup`, `CustomSelection`, etc.)
 2. Persiste a `DuplicateResolution` com audit trail completo (who, when, payload)
 3. Atualiza o status do grupo (`ignored` ou `resolved`)
-4. Para `CustomSelection`: itera candidatos e envia `LedgerCommand::DeleteAsset` para cada asset não-selecionado
-5. Publica `DomainEvent::DuplicateGroupResolved`
+4. Para `CustomSelection`: itera candidatos descartados e despacha `LedgerCommand::MoveToTrash` para cada asset não-selecionado
+5. O **Ledger Saga pós-commit** (`execute_saga_move_to_trash`) assume a movimentação física para a pasta `trash/` de forma segura e idempotente, sem que a feature ou delivery manipulem o sistema de arquivos diretamente
+6. Publica `DomainEvent::DuplicateGroupResolved`
 
 #### `queries.rs` — DuplicateQueryService
 
@@ -275,7 +284,9 @@ sequenceDiagram
 
     UI->>TC: resolve_duplicate_group(group_id, "custom_selection", kept_ids)
     TC->>DB: save_resolution + update_group_status
-    TC->>L: LedgerCommand::DeleteAsset (for non-kept)
+    TC->>L: LedgerCommand::MoveToTrash (for non-kept assets)
+    L->>DB: UPDATE assets SET deleted_at (status PENDING)
+    L->>FS: Saga pós-commit: tokio::fs::rename para trash/ (status COMPLETED)
     TC->>EB: DuplicateGroupResolved
 ```
 
@@ -297,6 +308,9 @@ sequenceDiagram
 | 10  | Conteúdo cortado verticalmente               | `align-items: stretch` no flex container     | Mudado para `align-items: start`                    |
 | 11  | Filtro "Show ignored" não funcionava         | Hook só buscava grupos `open`                | Hook busca `open` + `ignored`, filtra localmente    |
 | 12  | `thumbnailUrl` apontava para `id`            | Mapeamento incorreto                         | Corrigido para usar `thumbnail_path`                |
+| 13  | Manipulação direta de FS em entrega/workers  | Lógica física de mover/restaurar na entrega  | Centralizado no Saga pós-commit do Ledger           |
+| 14  | Resolução duplicada de caminho de lixeira    | Funções helper locais em mutations e worker  | Unificado em `core::trash::resolve_trash_path`      |
+| 15  | Monólito de 991 linhas em `infra/sqlite/`    | Ausência de segregação de responsabilidades  | Decomposto em Facade, Handlers e Query Handlers     |
 
 ---
 
@@ -355,16 +369,18 @@ sequenceDiagram
 
 ### 6.5 Qualidade de Código e Arquitetura
 
-| Item                             | Status                       | Ação Necessária                                          |
-| -------------------------------- | ---------------------------- | -------------------------------------------------------- |
-| Rustdoc em todos os arquivos     | ✅ Bom                        | Adicionar `# Errors` onde falta                          |
-| TSDoc no frontend                | ⚠️ Parcial                    | Adicionar `@example` nos hooks                           |
-| Testes unitários (Rust)          | ❌ Nenhum                     | Testar repositório, matcher, scanner                     |
-| Testes de integração             | ❌ Nenhum                     | Testar fluxo completo com DB in-memory                   |
-| Testes de componente (Solid)     | ❌ Nenhum                     | Testar hook e componentes com `@solidjs/testing-library` |
-| FK `ON DELETE CASCADE` enforcado | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                   |
-| Cleanup de grupos órfãos         | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos      |
-| Reação a `AssetDeleted`          | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos          |
+| Item                                | Status                       | Ação Necessária / Detalhes                                 |
+| ----------------------------------- | ---------------------------- | ---------------------------------------------------------- |
+| Rustdoc em todos os arquivos        | ✅ Bom                        | Adicionar `# Errors` onde falta                            |
+| TSDoc no frontend                   | ⚠️ Parcial                    | Adicionar `@example` nos hooks                             |
+| Testes unitários (Rust)             | 🔄 Em evolução               | 11 testes em `matcher.rs`, 13 em `core::trash`; expandir scanner |
+| Testes de integração                | ❌ Nenhum                     | Testar fluxo completo com DB in-memory                     |
+| Testes de componente (Solid)        | ❌ Nenhum                     | Testar hook e componentes com `@solidjs/testing-library`   |
+| FK `ON DELETE CASCADE` enforcado    | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                     |
+| Cleanup de grupos órfãos            | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos        |
+| Reação a `AssetDeleted`             | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos            |
+| Desacoplamento do Repositório (CQRS)| ✅ Implementado               | Repositório dividido em Facade, Handlers e Query Handlers  |
+| Unificação da Lixeira (Saga Pattern)| ✅ Implementado               | FS desacoplado de delivery; movido para Saga pós-commit    |
 
 ---
 
@@ -439,23 +455,79 @@ A **Fase 4** introduziu as ferramentas de configuração e regras de filtragem p
 5. ✅ **Validação Multiescala em Matches Visuais**: Para matches visuais com score na faixa flexível (`0.70 <= score < 0.85`), exige-se que o hash multiescala de 256 bits confirme a similaridade (`>= 0.65`), impedindo colisões acidentais de gradiente em 64 bits.
 6. ✅ **Testes unitários completos**: 11 testes unitários passando em `feature::duplicates::matcher`, cobrindo rejeição de zero hash individual e em par, rejeição de todos os falsos positivos reais reportados (`olka 3` vs `a casa 2`, `olka 3` vs `RAW_HASSELBLAD_CFV.PPM`, `e797` vs `10e7`, `single.afphoto` vs `original-4646`, etc.), e aceitação de matches legítimos.
 
+### Fase 5.2 — Unificação da Lixeira & Refatoração Arquitetural de Infraestrutura (Concluída - Outubro/2026)
+1. ✅ **Unificação da Lixeira via Ledger Saga**:
+   - A movimentação física para a pasta `trash/` e o processo de restauração foram transferidos integralmente para o padrão **Saga pós-commit** no Asset Ledger (`execute_saga_move_to_trash` e `execute_saga_restore_from_trash`).
+   - Removida qualquer manipulação direta do sistema de arquivos das camadas de entrega (`delivery/tauri/commands/mutations.rs` e `delivery/tauri/commands/duplicates.rs`) e de background workers.
+   - O worker `AutoEmptyTrashWorker` e o comando `empty_trash` foram refatorados para não remover arquivos no filesystem antes de notificar o Ledger; a exclusão física agora é delegada atomicamente ao `execute_saga_physical_delete`.
+   - Centralizada a resolução física de caminhos da lixeira no domínio central ([`core::trash::resolve_trash_path`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/core/trash.rs#L85)), suportando caminhos no formato timestamped (`{asset_id}_{epoch}_{filename}`) com fallback resiliente para o formato legado (`{asset_id}_{filename}`).
+2. ✅ **Decomposição Modular do Repositório de Duplicatas (`infra/database/`)**:
+   - Eliminação completa do diretório `infra/sqlite/` e do arquivo monolítico de 991 linhas (`duplicates_repository.rs`).
+   - Segregação de responsabilidades de acordo com a arquitetura limpa e CQRS do banco de dados:
+     - [`infra/database/duplicates.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/duplicates.rs): Facade limpa implementando o trait `DuplicatesRepository`.
+     - [`infra/database/handlers/duplicates_handler.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/handlers/duplicates_handler.rs): Handlers de mutações, transações de agrupamento e algoritmos de varredura.
+     - [`infra/database/query_handlers/duplicates_queries.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/query_handlers/duplicates_queries.rs): Queries puras de leitura de grupos e candidatos.
+
 ---
 
 ## 12. Melhorias Futuras e Débito Técnico
 
 Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes pontos precisam de atenção em futuras refatorações:
 
-1. **Unificação da Lógica da Lixeira (Saga Pattern)**: Atualmente, a lógica que move fisicamente o arquivo para o diretório `trash/` está duplicada na camada de entrega (dentro de `mutations.rs` para a galeria e em `duplicates.rs` para a resolução de duplicatas). O ideal seria refatorar para o padrão **Saga/Outbox**, onde um worker escuta o evento de domínio `AssetMetadataUpdated` (ou um novo `AssetMovedToTrash`) e realiza a movimentação física de forma assíncrona, centralizando a regra na infraestrutura.
-2. **Corrigir N+1 Queries na Interface**: A busca de candidatos no `DuplicateComparisonPanel` faz uma chamada individual `get_asset` para cada candidato. Para suportar grupos grandes com dezenas de duplicatas, deve-se implementar uma chamada em lote (`batch get`) para buscar todos os metadados em uma única query.
-3. **Mecanismo de Desfazer (Undo)**: Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira. Alem da possibilidade de mostrar os grupos ignorados [DuplicateGroupList.tsx#L33-38](textBlock;file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx#L33-38)  deveria ter tambem a possibilidade de mostrar grupos que já foram resolvidos para que o usuário possa corrigir caso tenha tomado alguma decisão ruim
-4. **Fornecer configurações de algoritmos**: O usuário poderá configurar os algoritmos de detecção de duplicatas, bem como os parâmetros de cada algoritmo. Método de comparação usado (pHash/dHash/aHash/Block Hash), limiar de similaridade (0-100), etc...
-5. **Thumbnails em alta resolução**: O sistema de thumbnails está mantendo imagens em alta resolução (formato JPG) na pasta de thumbnails. Isso consome espaço desnecessário e deve ser corrigido para gerar thumbnails em resolução reduzida. As thumbnails podem ser usadas como fonte de imagem real para o cálculo de hashes perceptuais de formatos exóticos (multi-frame TIF, HDR, EXR) que o `image::open()` decodifica incorretamente.
-6. **Virtualização de lista de grupos**: Ao carregar a tela de duplicatas, não carrega todos os grupos, devendo carregar apenas os grupos que estão visíveis na tela. Possibilitando assim precarregar os decks de thumbnails e melhorando a usabilidade. O ideal é que seja criado um componente de lista virtualizada que possa ser reutilizado em outras partes da aplicação em `src/components/ui`. Seguindo o padrão de codificação usado pelo frontend [frontend-solid.md](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/docs/guidelines/frontend-solid.md).
+1. **Unificação da Lógica da Lixeira (Saga Pattern)**: [✅ CONCLUÍDO - Outubro/2026]  
+   *Texto Original:* Atualmente, a lógica que move fisicamente o arquivo para o diretório `trash/` está duplicada na camada de entrega (dentro de `mutations.rs` para a galeria e em `duplicates.rs` para a resolução de duplicatas). O ideal seria refatorar para o padrão **Saga/Outbox**, onde um worker escuta o evento de domínio `AssetMetadataUpdated` (ou um novo `AssetMovedToTrash`) e realiza a movimentação física de forma assíncrona, centralizando a regra na infraestrutura.
+   > [!NOTE]  
+   > **Desenvolvimento Realizado**:
+   > - **Saga pós-commit no Ledger**: Implementados os métodos `execute_saga_move_to_trash`, `execute_saga_restore_from_trash` e `execute_saga_physical_delete` no [`AssetLedger`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/ledger.rs).
+   > - **Desacoplamento de Entrega**: [`mutations.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/tauri/commands/mutations.rs) (`move_to_trash`, `restore_from_trash`, `empty_trash`) e [`duplicates.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/tauri/commands/duplicates.rs) (`resolve_duplicate_group`) tornaram-se despachantes puros de comandos para o Ledger, sem chamadas a `tokio::fs`.
+   > - **Auditoria e Transacionalidade**: A transação do banco define o status da operação como `PENDING` e o Saga atualiza para `COMPLETED` (ou `FAILED`) com base no sucesso da operação física no filesystem.
+   > - **Eliminação de Duplicidades**: A lógica helper `resolve_trash_file_path` que existia duplicada em `mutations.rs` e `auto_empty_worker.rs` foi unificada na função pública [`core::trash::resolve_trash_path`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/core/trash.rs#L85), coberta por 13 testes unitários passando.
+
+2. **Corrigir N+1 Queries na Interface**: [✅ CONCLUÍDO - Outubro/2026]  
+   *Texto Original:* A busca de candidatos no `DuplicateComparisonPanel` faz uma chamada individual `get_asset` para cada candidato. Para suportar grupos grandes com dezenas de duplicatas, deve-se implementar uma chamada em lote (`batch get`) para buscar todos os metadados em uma única query.
+   > [!NOTE]  
+   > **Desenvolvimento Realizado**:
+   > - **Batch Query no Banco de Dados**: Adicionadas as funções de leitura em lote [`asset_queries::get_by_ids`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/query_handlers/asset_queries.rs) e [`tags_queries::get_tags_for_assets`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/query_handlers/tags_queries.rs), executando consultas indexadas em lote com `WHERE ... IN (...)` via `sqlx::QueryBuilder`.
+   > - **Portas & Arquitetura Hexagonal**: Assinados os métodos no trait de porta [`AssetQueryHandler`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/core/repository/asset.rs), implementados no adaptador infra [`SqliteAssetQueries`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/queries.rs) e roteados no serviço de aplicação [`AssetQueryService`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/assets/queries.rs).
+   > - **Camada de Entrega RPC (Tauri)**: Expostos os novos comandos IPC `get_assets_by_ids` e `get_tags_for_assets` em [`delivery/tauri/commands/queries.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/tauri/commands/queries.rs) e registrados no [`lib.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/lib.rs).
+   > - **Eliminação de N+1 no Frontend**: Refatorada a função [`duplicatesApi.getDuplicateCandidates`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/lib/duplicates.ts) consumida por [`useDuplicateGroups.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/hooks/useDuplicateGroups.ts). A carga de candidatos agora executa um único par de requisições IPC paralelas (`get_assets_by_ids` e `get_tags_for_assets`), mapeando os candidatos em memória com complexidade $O(1)$ e eliminando loops iterativos de IPC.
+   > - **Cobertura de Testes**: Implementados testes unitários de backend no SQLite para busca em lote e lista vazia (4 testes em `asset_queries.rs` e `tags_queries.rs`), além de testes unitários frontend em [`duplicates.spec.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/lib/duplicates.spec.ts) validando a ausência de chamadas N+1.
+
+3. **Mecanismo de Desfazer (Undo)**: [⏳ Pendente / Em Backlog]  
+   *Texto Original:* Após resolver um grupo e mandar itens para a lixeira, não existe fluxo direto na tela de duplicatas para reverter a ação, obrigando o usuário a abrir o painel principal de lixeira. Alem da possibilidade de mostrar os grupos ignorados [DuplicateGroupList.tsx#L33-38](textBlock;file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx#L33-38)  deveria ter tambem a possibilidade de mostrar grupos que já foram resolvidos para que o usuário possa corrigir caso tenha tomado alguma decisão ruim
+   > [!NOTE]  
+   > **Diagnóstico e Plano de Implementação**:
+   > - **Diagnóstico**: O backend já registra o histórico detalhado em `duplicate_resolutions` e o Ledger Saga suporta restauração física atômica via `RestoreFromTrash`. A lacuna atual reside na interface e no comando de reversão.
+   > - **Plano de Ação**:
+   >   1. Frontend: Estender o dropdown de filtros de [`DuplicateGroupList.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx) para incluir visualização de grupos no status `resolved`.
+   >   2. Backend: Implementar comando `undo_duplicate_resolution(group_id: String)` que consulta a última resolução do grupo, emite comandos `RestoreFromTrash` para os assets enviados à lixeira e reverte o status do grupo para `open`.
+   >   3. UI: Adicionar botão de atalho contextual "Desfazer" na barra de status ou em toast após cada resolução.
+
+4. **Fornecer configurações de algoritmos**: [🔄 Parcialmente Concluído (Fase 4 & 5)]  
+   *Texto Original:* O usuário poderá configurar os algoritmos de detecção de duplicatas, bem como os parâmetros de cada algoritmo. Método de comparação usado (pHash/dHash/aHash/Block Hash), limiar de similaridade (0-100), etc...
+   > [!NOTE]  
+   > **Progresso e Próximos Passos**:
+   > - **Implementado**: O modal `DuplicateRulesModal.tsx` permite selecionar perfis e calibrar limiares de tolerância percentual (Hamming Distance e Block Hash), persistidos no banco na tabela `duplicate_rule_sets`.
+   > - **Próximos Passos**: Expor controles avançados permitindo ao usuário escolher explicitamente o algoritmo desejado para a varredura atual (ex: forçar apenas detecção exata, apenas perceptual ou apenas detecção de recortes por Block Hash).
+
+5. **Thumbnails em alta resolução**: [⏳ Planejado / Em Análise]  
+   *Texto Original:* O sistema de thumbnails está mantendo imagens em alta resolução (formato JPG) na pasta de thumbnails. Isso consome espaço desnecessário e deve ser corrigido para gerar thumbnails em resolução reduzida. As thumbnails podem ser usadas como fonte de imagem real para o cálculo de hashes perceptuais de formatos exóticos (multi-frame TIF, HDR, EXR) que o `image::open()` decodifica incorretamente.
+   > [!NOTE]  
+   > **Plano de Implementação**:
+   > - Manter estratégia de duas camadas: micro-thumbnails (WebP compactas) para listagens/decks e visualização detalhada sob demanda.
+   > - Adicionar pipeline de fallback para hashing perceptual: quando a decodificação direta de arquivos exóticos falhar no `image::open()`, consumir a thumbnail pré-processada como fonte para o cálculo do fingerprint visual.
+
+6. **Virtualização de lista de grupos**: [⏳ Planejado / Em Backlog]  
+   *Texto Original:* Ao carregar a tela de duplicatas, não carrega todos os grupos, devendo carregar apenas os grupos que estão visíveis na tela. Possibilitando assim precarregar os decks de thumbnails e melhorando a usabilidade. O ideal é que seja criado um componente de lista virtualizada que possa ser reutilizado em outras partes da aplicação em `src/components/ui`. Seguindo o padrão de codificação usado pelo frontend [frontend-solid.md](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/docs/guidelines/frontend-solid.md).
+   > [!NOTE]  
+   > **Plano de Implementação**:
+   > - Criar componente genérico e reativo `VirtualList` em `src/components/ui/VirtualList.tsx` conforme as diretrizes do frontend SolidJS.
+   > - Integrar a virtualização ao [`DuplicateGroupList.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx), restringindo o preloading de decks de miniaturas apenas aos itens visíveis no viewport com overscan configurável (~5 itens).
 
 ---
 
-## 12. Conclusão
+## 13. Conclusão
 
-O módulo de duplicados do Mundam possui uma base arquitetural sólida e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em SQLite é robusta com upserts e transações, a integração com o Asset Ledger garante atomicidade e auditoria, e o frontend já oferece uma experiência rica e interativa de revisão e resolução.
+O módulo de duplicados do Mundam possui uma base arquitetural sólida, moderna e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em banco de dados segue a arquitetura Hexagonal e CQRS dividida em Facade, Handlers e Queries, a integração com o Asset Ledger garante atomicidade transacional e auditoria completa, e o frontend oferece uma experiência rica, reativa e interativa de revisão e resolução.
 
-Com o andamento da **Fase 5.1**, o matcher agora possui proteções robustas contra falsos positivos: imagens degeneradas (hash zero) são rejeitadas, e crop matches exigem corroboração de sinais independentes. O agrupamento é significativamente mais preciso, reduzindo o ruído para o usuário na revisão de duplicatas.
+Com as entregas da **Fase 5.1** (proteções rigorosas contra falsos positivos com guards de entropia zero, penalização Jaccard para fundos lisos e validação cruzada de block hash) e da **Fase 5.2** (unificação definitiva do ciclo de vida da lixeira via Ledger Saga Pattern e decomposição modular de `infra/database/`), o sistema atingiu um patamar de alta confiabilidade operacional e consistência de dados. Os próximos passos focam na otimização de performance para coleções massivas (batch queries N+1 e lista virtualizada) e na introdução do fluxo de desfazer (Undo) diretamente na interface de duplicatas.

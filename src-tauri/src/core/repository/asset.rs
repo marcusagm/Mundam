@@ -34,6 +34,33 @@ pub trait AssetQueryHandler: Send + Sync {
     /// * `Err(AppError)` if the asset could not be found.
     async fn get_by_id(&self, id: &str) -> AppResult<Option<Asset>>;
 
+    /// Retrieves multiple assets by their unique identifiers in a single batch query.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_identifiers` - Slice of asset unique identifiers to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<Asset>)` containing all matching assets.
+    /// * `Err(AppError)` if the query fails.
+    async fn get_by_ids(&self, asset_identifiers: &[String]) -> AppResult<Vec<Asset>>;
+
+    /// Retrieves all tags associated with multiple assets in a single batch query.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_identifiers` - Slice of asset unique identifiers whose tags to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(HashMap<String, Vec<Tag>>)` mapping each asset ID to its list of tags.
+    /// * `Err(AppError)` if the query fails.
+    async fn get_tags_for_assets(
+        &self,
+        asset_identifiers: &[String],
+    ) -> AppResult<HashMap<String, Vec<Tag>>>;
+
     /// Returns a paginated list of assets focused on performance.
     ///
     /// # Arguments
