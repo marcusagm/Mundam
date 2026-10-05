@@ -42,7 +42,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         isScanning,
         scanProgress,
         newGroupsFoundCount,
-        resetNewGroupsCount
+        resetNewGroupsCount,
+        preloadGroupCandidates
     } = useDuplicateGroups();
 
     const [isRulesModalOpen, setIsRulesModalOpen] = createSignal(false);
@@ -199,6 +200,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 setShowIgnored={setShowIgnored}
                                 groupTypeFilter={groupTypeFilter}
                                 setGroupTypeFilter={setGroupTypeFilter}
+                                preloadGroupCandidates={preloadGroupCandidates}
                             />
                         </Show>
                     </div>

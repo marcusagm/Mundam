@@ -1,6 +1,6 @@
 import { createSignal, createResource, createMemo, Resource, Setter, Accessor } from 'solid-js';
 import { duplicatesApi } from '../../../../lib/duplicates';
-import { DuplicateGroup } from '../types';
+import { DuplicateGroup, DuplicateCandidate } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
 
 /**
@@ -53,6 +53,8 @@ export interface UseDuplicateGroupsReturn {
     newGroupsFoundCount: Accessor<number>;
     /** Resets the new-groups counter after the user acknowledges the notification. */
     resetNewGroupsCount: () => void;
+    /** Preloads candidate items and thumbnail previews for a list of group IDs. */
+    preloadGroupCandidates: (groupIdList: string[]) => Promise<void>;
 }
 
 /**
@@ -241,12 +243,129 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         setNewGroupsFoundCount(0);
     };
 
+    /** Set tracking active candidate network requests to prevent duplicate in-flight fetches */
+    const inFlightCandidateLoads = new Set<string>();
+
+    interface PreloadCandidateResult {
+        candidateGroupId: string;
+        candidateList: DuplicateCandidate[] | null;
+    }
+
+    /**
+     * Merges successfully preloaded candidates into the current duplicate group list.
+     *
+     * @param {DuplicateGroup[]} existingGroupList - Current duplicate groups.
+     * @param {PreloadCandidateResult[]} preloadResultList - Results from batch fetching candidates.
+     * @returns {{ updatedGroupList: DuplicateGroup[]; hasModifications: boolean }} Updated groups and modification flag.
+     */
+    function applyPreloadedCandidatesToGroups(
+        existingGroupList: DuplicateGroup[],
+        preloadResultList: PreloadCandidateResult[]
+    ): { updatedGroupList: DuplicateGroup[]; hasModifications: boolean } {
+        let hasModifications = false;
+        const updatedGroupList = [...existingGroupList];
+
+        for (const resultItem of preloadResultList) {
+            if (resultItem.candidateList) {
+                const groupIndex = updatedGroupList.findIndex(
+                    groupItem => groupItem.id === resultItem.candidateGroupId
+                );
+                if (groupIndex !== -1) {
+                    updatedGroupList[groupIndex] = {
+                        ...updatedGroupList[groupIndex],
+                        candidates: resultItem.candidateList,
+                        candidatesLoaded: true,
+                        candidateCount: resultItem.candidateList.length
+                    };
+                    hasModifications = true;
+                }
+            }
+        }
+
+        return { updatedGroupList, hasModifications };
+    }
+
+    /**
+     * Preloads candidates and thumbnail previews for visible duplicate groups.
+     * Prevents duplicate in-flight requests and batches state updates atomically.
+     *
+     * @param {string[]} groupIdList - Array of group IDs to preload candidates for.
+     * @returns {Promise<void>}
+     */
+    const preloadGroupCandidates = async (groupIdList: string[]): Promise<void> => {
+        const currentGroups = groups();
+        if (!currentGroups || groupIdList.length === 0) {
+            return;
+        }
+
+        const candidateGroupsToLoad = groupIdList.filter(candidateGroupId => {
+            if (inFlightCandidateLoads.has(candidateGroupId)) {
+                return false;
+            }
+            const foundGroup = currentGroups.find(groupItem => groupItem.id === candidateGroupId);
+            return foundGroup && !foundGroup.candidatesLoaded;
+        });
+
+        if (candidateGroupsToLoad.length === 0) {
+            return;
+        }
+
+        for (const candidateGroupId of candidateGroupsToLoad) {
+            inFlightCandidateLoads.add(candidateGroupId);
+        }
+
+        try {
+            const loadResults = await Promise.all(
+                candidateGroupsToLoad.map(async candidateGroupId => {
+                    try {
+                        const candidateList =
+                            await duplicatesApi.getDuplicateCandidates(candidateGroupId);
+                        return {
+                            candidateGroupId,
+                            candidateList,
+                            error: null
+                        };
+                    } catch (error: unknown) {
+                        console.error(
+                            `Failed to preload candidates for group ${candidateGroupId}:`,
+                            error
+                        );
+                        return {
+                            candidateGroupId,
+                            candidateList: null,
+                            error
+                        };
+                    } finally {
+                        inFlightCandidateLoads.delete(candidateGroupId);
+                    }
+                })
+            );
+
+            const latestGroups = groups();
+            if (!latestGroups) {
+                return;
+            }
+
+            const { updatedGroupList, hasModifications } = applyPreloadedCandidatesToGroups(
+                latestGroups,
+                loadResults
+            );
+
+            if (hasModifications) {
+                mutate(updatedGroupList);
+            }
+        } catch (error: unknown) {
+            console.error('Error during batch candidate preloading:', error);
+        }
+    };
+
     return {
         groups,
         visibleGroups,
         selectedGroupId,
         setSelectedGroupId,
         selectGroup,
+        preloadGroupCandidates,
         resolveGroup,
         startScan,
         cancelScan,

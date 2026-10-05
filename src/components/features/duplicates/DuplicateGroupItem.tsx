@@ -60,23 +60,27 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
                     when={props.group.candidates.length > 0}
                     fallback={
                         <div class="group-list-item-thumbnail-placeholder">
-                            <span>Select to load {props.group.candidateCount} files</span>
+                            <span>
+                                {props.group.candidatesLoaded
+                                    ? `No preview (${props.group.candidateCount} files)`
+                                    : `Loading preview (${props.group.candidateCount} files)…`}
+                            </span>
                         </div>
                     }
                 >
                     <div class="group-deck-container">
                         <div class="group-deck-wrapper">
                             <For each={previewCandidates()}>
-                                {(candidate, index) => (
+                                {(candidate, deckCardIndex) => (
                                     <div
                                         class="group-deck-card"
                                         style={{
-                                            top: `${index() * 3}px`,
-                                            left: `${index() * 3}px`,
-                                            right: `${(2 - index()) * 3}px`,
-                                            bottom: `${(2 - index()) * 3}px`,
-                                            transform: `rotate(${(index() - 1) * 3}deg)`,
-                                            'z-index': index()
+                                            top: `${deckCardIndex() * 3}px`,
+                                            left: `${deckCardIndex() * 3}px`,
+                                            right: `${(2 - deckCardIndex()) * 3}px`,
+                                            bottom: `${(2 - deckCardIndex()) * 3}px`,
+                                            transform: `rotate(${(deckCardIndex() - 1) * 3}deg)`,
+                                            'z-index': deckCardIndex()
                                         }}
                                     >
                                         <Thumbnail

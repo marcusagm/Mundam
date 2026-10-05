@@ -14,29 +14,29 @@ O módulo de detecção de duplicados foi implementado como um subsistema comple
 
 ### 1.1 Status Atual
 
-| Componente                         | Status     | Observações                                                                             |
-| ---------------------------------- | ---------- | --------------------------------------------------------------------------------------- |
-| Modelo de Domínio (Rust)           | ✅ Completo | 6 entidades, 3 enums                                                                    |
-| Tabelas SQLite                     | ✅ Completo | 5 tabelas + 4 índices                                                                   |
-| Repositório (Porta)                | ✅ Completo | Trait com 15 operações assíncronas                                                      |
-| Repositório (SQLite / Database)    | ✅ Completo | Implementação modular em `infra/database/` (Facade, Handlers e Query Handlers segregados)|
-| Gerenciamento da Lixeira (Saga)    | ✅ Completo | Padrão Saga pós-commit no Ledger para `MoveToTrash`, `RestoreFromTrash` e `DeleteAsset`  |
-| Resolução de Caminhos da Lixeira   | ✅ Completo | Centralizada em `core::trash` (`resolve_trash_path` timestamped + fallback legado)      |
-| DuplicateWorker (Eventos)          | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup)                              |
-| DuplicateCommandService            | ✅ Completo | Resolve, ignora, despacha comandos atômicos via Ledger sem manipulação de FS direta     |
-| DuplicateQueryService              | ✅ Completo | Consulta por status e candidatos                                                        |
-| Tauri Commands                     | ✅ Completo | 4 comandos expostos no invoke_handler                                                   |
-| Domain Events                      | ✅ Completo | 5 variantes de evento de duplicados                                                     |
-| Frontend — View                    | ✅ Completo | `DuplicateFinderView` com ResizablePanel                                                |
-| Frontend — Group List              | ✅ Completo | Componente extraído com deck preview                                                    |
-| Frontend — Group Item              | ✅ Completo | Deck visual + ignored styling                                                           |
-| Frontend — Comparison Panel        | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira                                    |
-| Frontend — Hook                    | ✅ Completo | `useDuplicateGroups` com fetch + mutate                                                 |
-| Frontend — Types/API               | ✅ Completo | `duplicates.ts` com mapeamento completo                                                 |
-| Hashing Real (Blake3)              | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)                                 |
-| Perceptual Hash                    | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`                                        |
-| UI de Regras Configuráveis         | ✅ Completo | `DuplicateRulesModal` implementado na Fase 4                                            |
-| Comparação Visual (Split View)     | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`                                        |
+| Componente                       | Status     | Observações                                                                               |
+| -------------------------------- | ---------- | ----------------------------------------------------------------------------------------- |
+| Modelo de Domínio (Rust)         | ✅ Completo | 6 entidades, 3 enums                                                                      |
+| Tabelas SQLite                   | ✅ Completo | 5 tabelas + 4 índices                                                                     |
+| Repositório (Porta)              | ✅ Completo | Trait com 15 operações assíncronas                                                        |
+| Repositório (SQLite / Database)  | ✅ Completo | Implementação modular em `infra/database/` (Facade, Handlers e Query Handlers segregados) |
+| Gerenciamento da Lixeira (Saga)  | ✅ Completo | Padrão Saga pós-commit no Ledger para `MoveToTrash`, `RestoreFromTrash` e `DeleteAsset`   |
+| Resolução de Caminhos da Lixeira | ✅ Completo | Centralizada em `core::trash` (`resolve_trash_path` timestamped + fallback legado)        |
+| DuplicateWorker (Eventos)        | ✅ Completo | Escuta `AssetCreated` (hashing) e `AssetDeleted` (cleanup)                                |
+| DuplicateCommandService          | ✅ Completo | Resolve, ignora, despacha comandos atômicos via Ledger sem manipulação de FS direta       |
+| DuplicateQueryService            | ✅ Completo | Consulta por status e candidatos                                                          |
+| Tauri Commands                   | ✅ Completo | 4 comandos expostos no invoke_handler                                                     |
+| Domain Events                    | ✅ Completo | 5 variantes de evento de duplicados                                                       |
+| Frontend — View                  | ✅ Completo | `DuplicateFinderView` com ResizablePanel                                                  |
+| Frontend — Group List            | ✅ Completo | Componente extraído com deck preview                                                      |
+| Frontend — Group Item            | ✅ Completo | Deck visual + ignored styling                                                             |
+| Frontend — Comparison Panel      | ✅ Completo | Cards lado a lado, smart actions e visual de lixeira                                      |
+| Frontend — Hook                  | ✅ Completo | `useDuplicateGroups` com fetch + mutate                                                   |
+| Frontend — Types/API             | ✅ Completo | `duplicates.ts` com mapeamento completo                                                   |
+| Hashing Real (Blake3)            | ✅ Completo | Streaming hashing implementado (`generate_fingerprint`)                                   |
+| Perceptual Hash                  | ✅ Completo | dHash 8x8 implementado em `generate_fingerprint`                                          |
+| UI de Regras Configuráveis       | ✅ Completo | `DuplicateRulesModal` implementado na Fase 4                                              |
+| Comparação Visual (Split View)   | ✅ Completo | Modal com ResizablePanels e protocolo `asset://`                                          |
 
 ---
 
@@ -369,18 +369,18 @@ sequenceDiagram
 
 ### 6.5 Qualidade de Código e Arquitetura
 
-| Item                                | Status                       | Ação Necessária / Detalhes                                 |
-| ----------------------------------- | ---------------------------- | ---------------------------------------------------------- |
-| Rustdoc em todos os arquivos        | ✅ Bom                        | Adicionar `# Errors` onde falta                            |
-| TSDoc no frontend                   | ⚠️ Parcial                    | Adicionar `@example` nos hooks                             |
-| Testes unitários (Rust)             | 🔄 Em evolução               | 11 testes em `matcher.rs`, 13 em `core::trash`; expandir scanner |
-| Testes de integração                | ❌ Nenhum                     | Testar fluxo completo com DB in-memory                     |
-| Testes de componente (Solid)        | ❌ Nenhum                     | Testar hook e componentes com `@solidjs/testing-library`   |
-| FK `ON DELETE CASCADE` enforcado    | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                     |
-| Cleanup de grupos órfãos            | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos        |
-| Reação a `AssetDeleted`             | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos            |
-| Desacoplamento do Repositório (CQRS)| ✅ Implementado               | Repositório dividido em Facade, Handlers e Query Handlers  |
-| Unificação da Lixeira (Saga Pattern)| ✅ Implementado               | FS desacoplado de delivery; movido para Saga pós-commit    |
+| Item                                 | Status                       | Ação Necessária / Detalhes                                       |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------------------------- |
+| Rustdoc em todos os arquivos         | ✅ Bom                        | Adicionar `# Errors` onde falta                                  |
+| TSDoc no frontend                    | ⚠️ Parcial                    | Adicionar `@example` nos hooks                                   |
+| Testes unitários (Rust)              | 🔄 Em evolução                | 11 testes em `matcher.rs`, 13 em `core::trash`; expandir scanner |
+| Testes de integração                 | ❌ Nenhum                     | Testar fluxo completo com DB in-memory                           |
+| Testes de componente (Solid)         | ❌ Nenhum                     | Testar hook e componentes com `@solidjs/testing-library`         |
+| FK `ON DELETE CASCADE` enforcado     | ✅ `PRAGMA foreign_keys` = ON | Ativado no `DbManager`                                           |
+| Cleanup de grupos órfãos             | ✅ Implementado               | Auto-resolve quando grupo fica com `< 2` candidatos              |
+| Reação a `AssetDeleted`              | ✅ Implementado               | DuplicateWorker limpa fingerprints e candidatos                  |
+| Desacoplamento do Repositório (CQRS) | ✅ Implementado               | Repositório dividido em Facade, Handlers e Query Handlers        |
+| Unificação da Lixeira (Saga Pattern) | ✅ Implementado               | FS desacoplado de delivery; movido para Saga pós-commit          |
 
 ---
 
@@ -517,12 +517,14 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
    > - Manter estratégia de duas camadas: micro-thumbnails (WebP compactas) para listagens/decks e visualização detalhada sob demanda.
    > - Adicionar pipeline de fallback para hashing perceptual: quando a decodificação direta de arquivos exóticos falhar no `image::open()`, consumir a thumbnail pré-processada como fonte para o cálculo do fingerprint visual.
 
-6. **Virtualização de lista de grupos**: [⏳ Planejado / Em Backlog]  
+6. **Virtualização de lista de grupos**: [✅ Concluído - 2026-10-05]  
    *Texto Original:* Ao carregar a tela de duplicatas, não carrega todos os grupos, devendo carregar apenas os grupos que estão visíveis na tela. Possibilitando assim precarregar os decks de thumbnails e melhorando a usabilidade. O ideal é que seja criado um componente de lista virtualizada que possa ser reutilizado em outras partes da aplicação em `src/components/ui`. Seguindo o padrão de codificação usado pelo frontend [frontend-solid.md](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/docs/guidelines/frontend-solid.md).
    > [!NOTE]  
-   > **Plano de Implementação**:
-   > - Criar componente genérico e reativo `VirtualList` em `src/components/ui/VirtualList.tsx` conforme as diretrizes do frontend SolidJS.
-   > - Integrar a virtualização ao [`DuplicateGroupList.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx), restringindo o preloading de decks de miniaturas apenas aos itens visíveis no viewport com overscan configurável (~5 itens).
+   > **Entregas Realizadas**:
+   > - **Componente Reutilizável `VirtualList`** em [`src/components/ui/VirtualList/`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/ui/VirtualList/): componente genérico de alto desempenho construído para Solid.js com reatividade refinada, cálculo de offsets em tempo constante ($O(1)$ para alturas fixas) e busca binária ($O(\log N)$ para alturas variáveis), suporte a `gap`, buffer de `overscanCount` configurável (padrão 5 itens), throttling de scroll via `scheduler` (rAF) e notificação debounced (150ms) de itens visíveis (`onVisibleItemsChange`).
+   > - **Preloading Atômico de Candidatos e Miniaturas** em [`useDuplicateGroups.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/hooks/useDuplicateGroups.ts): introdução do método `preloadGroupCandidates` com proteção contra requisições duplicadas in-flight e mutação atômica de cache de grupos.
+   > - **Integração no Módulo de Duplicados** em [`DuplicateGroupList.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateGroupList.tsx): adoção do `VirtualList` com `itemHeight={150}`, `gap={8}` e pré-carregamento restrito ao viewport visível (+ overscan), eliminando o carregamento excessivo de miniaturas fora da tela e mantendo navegação por setas suave via `autoScrollToIndex`.
+   > - **Cobertura de Testes**: suíte abrangente de testes unitários em [`VirtualList.spec.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/ui/VirtualList/VirtualList.spec.tsx) validando renderização, cálculo de offsets, alinhamentos de scroll e integração com controller.
 
 ---
 

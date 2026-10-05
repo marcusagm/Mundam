@@ -10,14 +10,22 @@
 
 .group-list-container {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
   padding: var(--p-space-m);
+}
+
+.group-list-empty-state {
   display: flex;
-  flex-direction: column;
-  gap: var(--p-space-s);
+  align-items: center;
+  justify-content: center;
+  padding: var(--p-space-xl) var(--p-space-m);
+  color: var(--text-tertiary);
+  font-size: var(--p-font-size-m);
+  text-align: center;
 }
 
 .group-list-item {
+  height: 100%;
   padding: var(--p-space-m);
   border-radius: var(--radius-l);
   cursor: pointer;
@@ -25,6 +33,7 @@
   transition: var(--transition-fast);
   background: var(--bg-surface-2);
   position: relative;
+  box-sizing: border-box;
 }
 
 .group-list-item:hover {

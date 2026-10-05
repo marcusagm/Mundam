@@ -32,6 +32,7 @@ export * from './TreeView';
 export * from './ProgressBar';
 export * from './SectionGroup';
 export * from './Table';
+export * from './VirtualList';
 
 // Feedback
 export * from './Alert';
