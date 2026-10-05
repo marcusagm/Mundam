@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT OR IGNORE INTO duplicate_fingerprints (\n            asset_id, content_hash, file_size, format_family, fingerprint_version, updated_at\n        )\n        SELECT \n            a.id, \n            'pending_' || a.id, \n            a.file_size, \n            a.family, \n            0, \n            CURRENT_TIMESTAMP\n        FROM assets a\n        WHERE NOT EXISTS (\n            SELECT 1 FROM duplicate_fingerprints df WHERE df.asset_id = a.id\n        )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "2fa4ea3ab4ad1f89fdd35bf9022f21267cac4d327f8b5294b5d902e5ba85f88f"
+}

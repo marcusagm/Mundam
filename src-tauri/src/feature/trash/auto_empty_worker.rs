@@ -159,32 +159,21 @@ impl AutoEmptyTrashWorker {
         let mut purged_count = 0;
 
         for record in expired_assets {
-            let path = std::path::PathBuf::from(&record.path);
+            let original_path = std::path::PathBuf::from(&record.path);
 
-            // Remove physical file from trash (try both timestamped and legacy format)
-            if let Some(ref deleted_at) = record.deleted_at {
-                if let Some(trash_path) = crate::core::trash::build_trash_path(
-                    &self.app_data_directory,
-                    &record.id,
-                    &path,
-                    deleted_at,
-                ) {
-                    let _ = tokio::fs::remove_file(&trash_path).await;
-                }
-            }
-            // Legacy format fallback
-            if let Some(file_name) = path.file_name() {
-                let legacy_path = crate::core::trash::trash_directory(&self.app_data_directory)
-                    .join(format!("{}_{}", record.id, file_name.to_string_lossy()));
-                let _ = tokio::fs::remove_file(&legacy_path).await;
-            }
+            // Resolve the physical trash path so the Saga deletes the correct file.
+            // Tries timestamped format first, then falls back to legacy format.
+            let resolved_trash_path = self.resolve_trash_file_path(
+                &record.id,
+                &original_path,
+                record.deleted_at.as_ref(),
+            );
 
-            // Delete the database record permanently
             let result = self
                 .ledger
                 .execute(LedgerCommand::DeleteAsset {
                     asset_id: Some(record.id.clone()),
-                    path: Some(path),
+                    path: Some(resolved_trash_path),
                     physical_delete: true,
                 })
                 .await;
@@ -206,5 +195,46 @@ impl AutoEmptyTrashWorker {
         );
 
         Ok(())
+    }
+
+    /// Resolves the physical path of a file in the trash directory.
+    ///
+    /// Tries the timestamped format (`{asset_id}_{epoch}_{filename}`) first.
+    /// If that file does not exist on disk, falls back to the legacy format
+    /// (`{asset_id}_{filename}`). Returns the timestamped path as default
+    /// if neither exists (the Saga handles `NotFound` gracefully).
+    fn resolve_trash_file_path(
+        &self,
+        asset_id: &str,
+        original_path: &std::path::Path,
+        deleted_at: Option<&chrono::DateTime<chrono::Utc>>,
+    ) -> std::path::PathBuf {
+        if let Some(deleted_at_value) = deleted_at {
+            if let Some(trash_path) = crate::core::trash::build_trash_path(
+                &self.app_data_directory, asset_id, original_path, deleted_at_value,
+            ) {
+                if trash_path.exists() {
+                    return trash_path;
+                }
+            }
+        }
+
+        if let Some(file_name) = original_path.file_name() {
+            let legacy_path = crate::core::trash::trash_directory(&self.app_data_directory)
+                .join(format!("{}_{}", asset_id, file_name.to_string_lossy()));
+            if legacy_path.exists() {
+                return legacy_path;
+            }
+        }
+
+        if let Some(deleted_at_value) = deleted_at {
+            if let Some(trash_path) = crate::core::trash::build_trash_path(
+                &self.app_data_directory, asset_id, original_path, deleted_at_value,
+            ) {
+                return trash_path;
+            }
+        }
+
+        original_path.to_path_buf()
     }
 }

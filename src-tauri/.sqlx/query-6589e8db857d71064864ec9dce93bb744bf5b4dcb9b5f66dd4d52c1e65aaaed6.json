@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)\n                VALUES (?, ?, ?, ?, 0)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "6589e8db857d71064864ec9dce93bb744bf5b4dcb9b5f66dd4d52c1e65aaaed6"
+}

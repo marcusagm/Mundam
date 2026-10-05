@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT id, min_score, consider_visual_match, consider_crop_match\n            FROM duplicate_rule_sets\n            ORDER BY updated_at DESC\n            LIMIT 1\n            ",
+  "query": "\n        SELECT id, min_score, consider_visual_match, consider_crop_match\n        FROM duplicate_rule_sets\n        ORDER BY updated_at DESC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "5000a67d23c02a52198c9787d135875a970e38940eeb12214b8a9e06637f8dac"
+  "hash": "eab9502b201c9a2b24deebaff9093f302499b083fc5d936fd388d0953662b6e6"
 }

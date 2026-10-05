@@ -46,6 +46,7 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
     let asset_ledger_impl = Arc::new(crate::infra::database::ledger::SqliteAssetLedger::new(
         db_manager.pool().clone(),
         event_bus.clone(),
+        dirs.app_data.clone(),
     ));
 
     // Run database path normalization cleanup (one-time logic)
@@ -80,7 +81,7 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
 
     // Initialize Duplicates Services
     let duplicates_repo: Arc<dyn crate::core::repository::DuplicatesRepository> = 
-        Arc::new(crate::infra::sqlite::SqliteDuplicatesRepository::new(db_manager.pool().clone()));
+        Arc::new(crate::infra::database::duplicates::SqliteDuplicatesRepository::new(db_manager.pool().clone()));
     app.manage(duplicates_repo.clone());
 
     let duplicates_query_service =

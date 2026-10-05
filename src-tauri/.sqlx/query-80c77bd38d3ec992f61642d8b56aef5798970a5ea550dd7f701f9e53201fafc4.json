@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO duplicate_resolutions (\n            id, group_id, action, selected_asset_id, payload, resolved_by, resolved_at\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "80c77bd38d3ec992f61642d8b56aef5798970a5ea550dd7f701f9e53201fafc4"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT \n                asset_id as \"asset_id!\", content_hash, perceptual_hash, block_hash, thumb_hash,\n                width as \"width: i32\", height as \"height: i32\", file_size as \"file_size: i64\", \n                mime_type, format_family, color_profile, orientation as \"orientation: i32\", \n                fingerprint_version as \"fingerprint_version: i32\", \n                updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n            FROM duplicate_fingerprints\n            WHERE asset_id = ?\n            ",
+  "query": "\n        SELECT \n            asset_id as \"asset_id!\", content_hash, perceptual_hash, block_hash, thumb_hash,\n            width as \"width: i32\", height as \"height: i32\", file_size as \"file_size: i64\", \n            mime_type, format_family, color_profile, orientation as \"orientation: i32\", \n            fingerprint_version as \"fingerprint_version: i32\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_fingerprints\n        WHERE asset_id = ?\n        ",
   "describe": {
     "columns": [
       {
@@ -94,5 +94,5 @@
       false
     ]
   },
-  "hash": "5d48a2542d3f0528903b23b1f87f63fb6b19e9ad676a5ac01df1817faf3037e9"
+  "hash": "eac0541ffeb848968c775182375e5c0e06caeded859e960b1e073fa41e4545ab"
 }

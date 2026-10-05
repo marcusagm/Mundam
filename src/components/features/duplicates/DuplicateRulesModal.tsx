@@ -199,6 +199,7 @@ export const DuplicateRulesModal: Component<DuplicateRulesModalProperties> = pro
                             minimumValue={0.5}
                             maximumValue={1.0}
                             stepValue={0.01}
+                            showTicks={false}
                             onValueChange={setMinScore}
                             isDisabled={selectedProfile() !== 'custom'}
                         />

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE duplicate_groups\n        SET status = ?, updated_at = CURRENT_TIMESTAMP\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "9fa5b78650d3edc2ec38c049ed1752664c01077844b03bba636abb6904a0a169"
+}

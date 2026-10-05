@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT \n                group_id as \"group_id!\", asset_id as \"asset_id!\", score as \"score: f64\", reasons as \"reasons!\", is_selected as \"is_selected: bool\"\n            FROM duplicate_candidates\n            WHERE group_id = ?\n            ",
+  "query": "\n        SELECT \n            group_id as \"group_id!\", asset_id as \"asset_id!\", score as \"score: f64\", reasons as \"reasons!\", is_selected as \"is_selected: bool\"\n        FROM duplicate_candidates\n        WHERE group_id = ?\n        ",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "3b3392b5bdf5d2533d32651012109195b757bff187a2bd7f93f87638a78ed936"
+  "hash": "f025eec99246d3fd80b819d3cbc1a8b029281e2b18382c6f8397c6121b5ddd2a"
 }

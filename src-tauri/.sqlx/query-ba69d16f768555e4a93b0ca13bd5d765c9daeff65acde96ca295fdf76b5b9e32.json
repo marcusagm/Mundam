@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO duplicate_candidates (\n            group_id, asset_id, score, reasons, is_selected\n        )\n        VALUES (?, ?, ?, ?, ?)\n        ON CONFLICT(group_id, asset_id) DO UPDATE SET\n            score = excluded.score,\n            reasons = excluded.reasons,\n            is_selected = excluded.is_selected\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "ba69d16f768555e4a93b0ca13bd5d765c9daeff65acde96ca295fdf76b5b9e32"
+}

@@ -95,6 +95,7 @@ export const DuplicateSplitView: Component<DuplicateSplitViewProperties> = props
                                     minimumValue={0}
                                     maximumValue={100}
                                     stepValue={1}
+                                    showTicks={false}
                                     value={wipeCurtainPercentage()}
                                     onValueChange={setWipeCurtainPercentage}
                                 />
@@ -109,6 +110,7 @@ export const DuplicateSplitView: Component<DuplicateSplitViewProperties> = props
                                 <Slider
                                     minimumValue={0}
                                     maximumValue={100}
+                                    showTicks={false}
                                     stepValue={1}
                                     value={onionSkinOpacityPercentage()}
                                     onValueChange={setOnionSkinOpacityPercentage}

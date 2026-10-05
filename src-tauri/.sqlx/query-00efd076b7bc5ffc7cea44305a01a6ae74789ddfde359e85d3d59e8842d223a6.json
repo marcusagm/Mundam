@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT dg.id\n            FROM duplicate_groups dg\n            JOIN duplicate_candidates dc ON dg.id = dc.group_id\n            JOIN duplicate_fingerprints df ON dc.asset_id = df.asset_id\n            WHERE df.content_hash = ?\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "00efd076b7bc5ffc7cea44305a01a6ae74789ddfde359e85d3d59e8842d223a6"
+}

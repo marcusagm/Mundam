@@ -662,7 +662,7 @@ pub async fn handle_move_to_trash(
         "MOVE_TO_TRASH",
         &payload.asset_id,
         serde_json::json!({}),
-        "COMPLETED",
+        "PENDING",
         None,
     )
     .await?;
@@ -700,7 +700,7 @@ pub async fn handle_restore_from_trash(
         "RESTORE_FROM_TRASH",
         &payload.asset_id,
         serde_json::json!({}),
-        "COMPLETED",
+        "PENDING",
         None,
     )
     .await?;

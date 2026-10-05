@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT df.content_hash\n        FROM duplicate_fingerprints df\n        JOIN assets a ON df.asset_id = a.id\n        WHERE df.content_hash IS NOT NULL \n          AND df.content_hash NOT LIKE 'pending_%'\n          AND a.state != 'trashed'\n        GROUP BY df.content_hash\n        HAVING COUNT(df.asset_id) > 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_hash",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "a809ed5dd8a788b98ad185faf633cd7723e058bcfe91a63de9faa903ac78a1d0"
+}

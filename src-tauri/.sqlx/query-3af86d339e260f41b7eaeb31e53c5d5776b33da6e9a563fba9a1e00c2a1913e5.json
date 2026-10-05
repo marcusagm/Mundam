@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE duplicate_groups\n            SET candidate_count = (SELECT COUNT(*) FROM duplicate_candidates WHERE group_id = ?),\n                updated_at = CURRENT_TIMESTAMP\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3af86d339e260f41b7eaeb31e53c5d5776b33da6e9a563fba9a1e00c2a1913e5"
+}

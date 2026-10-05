@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO duplicate_fingerprints (\n            asset_id, content_hash, perceptual_hash, block_hash, thumb_hash,\n            width, height, file_size, mime_type, format_family, color_profile,\n            orientation, fingerprint_version, updated_at\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ON CONFLICT(asset_id) DO UPDATE SET\n            content_hash = excluded.content_hash,\n            perceptual_hash = excluded.perceptual_hash,\n            block_hash = excluded.block_hash,\n            thumb_hash = excluded.thumb_hash,\n            width = excluded.width,\n            height = excluded.height,\n            file_size = excluded.file_size,\n            mime_type = excluded.mime_type,\n            format_family = excluded.format_family,\n            color_profile = excluded.color_profile,\n            orientation = excluded.orientation,\n            fingerprint_version = excluded.fingerprint_version,\n            updated_at = excluded.updated_at\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 14
+    },
+    "nullable": []
+  },
+  "hash": "0193d0c52fef3b811f8f7613c01bd8e7d6ebfb39ec3a9794182261a47be90405"
+}

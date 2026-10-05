@@ -11,6 +11,7 @@
 //! and all shared infrastructure utilities live in `handlers/shared.rs`.
 use async_trait::async_trait;
 use sqlx::SqlitePool;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::core::error::{AppError, AppResult};
@@ -28,6 +29,10 @@ use crate::core::models::asset::Asset;
 pub struct SqliteAssetLedger {
     pool: SqlitePool,
     event_bus: Arc<dyn AppEventBus>,
+    /// Root directory for app-local data. Used by post-commit Saga steps
+    /// to resolve trash file paths without leaking infrastructure concerns
+    /// into domain payloads.
+    app_data_directory: PathBuf,
 }
 
 impl SqliteAssetLedger {
@@ -37,8 +42,10 @@ impl SqliteAssetLedger {
     ///
     /// * `pool` - The database connection pool.
     /// * `event_bus` - The event bus for publishing domain events.
-    pub fn new(pool: SqlitePool, event_bus: Arc<dyn AppEventBus>) -> Self {
-        Self { pool, event_bus }
+    /// * `app_data_directory` - The root directory for app-local data,
+    ///   used to resolve trash paths in Saga post-commit steps.
+    pub fn new(pool: SqlitePool, event_bus: Arc<dyn AppEventBus>, app_data_directory: PathBuf) -> Self {
+        Self { pool, event_bus, app_data_directory }
     }
 }
 
@@ -79,60 +86,21 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
 
         // 2.5 Post-commit Saga Execution (Filesystem Operations)
         for (asset, command_item) in &results {
-            if let LedgerCommand::DeleteAsset {
+            match command_item {
+                LedgerCommand::DeleteAsset {
                     physical_delete: true,
                     path: Some(path_reference),
                     ..
-                } = command_item {
-                // Execute physical deletion
-                let filesystem_result = tokio::fs::remove_file(path_reference).await;
-                match filesystem_result {
-                    Ok(_) => {
-                        tracing::info!(
-                            "Ledger: Physical delete SUCCESS for {}",
-                            path_reference.display()
-                        );
-                        // Mark Saga as COMPLETED
-                        let _ = crate::infra::database::handlers::shared::update_operation_status(
-                            &self.pool,
-                            &asset.id,
-                            "DELETE_ASSET",
-                            "COMPLETED",
-                            None,
-                        )
-                        .await;
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        tracing::info!(
-                            "Ledger: Physical file already missing for {}",
-                            path_reference.display()
-                        );
-                        let _ = crate::infra::database::handlers::shared::update_operation_status(
-                            &self.pool,
-                            &asset.id,
-                            "DELETE_ASSET",
-                            "COMPLETED",
-                            None,
-                        )
-                        .await;
-                    }
-                    Err(error) => {
-                        tracing::warn!(
-                            "Ledger: Physical delete FAILED for {}: {}",
-                            path_reference.display(),
-                            error
-                        );
-                        let error_message = error.to_string();
-                        let _ = crate::infra::database::handlers::shared::update_operation_status(
-                            &self.pool,
-                            &asset.id,
-                            "DELETE_ASSET",
-                            "FAILED",
-                            Some(&error_message),
-                        )
-                        .await;
-                    }
+                } => {
+                    self.execute_saga_physical_delete(asset, path_reference).await;
                 }
+                LedgerCommand::MoveToTrash(_) => {
+                    self.execute_saga_move_to_trash(asset).await;
+                }
+                LedgerCommand::RestoreFromTrash(_) => {
+                    self.execute_saga_restore_from_trash(asset).await;
+                }
+                _ => {}
             }
         }
 
@@ -435,6 +403,269 @@ impl SqliteAssetLedger {
             LedgerCommand::Batch(_) => Err(AppError::Internal(
                 "Nested Batch commands are not supported".to_string(),
             )),
+        }
+    }
+
+    /// Saga post-commit step: physically deletes a file from the filesystem.
+    ///
+    /// Mirrors the same PENDING→COMPLETED/FAILED lifecycle used by all Saga
+    /// operations. If the file is already missing, the operation is considered
+    /// successful (idempotent delete).
+    async fn execute_saga_physical_delete(&self, asset: &Asset, path_reference: &Path) {
+        let filesystem_result = tokio::fs::remove_file(path_reference).await;
+        match filesystem_result {
+            Ok(_) => {
+                tracing::info!(
+                    "Ledger: Physical delete SUCCESS for {}",
+                    path_reference.display()
+                );
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "DELETE_ASSET",
+                    "COMPLETED",
+                    None,
+                )
+                .await;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                tracing::info!(
+                    "Ledger: Physical file already missing for {}",
+                    path_reference.display()
+                );
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "DELETE_ASSET",
+                    "COMPLETED",
+                    None,
+                )
+                .await;
+            }
+            Err(error) => {
+                tracing::warn!(
+                    "Ledger: Physical delete FAILED for {}: {}",
+                    path_reference.display(),
+                    error
+                );
+                let error_message = error.to_string();
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "DELETE_ASSET",
+                    "FAILED",
+                    Some(&error_message),
+                )
+                .await;
+            }
+        }
+    }
+
+    /// Saga post-commit step: physically moves a file into the trash directory.
+    ///
+    /// After the DB transaction has set `deleted_at`, this method moves the
+    /// physical file into `{app_data}/trash/` using the centralized path logic
+    /// from `core::trash`. This eliminates the previously duplicated FS move
+    /// code from both `delivery/mutations.rs` and `delivery/duplicates.rs`.
+    ///
+    /// The trash directory is created on-demand if it does not exist.
+    async fn execute_saga_move_to_trash(&self, asset: &Asset) {
+        let Some(deleted_at) = asset.deleted_at else {
+            tracing::warn!(
+                "Ledger: MoveToTrash Saga skipped for {} — deleted_at is None after commit",
+                asset.id
+            );
+            return;
+        };
+
+        let trash_directory = crate::core::trash::trash_directory(&self.app_data_directory);
+        if !trash_directory.exists() {
+            if let Err(directory_creation_error) = std::fs::create_dir_all(&trash_directory) {
+                tracing::error!(
+                    "Ledger: Failed to create trash directory {}: {}",
+                    trash_directory.display(),
+                    directory_creation_error
+                );
+                let error_message = directory_creation_error.to_string();
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "MOVE_TO_TRASH",
+                    "FAILED",
+                    Some(&error_message),
+                )
+                .await;
+                return;
+            }
+        }
+
+        let Some(trash_path) = crate::core::trash::build_trash_path(
+            &self.app_data_directory,
+            &asset.id,
+            &asset.path,
+            &deleted_at,
+        ) else {
+            tracing::warn!(
+                "Ledger: MoveToTrash Saga skipped for {} — could not build trash path from {:?}",
+                asset.id,
+                asset.path
+            );
+            return;
+        };
+
+        if !asset.path.exists() {
+            tracing::info!(
+                "Ledger: MoveToTrash — source file already missing for {}",
+                asset.id
+            );
+            let _ = crate::infra::database::handlers::shared::update_operation_status(
+                &self.pool,
+                &asset.id,
+                "MOVE_TO_TRASH",
+                "COMPLETED",
+                None,
+            )
+            .await;
+            return;
+        }
+
+        match tokio::fs::rename(&asset.path, &trash_path).await {
+            Ok(_) => {
+                tracing::info!(
+                    "Ledger: MoveToTrash SUCCESS for {} → {}",
+                    asset.id,
+                    trash_path.display()
+                );
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "MOVE_TO_TRASH",
+                    "COMPLETED",
+                    None,
+                )
+                .await;
+            }
+            Err(error) => {
+                tracing::warn!(
+                    "Ledger: MoveToTrash FAILED for {}: {}",
+                    asset.id,
+                    error
+                );
+                let error_message = error.to_string();
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "MOVE_TO_TRASH",
+                    "FAILED",
+                    Some(&error_message),
+                )
+                .await;
+            }
+        }
+    }
+
+    /// Saga post-commit step: physically restores a file from the trash directory
+    /// back to its original path.
+    ///
+    /// After the DB transaction has cleared `deleted_at`, this method moves the
+    /// file from `{app_data}/trash/` back to the original asset path. Uses the
+    /// centralized `core::trash::resolve_physical_path` which handles both the
+    /// timestamped format and the legacy naming convention.
+    async fn execute_saga_restore_from_trash(&self, asset: &Asset) {
+        let original_path = asset.path.clone();
+
+        // After RestoreFromTrash handler clears deleted_at, the asset no longer
+        // has deleted_at set. We need to look up the most recent MOVE_TO_TRASH
+        // audit log to find where the file was placed. However, the handler
+        // already returned the asset with deleted_at = None. We use
+        // resolve_physical_path with a re-constructed "trashed" state to find
+        // the file in the trash directory.
+        //
+        // Since deleted_at has been cleared, we scan the trash directory for the
+        // file matching this asset's ID pattern instead.
+        let trash_directory = crate::core::trash::trash_directory(&self.app_data_directory);
+        let asset_id_prefix = format!("{}_", asset.id);
+
+        let trash_source_path = match std::fs::read_dir(&trash_directory) {
+            Ok(entries) => {
+                let mut found_path: Option<PathBuf> = None;
+                for entry_result in entries {
+                    if let Ok(entry) = entry_result {
+                        if entry.file_name().to_string_lossy().starts_with(&asset_id_prefix) {
+                            found_path = Some(entry.path());
+                            break;
+                        }
+                    }
+                }
+                found_path
+            }
+            Err(_) => None,
+        };
+
+        let Some(source_path) = trash_source_path else {
+            tracing::info!(
+                "Ledger: RestoreFromTrash — file not found in trash for {} (may have been already restored)",
+                asset.id
+            );
+            let _ = crate::infra::database::handlers::shared::update_operation_status(
+                &self.pool,
+                &asset.id,
+                "RESTORE_FROM_TRASH",
+                "COMPLETED",
+                None,
+            )
+            .await;
+            return;
+        };
+
+        if source_path == original_path {
+            tracing::info!(
+                "Ledger: RestoreFromTrash — source and target are the same for {}",
+                asset.id
+            );
+            let _ = crate::infra::database::handlers::shared::update_operation_status(
+                &self.pool,
+                &asset.id,
+                "RESTORE_FROM_TRASH",
+                "COMPLETED",
+                None,
+            )
+            .await;
+            return;
+        }
+
+        match tokio::fs::rename(&source_path, &original_path).await {
+            Ok(_) => {
+                tracing::info!(
+                    "Ledger: RestoreFromTrash SUCCESS for {} → {}",
+                    asset.id,
+                    original_path.display()
+                );
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "RESTORE_FROM_TRASH",
+                    "COMPLETED",
+                    None,
+                )
+                .await;
+            }
+            Err(error) => {
+                tracing::warn!(
+                    "Ledger: RestoreFromTrash FAILED for {}: {}",
+                    asset.id,
+                    error
+                );
+                let error_message = error.to_string();
+                let _ = crate::infra::database::handlers::shared::update_operation_status(
+                    &self.pool,
+                    &asset.id,
+                    "RESTORE_FROM_TRASH",
+                    "FAILED",
+                    Some(&error_message),
+                )
+                .await;
+            }
         }
     }
 }

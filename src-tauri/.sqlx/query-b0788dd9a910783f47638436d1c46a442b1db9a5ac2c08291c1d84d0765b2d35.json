@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT \n                id as \"id!\", rule_set_id as \"rule_set_id!\", group_type as \"group_type!\", canonical_asset_id, confidence as \"confidence: f64\",\n                status as \"status!\", candidate_count as \"candidate_count: i32\", \n                created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n                updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n            FROM duplicate_groups\n            WHERE status = ?\n            ",
+  "query": "\n        SELECT \n            id as \"id!\", rule_set_id as \"rule_set_id!\", group_type as \"group_type!\", canonical_asset_id, confidence as \"confidence: f64\",\n            status as \"status!\", candidate_count as \"candidate_count: i32\", \n            created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_groups\n        WHERE status = ?\n        ",
   "describe": {
     "columns": [
       {
@@ -64,5 +64,5 @@
       false
     ]
   },
-  "hash": "97da72e147323e1e42712087d70beacd7bc4b623fba7c44fa611aefdd3ecc8e1"
+  "hash": "b0788dd9a910783f47638436d1c46a442b1db9a5ac2c08291c1d84d0765b2d35"
 }

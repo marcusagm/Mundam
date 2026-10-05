@@ -682,103 +682,68 @@ pub async fn toggle_favorite(
 
 /// RPC Command to move an asset to the trash.
 ///
-/// This moves the physical file to the local app data trash folder,
-/// and updates the database record with a deleted_at timestamp.
+/// Dispatches a `MoveToTrash` command to the Asset Ledger, which handles both
+/// the database soft-delete (setting `deleted_at`) and the physical file move
+/// to the trash directory via its Saga post-commit step. This eliminates
+/// the previously duplicated filesystem logic from the delivery layer.
 ///
 /// # Arguments
 ///
-/// * `app_handle` - The Tauri app handle.
 /// * `ledger` - The asset ledger.
-/// * `queries` - The query service to fetch current asset paths.
 /// * `asset_id` - The ID of the asset to trash.
 ///
-/// # Returns
+/// # Errors
 ///
-/// The updated asset as an Asset placeholder.
+/// Returns `AppError::NotFound` if the asset does not exist.
 #[tauri::command]
 pub async fn move_to_trash(
-    app_handle: tauri::AppHandle,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
-    queries: State<'_, AssetQueryService>,
     asset_id: String,
 ) -> AppResult<Asset> {
-    use tauri::Manager;
-    let asset = queries.get_asset(&asset_id).await?.ok_or_else(|| crate::core::error::AppError::NotFound(asset_id.clone()))?;
-
-    let updated = ledger
+    ledger
         .execute(LedgerCommand::MoveToTrash(
             crate::core::ledger::command::MoveToTrashPayload {
-                asset_id: asset_id.clone(),
+                asset_id,
             },
         ))
-        .await?;
-
-    let dirs = app_handle.state::<crate::bootstrap::AppDirectories>();
-    let trash_dir = crate::core::trash::trash_directory(&dirs.app_data);
-    if !trash_dir.exists() {
-        std::fs::create_dir_all(&trash_dir).ok();
-    }
-
-    if let Some(deleted_at) = updated.deleted_at {
-        if let Some(trash_path) = crate::core::trash::build_trash_path(
-            &dirs.app_data, &asset_id, &asset.path, &deleted_at,
-        ) {
-            if asset.path.exists() {
-                let _ = tokio::fs::rename(&asset.path, &trash_path).await;
-            }
-        }
-    }
-
-    Ok(updated)
+        .await
 }
 
 /// RPC Command to restore an asset from the trash.
 ///
-/// This moves the physical file back to its original location
-/// and clears the deleted_at timestamp in the database.
+/// Dispatches a `RestoreFromTrash` command to the Asset Ledger, which handles
+/// both the database restoration (clearing `deleted_at`) and the physical file
+/// move from the trash directory back to its original path via its Saga
+/// post-commit step.
 ///
 /// # Arguments
 ///
-/// * `app_handle` - The Tauri app handle.
 /// * `ledger` - The asset ledger.
-/// * `queries` - The query service.
 /// * `asset_id` - The ID of the asset to restore.
 ///
-/// # Returns
+/// # Errors
 ///
-/// The updated asset as an Asset placeholder.
+/// Returns `AppError::NotFound` if the asset does not exist.
 #[tauri::command]
 pub async fn restore_from_trash(
-    app_handle: tauri::AppHandle,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
-    queries: State<'_, AssetQueryService>,
     asset_id: String,
 ) -> AppResult<Asset> {
-    use tauri::Manager;
-    let asset = queries.get_asset(&asset_id).await?.ok_or_else(|| crate::core::error::AppError::NotFound(asset_id.clone()))?;
-
-    let dirs = app_handle.state::<crate::bootstrap::AppDirectories>();
-    let trash_path = crate::core::trash::resolve_physical_path(&asset, &dirs.app_data);
-
-    let updated = ledger
+    ledger
         .execute(LedgerCommand::RestoreFromTrash(
             crate::core::ledger::command::RestoreFromTrashPayload {
-                asset_id: asset_id.clone(),
+                asset_id,
             },
         ))
-        .await?;
-
-    if trash_path.exists() && trash_path != asset.path {
-        let _ = tokio::fs::rename(&trash_path, &asset.path).await;
-    }
-
-    Ok(updated)
+        .await
 }
 
 /// RPC Command to permanently delete all items in the trash.
 ///
-/// Physical files in the trash folder are removed, and logical
-/// records are physically deleted from the database.
+/// Resolves the physical trash path for each trashed asset and dispatches
+/// a `DeleteAsset` command with `physical_delete: true` to the Ledger.
+/// The Ledger's Saga post-commit step handles the physical file removal,
+/// eliminating any duplicated filesystem logic from the delivery layer.
 ///
 /// # Arguments
 ///
@@ -798,42 +763,83 @@ pub async fn empty_trash(
     use tauri::Manager;
     let pool = pool_manager.pool();
 
-    // Get all trashed assets with full record for trash path resolution
     let trashed = sqlx::query!(
         r#"SELECT id as "id!", path as "path!", deleted_at as "deleted_at?: chrono::DateTime<chrono::Utc>" FROM assets WHERE deleted_at IS NOT NULL"#
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| crate::core::error::AppError::Database(e))?;
+    .map_err(|database_error| crate::core::error::AppError::Database(database_error))?;
 
     let dirs = app_handle.state::<crate::bootstrap::AppDirectories>();
     let mut deleted_count = 0;
 
     for record in trashed {
-        let path = std::path::PathBuf::from(&record.path);
+        let original_path = std::path::PathBuf::from(&record.path);
 
-        // Try timestamped path first, fallback to legacy format
-        if let Some(ref deleted_at) = record.deleted_at {
-            if let Some(trash_path) = crate::core::trash::build_trash_path(
-                &dirs.app_data, &record.id, &path, deleted_at,
-            ) {
-                let _ = tokio::fs::remove_file(&trash_path).await;
-            }
-        }
-        // Also try legacy format cleanup
-        if let Some(file_name) = path.file_name() {
-            let legacy_path = crate::core::trash::trash_directory(&dirs.app_data)
-                .join(format!("{}_{}", record.id, file_name.to_string_lossy()));
-            let _ = tokio::fs::remove_file(&legacy_path).await;
-        }
+        // Resolve the physical trash path so the Saga deletes the correct file.
+        // Tries timestamped format first, then falls back to legacy format.
+        let resolved_trash_path = resolve_trash_file_path(
+            &dirs.app_data,
+            &record.id,
+            &original_path,
+            record.deleted_at.as_ref(),
+        );
 
         let _ = ledger.execute(LedgerCommand::DeleteAsset {
             asset_id: Some(record.id.clone()),
-            path: Some(path.clone()),
-            physical_delete: true
+            path: Some(resolved_trash_path),
+            physical_delete: true,
         }).await;
         deleted_count += 1;
     }
 
     Ok(deleted_count)
+}
+
+/// Resolves the physical path of a file in the trash directory.
+///
+/// Tries the timestamped format (`{asset_id}_{epoch}_{filename}`) first.
+/// If that file does not exist on disk, falls back to the legacy format
+/// (`{asset_id}_{filename}`). Returns the timestamped path as default
+/// if neither exists.
+///
+/// This helper is used by `empty_trash` and is kept local to this module
+/// to avoid leaking delivery-layer concerns into the core domain.
+fn resolve_trash_file_path(
+    app_data_directory: &std::path::Path,
+    asset_id: &str,
+    original_path: &std::path::Path,
+    deleted_at: Option<&chrono::DateTime<chrono::Utc>>,
+) -> std::path::PathBuf {
+    // Try timestamped format first
+    if let Some(deleted_at_value) = deleted_at {
+        if let Some(trash_path) = crate::core::trash::build_trash_path(
+            app_data_directory, asset_id, original_path, deleted_at_value,
+        ) {
+            if trash_path.exists() {
+                return trash_path;
+            }
+        }
+    }
+
+    // Fallback: legacy format
+    if let Some(file_name) = original_path.file_name() {
+        let legacy_path = crate::core::trash::trash_directory(app_data_directory)
+            .join(format!("{}_{}", asset_id, file_name.to_string_lossy()));
+        if legacy_path.exists() {
+            return legacy_path;
+        }
+    }
+
+    // Default: return timestamped path even if it doesn't exist yet
+    // (the Saga will handle NotFound gracefully)
+    if let Some(deleted_at_value) = deleted_at {
+        if let Some(trash_path) = crate::core::trash::build_trash_path(
+            app_data_directory, asset_id, original_path, deleted_at_value,
+        ) {
+            return trash_path;
+        }
+    }
+
+    original_path.to_path_buf()
 }

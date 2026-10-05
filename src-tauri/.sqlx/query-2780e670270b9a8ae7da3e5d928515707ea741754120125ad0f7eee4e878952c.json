@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT \n                id as \"id!\", name as \"name!\", description, \n                consider_exact_match as \"consider_exact_match: bool\", \n                consider_visual_match as \"consider_visual_match: bool\", \n                consider_crop_match as \"consider_crop_match: bool\", \n                ignore_resolution_difference as \"ignore_resolution_difference: bool\", \n                ignore_recompression as \"ignore_recompression: bool\", \n                allow_rotation as \"allow_rotation: bool\", \n                allow_mirroring as \"allow_mirroring: bool\", \n                min_score as \"min_score: f64\", \n                created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n                updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n            FROM duplicate_rule_sets\n            ",
+  "query": "\n        SELECT \n            id as \"id!\", name as \"name!\", description, \n            consider_exact_match as \"consider_exact_match: bool\", \n            consider_visual_match as \"consider_visual_match: bool\", \n            consider_crop_match as \"consider_crop_match: bool\", \n            ignore_resolution_difference as \"ignore_resolution_difference: bool\", \n            ignore_recompression as \"ignore_recompression: bool\", \n            allow_rotation as \"allow_rotation: bool\", \n            allow_mirroring as \"allow_mirroring: bool\", \n            min_score as \"min_score: f64\", \n            created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_rule_sets\n        ",
   "describe": {
     "columns": [
       {
@@ -88,5 +88,5 @@
       false
     ]
   },
-  "hash": "728747444cd4fc86bf5426892063520b04327c8e56b460f3e9740ade1b2a460b"
+  "hash": "2780e670270b9a8ae7da3e5d928515707ea741754120125ad0f7eee4e878952c"
 }

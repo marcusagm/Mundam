@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT df.asset_id as \"asset_id!\",\n                   df.content_hash,\n                   df.perceptual_hash,\n                   df.block_hash,\n                   df.thumb_hash,\n                   df.width,\n                   df.height,\n                   df.file_size\n            FROM duplicate_fingerprints df\n            JOIN assets a ON df.asset_id = a.id\n            WHERE df.perceptual_hash IS NOT NULL \n              AND a.state != 'trashed'\n            ",
+  "query": "\n        SELECT df.asset_id as \"asset_id!\",\n               df.content_hash,\n               df.perceptual_hash,\n               df.block_hash,\n               df.thumb_hash,\n               df.width,\n               df.height,\n               df.file_size\n        FROM duplicate_fingerprints df\n        JOIN assets a ON df.asset_id = a.id\n        WHERE df.perceptual_hash IS NOT NULL \n          AND a.state != 'trashed'\n        ",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       true
     ]
   },
-  "hash": "cb142333fdbdb90927eadb8d32234e96dcb0812188d047151d198edc87e1a352"
+  "hash": "b9b54530cfdccbbf4f3288e7774e5e3eb6db845f90ce1d957ef9844505ceb4a8"
 }
