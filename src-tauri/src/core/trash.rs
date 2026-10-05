@@ -66,6 +66,57 @@ pub fn build_trash_path(
     )
 }
 
+/// Resolves the physical path of an asset or file in the trash directory,
+/// accepting individual fields (`asset_id`, `original_path`, and `deleted_at`)
+/// without requiring a full `Asset` struct.
+///
+/// Tries the timestamped format (`{asset_id}_{epoch}_{filename}`) first.
+/// If that file does not exist on disk, falls back to the legacy format
+/// (`{asset_id}_{filename}`). Returns the timestamped path as default
+/// if neither exists on disk (or original path if not deleted).
+///
+/// # Arguments
+/// * `app_data_directory` - The resolved `app_local_data_dir()` root.
+/// * `asset_id` - The unique identifier of the asset.
+/// * `original_path` - The original filesystem path of the asset.
+/// * `deleted_at` - The `deleted_at` timestamp if the asset is trashed.
+///
+/// # Returns
+/// The resolved physical path on disk.
+pub fn resolve_trash_path(
+    app_data_directory: &Path,
+    asset_id: &str,
+    original_path: &Path,
+    deleted_at: Option<&chrono::DateTime<chrono::Utc>>,
+) -> PathBuf {
+    if let Some(deleted_at_timestamp) = deleted_at {
+        if let Some(trash_path) =
+            build_trash_path(app_data_directory, asset_id, original_path, deleted_at_timestamp)
+        {
+            // If the timestamped path exists, use it directly.
+            if trash_path.exists() {
+                return trash_path;
+            }
+
+            // Fallback: try the legacy format ({asset_id}_{filename}) for backward
+            // compatibility with files trashed before the timestamp migration.
+            if let Some(file_name) = original_path.file_name() {
+                let legacy_path = trash_directory(app_data_directory)
+                    .join(format!("{}_{}", asset_id, file_name.to_string_lossy()));
+                if legacy_path.exists() {
+                    return legacy_path;
+                }
+            }
+
+            // Return the timestamped path even if it doesn't exist yet
+            // (e.g. during the move_to_trash flow before the rename completes,
+            // or when the Saga will handle deletion).
+            return trash_path;
+        }
+    }
+    original_path.to_path_buf()
+}
+
 /// Resolves the physical path of an asset, automatically redirecting to the
 /// internal trash directory if the asset has been soft-deleted.
 ///
@@ -80,31 +131,12 @@ pub fn build_trash_path(
 /// - If the asset is trashed (`deleted_at` is set): the path inside the trash directory.
 /// - Otherwise: the original `asset.path`.
 pub fn resolve_physical_path(asset: &Asset, app_data_directory: &Path) -> PathBuf {
-    if let Some(deleted_at) = asset.deleted_at {
-        if let Some(trash_path) =
-            build_trash_path(app_data_directory, &asset.id, &asset.path, &deleted_at)
-        {
-            // If the timestamped path exists, use it directly.
-            if trash_path.exists() {
-                return trash_path;
-            }
-
-            // Fallback: try the legacy format ({asset_id}_{filename}) for backward
-            // compatibility with files trashed before the timestamp migration.
-            if let Some(file_name) = asset.path.file_name() {
-                let legacy_path = trash_directory(app_data_directory)
-                    .join(format!("{}_{}", asset.id, file_name.to_string_lossy()));
-                if legacy_path.exists() {
-                    return legacy_path;
-                }
-            }
-
-            // Return the timestamped path even if it doesn't exist yet
-            // (e.g. during the move_to_trash flow before the rename completes).
-            return trash_path;
-        }
-    }
-    asset.path.clone()
+    resolve_trash_path(
+        app_data_directory,
+        &asset.id,
+        &asset.path,
+        asset.deleted_at.as_ref(),
+    )
 }
 
 #[cfg(test)]
@@ -264,5 +296,98 @@ mod tests {
             is_favorite: false,
             deleted_at,
         }
+    }
+
+    #[test]
+    fn test_resolve_trash_path_returns_original_when_not_deleted() {
+        let application_data_directory = PathBuf::from("/tmp/mundam_test_app");
+        let asset_identifier = "asset-123";
+        let original_file_path = PathBuf::from("/library/images/picture.jpg");
+
+        let resolved_path = resolve_trash_path(
+            &application_data_directory,
+            asset_identifier,
+            &original_file_path,
+            None,
+        );
+
+        assert_eq!(resolved_path, original_file_path);
+    }
+
+    #[test]
+    fn test_resolve_trash_path_returns_timestamped_when_neither_exists_on_disk() {
+        let application_data_directory = PathBuf::from("/tmp/mundam_test_nonexistent");
+        let asset_identifier = "asset-999";
+        let original_file_path = PathBuf::from("/library/images/nature.png");
+        let deleted_at_timestamp = chrono::Utc.with_ymd_and_hms(2026, 7, 20, 10, 0, 0).unwrap();
+
+        let resolved_path = resolve_trash_path(
+            &application_data_directory,
+            asset_identifier,
+            &original_file_path,
+            Some(&deleted_at_timestamp),
+        );
+
+        let expected_path = application_data_directory
+            .join("trash")
+            .join("asset-999_1784541600_nature.png");
+        assert_eq!(resolved_path, expected_path);
+    }
+
+    #[test]
+    fn test_resolve_trash_path_detects_existing_legacy_file() {
+        let temporary_directory = tempfile::tempdir().unwrap();
+        let application_data_directory = temporary_directory.path();
+        let trash_folder = application_data_directory.join("trash");
+        std::fs::create_dir_all(&trash_folder).unwrap();
+
+        let asset_identifier = "asset-legacy-1";
+        let original_file_path = PathBuf::from("/photos/vacation.jpg");
+        let deleted_at_timestamp = chrono::Utc.with_ymd_and_hms(2026, 7, 20, 10, 0, 0).unwrap();
+
+        // Create the legacy file on disk
+        let legacy_file_path = trash_folder.join(format!("{}_vacation.jpg", asset_identifier));
+        std::fs::write(&legacy_file_path, b"test content").unwrap();
+
+        let resolved_path = resolve_trash_path(
+            application_data_directory,
+            asset_identifier,
+            &original_file_path,
+            Some(&deleted_at_timestamp),
+        );
+
+        assert_eq!(resolved_path, legacy_file_path);
+    }
+
+    #[test]
+    fn test_resolve_trash_path_prefers_timestamped_file_when_both_exist() {
+        let temporary_directory = tempfile::tempdir().unwrap();
+        let application_data_directory = temporary_directory.path();
+        let trash_folder = application_data_directory.join("trash");
+        std::fs::create_dir_all(&trash_folder).unwrap();
+
+        let asset_identifier = "asset-both-1";
+        let original_file_path = PathBuf::from("/photos/vacation.jpg");
+        let deleted_at_timestamp = chrono::Utc.with_ymd_and_hms(2026, 7, 20, 10, 0, 0).unwrap();
+
+        // Create both legacy and timestamped files on disk
+        let legacy_file_path = trash_folder.join(format!("{}_vacation.jpg", asset_identifier));
+        std::fs::write(&legacy_file_path, b"legacy content").unwrap();
+
+        let timestamped_file_path = trash_folder.join(format!(
+            "{}_{}_vacation.jpg",
+            asset_identifier,
+            deleted_at_timestamp.timestamp()
+        ));
+        std::fs::write(&timestamped_file_path, b"timestamped content").unwrap();
+
+        let resolved_path = resolve_trash_path(
+            application_data_directory,
+            asset_identifier,
+            &original_file_path,
+            Some(&deleted_at_timestamp),
+        );
+
+        assert_eq!(resolved_path, timestamped_file_path);
     }
 }

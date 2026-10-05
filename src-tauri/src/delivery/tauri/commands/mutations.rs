@@ -770,7 +770,7 @@ pub async fn empty_trash(
     .await
     .map_err(|database_error| crate::core::error::AppError::Database(database_error))?;
 
-    let dirs = app_handle.state::<crate::bootstrap::AppDirectories>();
+    let app_directories = app_handle.state::<crate::bootstrap::AppDirectories>();
     let mut deleted_count = 0;
 
     for record in trashed {
@@ -778,8 +778,8 @@ pub async fn empty_trash(
 
         // Resolve the physical trash path so the Saga deletes the correct file.
         // Tries timestamped format first, then falls back to legacy format.
-        let resolved_trash_path = resolve_trash_file_path(
-            &dirs.app_data,
+        let resolved_trash_path = crate::core::trash::resolve_trash_path(
+            &app_directories.app_data,
             &record.id,
             &original_path,
             record.deleted_at.as_ref(),
@@ -794,52 +794,4 @@ pub async fn empty_trash(
     }
 
     Ok(deleted_count)
-}
-
-/// Resolves the physical path of a file in the trash directory.
-///
-/// Tries the timestamped format (`{asset_id}_{epoch}_{filename}`) first.
-/// If that file does not exist on disk, falls back to the legacy format
-/// (`{asset_id}_{filename}`). Returns the timestamped path as default
-/// if neither exists.
-///
-/// This helper is used by `empty_trash` and is kept local to this module
-/// to avoid leaking delivery-layer concerns into the core domain.
-fn resolve_trash_file_path(
-    app_data_directory: &std::path::Path,
-    asset_id: &str,
-    original_path: &std::path::Path,
-    deleted_at: Option<&chrono::DateTime<chrono::Utc>>,
-) -> std::path::PathBuf {
-    // Try timestamped format first
-    if let Some(deleted_at_value) = deleted_at {
-        if let Some(trash_path) = crate::core::trash::build_trash_path(
-            app_data_directory, asset_id, original_path, deleted_at_value,
-        ) {
-            if trash_path.exists() {
-                return trash_path;
-            }
-        }
-    }
-
-    // Fallback: legacy format
-    if let Some(file_name) = original_path.file_name() {
-        let legacy_path = crate::core::trash::trash_directory(app_data_directory)
-            .join(format!("{}_{}", asset_id, file_name.to_string_lossy()));
-        if legacy_path.exists() {
-            return legacy_path;
-        }
-    }
-
-    // Default: return timestamped path even if it doesn't exist yet
-    // (the Saga will handle NotFound gracefully)
-    if let Some(deleted_at_value) = deleted_at {
-        if let Some(trash_path) = crate::core::trash::build_trash_path(
-            app_data_directory, asset_id, original_path, deleted_at_value,
-        ) {
-            return trash_path;
-        }
-    }
-
-    original_path.to_path_buf()
 }
