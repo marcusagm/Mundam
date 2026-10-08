@@ -133,4 +133,15 @@ describe('duplicatesApi batch candidate loading', () => {
             assetIds: ['asset-identifier-1', 'asset-identifier-2']
         });
     });
+
+    it('should invoke undo_duplicate_resolution command with group identifier', async () => {
+        mockedInvokeCommand.mockResolvedValueOnce(undefined);
+
+        await duplicatesApi.undoDuplicateResolution('target-duplicate-group-identifier');
+
+        expect(mockedInvokeCommand).toHaveBeenCalledTimes(1);
+        expect(mockedInvokeCommand).toHaveBeenCalledWith('undo_duplicate_resolution', {
+            groupId: 'target-duplicate-group-identifier'
+        });
+    });
 });

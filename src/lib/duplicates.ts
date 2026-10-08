@@ -265,6 +265,18 @@ export const duplicatesApi = {
     },
 
     /**
+     * Reverts a previous resolution for a duplicate group, restoring any trashed candidate assets.
+     *
+     * @param {string} groupId - The unique identifier of the duplicate group to revert.
+     * @returns {Promise<void>}
+     */
+    undoDuplicateResolution: async (groupId: string): Promise<void> => {
+        return invoke('undo_duplicate_resolution', {
+            groupId
+        });
+    },
+
+    /**
      * Triggers a full duplicate scan on the backend (rehash + exact + visual).
      *
      * @returns {Promise<void>}

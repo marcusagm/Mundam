@@ -238,6 +238,42 @@ pub async fn save_resolution(
     Ok(())
 }
 
+/// Deletes a resolution decision from the database by its ID.
+///
+/// Invoked by the undo mechanism when reverting a resolved duplicate group
+/// back to the open status, ensuring audit consistency and clean state.
+///
+/// # Arguments
+/// * `pool` - The SQLite database connection pool.
+/// * `resolution_id` - The unique identifier of the resolution to delete.
+///
+/// # Errors
+/// Returns `AppError::Database` if the delete statement fails.
+pub async fn delete_resolution(
+    pool: &SqlitePool,
+    resolution_id: &str,
+) -> AppResult<()> {
+    sqlx::query!(
+        r#"
+        DELETE FROM duplicate_resolutions
+        WHERE id = ?
+        "#,
+        resolution_id
+    )
+    .execute(pool)
+    .await
+    .map_err(|database_error| {
+        tracing::error!(
+            "Failed to delete resolution {}: {:?}",
+            resolution_id,
+            database_error
+        );
+        AppError::Database(database_error)
+    })?;
+
+    Ok(())
+}
+
 /// Updates the status of a duplicate group.
 ///
 /// # Errors

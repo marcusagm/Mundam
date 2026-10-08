@@ -21,6 +21,7 @@ export interface DuplicateGroupItemProperties {
  */
 export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props => {
     const isIgnored = () => props.group.status === 'ignored';
+    const isResolved = () => props.group.status === 'resolved';
 
     /**
      * Up to 3 candidates for the deck preview, reversed so the first candidate
@@ -41,7 +42,7 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
                     props.onSelect();
                 }
             }}
-            class={`group-list-item ${props.isSelected ? 'is-selected' : ''} ${isIgnored() ? 'is-ignored' : ''}`}
+            class={`group-list-item ${props.isSelected ? 'is-selected' : ''} ${isIgnored() ? 'is-ignored' : ''} ${isResolved() ? 'is-resolved' : ''}`}
         >
             <div class="group-list-item-header">
                 <div class="group-list-item-badges">
@@ -50,6 +51,9 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
                     </Badge>
                     <Show when={isIgnored()}>
                         <Badge variant="secondary">Ignored</Badge>
+                    </Show>
+                    <Show when={isResolved()}>
+                        <Badge variant="success">Resolved</Badge>
                     </Show>
                 </div>
                 <span class="group-list-item-count">{props.group.candidateCount} files</span>

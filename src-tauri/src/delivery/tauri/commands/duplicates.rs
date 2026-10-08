@@ -54,6 +54,25 @@ pub async fn resolve_duplicate_group(
         .await
 }
 
+/// Reverts a duplicate group resolution.
+///
+/// Restores any candidate assets sent to the trash during group resolution,
+/// deletes the historical resolution record, and reverts the group status back to `open`.
+///
+/// # Arguments
+/// * `group_id` - The unique ID of the duplicate group to revert.
+/// * `command_service` - The duplicate command service state.
+///
+/// # Errors
+/// Returns `AppError::Database` if database updates or restorations fail.
+#[tauri::command]
+pub async fn undo_duplicate_resolution(
+    group_id: String,
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<()> {
+    command_service.undo_duplicate_resolution(&group_id).await
+}
+
 /// Dispara uma varredura por duplicados no repositório.
 #[tauri::command]
 pub async fn start_duplicate_scan(

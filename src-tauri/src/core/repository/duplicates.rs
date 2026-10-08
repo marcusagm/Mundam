@@ -83,6 +83,30 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the insert fails.
     async fn save_resolution(&self, resolution: DuplicateResolution) -> AppResult<()>;
 
+    /// Retrieves the most recent resolution decision recorded for a duplicate group.
+    ///
+    /// Enables the undo mechanism to inspect what decision was previously executed,
+    /// identifying which candidates were moved to the trash or ignored.
+    ///
+    /// # Arguments
+    /// * `group_id` - The unique identifier of the duplicate group.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query fails.
+    async fn get_latest_resolution(&self, group_id: &str) -> AppResult<Option<DuplicateResolution>>;
+
+    /// Deletes a specific resolution entry by its identifier.
+    ///
+    /// Invoked during the undo operation to remove the resolution record,
+    /// keeping database state consistent when reverting a group back to open.
+    ///
+    /// # Arguments
+    /// * `resolution_id` - The unique identifier of the resolution to delete.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the delete fails.
+    async fn delete_resolution(&self, resolution_id: &str) -> AppResult<()>;
+
     /// Updates the status of a duplicate group.
     ///
     /// # Arguments

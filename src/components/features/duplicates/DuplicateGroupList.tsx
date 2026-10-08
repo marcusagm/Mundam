@@ -21,6 +21,10 @@ export interface DuplicateGroupListProperties {
     showIgnored: Accessor<boolean>;
     /** Setter for updating the showIgnored flag */
     setShowIgnored: Setter<boolean>;
+    /** Reactive accessor indicating whether resolved groups are included */
+    showResolved: Accessor<boolean>;
+    /** Setter for updating the showResolved flag */
+    setShowResolved: Setter<boolean>;
     /** Reactive accessor for the active group type filter */
     groupTypeFilter: Accessor<'all' | 'exact' | 'visual' | 'derived'>;
     /** Setter for updating the active group type filter */
@@ -90,6 +94,12 @@ export const DuplicateGroupList: Component<DuplicateGroupListProperties> = props
                                 label: 'Show ignored groups',
                                 checked: props.showIgnored(),
                                 onCheckedChange: props.setShowIgnored
+                            },
+                            {
+                                type: 'checkbox',
+                                label: 'Show resolved groups',
+                                checked: props.showResolved(),
+                                onCheckedChange: props.setShowResolved
                             },
                             { type: 'separator' },
                             {

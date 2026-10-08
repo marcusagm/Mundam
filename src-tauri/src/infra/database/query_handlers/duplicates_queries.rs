@@ -8,7 +8,8 @@
 use crate::core::error::{AppError, AppResult};
 use crate::core::models::{
     DuplicateCandidate, DuplicateFingerprint, DuplicateGroup,
-    DuplicateGroupStatus, DuplicateGroupType, DuplicateRuleSet,
+    DuplicateGroupStatus, DuplicateGroupType, DuplicateResolution,
+    DuplicateResolutionAction, DuplicateRuleSet,
 };
 use sqlx::SqlitePool;
 
@@ -171,3 +172,147 @@ pub async fn get_group_candidates(
 
     Ok(records)
 }
+
+/// Retrieves the most recent resolution decision recorded for a duplicate group.
+///
+/// Enables the undo mechanism to inspect what decision was previously executed,
+/// identifying which candidates were moved to the trash or ignored.
+///
+/// # Arguments
+/// * `pool` - The SQLite database connection pool.
+/// * `group_id` - The unique identifier of the duplicate group.
+///
+/// # Errors
+/// Returns `AppError::Database` if the query fails, or `AppError::Internal`
+/// if the resolution action string in the database cannot be parsed.
+pub async fn get_latest_resolution(
+    pool: &SqlitePool,
+    group_id: &str,
+) -> AppResult<Option<DuplicateResolution>> {
+    let optional_record = sqlx::query!(
+        r#"
+        SELECT
+            id as "id!",
+            group_id as "group_id!",
+            action as "action!",
+            selected_asset_id,
+            payload,
+            resolved_by,
+            resolved_at as "resolved_at: chrono::DateTime<chrono::Utc>"
+        FROM duplicate_resolutions
+        WHERE group_id = ?
+        ORDER BY resolved_at DESC
+        LIMIT 1
+        "#,
+        group_id
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|database_error| {
+        tracing::error!(
+            "Failed to fetch latest resolution for group {}: {:?}",
+            group_id,
+            database_error
+        );
+        AppError::Database(database_error)
+    })?;
+
+    match optional_record {
+        Some(record) => {
+            use std::str::FromStr;
+            let parsed_action = DuplicateResolutionAction::from_str(&record.action).map_err(|_| {
+                AppError::Internal(format!(
+                    "Invalid resolution action stored in database: {}",
+                    record.action
+                ))
+            })?;
+
+            Ok(Some(DuplicateResolution {
+                id: record.id,
+                group_id: record.group_id,
+                action: parsed_action,
+                selected_asset_id: record.selected_asset_id,
+                payload: record.payload,
+                resolved_by: record.resolved_by,
+                resolved_at: record.resolved_at,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infra::database::manager::DbManager;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_get_latest_resolution_and_delete_resolution() {
+        let temporary_directory = tempdir().expect("Failed to create temporary directory");
+        let database_file_path = temporary_directory.path().join("test_mundam.db");
+        let database_manager = DbManager::new(&database_file_path)
+            .await
+            .expect("Failed to initialize database manager");
+
+        let non_existent_resolution = get_latest_resolution(
+            database_manager.pool(),
+            "non-existent-group-identifier",
+        )
+        .await
+        .expect("Query for non-existent group should succeed");
+        assert!(non_existent_resolution.is_none());
+
+        sqlx::query(
+            r#"
+            INSERT INTO duplicate_rule_sets (id, name, created_at, updated_at)
+            VALUES ('test-ruleset-1', 'Default Rules', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+
+            INSERT INTO duplicate_groups (id, rule_set_id, group_type, status, confidence, candidate_count, created_at, updated_at)
+            VALUES ('test-group-identifier-1', 'test-ruleset-1', 'exact', 'resolved', 1.0, 2, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            "#,
+        )
+        .execute(database_manager.pool())
+        .await
+        .expect("Insert duplicate rule set and group must succeed");
+
+        sqlx::query(
+            r#"
+            INSERT INTO duplicate_resolutions (id, group_id, action, selected_asset_id, payload, resolved_by, resolved_at)
+            VALUES ('resolution-1', 'test-group-identifier-1', 'custom_selection', 'asset-1', '{"kept_ids":["asset-1"]}', 'user', '2026-10-01T12:00:00Z');
+            "#,
+        )
+        .execute(database_manager.pool())
+        .await
+        .expect("Insert duplicate resolution must succeed");
+
+        let found_resolution = get_latest_resolution(
+            database_manager.pool(),
+            "test-group-identifier-1",
+        )
+        .await
+        .expect("Query for resolved group must succeed")
+        .expect("Resolution record should be present");
+
+        assert_eq!(found_resolution.id, "resolution-1");
+        assert_eq!(found_resolution.group_id, "test-group-identifier-1");
+        assert_eq!(found_resolution.action, DuplicateResolutionAction::CustomSelection);
+        assert_eq!(found_resolution.selected_asset_id.as_deref(), Some("asset-1"));
+
+        crate::infra::database::handlers::duplicates_handler::delete_resolution(
+            database_manager.pool(),
+            "resolution-1",
+        )
+        .await
+        .expect("Delete resolution must succeed");
+
+        let resolution_after_deletion = get_latest_resolution(
+            database_manager.pool(),
+            "test-group-identifier-1",
+        )
+        .await
+        .expect("Query after deletion must succeed");
+        assert!(resolution_after_deletion.is_none());
+    }
+}
+

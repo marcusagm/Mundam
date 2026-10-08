@@ -178,6 +178,10 @@ pub enum DomainEvent {
         group_id: String,
         action: String,
     },
+    /// A duplicate group resolution was undone, restoring assets and reopening the group.
+    DuplicateResolutionUndone {
+        group_id: String,
+    },
     /// Progress of a duplicate scan.
     DuplicateScanProgressed {
         processed: usize,

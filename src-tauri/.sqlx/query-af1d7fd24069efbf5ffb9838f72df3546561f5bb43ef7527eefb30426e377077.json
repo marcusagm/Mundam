@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id as \"id!\",\n            group_id as \"group_id!\",\n            action as \"action!\",\n            selected_asset_id,\n            payload,\n            resolved_by,\n            resolved_at as \"resolved_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_resolutions\n        WHERE group_id = ?\n        ORDER BY resolved_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "group_id!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "action!",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "selected_asset_id",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "payload",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "resolved_by",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "resolved_at: chrono::DateTime<chrono::Utc>",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "af1d7fd24069efbf5ffb9838f72df3546561f5bb43ef7527eefb30426e377077"
+}

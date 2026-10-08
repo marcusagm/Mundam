@@ -106,6 +106,7 @@ pub fn run() {
             delivery::tauri::commands::duplicates::get_duplicate_groups,
             delivery::tauri::commands::duplicates::get_duplicate_candidates,
             delivery::tauri::commands::duplicates::resolve_duplicate_group,
+            delivery::tauri::commands::duplicates::undo_duplicate_resolution,
             delivery::tauri::commands::duplicates::start_duplicate_scan,
             delivery::tauri::commands::duplicates::cancel_duplicate_scan,
             delivery::tauri::commands::duplicates::apply_duplicate_metadata_merge,

@@ -65,13 +65,35 @@ impl DuplicateCommandService {
         kept_asset_ids: Option<Vec<String>>,
     ) -> AppResult<()> {
         let selected_asset_id = kept_asset_ids.as_ref().and_then(|ids| ids.first().cloned());
+        let mut trashed_asset_identifiers: Vec<String> = Vec::new();
+
+        if matches!(action, DuplicateResolutionAction::CustomSelection) {
+            if let Some(kept_ids) = &kept_asset_ids {
+                let candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
+                for candidate in candidates {
+                    if !kept_ids.contains(&candidate.asset_id) {
+                        let _ = self.ledger.execute(LedgerCommand::MoveToTrash(
+                            crate::core::ledger::command::MoveToTrashPayload {
+                                asset_id: candidate.asset_id.clone(),
+                            }
+                        )).await;
+                        trashed_asset_identifiers.push(candidate.asset_id.clone());
+                    }
+                }
+            }
+        }
 
         let resolution = DuplicateResolution {
             id: uuid::Uuid::new_v4().to_string(),
             group_id: group_id.to_string(),
             action: action.clone(),
             selected_asset_id,
-            payload: kept_asset_ids.as_ref().map(|ids| serde_json::json!({ "kept_ids": ids }).to_string()),
+            payload: kept_asset_ids.as_ref().map(|ids| {
+                serde_json::json!({
+                    "kept_ids": ids,
+                    "trashed_ids": trashed_asset_identifiers
+                }).to_string()
+            }),
             resolved_by: Some("user".to_string()),
             resolved_at: chrono::Utc::now(),
         };
@@ -85,24 +107,79 @@ impl DuplicateCommandService {
 
         self.duplicates_repo.update_group_status(group_id, final_status).await?;
 
-        if matches!(action, DuplicateResolutionAction::CustomSelection) {
-            if let Some(kept_ids) = &kept_asset_ids {
-                let candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
-                for candidate in candidates {
-                    if !kept_ids.contains(&candidate.asset_id) {
-                        let _ = self.ledger.execute(LedgerCommand::MoveToTrash(
-                            crate::core::ledger::command::MoveToTrashPayload {
-                                asset_id: candidate.asset_id.clone(),
-                            }
-                        )).await;
-                    }
-                }
-            }
-        }
-
         let _ = self.event_bus.publish(DomainEvent::DuplicateGroupResolved {
             group_id: group_id.to_string(),
             action: action.to_string(),
+        });
+
+        Ok(())
+    }
+
+    /// Reverts a duplicate group resolution, restoring any trashed assets and resetting status to open.
+    ///
+    /// Inspects the most recent resolution record for the specified duplicate group. If the group
+    /// was resolved by sending assets to the trash, each trashed asset is restored back to the library
+    /// via `LedgerCommand::RestoreFromTrash`. The resolution record is then removed and the group
+    /// status is returned to `open`.
+    ///
+    /// # Arguments
+    /// * `group_id` - The unique identifier of the duplicate group to revert.
+    ///
+    /// # Errors
+    /// Returns `AppError::Database` if reading or mutating the database fails.
+    pub async fn undo_duplicate_resolution(&self, group_id: &str) -> AppResult<()> {
+        let optional_latest_resolution = self.duplicates_repo.get_latest_resolution(group_id).await?;
+
+        if let Some(latest_resolution) = optional_latest_resolution {
+            let mut asset_identifiers_to_restore: Vec<String> = Vec::new();
+
+            if let Some(payload_string) = &latest_resolution.payload {
+                if let Ok(parsed_payload) = serde_json::from_str::<serde_json::Value>(payload_string) {
+                    if let Some(trashed_identifiers_array) = parsed_payload.get("trashed_ids").and_then(|array_value| array_value.as_array()) {
+                        for item in trashed_identifiers_array {
+                            if let Some(asset_identifier_string) = item.as_str() {
+                                asset_identifiers_to_restore.push(asset_identifier_string.to_string());
+                            }
+                        }
+                    } else if let Some(kept_identifiers_array) = parsed_payload.get("kept_ids").and_then(|array_value| array_value.as_array()) {
+                        let kept_identifiers_set: std::collections::HashSet<String> = kept_identifiers_array
+                            .iter()
+                            .filter_map(|item| item.as_str().map(|identifier| identifier.to_string()))
+                            .collect();
+
+                        let group_candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
+                        for candidate in group_candidates {
+                            if !kept_identifiers_set.contains(&candidate.asset_id) {
+                                asset_identifiers_to_restore.push(candidate.asset_id);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for asset_identifier in asset_identifiers_to_restore {
+                let restore_result = self.ledger.execute(LedgerCommand::RestoreFromTrash(
+                    crate::core::ledger::command::RestoreFromTrashPayload {
+                        asset_id: asset_identifier.clone(),
+                    }
+                )).await;
+
+                if let Err(ledger_error) = restore_result {
+                    tracing::warn!(
+                        "undo_duplicate_resolution: failed to restore asset {} from trash: {:?}",
+                        asset_identifier,
+                        ledger_error
+                    );
+                }
+            }
+
+            self.duplicates_repo.delete_resolution(&latest_resolution.id).await?;
+        }
+
+        self.duplicates_repo.update_group_status(group_id, "open").await?;
+
+        let _ = self.event_bus.publish(DomainEvent::DuplicateResolutionUndone {
+            group_id: group_id.to_string(),
         });
 
         Ok(())

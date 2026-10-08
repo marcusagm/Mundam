@@ -378,6 +378,11 @@ description = "Enables resolve_duplicate_group"
 commands.allow = ["resolve_duplicate_group"]
 
 [[permission]]
+identifier = "allow-undo-duplicate-resolution"
+description = "Enables undo_duplicate_resolution"
+commands.allow = ["undo_duplicate_resolution"]
+
+[[permission]]
 identifier = "allow-start-duplicate-scan"
 description = "Enables start_duplicate_scan"
 commands.allow = ["start_duplicate_scan"]

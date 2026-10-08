@@ -20,10 +20,12 @@ export interface DuplicateCandidate {
     reasons?: string[];
 }
 
+export type DuplicateGroupStatus = 'open' | 'ignored' | 'resolved';
+
 export interface DuplicateGroup {
     id: string;
     type: 'exact' | 'visual' | 'derived';
-    status: 'open' | 'ignored' | 'resolved';
+    status: DuplicateGroupStatus;
     confidence: number;
     candidateCount: number;
     candidates: DuplicateCandidate[];

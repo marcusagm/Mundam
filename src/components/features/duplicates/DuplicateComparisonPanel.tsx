@@ -1,10 +1,13 @@
 import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import { Button, Badge } from '../../ui';
-import { Columns } from 'lucide-solid';
+import { Columns, Undo2 } from 'lucide-solid';
 import { DuplicateGroup, DuplicateCandidate } from './types';
 import { DuplicateSplitView } from './DuplicateSplitView';
 import { DuplicateCandidateCard } from './DuplicateCandidateCard';
+import { DuplicateResolutionBanner } from './DuplicateResolutionBanner';
+import { DuplicateSmartActionsBar } from './DuplicateSmartActionsBar';
 import { MetadataMergeModal } from './MetadataMergeModal';
+import { useCandidateAnalysis } from './hooks/useCandidateAnalysis';
 import { getGroupTypeBadgeVariant, formatGroupTypeLabel } from '../../../lib/duplicates';
 import { createShortcut } from '../../../core/input';
 import './duplicate-comparison-panel.css';
@@ -14,6 +17,8 @@ export interface DuplicateComparisonPanelProperties {
     group: DuplicateGroup;
     /** Callback triggered when the group has been resolved */
     onResolve: (groupId: string, action: string, keptAssetIds?: string[]) => Promise<void>;
+    /** Callback triggered to undo a resolution or reopen an ignored group */
+    onUndo?: (groupId: string) => Promise<void>;
 }
 
 /**
@@ -23,69 +28,51 @@ export interface DuplicateComparisonPanelProperties {
  * "Keep Only This", a MetadataMergeModal opens so the user can review
  * metadata from discarded candidates field-by-field before confirming.
  *
- * @param {DuplicateComparisonPanelProperties} props - Component properties.
+ * @param {DuplicateComparisonPanelProperties} properties - Component properties.
  * @returns {JSX.Element} The rendered comparison panel.
  */
-export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelProperties> = props => {
-    const [selectedCandidates, setSelectedCandidates] = createSignal<Set<string>>(new Set());
-    const [processing, setProcessing] = createSignal(false);
+export const DuplicateComparisonPanel: Component<
+    DuplicateComparisonPanelProperties
+> = properties => {
+    const [selectedCandidateIdentifiers, setSelectedCandidateIdentifiers] = createSignal<
+        Set<string>
+    >(new Set());
+    const [isProcessing, setIsProcessing] = createSignal(false);
     const [isSplitViewOpen, setIsSplitViewOpen] = createSignal(false);
 
-    /** IDs of assets the user has chosen to keep, pending merge confirmation. */
-    const [pendingKeptIds, setPendingKeptIds] = createSignal<string[]>([]);
+    /** Identifiers of assets the user has chosen to keep, pending merge confirmation. */
+    const [pendingKeptCandidateIdentifiers, setPendingKeptCandidateIdentifiers] = createSignal<
+        string[]
+    >([]);
     const [isMergeModalOpen, setIsMergeModalOpen] = createSignal(false);
 
-    const toggleCandidate = (id: string) => {
-        const updatedSet = new Set(selectedCandidates());
-        if (updatedSet.has(id)) {
-            updatedSet.delete(id);
+    const toggleCandidate = (candidateIdentifier: string) => {
+        const updatedSet = new Set(selectedCandidateIdentifiers());
+        if (updatedSet.has(candidateIdentifier)) {
+            updatedSet.delete(candidateIdentifier);
         } else {
-            updatedSet.add(id);
+            updatedSet.add(candidateIdentifier);
         }
-        setSelectedCandidates(updatedSet);
+        setSelectedCandidateIdentifiers(updatedSet);
     };
 
-    /** Finds the candidate with the largest file size, ignoring trashed ones. */
-    const largestCandidate = createMemo(() => {
-        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
-        if (validCandidates.length === 0) return null;
-        return validCandidates.reduce(
-            (previous: DuplicateCandidate, current: DuplicateCandidate) => {
-                return current.sizeBytes > previous.sizeBytes ? current : previous;
-            }
-        );
-    });
-
-    /** Finds the candidate created earliest, ignoring trashed ones. */
-    const oldestCandidate = createMemo(() => {
-        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
-        if (validCandidates.length === 0) return null;
-        return validCandidates.reduce((oldest: DuplicateCandidate, current: DuplicateCandidate) =>
-            new Date(current.createdAt).getTime() < new Date(oldest.createdAt).getTime()
-                ? current
-                : oldest
-        );
-    });
-
-    /** Finds the first candidate marked as favorite, if any. */
-    const favoriteCandidate = createMemo(() => {
-        return (
-            props.group.candidates.find((candidate: DuplicateCandidate) => candidate.isFavorite) ||
-            null
-        );
-    });
+    const { largestCandidate, oldestCandidate, favoriteCandidate, splitViewCandidates } =
+        useCandidateAnalysis(() => properties.group.candidates, selectedCandidateIdentifiers);
 
     /**
      * Derives the kept and discarded candidate lists from the pending kept IDs.
      * Used to populate the MetadataMergeModal.
      */
     const keptCandidates = createMemo(() =>
-        props.group.candidates.filter(candidate => pendingKeptIds().includes(candidate.id))
+        properties.group.candidates.filter(candidate =>
+            pendingKeptCandidateIdentifiers().includes(candidate.id)
+        )
     );
 
     const discardedCandidates = createMemo(() =>
-        props.group.candidates.filter(
-            candidate => !pendingKeptIds().includes(candidate.id) && !candidate.isTrashed
+        properties.group.candidates.filter(
+            candidate =>
+                !pendingKeptCandidateIdentifiers().includes(candidate.id) && !candidate.isTrashed
         )
     );
 
@@ -93,31 +80,43 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
      * Opens the MetadataMergeModal with the given kept asset IDs.
      * The modal handles the actual resolve call after the user confirms.
      *
-     * @param {string[]} keptIds - The asset IDs the user chose to keep.
+     * @param {string[]} keptCandidateIdentifiers - The asset IDs the user chose to keep.
      */
-    const openMergeModal = (keptIds: string[]) => {
-        setPendingKeptIds(keptIds);
+    const openMergeModal = (keptCandidateIdentifiers: string[]) => {
+        setPendingKeptCandidateIdentifiers(keptCandidateIdentifiers);
         setIsMergeModalOpen(true);
     };
 
     const handleIgnoreGroup = async () => {
-        setProcessing(true);
+        setIsProcessing(true);
         try {
-            await props.onResolve(props.group.id, 'ignore_group');
+            await properties.onResolve(properties.group.id, 'ignore_group');
         } catch (error) {
             console.error('Failed to ignore group:', error);
         } finally {
-            setProcessing(false);
+            setIsProcessing(false);
+        }
+    };
+
+    const handleUndoAction = async () => {
+        if (!properties.onUndo) return;
+        setIsProcessing(true);
+        try {
+            await properties.onUndo(properties.group.id);
+        } catch (error: unknown) {
+            console.error('Failed to undo duplicate group:', error);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handleKeepSelected = () => {
-        if (selectedCandidates().size === 0) return;
-        openMergeModal(Array.from(selectedCandidates()));
+        if (selectedCandidateIdentifiers().size === 0) return;
+        openMergeModal(Array.from(selectedCandidateIdentifiers()));
     };
 
-    const handleKeepOnlyThis = (candidateId: string) => {
-        openMergeModal([candidateId]);
+    const handleKeepOnlyThis = (candidateIdentifier: string) => {
+        openMergeModal([candidateIdentifier]);
     };
 
     const handleSmartAction = (candidate: DuplicateCandidate | null) => {
@@ -127,44 +126,20 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
 
     const handleMergeModalClose = () => {
         setIsMergeModalOpen(false);
-        setPendingKeptIds([]);
-        setProcessing(false);
+        setPendingKeptCandidateIdentifiers([]);
+        setIsProcessing(false);
     };
 
     const handleOpenSplitView = () => {
         setIsSplitViewOpen(true);
     };
 
-    const splitViewCandidates = createMemo(() => {
-        const selectedCandidateIds = Array.from(selectedCandidates());
-        const validCandidates = props.group.candidates.filter(candidate => !candidate.isTrashed);
-
-        let firstCandidate = null;
-        let secondCandidate = null;
-
-        if (selectedCandidateIds.length >= 2) {
-            firstCandidate =
-                props.group.candidates.find(
-                    candidate => candidate.id === selectedCandidateIds[0]
-                ) || null;
-            secondCandidate =
-                props.group.candidates.find(
-                    candidate => candidate.id === selectedCandidateIds[1]
-                ) || null;
-        } else if (validCandidates.length >= 2) {
-            firstCandidate = validCandidates[0];
-            secondCandidate = validCandidates[1];
-        }
-
-        return { firstCandidate, secondCandidate };
-    });
-
     createShortcut({
         keys: 'd',
         scope: 'viewport',
         system: true,
         action: () => {
-            if (!processing()) handleIgnoreGroup();
+            if (!isProcessing()) handleIgnoreGroup();
         }
     });
 
@@ -173,7 +148,7 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         scope: 'viewport',
         system: true,
         action: () => {
-            if (!processing()) handleIgnoreGroup();
+            if (!isProcessing()) handleIgnoreGroup();
         }
     });
 
@@ -182,7 +157,7 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         scope: 'viewport',
         system: true,
         action: () => {
-            if (!processing()) handleIgnoreGroup();
+            if (!isProcessing()) handleIgnoreGroup();
         }
     });
 
@@ -191,8 +166,8 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
         scope: 'viewport',
         system: true,
         action: () => {
-            if (processing()) return;
-            if (selectedCandidates().size > 0) {
+            if (isProcessing()) return;
+            if (selectedCandidateIdentifiers().size > 0) {
                 handleKeepSelected();
             } else if (largestCandidate()) {
                 handleSmartAction(largestCandidate());
@@ -206,11 +181,11 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                 <div class="comparison-title-container">
                     <h2>Group Details</h2>
                     <div class="comparison-meta">
-                        <Badge variant={getGroupTypeBadgeVariant(props.group.type)}>
-                            {formatGroupTypeLabel(props.group.type)}
+                        <Badge variant={getGroupTypeBadgeVariant(properties.group.type)}>
+                            {formatGroupTypeLabel(properties.group.type)}
                         </Badge>
                         <span class="comparison-confidence">
-                            Confidence: {(props.group.confidence * 100).toFixed(0)}%
+                            Confidence: {(properties.group.confidence * 100).toFixed(0)}%
                         </span>
                     </div>
                 </div>
@@ -219,66 +194,70 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
                         variant="secondary"
                         onClick={handleOpenSplitView}
                         disabled={
-                            props.group.candidates.filter(candidate => !candidate.isTrashed)
+                            properties.group.candidates.filter(candidate => !candidate.isTrashed)
                                 .length < 2
                         }
                     >
                         <Columns size={16} class="duplicate-comparison-button-icon" />
                         Split View
                     </Button>
-                    <Button variant="secondary" onClick={handleIgnoreGroup} disabled={processing()}>
-                        Ignore Group
-                    </Button>
-                    <Button
-                        disabled={selectedCandidates().size === 0 || processing()}
-                        onClick={handleKeepSelected}
+                    <Show
+                        when={properties.group.status === 'open'}
+                        fallback={
+                            <Button
+                                variant="secondary"
+                                onClick={handleUndoAction}
+                                disabled={isProcessing()}
+                            >
+                                <Undo2 size={16} class="duplicate-comparison-button-icon" />
+                                {properties.group.status === 'resolved'
+                                    ? 'Undo Resolution'
+                                    : 'Reopen Group'}
+                            </Button>
+                        }
                     >
-                        Keep Selected
-                    </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={handleIgnoreGroup}
+                            disabled={isProcessing()}
+                        >
+                            Ignore Group
+                        </Button>
+                        <Button
+                            disabled={selectedCandidateIdentifiers().size === 0 || isProcessing()}
+                            onClick={handleKeepSelected}
+                        >
+                            Keep Selected
+                        </Button>
+                    </Show>
                 </div>
             </div>
 
-            <Show when={props.group.candidates.length > 1}>
-                <div class="smart-actions-bar">
-                    <span class="smart-actions-label">Quick Actions</span>
-                    <div class="smart-actions-buttons">
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={processing() || !largestCandidate()}
-                            onClick={() => handleSmartAction(largestCandidate())}
-                        >
-                            Keep Largest
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={processing() || !oldestCandidate()}
-                            onClick={() => handleSmartAction(oldestCandidate())}
-                        >
-                            Keep Oldest
-                        </Button>
-                        <Show when={favoriteCandidate()}>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                disabled={processing()}
-                                onClick={() => handleSmartAction(favoriteCandidate())}
-                            >
-                                Keep Favorite
-                            </Button>
-                        </Show>
-                    </div>
-                </div>
+            <DuplicateResolutionBanner
+                groupStatus={properties.group.status}
+                isProcessing={isProcessing()}
+                onUndoAction={handleUndoAction}
+            />
+
+            <Show
+                when={properties.group.status === 'open' && properties.group.candidates.length > 1}
+            >
+                <DuplicateSmartActionsBar
+                    largestCandidate={largestCandidate()}
+                    oldestCandidate={oldestCandidate()}
+                    favoriteCandidate={favoriteCandidate()}
+                    isProcessing={isProcessing()}
+                    onSelectCandidate={handleSmartAction}
+                />
             </Show>
 
             <div class="comparison-grid">
-                <For each={props.group.candidates}>
+                <For each={properties.group.candidates}>
                     {candidate => (
                         <DuplicateCandidateCard
                             candidate={candidate}
-                            isSelected={selectedCandidates().has(candidate.id)}
-                            processing={processing()}
+                            isSelected={selectedCandidateIdentifiers().has(candidate.id)}
+                            processing={isProcessing()}
                             onToggle={toggleCandidate}
                             onKeepOnlyThis={handleKeepOnlyThis}
                         />
@@ -295,11 +274,11 @@ export const DuplicateComparisonPanel: Component<DuplicateComparisonPanelPropert
 
             <MetadataMergeModal
                 isOpen={isMergeModalOpen()}
-                groupId={props.group.id}
-                candidates={props.group.candidates}
+                groupId={properties.group.id}
+                candidates={properties.group.candidates}
                 keptCandidates={keptCandidates()}
                 discardedCandidates={discardedCandidates()}
-                onResolve={props.onResolve}
+                onResolve={properties.onResolve}
                 onClose={handleMergeModalClose}
             />
         </div>

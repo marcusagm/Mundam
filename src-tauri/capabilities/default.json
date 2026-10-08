@@ -120,6 +120,7 @@
     "allow-get-duplicate-groups",
     "allow-get-duplicate-candidates",
     "allow-resolve-duplicate-group",
+    "allow-undo-duplicate-resolution",
     "allow-start-duplicate-scan",
     "allow-cancel-duplicate-scan",
     "allow-update-duplicate-rule-set",

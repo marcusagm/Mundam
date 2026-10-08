@@ -1,7 +1,9 @@
 import { createSignal, createResource, createMemo, Resource, Setter, Accessor } from 'solid-js';
 import { duplicatesApi } from '../../../../lib/duplicates';
-import { DuplicateGroup, DuplicateCandidate } from '../types';
+import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
+import { useNotification } from '../../../../core/hooks/useNotification';
+import { applyPreloadedCandidatesToGroups, fetchCandidatesForGroups } from './candidatePreloader';
 
 /**
  * Scan progress data emitted by the backend during a duplicate scan.
@@ -41,6 +43,12 @@ export interface UseDuplicateGroupsReturn {
     showIgnored: Accessor<boolean>;
     /** Setter for the showIgnored flag. */
     setShowIgnored: Setter<boolean>;
+    /** Whether to show resolved groups in the sidebar. */
+    showResolved: Accessor<boolean>;
+    /** Setter for the showResolved flag. */
+    setShowResolved: Setter<boolean>;
+    /** Reverts a group resolution or ignore status, restoring candidate assets to the active library. */
+    undoResolution: (groupId: string) => Promise<void>;
     /** The current group type filter. */
     groupTypeFilter: Accessor<'all' | 'exact' | 'visual' | 'derived'>;
     /** Setter for the group type filter. */
@@ -67,18 +75,21 @@ export interface UseDuplicateGroupsReturn {
 export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const [selectedGroupId, setSelectedGroupId] = createSignal<string | null>(null);
     const [showIgnored, setShowIgnored] = createSignal(false);
+    const [showResolved, setShowResolved] = createSignal(false);
     const [groupTypeFilter, setGroupTypeFilter] = createSignal<
         'all' | 'exact' | 'visual' | 'derived'
     >('all');
     const [isScanning, setIsScanning] = createSignal(false);
     const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
     const [newGroupsFoundCount, setNewGroupsFoundCount] = createSignal(0);
+    const notificationService = useNotification();
 
     const [groups, { mutate, refetch }] = createResource(async () => {
         try {
             const openGroups = await duplicatesApi.getDuplicateGroups('open');
             const ignoredGroups = await duplicatesApi.getDuplicateGroups('ignored');
-            return [...openGroups, ...ignoredGroups];
+            const resolvedGroups = await duplicatesApi.getDuplicateGroups('resolved');
+            return [...openGroups, ...ignoredGroups, ...resolvedGroups];
         } catch (error: unknown) {
             console.error('Failed to load duplicate groups:', error);
             return [];
@@ -103,8 +114,13 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             setIsScanning(false);
             setScanProgress(null);
             refetch();
-        } else if (domainEvent.type === 'DuplicateGroupCreated') {
-            setNewGroupsFoundCount(previous => previous + 1);
+        } else if (
+            domainEvent.type === 'DuplicateGroupCreated' ||
+            domainEvent.type === 'DuplicateResolutionUndone'
+        ) {
+            if (domainEvent.type === 'DuplicateGroupCreated') {
+                setNewGroupsFoundCount(previous => previous + 1);
+            }
             refetch();
         }
     });
@@ -117,6 +133,10 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
 
         if (!showIgnored()) {
             filteredGroups = filteredGroups.filter(group => group.status !== 'ignored');
+        }
+
+        if (!showResolved()) {
+            filteredGroups = filteredGroups.filter(group => group.status !== 'resolved');
         }
 
         const typeFilter = groupTypeFilter();
@@ -179,24 +199,80 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         try {
             await duplicatesApi.resolveDuplicateGroup(groupId, action, keptAssetIds);
 
+            const resolvedStatus: DuplicateGroupStatus =
+                action === 'ignore_group' ? 'ignored' : 'resolved';
             const currentGroups = groups();
             if (currentGroups) {
-                if (action === 'ignore_group') {
-                    mutate(
-                        currentGroups.map(group =>
-                            group.id === groupId ? { ...group, status: 'ignored' as const } : group
-                        )
-                    );
-                } else {
-                    mutate(currentGroups.filter(group => group.id !== groupId));
-                }
+                mutate(
+                    currentGroups.map(group =>
+                        group.id === groupId
+                            ? {
+                                  ...group,
+                                  status: resolvedStatus,
+                                  candidatesLoaded: false
+                              }
+                            : group
+                    )
+                );
             }
 
             if (selectedGroupId() === groupId) {
                 setSelectedGroupId(null);
             }
+
+            const notificationMessage =
+                action === 'ignore_group'
+                    ? 'Duplicate group marked as ignored'
+                    : 'Duplicate group resolved and moved to trash';
+
+            notificationService.success(notificationMessage, undefined, {
+                label: 'Undo',
+                onClick: async () => {
+                    await undoResolution(groupId);
+                }
+            });
         } catch (error: unknown) {
             console.error('Failed to resolve duplicate group:', error);
+            throw error;
+        }
+    };
+
+    /**
+     * Reverts a group's resolution (or ignored status), restoring candidate assets to the library.
+     *
+     * @param {string} groupId - The unique identifier of the duplicate group to revert.
+     * @returns {Promise<void>}
+     */
+    const undoResolution = async (groupId: string): Promise<void> => {
+        try {
+            await duplicatesApi.undoDuplicateResolution(groupId);
+
+            const currentGroups = groups();
+            if (currentGroups) {
+                mutate(
+                    currentGroups.map(group =>
+                        group.id === groupId
+                            ? {
+                                  ...group,
+                                  status: 'open' as const,
+                                  candidatesLoaded: false
+                              }
+                            : group
+                    )
+                );
+            }
+
+            if (selectedGroupId() === groupId) {
+                await selectGroup(groupId);
+            }
+
+            notificationService.success(
+                'Resolution undone',
+                'Candidates have been restored to your library.'
+            );
+        } catch (error: unknown) {
+            console.error('Failed to undo resolution for group:', error);
+            notificationService.error('Failed to undo resolution', String(error));
             throw error;
         }
     };
@@ -246,45 +322,6 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     /** Set tracking active candidate network requests to prevent duplicate in-flight fetches */
     const inFlightCandidateLoads = new Set<string>();
 
-    interface PreloadCandidateResult {
-        candidateGroupId: string;
-        candidateList: DuplicateCandidate[] | null;
-    }
-
-    /**
-     * Merges successfully preloaded candidates into the current duplicate group list.
-     *
-     * @param {DuplicateGroup[]} existingGroupList - Current duplicate groups.
-     * @param {PreloadCandidateResult[]} preloadResultList - Results from batch fetching candidates.
-     * @returns {{ updatedGroupList: DuplicateGroup[]; hasModifications: boolean }} Updated groups and modification flag.
-     */
-    function applyPreloadedCandidatesToGroups(
-        existingGroupList: DuplicateGroup[],
-        preloadResultList: PreloadCandidateResult[]
-    ): { updatedGroupList: DuplicateGroup[]; hasModifications: boolean } {
-        let hasModifications = false;
-        const updatedGroupList = [...existingGroupList];
-
-        for (const resultItem of preloadResultList) {
-            if (resultItem.candidateList) {
-                const groupIndex = updatedGroupList.findIndex(
-                    groupItem => groupItem.id === resultItem.candidateGroupId
-                );
-                if (groupIndex !== -1) {
-                    updatedGroupList[groupIndex] = {
-                        ...updatedGroupList[groupIndex],
-                        candidates: resultItem.candidateList,
-                        candidatesLoaded: true,
-                        candidateCount: resultItem.candidateList.length
-                    };
-                    hasModifications = true;
-                }
-            }
-        }
-
-        return { updatedGroupList, hasModifications };
-    }
-
     /**
      * Preloads candidates and thumbnail previews for visible duplicate groups.
      * Prevents duplicate in-flight requests and batches state updates atomically.
@@ -310,35 +347,10 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
 
-        for (const candidateGroupId of candidateGroupsToLoad) {
-            inFlightCandidateLoads.add(candidateGroupId);
-        }
-
         try {
-            const loadResults = await Promise.all(
-                candidateGroupsToLoad.map(async candidateGroupId => {
-                    try {
-                        const candidateList =
-                            await duplicatesApi.getDuplicateCandidates(candidateGroupId);
-                        return {
-                            candidateGroupId,
-                            candidateList,
-                            error: null
-                        };
-                    } catch (error: unknown) {
-                        console.error(
-                            `Failed to preload candidates for group ${candidateGroupId}:`,
-                            error
-                        );
-                        return {
-                            candidateGroupId,
-                            candidateList: null,
-                            error
-                        };
-                    } finally {
-                        inFlightCandidateLoads.delete(candidateGroupId);
-                    }
-                })
+            const loadResults = await fetchCandidatesForGroups(
+                candidateGroupsToLoad,
+                inFlightCandidateLoads
             );
 
             const latestGroups = groups();
@@ -371,6 +383,9 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         cancelScan,
         showIgnored,
         setShowIgnored,
+        showResolved,
+        setShowResolved,
+        undoResolution,
         groupTypeFilter,
         setGroupTypeFilter,
         isScanning,

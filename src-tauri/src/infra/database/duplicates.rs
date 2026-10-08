@@ -71,6 +71,14 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         crate::infra::database::handlers::duplicates_handler::save_resolution(&self.pool, resolution).await
     }
 
+    async fn get_latest_resolution(&self, group_id: &str) -> AppResult<Option<DuplicateResolution>> {
+        crate::infra::database::query_handlers::duplicates_queries::get_latest_resolution(&self.pool, group_id).await
+    }
+
+    async fn delete_resolution(&self, resolution_id: &str) -> AppResult<()> {
+        crate::infra::database::handlers::duplicates_handler::delete_resolution(&self.pool, resolution_id).await
+    }
+
     async fn update_group_status(&self, group_id: &str, status: &str) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::update_group_status(&self.pool, group_id, status).await
     }

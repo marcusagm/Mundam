@@ -37,6 +37,9 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         cancelScan,
         showIgnored,
         setShowIgnored,
+        showResolved,
+        setShowResolved,
+        undoResolution,
         groupTypeFilter,
         setGroupTypeFilter,
         isScanning,
@@ -198,6 +201,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 onSelectGroup={selectGroup}
                                 showIgnored={showIgnored}
                                 setShowIgnored={setShowIgnored}
+                                showResolved={showResolved}
+                                setShowResolved={setShowResolved}
                                 groupTypeFilter={groupTypeFilter}
                                 setGroupTypeFilter={setGroupTypeFilter}
                                 preloadGroupCandidates={preloadGroupCandidates}
@@ -242,6 +247,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 <DuplicateComparisonPanel
                                     group={selectedGroup()!}
                                     onResolve={resolveGroup}
+                                    onUndo={undoResolution}
                                 />
                             </Show>
                         </Show>
