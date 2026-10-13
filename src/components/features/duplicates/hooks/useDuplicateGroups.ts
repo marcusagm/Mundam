@@ -2,7 +2,7 @@ import { createSignal, createResource, createMemo, Resource, Setter, Accessor } 
 import { duplicatesApi } from '../../../../lib/duplicates';
 import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
-import { useNotification } from '../../../../core/hooks/useNotification';
+import { useNotification, useMetadata } from '../../../../core/hooks';
 import { applyPreloadedCandidatesToGroups, fetchCandidatesForGroups } from './candidatePreloader';
 
 /**
@@ -83,6 +83,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
     const [newGroupsFoundCount, setNewGroupsFoundCount] = createSignal(0);
     const notificationService = useNotification();
+    const metadata = useMetadata();
 
     const [groups, { mutate, refetch }] = createResource(async () => {
         try {
@@ -96,33 +97,52 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         }
     });
 
+    const handleScanProgressEvent = (eventData: Record<string, number>): void => {
+        setScanProgress({
+            processed: eventData.processed ?? 0,
+            matched: eventData.matched ?? 0,
+            groupsCreated: eventData.groups_created ?? 0,
+            total: eventData.total ?? 0
+        });
+        setIsScanning(true);
+    };
+
+    const isGroupMutationEventType = (eventType: string): boolean => {
+        return (
+            eventType === 'DuplicateGroupCreated' ||
+            eventType === 'DuplicateGroupUpdated' ||
+            eventType === 'DuplicateResolutionUndone'
+        );
+    };
+
     LifecycleManager.registerListener<{
         type: string;
         payload: unknown;
     }>('mundam://domain-event', payload => {
         const domainEvent = payload as { type: string; payload: Record<string, number> };
         if (domainEvent.type === 'DuplicateScanProgressed') {
-            const eventData = domainEvent.payload;
-            setScanProgress({
-                processed: eventData.processed || 0,
-                matched: eventData.matched || 0,
-                groupsCreated: eventData.groups_created || 0,
-                total: eventData.total || 0
-            });
-            setIsScanning(true);
-        } else if (domainEvent.type === 'DuplicateScanFinished') {
+            handleScanProgressEvent(domainEvent.payload);
+            return;
+        }
+        if (domainEvent.type === 'DuplicateScanFinished') {
             setIsScanning(false);
             setScanProgress(null);
             refetch();
-        } else if (
-            domainEvent.type === 'DuplicateGroupCreated' ||
-            domainEvent.type === 'DuplicateResolutionUndone'
-        ) {
+            void metadata.loadStats();
+            return;
+        }
+        if (isGroupMutationEventType(domainEvent.type)) {
             if (domainEvent.type === 'DuplicateGroupCreated') {
                 setNewGroupsFoundCount(previous => previous + 1);
             }
             refetch();
+            void metadata.loadStats();
         }
+    });
+
+    LifecycleManager.registerListener<number>('indexer:complete', () => {
+        refetch();
+        void metadata.loadStats();
     });
 
     /**
@@ -198,6 +218,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     ): Promise<void> => {
         try {
             await duplicatesApi.resolveDuplicateGroup(groupId, action, keptAssetIds);
+            void metadata.loadStats();
 
             const resolvedStatus: DuplicateGroupStatus =
                 action === 'ignore_group' ? 'ignored' : 'resolved';
@@ -246,6 +267,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const undoResolution = async (groupId: string): Promise<void> => {
         try {
             await duplicatesApi.undoDuplicateResolution(groupId);
+            void metadata.loadStats();
 
             const currentGroups = groups();
             if (currentGroups) {

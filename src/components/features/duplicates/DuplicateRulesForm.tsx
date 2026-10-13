@@ -2,7 +2,7 @@ import { Component } from 'solid-js';
 import { Select } from '../../ui/Select';
 import { Slider } from '../../ui/Slider';
 import { Switch } from '../../ui/Switch';
-import { Info } from 'lucide-solid';
+import { Alert } from '../../ui/Alert';
 import { DuplicateRuleProfile } from './types';
 import './duplicate-rules-modal.css';
 
@@ -173,14 +173,11 @@ export const DuplicateRulesForm: Component<DuplicateRulesFormProperties> = compo
                 </div>
             </div>
 
-            <div class="duplicate-rules-info">
-                <Info size={32} />
-                <span>
-                    Applying new rules sets the active policy for duplicate grouping. Rescanning
-                    leverages pre-computed fingerprints to group assets without re-extracting image
-                    files.
-                </span>
-            </div>
+            <Alert variant="info">
+                Applying new rules sets the active policy for duplicate grouping. Rescanning
+                leverages pre-computed fingerprints to group assets without re-extracting image
+                files.
+            </Alert>
         </div>
     );
 };

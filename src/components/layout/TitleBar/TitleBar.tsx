@@ -4,6 +4,7 @@ import { Dynamic } from 'solid-js/web';
 import { Tooltip } from '../../ui';
 import { useMetadata } from '../../../core/hooks';
 import { detectPlatform } from '../../../core/input/utils/platform';
+import { formatCompactNumber } from '../../../utils/format';
 import { WindowControls } from './WindowControls';
 import type { TitleBarProperties, TitleBarNavigationItem, ApplicationView } from './types';
 import './title-bar.css';
@@ -93,7 +94,10 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
                                 {navigationItem.view === 'duplicates' &&
                                     metadata.stats.duplicate_assets > 0 && (
                                         <span class="titlebar-navigation-badge">
-                                            {metadata.stats.duplicate_assets}
+                                            {formatCompactNumber(
+                                                metadata.stats.duplicate_assets,
+                                                99
+                                            )}
                                         </span>
                                     )}
                             </button>

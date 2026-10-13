@@ -19,6 +19,7 @@ export interface UseDuplicateRulesResult {
     setIgnoreRecompression: (value: boolean) => void;
     setMinimumScore: (value: number) => void;
     handleProfileChange: (profileIdentifier: string) => void;
+    hasUnsavedChanges: () => boolean;
     loadActiveRules: () => Promise<void>;
     saveRules: () => Promise<void>;
     saveAndRescan: () => Promise<void>;
@@ -68,6 +69,39 @@ function deriveProfileFromRuleSet(ruleSet: BackendDuplicateRuleSet): DuplicateRu
     return 'custom';
 }
 
+function checkRuleSetEquality(
+    ruleSet: BackendDuplicateRuleSet | null,
+    exactMatch: boolean,
+    visualMatch: boolean,
+    cropMatch: boolean,
+    ignoreResolution: boolean,
+    ignoreCompression: boolean,
+    similarityScore: number
+): boolean {
+    if (!ruleSet) {
+        return true;
+    }
+    if (exactMatch !== ruleSet.consider_exact_match) {
+        return false;
+    }
+    if (visualMatch !== ruleSet.consider_visual_match) {
+        return false;
+    }
+    if (cropMatch !== ruleSet.consider_crop_match) {
+        return false;
+    }
+    if (ignoreResolution !== ruleSet.ignore_resolution_difference) {
+        return false;
+    }
+    if (ignoreCompression !== ruleSet.ignore_recompression) {
+        return false;
+    }
+    if (Math.abs(similarityScore - ruleSet.min_score) > 0.001) {
+        return false;
+    }
+    return true;
+}
+
 /**
  * Custom hook managing duplicate detection rules and algorithm configuration state.
  * Synchronizes with the active rule set persisted in the SQLite database.
@@ -77,6 +111,7 @@ function deriveProfileFromRuleSet(ruleSet: BackendDuplicateRuleSet): DuplicateRu
 export function useDuplicateRules(): UseDuplicateRulesResult {
     const [selectedProfile, setSelectedProfile] =
         createSignal<DuplicateRuleProfile>('visual-match');
+    const [savedRuleSet, setSavedRuleSet] = createSignal<BackendDuplicateRuleSet | null>(null);
     const [considerExactMatch, setConsiderExactMatch] = createSignal<boolean>(false);
     const [considerVisualMatch, setConsiderVisualMatch] = createSignal<boolean>(true);
     const [considerCropMatch, setConsiderCropMatch] = createSignal<boolean>(false);
@@ -94,6 +129,7 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
         try {
             const activeRuleSet = await duplicatesApi.getActiveDuplicateRuleSet();
             if (activeRuleSet) {
+                setSavedRuleSet(activeRuleSet);
                 const derivedProfile = deriveProfileFromRuleSet(activeRuleSet);
                 setSelectedProfile(derivedProfile);
                 setConsiderExactMatch(activeRuleSet.consider_exact_match);
@@ -153,7 +189,7 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
             const ruleSetIdentifier =
                 profileIdentifier === 'custom' ? 'custom-match' : profileIdentifier;
 
-            await duplicatesApi.updateDuplicateRuleSet({
+            const updatedRuleSet: BackendDuplicateRuleSet = {
                 id: ruleSetIdentifier,
                 name: profileIdentifier === 'custom' ? 'Custom Rules' : profileIdentifier,
                 description: 'Configured duplicate detection rule set',
@@ -167,13 +203,33 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
                 min_score: minimumScore(),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
-            });
+            };
+
+            await duplicatesApi.updateDuplicateRuleSet(updatedRuleSet);
+            setSavedRuleSet(updatedRuleSet);
         } catch (error) {
             console.error('Failed to save duplicate rule set:', error);
             throw error;
         } finally {
             setIsSaving(false);
         }
+    };
+
+    /**
+     * Determines whether the current form state deviates from the persisted rule set.
+     *
+     * @returns {boolean} True if changes are pending save, false otherwise.
+     */
+    const hasUnsavedChanges = (): boolean => {
+        return !checkRuleSetEquality(
+            savedRuleSet(),
+            considerExactMatch(),
+            considerVisualMatch(),
+            considerCropMatch(),
+            ignoreResolutionDifference(),
+            ignoreRecompression(),
+            minimumScore()
+        );
     };
 
     /**
@@ -205,6 +261,7 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
         setIgnoreRecompression,
         setMinimumScore,
         handleProfileChange,
+        hasUnsavedChanges,
         loadActiveRules,
         saveRules,
         saveAndRescan

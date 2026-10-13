@@ -1,0 +1,68 @@
+/**
+ * Duplicates Settings Panel Styles
+ */
+
+.duplicates-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.duplicates-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+}
+
+.duplicates-setting-label-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+}
+
+.duplicates-setting-description {
+    color: var(--text-tertiary);
+    font-size: var(--p-font-size-xs);
+    line-height: 1.4;
+}
+
+.duplicates-rules-container {
+    padding: var(--p-space-m);
+    background-color: var(--bg-page);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.duplicates-rules-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+}
+
+.duplicates-rules-status {
+    display: flex;
+    align-items: center;
+}
+
+.duplicates-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--p-space-xs);
+    font-size: var(--p-font-size-xs);
+    font-weight: 500;
+}
+
+.duplicates-status-badge--dirty {
+    color: var(--accent, #e5a00d);
+}
+
+.duplicates-status-badge--clean {
+    color: var(--text-tertiary);
+}
+
+.duplicates-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+}

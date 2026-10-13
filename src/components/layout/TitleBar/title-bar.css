@@ -1,4 +1,4 @@
- /* --- Title Bar Layout --- */
+/* --- Title Bar Layout --- */
 .titlebar {
     display: flex;
     align-items: center;
@@ -41,28 +41,28 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background-color var(--duration-fast) var(--ease-out),
-                color var(--duration-fast) var(--ease-out);
+    transition:
+        background-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out);
     padding: 6px;
     position: relative;
 }
 
 .titlebar-navigation-badge {
-    /* position: absolute;
-    top: 0px;
-    right: 0px; */
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-    font-size: 0.65rem;
+    background-color: var(--action-primary-bg, var(--accent));
+    color: var(--action-primary-text, #ffffff);
+    font-size: 0.6875rem;
     font-weight: 600;
-    padding: 0 4px;
-    min-width: 14px;
-    height: 14px;
-    border-radius: 7px;
-    display: flex;
+    font-variant-numeric: tabular-nums;
+    padding: 1px 5px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full, 9999px);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     pointer-events: none;
+    line-height: 1;
 }
 
 .titlebar-window-control-button:hover {
@@ -90,22 +90,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* width: 38px; */
+    gap: var(--p-space-xs, 6px);
     height: 30px; /* Slightly taller to sit flush */
     background: transparent;
     border: 1px solid;
-    border-image: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0),
-      var(--border-default)
-    ) 1 100%;
+    border-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--border-default)) 1 100%;
     border-top: 0;
     border-bottom: none;
     /* border-radius: var(--radius-m) var(--radius-m) 0 0; */
     color: var(--text-secondary);
     cursor: pointer;
     padding: 0 var(--p-space-m);
-    transition: all var(--duration-fast) var(--ease-out)
+    transition: all var(--duration-fast) var(--ease-out);
 }
 
 .titlebar-navigation-button svg {
@@ -121,11 +117,7 @@
 .titlebar-navigation-button--active {
     background: linear-gradient(180deg, var(--bg-page) 0%, var(--bg-surface-active) 100%);
     border-color: transparent;
-    border-image: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0),
-      var(--border-active)
-    ) 1 100%;
+    border-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--border-active)) 1 100%;
     border-bottom: 1px solid var(--bg-subtle); /* Cover the titlebar bottom border */
     color: var(--text-primary);
     margin-bottom: -1px; /* Pull down over the border */

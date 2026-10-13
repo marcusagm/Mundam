@@ -1,4 +1,4 @@
-import { Component } from 'solid-js';
+import { Component, onMount } from 'solid-js';
 import { Layers, BookmarkX, BookmarkCheck, Heart, Trash2 } from 'lucide-solid';
 import { useMetadata, useFilters } from '../../../core/hooks';
 import { CountBadge } from '../../ui/CountBadge';
@@ -7,6 +7,10 @@ import { SidebarPanel } from '../../ui/SidebarPanel';
 export const LibrarySidebarPanel: Component = () => {
     const metadata = useMetadata();
     const filters = useFilters();
+
+    onMount(async () => {
+        await metadata.loadStats();
+    });
 
     const isAllItemsActive = () =>
         !filters.selectedFolderId &&

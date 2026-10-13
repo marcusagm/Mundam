@@ -92,6 +92,15 @@ impl DuplicateWorker {
                             if is_auto_detect_enabled {
                                 if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(None).await {
                                     warn!("DuplicateWorker: failed to auto-group exact matches: {}", scan_error);
+                                } else {
+                                    let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
+                                        group_id: String::new(),
+                                        group_type: "exact".to_string(),
+                                        confidence: 1.0,
+                                        canonical_asset_id: Some(asset_id.clone()),
+                                        candidate_count: 2,
+                                        rule_set_id: "exact-match".to_string(),
+                                    });
                                 }
                             } else {
                                 tracing::debug!("DuplicateWorker: auto-detect on import is disabled in settings");

@@ -4,6 +4,7 @@ import { DuplicateRulesForm } from '../duplicates/DuplicateRulesForm';
 import { useDuplicateRules } from '../duplicates/hooks/useDuplicateRules';
 import { duplicatesApi } from '../../../lib/duplicates';
 import { useNotification, useSettings } from '../../../core/hooks';
+import './duplicates-panel.css';
 
 /**
  * Settings panel for configuring Duplicate File Detection rules, background workers, and index maintenance.
@@ -66,7 +67,7 @@ export const DuplicatesPanel: Component = () => {
     return (
         <div class="settings-panel-content duplicates-panel">
             <h2 class="settings-panel-title">Duplicate Detection</h2>
-            <p style={{ 'margin-bottom': '24px', color: 'var(--text-secondary)' }}>
+            <p class="settings-panel-description">
                 Configure how Mundam scans, groups, and identifies duplicate media assets.
             </p>
 
@@ -74,17 +75,10 @@ export const DuplicatesPanel: Component = () => {
                 title="Background Scanning"
                 description="Settings related to real-time exact duplicate detection on file import."
             >
-                <div
-                    class="general-setting-row"
-                    style={{
-                        display: 'flex',
-                        'justify-content': 'space-between',
-                        'align-items': 'center'
-                    }}
-                >
-                    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '4px' }}>
+                <div class="general-setting-row duplicates-setting-row">
+                    <div class="duplicates-setting-label-block">
                         <span class="setting-label">Auto-Detect Exact Duplicates on Import</span>
-                        <span style={{ color: 'var(--text-tertiary)', 'font-size': '0.85rem' }}>
+                        <span class="duplicates-setting-description">
                             Instantly check and group exact copies as soon as they are added to the
                             library.
                         </span>
@@ -100,7 +94,7 @@ export const DuplicatesPanel: Component = () => {
                 title="Detection Rules & Algorithms"
                 description="Active detection profiles, algorithm toggles, and similarity tolerance thresholds."
             >
-                <div class="general-setting-row">
+                <div class="duplicates-rules-container">
                     <DuplicateRulesForm
                         selectedProfile={duplicateRules.selectedProfile()}
                         considerExactMatch={duplicateRules.considerExactMatch()}
@@ -122,16 +116,24 @@ export const DuplicatesPanel: Component = () => {
                     />
                 </div>
 
-                <div
-                    style={{
-                        display: 'flex',
-                        'justify-content': 'flex-end',
-                        'margin-top': '16px'
-                    }}
-                >
+                <div class="setting-action-row duplicates-rules-action-row">
+                    <div class="duplicates-rules-status">
+                        {duplicateRules.hasUnsavedChanges() ? (
+                            <span class="duplicates-status-badge duplicates-status-badge--dirty">
+                                <span class="duplicates-status-dot" />
+                                Unsaved changes (click to apply)
+                            </span>
+                        ) : (
+                            <span class="duplicates-status-badge duplicates-status-badge--clean">
+                                <span class="duplicates-status-dot" />
+                                Rules active
+                            </span>
+                        )}
+                    </div>
                     <Button
                         variant="primary"
                         onClick={handleSaveRules}
+                        disabled={!duplicateRules.hasUnsavedChanges()}
                         loading={duplicateRules.isSaving()}
                     >
                         Save Detection Rules
@@ -143,10 +145,9 @@ export const DuplicatesPanel: Component = () => {
                 title="Maintenance"
                 description="Erase all existing duplicate fingerprints and groups to re-analyze the entire library from scratch."
             >
-                <div class="general-setting-row">
+                <div class="setting-action-row">
                     <Button
                         variant="destructive"
-                        size="sm"
                         onClick={handleRebuildIndex}
                         loading={isRebuildingIndex()}
                     >
