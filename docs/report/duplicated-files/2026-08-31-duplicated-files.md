@@ -563,12 +563,43 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
    >   - *Limiares Independentes*: Configurar limiares de tolerância desacoplados para matches visuais globais versus matches de recorte por quadrantes.
 
 
-5. **Thumbnails em alta resolução**: [⏳ Planejado / Em Análise]  
+5. **Thumbnails em alta resolução**: [✅ Concluído - Outubro/2026]  
    *Texto Original:* O sistema de thumbnails está mantendo imagens em alta resolução (formato JPG) na pasta de thumbnails. Isso consome espaço desnecessário e deve ser corrigido para gerar thumbnails em resolução reduzida. As thumbnails podem ser usadas como fonte de imagem real para o cálculo de hashes perceptuais de formatos exóticos (multi-frame TIF, HDR, EXR) que o `image::open()` decodifica incorretamente.
    > [!NOTE]  
-   > **Plano de Implementação**:
-   > - Manter estratégia de duas camadas: micro-thumbnails (WebP compactas) para listagens/decks e visualização detalhada sob demanda.
-   > - Adicionar pipeline de fallback para hashing perceptual: quando a decodificação direta de arquivos exóticos falhar no `image::open()`, consumir a thumbnail pré-processada como fonte para o cálculo do fingerprint visual.
+   > **Decisões Arquiteturais Definidas (Brainstorming & Alinhamento)**:
+   > - **P0 — Eliminação de Geração Prévia de Previews no `ThumbnailWorker`**:
+   >   - *Remoção do Desperdício em Disco*: O worker em segundo plano gravava previews de dezenas de megabytes na pasta `thumbnails/` que nunca eram consumidos pelo protocolo `asset://` (o qual regenerava dinamicamente). A geração automática de previews para imagens foi removida da ingestão, poupando CPU e I/O de disco.
+   >   - *Preservação de Modelos 3D (`.glb`)*: Apenas conversões 3D para GLB consumidas pelo visualizador 3D (`type=glb`) continuam sendo processadas pelo worker.
+   > - **P0 — Lazy Disk Caching para Previews em Alta Resolução**:
+   >   - No manipulador de protocolo `asset://` (`type=preview`), implementado cache preguiçoso em disco em diretório dedicado `previews/` separado de `thumbnails/`. A primeira solicitação para visualização de formatos exóticos gera o raster sob demanda e o persiste em disco; requisições subsequentes servem o arquivo diretamente via streaming assíncrono.
+   >   - O diretório `previews/` é provisionado no bootstrap do sistema em [`system.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/system.rs), exposto em [`AppDirectories`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/mod.rs) e integrado ao comando de limpeza de cache [`clear_cache`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/tauri/commands/mutations.rs).
+   > - **P0 — Hashing Perceptual via `FormatProvider` para Formatos Exóticos**:
+   >   - *Fallback em 2 Estágios*: Para formatos exóticos onde o decodificador padrão `image::open()` falha silenciosamente (RAW, Adobe PSD, HDR, EXR, TIFs complexos), o pipeline consulta o [`FormatRegistry`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/core/formats/mod.rs) e extrai o raster visual em alta fidelidade via `PreviewCapability` ou `ThumbnailCapability` (1024px), garantindo cálculo preciso de dHash 64-bit, multiscale dHash 256-bit e spatial block hash 4x4.
+   >   - *Injeção de Dependências*: Injeção do `FormatRegistry` no [`DuplicateWorker`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/duplicates/events.rs) (eventos `DomainEvent::AssetCreated`), no [`DuplicateCommandService`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/duplicates/commands.rs) e em [`rehash_pending_fingerprints`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/handlers/duplicates_handler.rs).
+   >   - *Versionamento de Esquema*: Incrementado o identificador de esquema para `fingerprint_version = 5`, permitindo que varreduras completas e o comando `rebuild_duplicate_index` recalculem automaticamente impressões digitais legadas que estavam com hashes perceptuais nulos.
+   > - **P1 — Carregamento Real e Cancelamento no `ItemView`**:
+   >   - Substituição do temporizador estático arbitrário (`setTimeout(300ms)`) por monitoramento de ciclo de vida do elemento de imagem (`onLoad` e `onError` no [`ImageViewer`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/renderers/image/ImageViewer.tsx)).
+   >   - Criação de overlay semitransparente com feedback visual de carregamento (`Loader`) e botão de cancelamento interativo ("Cancel (Esc)") em [`ItemView.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/ItemView.tsx) estilizado em [`item-view.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/item-view.css).
+   >
+   > ---
+   >
+   > #### 📋 Detalhes da Implementação & Conclusão Técnica:
+   >
+   > - **Detalhes da Implementação**:
+   >   - *Backend (Rust & Tauri)*:
+   >     - [`thumbnail_worker.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/processing/workers/thumbnail_worker.rs): remoção do salvamento incondicional de previews de imagens na pasta `thumbnails/`; filtragem explícita para modelos 3D (`is_three_dimensional_model`) gerando apenas arquivos `.glb`/`.gltf`.
+   >     - [`system.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/system.rs) & [`mod.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/mod.rs): criação do diretório `previews` no inicializador e exposição no container `AppDirectories`.
+   >     - [`mutations.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/tauri/commands/mutations.rs): inclusão do diretório `previews` na rotina do comando RPC `clear_cache`.
+   >     - [`asset.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/delivery/protocols/asset.rs): verificação lazy de cache em disco para o parâmetro `type=preview` antes de invocar geração e persistência assíncrona no disco.
+   >     - [`events.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/duplicates/events.rs): injeção de `FormatRegistry` no `DuplicateWorker` e extensão da função `generate_fingerprint` com método auxiliar `resolve_image_via_format_provider` acionado em fallback caso `image::open()` retorne erro.
+   >     - [`duplicates_handler.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/handlers/duplicates_handler.rs): extensão de `rehash_pending_fingerprints` recebendo `format_registry: Option<Arc<FormatRegistry>>`, adoção do fallback com `fingerprint_version = 5`, e função `resolve_image_via_format_provider`.
+   >     - [`duplicates.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/core/repository/duplicates.rs) & [`infra/database/duplicates.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/duplicates.rs): atualização da assinatura do trait `DuplicatesRepository` e respectiva implementação.
+   >     - [`commands.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/duplicates/commands.rs): armazenamento de `format_registry` em `DuplicateCommandService` e encaminhamento para `rehash_pending_fingerprints`.
+   >     - [`database.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/database.rs) & [`workers.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/bootstrap/workers.rs): injeção do `format_registry` nos construtores correspondentes.
+   >   - *Frontend & Solid.js*:
+   >     - [`ImageViewer.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/renderers/image/ImageViewer.tsx): inclusão das propriedades opcionais de callback `onImageLoaded` e `onImageError` conectadas aos handlers `onLoad` e `onError` da tag `<img>`.
+   >     - [`ItemView.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/ItemView.tsx): substituição do estado `itemLoading` com timeout fixo pelo sinal `isPreviewLoading`, overlay com mensagem "Loading preview..." e botão "Cancel (Esc)" invocando `viewport.closeItem()`.
+   >     - [`item-view.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/itemview/item-view.css): classes `.item-preview-loading-overlay` e `.item-cancel-loading-button` com backdrop-blur e transições sutis.
 
 6. **Virtualização de lista de grupos**: [✅ Concluído - 2026-10-05]  
    *Texto Original:* Ao carregar a tela de duplicatas, não carrega todos os grupos, devendo carregar apenas os grupos que estão visíveis na tela. Possibilitando assim precarregar os decks de thumbnails e melhorando a usabilidade. O ideal é que seja criado um componente de lista virtualizada que possa ser reutilizado em outras partes da aplicação em `src/components/ui`. Seguindo o padrão de codificação usado pelo frontend [frontend-solid.md](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/docs/guidelines/frontend-solid.md).

@@ -103,8 +103,9 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         &self,
         token: Option<tokio_util::sync::CancellationToken>,
         progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+        format_registry: Option<std::sync::Arc<crate::core::formats::FormatRegistry>>,
     ) -> AppResult<usize> {
-        crate::infra::database::handlers::duplicates_handler::rehash_pending_fingerprints(&self.pool, token, progress_sender).await
+        crate::infra::database::handlers::duplicates_handler::rehash_pending_fingerprints(&self.pool, token, progress_sender, format_registry).await
     }
 
     async fn delete_fingerprint(&self, asset_id: &str) -> AppResult<()> {

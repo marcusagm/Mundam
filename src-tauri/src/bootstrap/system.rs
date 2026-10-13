@@ -31,12 +31,15 @@ pub fn init_directories(app: &AppHandle) -> crate::bootstrap::AppDirectories {
     let settings_path = app_data.join("settings.json");
     let thumbnails_dir = app_data.join("thumbnails");
     std::fs::create_dir_all(&thumbnails_dir).ok();
+    let previews_dir = app_data.join("previews");
+    std::fs::create_dir_all(&previews_dir).ok();
 
     let dirs = crate::bootstrap::AppDirectories {
         app_data,
         db_path,
         settings_path,
         thumbnails_dir,
+        previews_dir,
     };
 
     app.manage(dirs.clone());

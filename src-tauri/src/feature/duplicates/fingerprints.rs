@@ -152,3 +152,53 @@ pub fn is_image_media(format_family: &str, format_type: &str) -> bool {
         || normalized_format == "gif"
         || normalized_format == "bmp"
 }
+
+/// Attempts to decode an image using the `FormatProvider` pipeline when `image::open()` fails.
+///
+/// This is the fallback path for exotic formats (RAW, PSD, HDR, EXR, multi-frame TIFFs, etc.) that the
+/// standard `image` crate cannot decode. It tries two strategies in order:
+///
+/// 1. **PreviewCapability**: Generates a high-fidelity raster preview from the original file.
+/// 2. **ThumbnailCapability (1024px)**: Falls back to a large thumbnail if preview is unavailable.
+///
+/// # Safety
+/// This function calls `tokio::runtime::Handle::current().block_on()` which is safe because
+/// it is always invoked from within `spawn_blocking`, not from an async executor thread.
+pub fn resolve_image_via_format_provider(
+    format_registry: &crate::core::formats::FormatRegistry,
+    file_path: &std::path::Path,
+    asset_id: &str,
+) -> Option<image::DynamicImage> {
+    let provider = format_registry.resolve(file_path, &[])?;
+
+    // Try PreviewCapability first (highest fidelity)
+    if let Some(preview_capability) = provider.preview() {
+        let preview_result = tokio::runtime::Handle::current().block_on(async {
+            preview_capability
+                .generate_preview(file_path, asset_id)
+                .await
+        });
+        if let Ok((preview_bytes, _mime_type)) = preview_result {
+            if let Ok(loaded_image) = image::load_from_memory(&preview_bytes) {
+                return Some(loaded_image);
+            }
+        }
+    }
+
+    // Fallback: ThumbnailCapability with large size_hint for better hash quality
+    if let Some(thumbnail_capability) = provider.thumbnail() {
+        let thumbnail_result = tokio::runtime::Handle::current().block_on(async {
+            thumbnail_capability
+                .generate(file_path, asset_id, 1024)
+                .await
+        });
+        if let Ok(thumbnail_bytes) = thumbnail_result {
+            if let Ok(loaded_image) = image::load_from_memory(&thumbnail_bytes) {
+                return Some(loaded_image);
+            }
+        }
+    }
+
+    None
+}
+

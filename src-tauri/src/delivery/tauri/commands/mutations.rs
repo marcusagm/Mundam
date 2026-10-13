@@ -555,7 +555,7 @@ pub async fn cleanup_cache(handle: tauri::AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-/// RPC Command to clear the entire cache (thumbnails and HLS).
+/// RPC Command to clear the entire cache (thumbnails, previews, and HLS).
 #[tauri::command]
 pub async fn clear_cache(handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = handle
@@ -564,11 +564,16 @@ pub async fn clear_cache(handle: tauri::AppHandle) -> AppResult<()> {
         .map_err(|e| crate::core::error::AppError::Generic(e.to_string()))?;
 
     let thumb_dir = app_data.join("thumbnails");
+    let previews_dir = app_data.join("previews");
     let hls_dir = app_data.join("hls");
 
     if thumb_dir.exists() {
         let _ = tokio::fs::remove_dir_all(&thumb_dir).await;
         let _ = tokio::fs::create_dir_all(&thumb_dir).await;
+    }
+    if previews_dir.exists() {
+        let _ = tokio::fs::remove_dir_all(&previews_dir).await;
+        let _ = tokio::fs::create_dir_all(&previews_dir).await;
     }
     if hls_dir.exists() {
         let _ = tokio::fs::remove_dir_all(&hls_dir).await;

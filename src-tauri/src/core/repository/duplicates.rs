@@ -158,6 +158,7 @@ pub trait DuplicatesRepository: Send + Sync {
         &self,
         token: Option<tokio_util::sync::CancellationToken>,
         progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+        format_registry: Option<std::sync::Arc<crate::core::formats::FormatRegistry>>,
     ) -> AppResult<usize>;
 
     /// Deletes the fingerprint for a given asset.

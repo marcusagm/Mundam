@@ -58,19 +58,44 @@
     transition: opacity 0.3s ease;
 }
 
-.item-renderer-wrapper.is-changing {
-    opacity: 0.5;
+.item-preview-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: auto;
 }
 
-.item-switch-loader {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 100;
-    pointer-events: none;
-    background: rgba(0, 0, 0, 0.4);
-    padding: 2rem;
-    border-radius: 1rem;
-    backdrop-filter: blur(4px);
+.item-preview-loading-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1.75rem 2.25rem;
+    background: var(--bg-backdrop, rgba(20, 20, 20, 0.8));
+    border: 1px solid var(--border-backdrop, rgba(255, 255, 255, 0.12));
+    border-radius: var(--radius-l, 12px);
+    box-shadow: var(--shadow-l, 0 12px 30px rgba(0, 0, 0, 0.5));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.item-preview-loading-box .loader-container {
+    height: auto;
+    width: auto;
+}
+
+.item-preview-loading-box .item-cancel-loading-button {
+    font-size: 0.8rem;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.65));
+}
+
+.item-preview-loading-box .item-cancel-loading-button:hover {
+    color: var(--text-color, #ffffff);
 }

@@ -20,17 +20,25 @@ pub fn run() {
 
     let builder = tauri::Builder::default().plugin(tauri_plugin_clipboard_manager::init());
     builder
-        .register_uri_scheme_protocol("thumb", move |ctx, request| {
-            crate::delivery::protocols::asset::handler(ctx.app_handle(), &request)
+        .register_asynchronous_uri_scheme_protocol("thumb", move |protocol_context, request, responder| {
+            let application_handle = protocol_context.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let response = crate::delivery::protocols::asset::handler_async(&application_handle, &request).await;
+                responder.respond(response);
+            });
         })
-        .register_uri_scheme_protocol("asset", move |ctx, request| {
-            crate::delivery::protocols::asset::handler(ctx.app_handle(), &request)
+        .register_asynchronous_uri_scheme_protocol("asset", move |protocol_context, request, responder| {
+            let application_handle = protocol_context.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let response = crate::delivery::protocols::asset::handler_async(&application_handle, &request).await;
+                responder.respond(response);
+            });
         })
-        .register_uri_scheme_protocol("video", move |ctx, request| {
-            crate::delivery::protocols::video::handler(ctx.app_handle(), &request)
+        .register_uri_scheme_protocol("video", move |protocol_context, request| {
+            crate::delivery::protocols::video::handler(protocol_context.app_handle(), &request)
         })
-        .register_uri_scheme_protocol("audio", move |ctx, request| {
-            crate::delivery::protocols::audio::handler(ctx.app_handle(), &request)
+        .register_uri_scheme_protocol("audio", move |protocol_context, request| {
+            crate::delivery::protocols::audio::handler(protocol_context.app_handle(), &request)
         })
         .setup(|app| {
             let app_handle = app.handle();

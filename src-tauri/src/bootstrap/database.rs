@@ -94,6 +94,7 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
             asset_ledger.clone(),
             event_bus.clone(),
             asset_query_handler.clone(),
+            format_registry.clone(),
         );
     app.manage(duplicates_command_service);
 

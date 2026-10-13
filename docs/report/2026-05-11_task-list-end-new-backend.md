@@ -41,7 +41,7 @@
 
 ## Indexer
 
-- [x] Ao copiar e colar um arquivo na mesma pasta craindo uma duplicata, o novo arquivo não é indexado, provavelmente está sendo ignorado por algum conflito com o evento de renomeação de arquivo.
+- [x] Ao copiar e colar um arquivo na mesma pasta crindo uma duplicata, o novo arquivo não é indexado, provavelmente está sendo ignorado por algum conflito com o evento de renomeação de arquivo.
 
 ## Search
 
@@ -59,6 +59,7 @@
 - [ ] Renomear pasta
 - [ ] Mover pasta
 - [ ] Excluir pasta
+- [ ] Permitir que o usuário defina uma cor para a pasta a ser exibida pelo sistema.
 
 ## Listagem
 
@@ -100,7 +101,7 @@
 ### Geral
 
 - [ ] Adicionar nome do arquivo acima da toolbar.
-- [ ] Ao carregar o arquivo, mostrar um loader de forma que não trave a interface do usuário, permitindo que ele possa sair do itemview quando quiser, cancelando o processo se necessário.
+- [x] Ao carregar o arquivo, mostrar um loader de forma que não trave a interface do usuário, permitindo que ele possa sair do itemview quando quiser, cancelando o processo se necessário.
 - [ ] Permitir acesso a detalhes do arquivo na item view.
 - [ ] Agora com a barra de título personalizada, é necessário resolver o problema de não conseguir mover a janela quando um item está sendo visualizado.
 - [ ] Criar sistema de atualização automática.

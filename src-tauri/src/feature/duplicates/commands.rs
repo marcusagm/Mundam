@@ -1,4 +1,5 @@
 use crate::core::error::AppResult;
+use crate::core::formats::FormatRegistry;
 use crate::core::repository::DuplicatesRepository;
 use crate::core::TransactionalAssetLedger;
 use crate::core::models::{DuplicateResolution, DuplicateResolutionAction, MetadataMergePayload};
@@ -20,6 +21,7 @@ pub struct DuplicateCommandService {
     ledger: Arc<dyn TransactionalAssetLedger>,
     event_bus: Arc<dyn AppEventBus>,
     asset_query_handler: Arc<dyn AssetQueryHandler>,
+    format_registry: Arc<FormatRegistry>,
     scan_cancel_token: Mutex<Option<CancellationToken>>,
 }
 
@@ -31,17 +33,20 @@ impl DuplicateCommandService {
     /// * `ledger` - The asset ledger for atomic asset mutations.
     /// * `event_bus` - The application event bus.
     /// * `asset_query_handler` - The asset query handler for reading current asset state.
+    /// * `format_registry` - The format registry for resolving exotic format providers.
     pub fn new(
         duplicates_repo: Arc<dyn DuplicatesRepository>,
         ledger: Arc<dyn TransactionalAssetLedger>,
         event_bus: Arc<dyn AppEventBus>,
         asset_query_handler: Arc<dyn AssetQueryHandler>,
+        format_registry: Arc<FormatRegistry>,
     ) -> Self {
         Self {
             duplicates_repo,
             ledger,
             event_bus,
             asset_query_handler,
+            format_registry,
             scan_cancel_token: Mutex::new(None),
         }
     }
@@ -300,7 +305,7 @@ impl DuplicateCommandService {
 
         let rehashed = self
             .duplicates_repo
-            .rehash_pending_fingerprints(Some(token.clone()), Some(progress_sender))
+            .rehash_pending_fingerprints(Some(token.clone()), Some(progress_sender), Some(self.format_registry.clone()))
             .await?;
 
         tracing::info!(

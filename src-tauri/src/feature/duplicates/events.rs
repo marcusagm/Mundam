@@ -1,5 +1,6 @@
 use crate::core::events::payloads::DomainEvent;
 use crate::core::events::bus::AppEventBus;
+use crate::core::formats::FormatRegistry;
 use crate::core::repository::DuplicatesRepository;
 use crate::core::models::DuplicateFingerprint;
 use crate::feature::settings::SettingsService;
@@ -13,6 +14,7 @@ pub struct DuplicateWorker {
     duplicates_repo: Arc<dyn DuplicatesRepository>,
     event_bus: Arc<dyn AppEventBus>,
     settings_service: SettingsService,
+    format_registry: Arc<FormatRegistry>,
 }
 
 impl DuplicateWorker {
@@ -21,11 +23,13 @@ impl DuplicateWorker {
         duplicates_repo: Arc<dyn DuplicatesRepository>,
         event_bus: Arc<dyn AppEventBus>,
         settings_service: SettingsService,
+        format_registry: Arc<FormatRegistry>,
     ) -> Self {
         Self {
             duplicates_repo,
             event_bus,
             settings_service,
+            format_registry,
         }
     }
 
@@ -71,10 +75,11 @@ impl DuplicateWorker {
             DomainEvent::AssetCreated { asset_id, path, format } => {
                 let asset_id_clone = asset_id.clone();
                 let path_clone = path.clone();
+                let format_registry_clone = self.format_registry.clone();
                 
                 // Spawn a blocking task to perform heavy CPU/IO hashing
                 let fingerprint_res = tokio::task::spawn_blocking(move || {
-                    Self::generate_fingerprint(&asset_id_clone, &path_clone, &format)
+                    Self::generate_fingerprint(&asset_id_clone, &path_clone, &format, &format_registry_clone)
                 }).await;
 
                 match fingerprint_res {
@@ -151,29 +156,30 @@ impl DuplicateWorker {
         asset_id: &str,
         path: &str,
         format: &str,
+        format_registry: &FormatRegistry,
     ) -> Result<DuplicateFingerprint, String> {
         use std::io::Read;
 
         // Read file size
         let metadata = std::fs::metadata(path)
-            .map_err(|e| format!("Failed to read metadata for {}: {}", path, e))?;
+            .map_err(|error| format!("Failed to read metadata for {}: {}", path, error))?;
             
         let file_size = metadata.len() as i64;
 
         // Compute Blake3 hash using streaming (8KB chunks) to avoid loading the whole file
         let mut file = std::fs::File::open(path)
-            .map_err(|e| format!("Failed to open file {}: {}", path, e))?;
+            .map_err(|error| format!("Failed to open file {}: {}", path, error))?;
         
         let mut hasher = blake3::Hasher::new();
-        let mut buffer = [0u8; 8192];
+        let mut read_buffer = [0u8; 8192];
         
         loop {
-            let bytes_read = file.read(&mut buffer)
-                .map_err(|e| format!("Failed to read file {}: {}", path, e))?;
+            let bytes_read = file.read(&mut read_buffer)
+                .map_err(|error| format!("Failed to read file {}: {}", path, error))?;
             if bytes_read == 0 {
                 break;
             }
-            hasher.update(&buffer[..bytes_read]);
+            hasher.update(&read_buffer[..bytes_read]);
         }
 
         let content_hash = Some(hasher.finalize().to_hex().to_string());
@@ -182,7 +188,25 @@ impl DuplicateWorker {
 
         let (perceptual_hash, block_hash, thumb_hash, width, height) = {
             if format_is_image {
-                if let Ok(dynamic_image) = image::open(path) {
+                let file_path = std::path::Path::new(path);
+
+                // Stage 1: Try direct image::open() for standard formats (JPEG, PNG, WebP, etc.)
+                let direct_open_result = image::open(file_path);
+
+                let resolved_dynamic_image = match direct_open_result {
+                    Ok(loaded_image) => Some(loaded_image),
+                    Err(_) => {
+                        // Stage 2: FormatProvider fallback for exotic formats (RAW, PSD, HDR, EXR, etc.)
+                        // This runs inside spawn_blocking, so block_on is safe here.
+                        crate::feature::duplicates::fingerprints::resolve_image_via_format_provider(
+                            format_registry,
+                            file_path,
+                            asset_id,
+                        )
+                    }
+                };
+
+                if let Some(dynamic_image) = resolved_dynamic_image {
                     use image::GenericImageView;
                     let (image_width, image_height) = dynamic_image.dimensions();
                     let dhash_value = crate::feature::duplicates::fingerprints::compute_perceptual_dhash_64(&dynamic_image);
@@ -217,8 +241,9 @@ impl DuplicateWorker {
             format_family: Some(format.to_string()),
             color_profile: None,
             orientation: None,
-            fingerprint_version: 4, // Bumped to v4 for block hash and multi-scale hash
+            fingerprint_version: 5, // v5: FormatProvider fallback for exotic format hashing
             updated_at: chrono::Utc::now(),
         })
     }
 }
+

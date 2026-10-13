@@ -22,4 +22,5 @@ pub struct AppDirectories {
     pub db_path: std::path::PathBuf,
     pub settings_path: std::path::PathBuf,
     pub thumbnails_dir: std::path::PathBuf,
+    pub previews_dir: std::path::PathBuf,
 }

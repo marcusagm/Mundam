@@ -192,22 +192,46 @@ impl ThumbnailWorker {
             }
         }
 
-        // 2. Generate Preview
-        if let Some(preview_cap) = provider.preview() {
-            if let Ok((preview_bytes, mime)) = preview_cap.generate_preview(&path, &id).await {
-                let extension = match mime.as_str() {
-                    "model/gltf-binary" => "glb",
-                    "model/gltf+json" => "gltf",
-                    "image/png" => "png",
-                    "image/jpeg" | "image/jpg" => "jpg",
-                    "image/webp" => "webp",
-                    _ => "bin",
-                };
-                let preview_filename = format!("{}.{}", id, extension);
-                let preview_path = self.thumbnails_dir.join(&preview_filename);
+        // 2. Generate 3D Model Preview (GLB only — consumed by asset:// type=glb protocol)
+        //
+        // Image previews are NOT generated here. They are produced on-demand by the
+        // asset:// protocol handler (`type=preview`) with lazy disk caching in `previews/`.
+        // This avoids writing large JPG/PNG files to `thumbnails/` that would never be read.
+        if let Some(preview_capability) = provider.preview() {
+            let is_three_dimensional_model = provider
+                .supported_formats()
+                .iter()
+                .any(|supported_format| {
+                    let name_lower = supported_format.name.to_lowercase();
+                    name_lower.contains("3d")
+                        || name_lower.contains("model")
+                        || name_lower.contains("gltf")
+                        || name_lower.contains("obj")
+                        || name_lower.contains("fbx")
+                        || name_lower.contains("usd")
+                        || name_lower.contains("cad")
+                });
 
-                if let Err(e) = std::fs::write(&preview_path, preview_bytes) {
-                    error!("ThumbnailWorker: Failed to write preview for {}: {}", id, e);
+            if is_three_dimensional_model {
+                if let Ok((preview_bytes, mime)) =
+                    preview_capability.generate_preview(&path, &id).await
+                {
+                    let glb_extension = match mime.as_str() {
+                        "model/gltf-binary" => Some("glb"),
+                        "model/gltf+json" => Some("gltf"),
+                        _ => None, // Skip non-3D preview outputs
+                    };
+
+                    if let Some(extension) = glb_extension {
+                        let preview_filename = format!("{}.{}", id, extension);
+                        let preview_path = self.thumbnails_dir.join(&preview_filename);
+                        if let Err(write_error) = std::fs::write(&preview_path, preview_bytes) {
+                            error!(
+                                "ThumbnailWorker: Failed to write 3D preview for {}: {}",
+                                id, write_error
+                            );
+                        }
+                    }
                 }
             }
         }

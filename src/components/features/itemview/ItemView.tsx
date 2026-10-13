@@ -22,6 +22,7 @@ import { ModelViewer } from './renderers/model/ModelViewer';
 import { ModelToolbar } from './renderers/model/ModelToolbar';
 import { AudioRenderer } from './renderers/audio/AudioRenderer';
 import { Loader } from '../../ui/Loader';
+import { Button } from '../../ui/Button';
 import { formatActions } from '../../../core/store/formatStore';
 import { getMediaType } from '../../../lib/stream-utils';
 import './item-view.css';
@@ -67,19 +68,17 @@ const ItemViewContent: Component = () => {
     // Push image-viewer scope with blocking enabled (isolates input)
     createConditionalScope('image-viewer', () => true, undefined, true);
 
-    const [itemLoading, setItemLoading] = createSignal(false);
+    const [isPreviewLoading, setIsPreviewLoading] = createSignal(false);
     const item = createMemo(() => lib.items.find(i => i.id.toString() === viewport.activeItemId()));
 
     // Reset view state when item changes
     createEffect(() => {
-        const i = item();
-        if (i) {
-            setItemLoading(true);
+        const currentItem = item();
+        if (currentItem) {
+            setIsPreviewLoading(true);
             reset();
-            const type = getMediaType(i.filename);
+            const type = getMediaType(currentItem.filename);
             setMediaType(type);
-            // Small delay to allow renderer to mount/unmount smoothly
-            setTimeout(() => setItemLoading(false), 300);
         }
     });
 
@@ -167,10 +166,21 @@ const ItemViewContent: Component = () => {
             </BaseToolbar>
 
             <Show when={item()} fallback={<div class="item-error">Asset not found</div>}>
-                <div class="item-renderer-wrapper" classList={{ 'is-changing': itemLoading() }}>
-                    <Show when={itemLoading()}>
-                        <div class="item-switch-loader">
-                            <Loader size="lg" text="Loading asset..." />
+                <div class="item-renderer-wrapper">
+                    <Show when={isPreviewLoading()}>
+                        <div class="item-preview-loading-overlay">
+                            <div class="item-preview-loading-box">
+                                <Loader size="md" text="Loading preview..." />
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="item-cancel-loading-button"
+                                    onClick={() => viewport.closeItem()}
+                                    type="button"
+                                >
+                                    Cancel (Esc)
+                                </Button>
+                            </div>
                         </div>
                     </Show>
 
@@ -199,6 +209,8 @@ const ItemViewContent: Component = () => {
                                     }`;
                                 })()}
                                 alt={item()!.filename}
+                                onImageLoaded={() => setIsPreviewLoading(false)}
+                                onImageError={() => setIsPreviewLoading(false)}
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'video'}>

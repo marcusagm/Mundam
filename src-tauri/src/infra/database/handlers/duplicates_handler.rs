@@ -837,6 +837,7 @@ pub async fn rehash_pending_fingerprints(
     pool: &SqlitePool,
     cancellation_token: Option<tokio_util::sync::CancellationToken>,
     progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+    format_registry: Option<std::sync::Arc<crate::core::formats::FormatRegistry>>,
 ) -> AppResult<usize> {
     let pending_assets = sqlx::query!(
         r#"
@@ -845,7 +846,7 @@ pub async fn rehash_pending_fingerprints(
         JOIN assets a ON df.asset_id = a.id
         WHERE df.content_hash LIKE 'pending_%' 
            OR df.content_hash LIKE 'hash_%'
-           OR df.fingerprint_version < 4
+           OR df.fingerprint_version < 5
            OR (df.perceptual_hash IS NULL AND (a.family LIKE '%image%' OR a.format_type LIKE '%image%' OR a.format_type LIKE '%png%' OR a.format_type LIKE '%jpg%' OR a.format_type LIKE '%jpeg%'))
         "#
     )
@@ -875,9 +876,11 @@ pub async fn rehash_pending_fingerprints(
         }
 
         let asset_id = asset_record.asset_id.clone();
+        let asset_id_for_hashing = asset_id.clone();
         let file_path = asset_record.path.clone();
         let format_family = asset_record.format_family.clone();
         let format_type = asset_record.format_type.clone();
+        let format_registry_clone = format_registry.clone();
 
         let hash_computation_result = tokio::task::spawn_blocking(move || {
             use std::io::Read;
@@ -907,7 +910,24 @@ pub async fn rehash_pending_fingerprints(
 
             let (perceptual_hash, block_hash, thumb_hash, image_width, image_height) = {
                 if format_is_image {
-                    if let Ok(dynamic_image) = image::open(&file_path) {
+                    let file_path_reference = std::path::Path::new(&file_path);
+
+                    // Stage 1: Try direct image::open() for standard formats
+                    let direct_open_result = image::open(file_path_reference);
+
+                    // Stage 2: FormatProvider fallback for exotic formats (RAW, PSD, HDR, EXR, etc.)
+                    let resolved_image = match direct_open_result {
+                        Ok(loaded_image) => Some(loaded_image),
+                        Err(_) => {
+                            if let Some(ref registry) = format_registry_clone {
+                                crate::feature::duplicates::fingerprints::resolve_image_via_format_provider(registry, file_path_reference, &asset_id_for_hashing)
+                            } else {
+                                None
+                            }
+                        }
+                    };
+
+                    if let Some(dynamic_image) = resolved_image {
                         use image::GenericImageView;
                         let (width, height) = dynamic_image.dimensions();
                         let dhash_value = crate::feature::duplicates::fingerprints::compute_perceptual_dhash_64(&dynamic_image);
@@ -953,7 +973,7 @@ pub async fn rehash_pending_fingerprints(
                         thumb_hash = ?,
                         width = COALESCE(?, width),
                         height = COALESCE(?, height),
-                        fingerprint_version = 4,
+                        fingerprint_version = 5,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE asset_id = ?
                     "#,

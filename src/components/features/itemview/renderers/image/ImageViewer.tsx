@@ -5,6 +5,8 @@ import { useViewport } from '../../../../../core/hooks';
 interface ImageViewerProps {
     src: string;
     alt?: string;
+    onImageLoaded?: () => void;
+    onImageError?: () => void;
 }
 
 export const ImageViewer: Component<ImageViewerProps> = props => {
@@ -44,6 +46,11 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
     // Run fit only when image loads perfectly
     const onImageLoad = () => {
         fitToScreen();
+        props.onImageLoaded?.();
+    };
+
+    const onImageLoadError = () => {
+        props.onImageError?.();
     };
 
     // Event Listener for Toolbar actions
@@ -130,6 +137,7 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
                 src={props.src}
                 alt={props.alt}
                 onLoad={onImageLoad}
+                onError={onImageLoadError}
                 draggable={false}
                 style={{
                     transform: `translate(${viewport.pan().x}px, ${viewport.pan().y}px) rotate(${rotation()}deg) scale(${viewport.zoom() / 100}) scaleX(${flip().horizontal ? -1 : 1}) scaleY(${flip().vertical ? -1 : 1})`,

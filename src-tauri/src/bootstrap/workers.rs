@@ -106,6 +106,7 @@ pub fn init(app: &AppHandle) {
         duplicates_repo.clone(),
         event_bus.clone(),
         settings_service,
+        format_registry.clone(),
     );
     let duplicate_handle = std::sync::Arc::new(duplicate_worker).start(duplicate_worker_token.clone());
     lifecycle.register(
