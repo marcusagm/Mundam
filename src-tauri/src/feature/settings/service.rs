@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 /// Application service for managing settings.
 /// Bridges the UI requirements with the domain and infrastructure.
+#[derive(Clone)]
 pub struct SettingsService {
     repository: Arc<dyn SettingsRepository>,
 }
@@ -51,6 +52,8 @@ impl SettingsService {
         match key {
             "thumbnail_threads" => Ok(Some(serde_json::json!(settings.thumbnail_threads))),
             "cache_retention_days" => Ok(Some(serde_json::json!(settings.cache_retention_days))),
+            "indexer_concurrency_limit" => Ok(Some(serde_json::json!(settings.indexer_concurrency_limit))),
+            "auto_detect_duplicates" => Ok(Some(serde_json::json!(settings.auto_detect_duplicates))),
             _ => Ok(settings.extra.get(key).cloned()),
         }
     }
@@ -60,19 +63,35 @@ impl SettingsService {
         let mut settings = self.repository.load().await?;
         match key.as_str() {
             "thumbnail_threads" => {
-                if let Some(v) = value
+                if let Some(parsed_threads_count) = value
                     .as_u64()
-                    .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+                    .or_else(|| value.as_str().and_then(|raw_string| raw_string.parse().ok()))
                 {
-                    settings.thumbnail_threads = v as usize;
+                    settings.thumbnail_threads = parsed_threads_count as usize;
                 }
             }
             "cache_retention_days" => {
-                if let Some(v) = value
+                if let Some(parsed_days_count) = value
                     .as_u64()
-                    .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+                    .or_else(|| value.as_str().and_then(|raw_string| raw_string.parse().ok()))
                 {
-                    settings.cache_retention_days = v as u32;
+                    settings.cache_retention_days = parsed_days_count as u32;
+                }
+            }
+            "indexer_concurrency_limit" => {
+                if let Some(parsed_limit) = value
+                    .as_u64()
+                    .or_else(|| value.as_str().and_then(|raw_string| raw_string.parse().ok()))
+                {
+                    settings.indexer_concurrency_limit = parsed_limit as usize;
+                }
+            }
+            "auto_detect_duplicates" => {
+                if let Some(parsed_boolean_flag) = value
+                    .as_bool()
+                    .or_else(|| value.as_str().and_then(|raw_string| raw_string.parse().ok()))
+                {
+                    settings.auto_detect_duplicates = parsed_boolean_flag;
                 }
             }
             _ => {

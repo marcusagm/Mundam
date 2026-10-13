@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_fingerprints",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "ce2cbcc9647ba57b1a47db2838863fdccb8b1d8f0f1040666311dc4938f4bba5"
+}

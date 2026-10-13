@@ -450,6 +450,15 @@ pub async fn run_exact_match_scan(
         AppError::Database(database_error)
     })?;
 
+    // Check if exact matching is enabled in the active rule set
+    let active_rule_set_option = crate::infra::database::query_handlers::duplicates_queries::get_active_rule_set(pool).await?;
+    if let Some(active_rule_set) = active_rule_set_option {
+        if !active_rule_set.consider_exact_match {
+            tracing::info!("run_exact_match_scan: exact matching is disabled in active rule set");
+            return Ok(());
+        }
+    }
+
     backfill_missing_fingerprints(pool).await?;
 
     let duplicate_hash_records = sqlx::query!(
@@ -721,6 +730,7 @@ pub async fn run_visual_match_scan(
                 primary_asset.file_size_bytes,
                 comparison_asset.file_size_bytes,
                 minimum_score,
+                consider_visual_match,
                 consider_crop_match,
             );
 
@@ -979,4 +989,41 @@ pub async fn rehash_pending_fingerprints(
 
     tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending_count);
     Ok(rehashed_count)
+}
+
+/// Erases all existing duplicate candidates, groups, resolutions, and fingerprints,
+/// allowing a clean index rebuild from scratch.
+///
+/// # Arguments
+/// * `pool` - The SQLite database connection pool.
+///
+/// # Errors
+/// Returns `AppError::Database` if any delete statement fails.
+pub async fn reset_duplicate_index(pool: &SqlitePool) -> AppResult<()> {
+    let mut database_transaction = pool.begin().await.map_err(AppError::Database)?;
+
+    sqlx::query!("DELETE FROM duplicate_resolutions")
+        .execute(&mut *database_transaction)
+        .await
+        .map_err(AppError::Database)?;
+
+    sqlx::query!("DELETE FROM duplicate_candidates")
+        .execute(&mut *database_transaction)
+        .await
+        .map_err(AppError::Database)?;
+
+    sqlx::query!("DELETE FROM duplicate_groups")
+        .execute(&mut *database_transaction)
+        .await
+        .map_err(AppError::Database)?;
+
+    sqlx::query!("DELETE FROM duplicate_fingerprints")
+        .execute(&mut *database_transaction)
+        .await
+        .map_err(AppError::Database)?;
+
+    database_transaction.commit().await.map_err(AppError::Database)?;
+
+    tracing::info!("reset_duplicate_index: successfully wiped all duplicate tables");
+    Ok(())
 }

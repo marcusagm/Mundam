@@ -46,9 +46,18 @@ pub struct AppSettings {
     /// Number of days to retain cached transcoded files and thumbnails.
     pub cache_retention_days: u32,
 
+    /// Whether to automatically check and group exact duplicates on asset creation/import.
+    #[serde(default = "default_auto_detect_duplicates")]
+    pub auto_detect_duplicates: bool,
+
     /// Extra generic settings (e.g., appearance, shortcuts).
     #[serde(default)]
     pub extra: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// Provides fallback default value of true for auto_detect_duplicates.
+fn default_auto_detect_duplicates() -> bool {
+    true
 }
 
 /// Default settings for the application.
@@ -60,7 +69,7 @@ impl Default for AppSettings {
     /// Default settings for the application.
     fn default() -> Self {
         let available_parallelism = std::thread::available_parallelism()
-            .map(|n| n.get())
+            .map(|parallelism_count| parallelism_count.get())
             .unwrap_or(1);
 
         Self {
@@ -71,6 +80,7 @@ impl Default for AppSettings {
             indexer_concurrency_limit: 200,
             thumbnail_threads: std::cmp::max(1, available_parallelism / 2),
             cache_retention_days: 30,
+            auto_detect_duplicates: true,
             extra: std::collections::HashMap::new(),
         }
     }

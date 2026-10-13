@@ -82,6 +82,62 @@ pub async fn get_rule_sets(pool: &SqlitePool) -> AppResult<Vec<DuplicateRuleSet>
     Ok(records)
 }
 
+/// Retrieves the most recently updated duplicate rule set, serving as the active policy.
+///
+/// Seeds a default 'visual-match' rule set if none exists in the database.
+///
+/// # Arguments
+/// * `pool` - The SQLite database connection pool.
+///
+/// # Errors
+/// Returns `AppError::Database` if reading or seeding fails.
+pub async fn get_active_rule_set(pool: &SqlitePool) -> AppResult<Option<DuplicateRuleSet>> {
+    sqlx::query!(
+        r#"
+        INSERT OR IGNORE INTO duplicate_rule_sets (
+            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+        ) VALUES (
+            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+        "#
+    )
+    .execute(pool)
+    .await
+    .map_err(|database_error| {
+        tracing::error!("Failed to seed visual-match rule set in get_active_rule_set: {:?}", database_error);
+        AppError::Database(database_error)
+    })?;
+
+    let active_rule_set_record = sqlx::query_as!(
+        DuplicateRuleSet,
+        r#"
+        SELECT 
+            id as "id!", name as "name!", description, 
+            consider_exact_match as "consider_exact_match: bool", 
+            consider_visual_match as "consider_visual_match: bool", 
+            consider_crop_match as "consider_crop_match: bool", 
+            ignore_resolution_difference as "ignore_resolution_difference: bool", 
+            ignore_recompression as "ignore_recompression: bool", 
+            allow_rotation as "allow_rotation: bool", 
+            allow_mirroring as "allow_mirroring: bool", 
+            min_score as "min_score: f64", 
+            created_at as "created_at: chrono::DateTime<chrono::Utc>", 
+            updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+        FROM duplicate_rule_sets
+        ORDER BY updated_at DESC
+        LIMIT 1
+        "#
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|database_error| {
+        tracing::error!("Failed to fetch active rule set: {:?}", database_error);
+        AppError::Database(database_error)
+    })?;
+
+    Ok(active_rule_set_record)
+}
+
 /// Retrieves duplicate groups filtered by their status.
 ///
 /// Parses the raw `group_type` and `status` strings from the database

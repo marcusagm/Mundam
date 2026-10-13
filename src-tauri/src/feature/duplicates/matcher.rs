@@ -221,6 +221,7 @@ fn evaluate_subgrid_overlap(
 /// * `file_size_one` - File size in bytes of the first image.
 /// * `file_size_two` - File size in bytes of the second image.
 /// * `minimum_score_threshold` - Minimum confidence score required to form a match.
+/// * `consider_visual_match` - Whether visual/perceptual matching is enabled in the active rule set.
 /// * `consider_crop_match` - Whether crop matching is enabled in the active rule set.
 ///
 /// # Returns
@@ -238,6 +239,7 @@ pub fn evaluate_visual_and_crop_match(
     file_size_one: Option<i64>,
     file_size_two: Option<i64>,
     minimum_score_threshold: f64,
+    consider_visual_match: bool,
     consider_crop_match: bool,
 ) -> Option<DuplicateMatchResult> {
     // Guard: Reject degenerate zero-hash images. Images that decode as fully uniform
@@ -257,7 +259,7 @@ pub fn evaluate_visual_and_crop_match(
     };
 
     // Primary check: Direct visual/perceptual match
-    if visual_similarity >= minimum_score_threshold {
+    if consider_visual_match && visual_similarity >= minimum_score_threshold {
         // When multiscale hash is available and visual similarity is below 0.85,
         // require multiscale similarity >= 0.65 to ensure the match is not a low-entropy
         // artifact of matching background zeros.
@@ -420,6 +422,7 @@ mod tests {
             Some(1000),
             Some(2000),
             0.70,
+            true,
             false,
         );
         assert!(
@@ -443,6 +446,7 @@ mod tests {
             Some(1000),
             Some(2000),
             0.70,
+            true,
             true,
         );
         assert!(
@@ -471,6 +475,7 @@ mod tests {
             Some(300000),
             0.70,
             true,
+            true,
         );
         assert!(
             result.is_none(),
@@ -497,6 +502,7 @@ mod tests {
             Some(1000000),
             Some(50000000),
             0.70,
+            true,
             true,
         );
         assert!(
@@ -525,6 +531,7 @@ mod tests {
             Some(300000),
             0.70,
             true,
+            true,
         );
         assert!(
             result.is_none(),
@@ -550,6 +557,7 @@ mod tests {
             Some(40000),
             Some(36000),
             0.70,
+            true,
             true,
         );
         assert!(
@@ -577,6 +585,7 @@ mod tests {
             Some(29000),
             0.70,
             true,
+            true,
         );
         assert!(
             result.is_none(),
@@ -601,9 +610,35 @@ mod tests {
             Some(500000),
             Some(500000),
             0.70,
+            true,
             false,
         );
         assert!(result.is_some(), "Identical hashes should always match");
         assert!((result.unwrap().score - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_visual_match_skipped_when_disabled_even_if_identical() {
+        let casa_hash: u64 = 0x4777ac2327478753;
+
+        let result = evaluate_visual_and_crop_match(
+            casa_hash,
+            casa_hash,
+            None,
+            None,
+            None,
+            None,
+            (Some(1000), Some(566)),
+            (Some(1000), Some(566)),
+            Some(500000),
+            Some(500000),
+            0.70,
+            false,
+            false,
+        );
+        assert!(
+            result.is_none(),
+            "When consider_visual_match is false and consider_crop_match is false, no visual match should form"
+        );
     }
 }

@@ -31,3 +31,32 @@ export interface DuplicateGroup {
     candidates: DuplicateCandidate[];
     candidatesLoaded?: boolean;
 }
+
+/**
+ * Predefined profiles for duplicate detection rules.
+ */
+export type DuplicateRuleProfile = 'exact-match' | 'visual-match' | 'aggressive' | 'custom';
+
+/**
+ * Rule configuration model for duplicate detection algorithm tuning.
+ */
+export interface DuplicateRuleConfiguration {
+    /** Unique rule set identifier */
+    id: string;
+    /** Human-readable profile name */
+    name: string;
+    /** Optional rule set description */
+    description?: string;
+    /** Whether block-level exact content hashing is evaluated */
+    considerExactMatch: boolean;
+    /** Whether perceptual dHash and multiscale texture hashing are evaluated */
+    considerVisualMatch: boolean;
+    /** Whether spatial block hash sub-grid crop matching is evaluated */
+    considerCropMatch: boolean;
+    /** Whether resolution variations are ignored */
+    ignoreResolutionDifference: boolean;
+    /** Whether recompression between formats is ignored */
+    ignoreRecompression: boolean;
+    /** Minimum confidence score threshold (0.50 to 1.00) */
+    minimumScore: number;
+}

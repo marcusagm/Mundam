@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_candidates",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "6de409dfb51e834167b18f46bdebbd16d69a6624d52244fb975f453a0e3cb389"
+}

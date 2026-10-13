@@ -23,3 +23,5 @@ export * from './DuplicateSplitView';
 export * from './DuplicateCandidateCard';
 export * from './MetadataMergeModal';
 export * from './DuplicateRulesModal';
+export * from './DuplicateRulesForm';
+export * from './hooks/useDuplicateRules';

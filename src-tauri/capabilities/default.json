@@ -125,6 +125,8 @@
     "allow-cancel-duplicate-scan",
     "allow-update-duplicate-rule-set",
     "allow-apply-duplicate-metadata-merge",
+    "allow-get-active-duplicate-rule-set",
+    "allow-rebuild-duplicate-index",
     {
       "identifier": "http:default",
       "allow": [

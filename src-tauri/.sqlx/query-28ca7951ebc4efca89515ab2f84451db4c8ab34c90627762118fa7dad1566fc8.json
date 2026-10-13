@@ -1,0 +1,92 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            id as \"id!\", name as \"name!\", description, \n            consider_exact_match as \"consider_exact_match: bool\", \n            consider_visual_match as \"consider_visual_match: bool\", \n            consider_crop_match as \"consider_crop_match: bool\", \n            ignore_resolution_difference as \"ignore_resolution_difference: bool\", \n            ignore_recompression as \"ignore_recompression: bool\", \n            allow_rotation as \"allow_rotation: bool\", \n            allow_mirroring as \"allow_mirroring: bool\", \n            min_score as \"min_score: f64\", \n            created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_rule_sets\n        ORDER BY updated_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "consider_exact_match: bool",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "consider_visual_match: bool",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "consider_crop_match: bool",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "ignore_resolution_difference: bool",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "ignore_recompression: bool",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "allow_rotation: bool",
+        "ordinal": 8,
+        "type_info": "Integer"
+      },
+      {
+        "name": "allow_mirroring: bool",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "min_score: f64",
+        "ordinal": 10,
+        "type_info": "Float"
+      },
+      {
+        "name": "created_at: chrono::DateTime<chrono::Utc>",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at: chrono::DateTime<chrono::Utc>",
+        "ordinal": 12,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "28ca7951ebc4efca89515ab2f84451db4c8ab34c90627762118fa7dad1566fc8"
+}

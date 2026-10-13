@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_groups",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "a27d6a4daad0824eb253542bdeeab1e3d7cd30d8a2aa62c0f04793613c04dbab"
+}

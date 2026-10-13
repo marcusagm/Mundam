@@ -337,4 +337,15 @@ impl DuplicateCommandService {
     pub async fn update_rule_set(&self, rule_set: crate::core::models::DuplicateRuleSet) -> AppResult<()> {
         self.duplicates_repo.save_rule_set(rule_set).await
     }
+
+    /// Erases all existing duplicate index tables (groups, candidates, resolutions, fingerprints)
+    /// and triggers a fresh full duplicate scan across the entire library.
+    ///
+    /// # Errors
+    /// Returns `AppError::Database` if resetting or scanning fails.
+    pub async fn rebuild_duplicate_index(&self) -> AppResult<()> {
+        self.duplicates_repo.reset_duplicate_index().await?;
+        self.start_duplicate_scan().await?;
+        Ok(())
+    }
 }

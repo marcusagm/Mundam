@@ -34,7 +34,8 @@ export const SettingsPayloadSchema = z.object({
     thumbnailThreads: z.number().min(0).max(32).optional(),
     cacheRetentionDays: z.number().min(1).max(365).optional(),
     historyLimit: z.number().min(1).max(1000).optional(),
-    indexerConcurrencyLimit: z.number().min(10).max(500).optional()
+    indexerConcurrencyLimit: z.number().min(10).max(500).optional(),
+    autoDetectDuplicates: z.boolean().optional()
 });
 
 export type SettingsPayload = z.infer<typeof SettingsPayloadSchema>;

@@ -401,3 +401,13 @@ commands.allow = ["update_duplicate_rule_set"]
 identifier = "allow-apply-duplicate-metadata-merge"
 description = "Enables apply_duplicate_metadata_merge"
 commands.allow = ["apply_duplicate_metadata_merge"]
+
+[[permission]]
+identifier = "allow-get-active-duplicate-rule-set"
+description = "Enables get_active_duplicate_rule_set"
+commands.allow = ["get_active_duplicate_rule_set"]
+
+[[permission]]
+identifier = "allow-rebuild-duplicate-index"
+description = "Enables rebuild_duplicate_index"
+commands.allow = ["rebuild_duplicate_index"]

@@ -320,6 +320,24 @@ export const duplicatesApi = {
      */
     updateDuplicateRuleSet: async (ruleSet: BackendDuplicateRuleSet): Promise<void> => {
         return invoke('update_duplicate_rule_set', { ruleSet });
+    },
+
+    /**
+     * Gets the currently active duplicate rule set from the backend.
+     *
+     * @returns {Promise<BackendDuplicateRuleSet | null>} The active rule set or null if none found.
+     */
+    getActiveDuplicateRuleSet: async (): Promise<BackendDuplicateRuleSet | null> => {
+        return invoke<BackendDuplicateRuleSet | null>('get_active_duplicate_rule_set');
+    },
+
+    /**
+     * Erases all duplicate index records and restarts a fresh library rescan.
+     *
+     * @returns {Promise<void>}
+     */
+    rebuildDuplicateIndex: async (): Promise<void> => {
+        return invoke('rebuild_duplicate_index');
     }
 };
 

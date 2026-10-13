@@ -11,6 +11,7 @@ export interface CacheStats {
 const [thumbnailThreads, setThumbnailThreads] = createSignal<number>(2);
 const [cacheRetentionDays, setCacheRetentionDays] = createSignal<number>(30);
 const [indexerConcurrencyLimit, setIndexerConcurrencyLimit] = createSignal<number>(200);
+const [autoDetectDuplicates, setAutoDetectDuplicates] = createSignal<boolean>(true);
 const [cacheStats, setCacheStats] = createSignal<CacheStats>({
     size_bytes: 0,
     file_count: 0
@@ -18,16 +19,18 @@ const [cacheStats, setCacheStats] = createSignal<CacheStats>({
 
 export const settingsActions = {
     initialize: async () => {
-        const [threads, retention, concurrency, stats] = await Promise.all([
+        const [threads, retention, concurrency, autoDetect, stats] = await Promise.all([
             tauriService.getSetting('thumbnail_threads'),
             tauriService.getSetting('cache_retention_days'),
             tauriService.getSetting('indexer_concurrency_limit'),
+            tauriService.getSetting('auto_detect_duplicates'),
             tauriService.getCacheStats()
         ]);
 
         if (threads !== null) setThumbnailThreads(Number(threads));
         if (retention !== null) setCacheRetentionDays(Number(retention));
         if (concurrency !== null) setIndexerConcurrencyLimit(Number(concurrency));
+        if (autoDetect !== null) setAutoDetectDuplicates(Boolean(autoDetect));
         setCacheStats({ size_bytes: stats.size_bytes, file_count: stats.file_count });
     },
 
@@ -65,6 +68,15 @@ export const settingsActions = {
                 )
             );
         }
+        if (payload.autoDetectDuplicates !== undefined) {
+            setAutoDetectDuplicates(payload.autoDetectDuplicates);
+            promises.push(
+                tauriService.setSetting(
+                    'auto_detect_duplicates',
+                    String(payload.autoDetectDuplicates)
+                )
+            );
+        }
 
         try {
             await Promise.all(promises);
@@ -87,4 +99,10 @@ export const settingsActions = {
     }
 };
 
-export { thumbnailThreads, cacheRetentionDays, indexerConcurrencyLimit, cacheStats };
+export {
+    thumbnailThreads,
+    cacheRetentionDays,
+    indexerConcurrencyLimit,
+    autoDetectDuplicates,
+    cacheStats
+};

@@ -95,11 +95,17 @@ pub fn init(app: &AppHandle) {
         .state::<Arc<dyn crate::core::repository::DuplicatesRepository>>()
         .inner()
         .clone();
-        
+
+    let settings_service = app
+        .state::<crate::feature::settings::SettingsService>()
+        .inner()
+        .clone();
+
     let duplicate_worker_token = lifecycle.child_token();
     let duplicate_worker = crate::feature::duplicates::events::DuplicateWorker::new(
         duplicates_repo.clone(),
         event_bus.clone(),
+        settings_service,
     );
     let duplicate_handle = std::sync::Arc::new(duplicate_worker).start(duplicate_worker_token.clone());
     lifecycle.register(

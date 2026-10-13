@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM duplicate_resolutions",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "d264d2ed2e8cee590ac461257a77d863e91711c6a10b7d23f9f55cabb89f6ad5"
+}

@@ -120,4 +120,32 @@ pub async fn update_duplicate_rule_set(
     command_service.update_rule_set(rule_set).await
 }
 
+/// Retrieves the most recently active duplicate rule set configuration.
+///
+/// # Arguments
+/// * `query_service` - State containing the duplicate query service.
+///
+/// # Errors
+/// Returns `AppError::Database` if the query fails.
+#[tauri::command]
+pub async fn get_active_duplicate_rule_set(
+    query_service: State<'_, DuplicateQueryService>,
+) -> AppResult<Option<crate::core::models::DuplicateRuleSet>> {
+    query_service.get_active_rule_set().await
+}
+
+/// Erases all existing duplicate index tables and triggers a full rescan.
+///
+/// # Arguments
+/// * `command_service` - State containing the duplicate command service.
+///
+/// # Errors
+/// Returns `AppError::Database` if the index reset or rescan fails.
+#[tauri::command]
+pub async fn rebuild_duplicate_index(
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<()> {
+    command_service.rebuild_duplicate_index().await
+}
+
 

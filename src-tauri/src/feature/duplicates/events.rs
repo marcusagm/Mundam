@@ -2,6 +2,7 @@ use crate::core::events::payloads::DomainEvent;
 use crate::core::events::bus::AppEventBus;
 use crate::core::repository::DuplicatesRepository;
 use crate::core::models::DuplicateFingerprint;
+use crate::feature::settings::SettingsService;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -11,6 +12,7 @@ use tracing::{error, info, warn};
 pub struct DuplicateWorker {
     duplicates_repo: Arc<dyn DuplicatesRepository>,
     event_bus: Arc<dyn AppEventBus>,
+    settings_service: SettingsService,
 }
 
 impl DuplicateWorker {
@@ -18,10 +20,12 @@ impl DuplicateWorker {
     pub fn new(
         duplicates_repo: Arc<dyn DuplicatesRepository>,
         event_bus: Arc<dyn AppEventBus>,
+        settings_service: SettingsService,
     ) -> Self {
         Self {
             duplicates_repo,
             event_bus,
+            settings_service,
         }
     }
 
@@ -75,22 +79,30 @@ impl DuplicateWorker {
 
                 match fingerprint_res {
                     Ok(Ok(fingerprint)) => {
-                        if let Err(e) = self.duplicates_repo.save_fingerprint(fingerprint).await {
-                            error!("DuplicateWorker: failed to save fingerprint for {}: {}", asset_id, e);
+                        if let Err(database_error) = self.duplicates_repo.save_fingerprint(fingerprint).await {
+                            error!("DuplicateWorker: failed to save fingerprint for {}: {}", asset_id, database_error);
                         } else {
                             info!("DuplicateWorker: successfully generated and saved fingerprint for {}", asset_id);
                             
-                            // Immediately run the exact match scan to auto-group if enabled
-                            if let Err(e) = self.duplicates_repo.run_exact_match_scan(None).await {
-                                warn!("DuplicateWorker: failed to auto-group exact matches: {}", e);
+                            let is_auto_detect_enabled = match self.settings_service.get_settings().await {
+                                Ok(application_settings) => application_settings.auto_detect_duplicates,
+                                Err(_) => true,
+                            };
+
+                            if is_auto_detect_enabled {
+                                if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(None).await {
+                                    warn!("DuplicateWorker: failed to auto-group exact matches: {}", scan_error);
+                                }
+                            } else {
+                                tracing::debug!("DuplicateWorker: auto-detect on import is disabled in settings");
                             }
                         }
                     }
-                    Ok(Err(e)) => {
-                        error!("DuplicateWorker: error generating fingerprint for {}: {}", asset_id, e);
+                    Ok(Err(generation_error)) => {
+                        error!("DuplicateWorker: error generating fingerprint for {}: {}", asset_id, generation_error);
                     }
-                    Err(e) => {
-                        error!("DuplicateWorker: blocking task panicked or was cancelled for {}: {}", asset_id, e);
+                    Err(join_error) => {
+                        error!("DuplicateWorker: blocking task panicked or was cancelled for {}: {}", asset_id, join_error);
                     }
                 }
             }

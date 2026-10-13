@@ -47,6 +47,10 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         crate::infra::database::query_handlers::duplicates_queries::get_rule_sets(&self.pool).await
     }
 
+    async fn get_active_rule_set(&self) -> AppResult<Option<DuplicateRuleSet>> {
+        crate::infra::database::query_handlers::duplicates_queries::get_active_rule_set(&self.pool).await
+    }
+
     async fn save_rule_set(&self, rule_set: DuplicateRuleSet) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::save_rule_set(&self.pool, rule_set).await
     }
@@ -109,5 +113,9 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
 
     async fn remove_candidate_from_groups(&self, asset_id: &str) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::remove_candidate_from_groups(&self.pool, asset_id).await
+    }
+
+    async fn reset_duplicate_index(&self) -> AppResult<()> {
+        crate::infra::database::handlers::duplicates_handler::reset_duplicate_index(&self.pool).await
     }
 }

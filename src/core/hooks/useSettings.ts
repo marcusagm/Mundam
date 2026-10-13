@@ -2,6 +2,7 @@ import {
     thumbnailThreads,
     cacheRetentionDays,
     indexerConcurrencyLimit,
+    autoDetectDuplicates,
     cacheStats,
     settingsActions
 } from '../store/settingsStore';
@@ -20,6 +21,8 @@ export const useSettings = () => {
         cacheRetentionDays,
         /** Maximum concurrent tasks during indexing */
         indexerConcurrencyLimit,
+        /** Whether automatic duplicate detection is triggered upon asset import */
+        autoDetectDuplicates,
         /** Current cache usage statistics */
         cacheStats,
 

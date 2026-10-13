@@ -144,4 +144,64 @@ describe('duplicatesApi batch candidate loading', () => {
             groupId: 'target-duplicate-group-identifier'
         });
     });
+
+    it('should invoke get_active_duplicate_rule_set command to fetch active rule set', async () => {
+        const mockActiveRuleSet = {
+            id: 'visual-match',
+            name: 'Visual Match',
+            consider_exact_match: false,
+            consider_visual_match: true,
+            consider_crop_match: false,
+            ignore_resolution_difference: true,
+            ignore_recompression: true,
+            allow_rotation: false,
+            allow_mirroring: false,
+            min_score: 0.9,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z'
+        };
+
+        mockedInvokeCommand.mockResolvedValueOnce(mockActiveRuleSet);
+
+        const activeRuleSet = await duplicatesApi.getActiveDuplicateRuleSet();
+
+        expect(mockedInvokeCommand).toHaveBeenCalledTimes(1);
+        expect(mockedInvokeCommand).toHaveBeenCalledWith('get_active_duplicate_rule_set');
+        expect(activeRuleSet).toEqual(mockActiveRuleSet);
+    });
+
+    it('should invoke update_duplicate_rule_set command with rule set payload', async () => {
+        mockedInvokeCommand.mockResolvedValueOnce(undefined);
+
+        const testRuleSetPayload = {
+            id: 'custom-match',
+            name: 'Custom Rules',
+            consider_exact_match: true,
+            consider_visual_match: true,
+            consider_crop_match: true,
+            ignore_resolution_difference: true,
+            ignore_recompression: true,
+            allow_rotation: false,
+            allow_mirroring: false,
+            min_score: 0.85,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z'
+        };
+
+        await duplicatesApi.updateDuplicateRuleSet(testRuleSetPayload);
+
+        expect(mockedInvokeCommand).toHaveBeenCalledTimes(1);
+        expect(mockedInvokeCommand).toHaveBeenCalledWith('update_duplicate_rule_set', {
+            ruleSet: testRuleSetPayload
+        });
+    });
+
+    it('should invoke rebuild_duplicate_index command to reset index', async () => {
+        mockedInvokeCommand.mockResolvedValueOnce(undefined);
+
+        await duplicatesApi.rebuildDuplicateIndex();
+
+        expect(mockedInvokeCommand).toHaveBeenCalledTimes(1);
+        expect(mockedInvokeCommand).toHaveBeenCalledWith('rebuild_duplicate_index');
+    });
 });

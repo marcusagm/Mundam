@@ -1,4 +1,4 @@
-use crate::core::models::{DuplicateCandidate, DuplicateGroup};
+use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateRuleSet};
 use crate::core::repository::DuplicatesRepository;
 use crate::core::error::AppResult;
 use std::sync::Arc;
@@ -37,5 +37,21 @@ impl DuplicateQueryService {
     /// Returns `AppError::Database` if the query fails.
     pub async fn get_group_candidates(&self, group_id: &str) -> AppResult<Vec<DuplicateCandidate>> {
         self.repository.get_group_candidates(group_id).await
+    }
+
+    /// Retrieves the active duplicate rule set.
+    ///
+    /// # Errors
+    /// Returns `AppError::Database` if the query fails.
+    pub async fn get_active_rule_set(&self) -> AppResult<Option<DuplicateRuleSet>> {
+        self.repository.get_active_rule_set().await
+    }
+
+    /// Retrieves all configured duplicate rule sets.
+    ///
+    /// # Errors
+    /// Returns `AppError::Database` if the query fails.
+    pub async fn get_rule_sets(&self) -> AppResult<Vec<DuplicateRuleSet>> {
+        self.repository.get_rule_sets().await
     }
 }

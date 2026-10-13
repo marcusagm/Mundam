@@ -29,6 +29,12 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the query fails.
     async fn get_rule_sets(&self) -> AppResult<Vec<DuplicateRuleSet>>;
 
+    /// Retrieves the most recently updated rule set currently acting as the active configuration.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query fails.
+    async fn get_active_rule_set(&self) -> AppResult<Option<DuplicateRuleSet>>;
+
     /// Saves or updates a rule set.
     ///
     /// # Arguments
@@ -173,4 +179,11 @@ pub trait DuplicatesRepository: Send + Sync {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the operation fails.
     async fn remove_candidate_from_groups(&self, asset_id: &str) -> AppResult<()>;
+
+    /// Erases all existing duplicate groups, candidates, resolutions, and fingerprints,
+    /// resetting the duplicate index to clean state.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the database operation fails.
+    async fn reset_duplicate_index(&self) -> AppResult<()>;
 }
