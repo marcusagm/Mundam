@@ -50,8 +50,8 @@
 
 ### 4.1 Janela de Mídia Principal (ItemView)
 - [ ] Remodelar `ItemView` adicionando Header nome do arquivo acima dos comandos da Toolbar.
-- [ ] Acoplar função base para limitar o tamanho percentual superdimensionado na rolagem de Zoom.
-- [ ] Loader visual responsivo: Otimizar para evitar travamentos durante parse de arquivos pesados, abrindo chance do usuário desistir/fechar caso sinta lentidão excessiva e abortando processamentos não completos.
+- [x] Acoplar função base para limitar o tamanho percentual superdimensionado na rolagem de Zoom.
+- [x] Loader visual responsivo: Otimizar para evitar travamentos durante parse de arquivos pesados, abrindo chance do usuário desistir/fechar caso sinta lentidão excessiva e abortando processamentos não completos.
 - [ ] Garantir painel que traga os datalhes completos de mídia, como submodal direto da tela Item.
 
 ### 4.2 Reprodutor Multi-Formato (Video HLS)

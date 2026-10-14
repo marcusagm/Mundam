@@ -559,7 +559,6 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
    >   - *Contrato de Propriedades dos Componentes do Design System*: Adequação dos componentes `Button` (`loading` e `disabled`) e `Slider` (`step`, `min`, `max`, `value`, `onChange`), assegurando coerência com os componentes oficiais do Mundam.
    > - **Possíveis Melhorias Futuras**:
    >   - *Detecção de Variações Angulares e Espelhamento*: Estender o motor de matching para considerar rotações ortogonais (90°, 180°, 270°) e flips especulares, utilizando as colunas `allow_rotation` e `allow_mirroring` já provisionadas no esquema SQL.
-   >   - *Pré-visualização Interativa de Sensibilidade*: Exibir em tempo real no modal uma amostra estatística de duplicatas detectadas conforme o usuário ajusta o slider de sensibilidade, antes de salvar e disparar a varredura global.
    >   - *Limiares Independentes*: Configurar limiares de tolerância desacoplados para matches visuais globais versus matches de recorte por quadrantes.
 
 
