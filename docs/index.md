@@ -11,17 +11,17 @@
   - Inedexer
   - Operations
   - Supported formats
-    - 3D
-    - Audio
+    - 3Ds
+    - Audios
     - Documents
     - Fonts
-    - Image
-    - Video
+    - Images
+    - Videos
     - Others
 - Tags
 - Folders
-- Smart Folders
 - Search
+  - Smart Folders
   - Fuzzy
   - Advanced
   - Sort
@@ -68,6 +68,43 @@
   - Internacionalization
   - State Management
   - Components
+    - Accordion
+    - Alert
+    - AudioPlayer
+    - Badge
+    - Button
+    - Checkbox
+    - ColorInput
+    - ColorPicker
+    - ContextMenu
+    - CountBadge
+    - DateInput
+    - DatePicker
+    - DropodownMenu
+    - Input
+    - Kdb
+    - Loader
+    - MaskedInput
+    - Modal
+    - NumberInput
+    - Popover
+    - Progressbar
+    - RadioGroup
+    - Resizable
+    - SectionGroup
+    - Select
+    - Separator
+    - Sidebar
+    - Slider
+    - Sonner
+    - Switch
+    - Table
+    - TagInput
+    - Toggle
+    - Tooltip
+    - TreeView
+    - VideoPlayer
+    - VirtualList
   - Notifications
 - Backend
   - Architecture
