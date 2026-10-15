@@ -1,6 +1,6 @@
 use crate::core::error::AppResult;
 use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction, MetadataMergePayload};
-use crate::feature::duplicates::commands::DuplicateCommandService;
+use crate::feature::duplicates::commands::{DuplicateCommandService, DuplicateScanStatus};
 use crate::feature::duplicates::queries::DuplicateQueryService;
 use tauri::State;
 
@@ -73,12 +73,17 @@ pub async fn undo_duplicate_resolution(
     command_service.undo_duplicate_resolution(&group_id).await
 }
 
-/// Dispara uma varredura por duplicados no repositório.
+/// Dispara uma varredura por duplicados no repositório em segundo plano.
 #[tauri::command]
 pub async fn start_duplicate_scan(
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
-    command_service.start_duplicate_scan().await?;
+    let service_clone = command_service.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(scan_error) = service_clone.start_duplicate_scan().await {
+            tracing::error!("Background duplicate scan error: {}", scan_error);
+        }
+    });
     Ok(())
 }
 
@@ -89,6 +94,20 @@ pub async fn cancel_duplicate_scan(
 ) -> AppResult<()> {
     command_service.cancel_duplicate_scan();
     Ok(())
+}
+
+/// Retrieves the current runtime status of the duplicate scan.
+///
+/// # Arguments
+/// * `command_service` - The duplicate command service state.
+///
+/// # Errors
+/// Returns `AppResult<DuplicateScanStatus>` representing current scanning state.
+#[tauri::command]
+pub async fn get_duplicate_scan_status(
+    command_service: State<'_, DuplicateCommandService>,
+) -> AppResult<DuplicateScanStatus> {
+    Ok(command_service.get_scan_status())
 }
 
 /// Applies a user-confirmed metadata merge to the kept assets of a duplicate group.

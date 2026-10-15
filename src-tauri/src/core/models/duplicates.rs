@@ -137,3 +137,11 @@ pub struct MetadataMergePayload {
     pub technical_payload_override: Option<serde_json::Value>,
 }
 
+/// Represents an asset that currently does not have a fingerprint computed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingFingerprintAsset {
+    pub asset_id: String,
+    pub path: String,
+    pub format_type: String,
+}
+

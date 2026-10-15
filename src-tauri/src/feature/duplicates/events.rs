@@ -33,39 +33,164 @@ impl DuplicateWorker {
         }
     }
 
-    /// Starts the background listener loop.
+    /// Starts the background listener and autonomous polling loops.
     pub fn start(
         self: Arc<Self>,
-        token: CancellationToken,
+        cancellation_token: CancellationToken,
     ) -> tauri::async_runtime::JoinHandle<()> {
-        let mut subscriber = self.event_bus.subscribe();
+        let worker_instance_for_events = self.clone();
+        let token_for_events = cancellation_token.clone();
+        let events_join_handle = tauri::async_runtime::spawn(async move {
+            worker_instance_for_events.listen_to_domain_events(token_for_events).await;
+        });
+
+        let worker_instance_for_polling = self.clone();
+        let token_for_polling = cancellation_token.clone();
+        let polling_join_handle = tauri::async_runtime::spawn(async move {
+            worker_instance_for_polling.background_fingerprint_loop(token_for_polling).await;
+        });
 
         tauri::async_runtime::spawn(async move {
-            info!("DuplicateWorker: started and listening for DomainEvents");
+            let _ = tokio::join!(events_join_handle, polling_join_handle);
+        })
+    }
 
-            loop {
-                tokio::select! {
-                    recv_result = subscriber.recv() => {
-                        match recv_result {
-                            Ok(event) => {
-                                self.handle_single_event(event).await;
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
-                                warn!("DuplicateWorker: lagged behind {} events", skipped_count);
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                                error!("DuplicateWorker subscriber channel closed. Exiting.");
-                                break;
-                            }
+    /// Listens to domain events on the event bus.
+    async fn listen_to_domain_events(&self, cancellation_token: CancellationToken) {
+        let mut event_subscriber = self.event_bus.subscribe();
+        info!("DuplicateWorker: started and listening for DomainEvents");
+
+        loop {
+            tokio::select! {
+                receive_result = event_subscriber.recv() => {
+                    match receive_result {
+                        Ok(event) => {
+                            self.handle_single_event(event).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
+                            warn!("DuplicateWorker: lagged behind {} events", skipped_count);
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            error!("DuplicateWorker subscriber channel closed. Exiting.");
+                            break;
                         }
                     }
-                    _ = token.cancelled() => {
-                        info!("DuplicateWorker: Cancelled via token. Shutting down.");
-                        break;
+                }
+                _ = cancellation_token.cancelled() => {
+                    info!("DuplicateWorker: Event listener cancelled via token. Shutting down.");
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Autonomous background loop that processes assets missing fingerprints.
+    async fn background_fingerprint_loop(&self, cancellation_token: CancellationToken) {
+        info!("DuplicateWorker: background fingerprint polling loop started");
+
+        loop {
+            if cancellation_token.is_cancelled() {
+                info!("DuplicateWorker: background fingerprint loop shutting down via cancellation token");
+                break;
+            }
+
+            // 1. Check if auto_detect_duplicates is enabled in settings
+            let is_auto_detect_enabled = match self.settings_service.get_settings().await {
+                Ok(application_settings) => application_settings.auto_detect_duplicates,
+                Err(_) => true,
+            };
+
+            if !is_auto_detect_enabled {
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => break,
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => continue,
+                }
+            }
+
+            // 2. Query batch of assets needing fingerprints
+            let pending_assets_result = self.duplicates_repo.get_assets_needing_fingerprints(10).await;
+            let pending_assets = match pending_assets_result {
+                Ok(assets_list) => assets_list,
+                Err(database_error) => {
+                    warn!("DuplicateWorker: error querying assets needing fingerprints: {}", database_error);
+                    tokio::select! {
+                        _ = cancellation_token.cancelled() => break,
+                        _ = tokio::time::sleep(tokio::time::Duration::from_secs(3)) => continue,
+                    }
+                }
+            };
+
+            if pending_assets.is_empty() {
+                // No pending assets, idle wait
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => break,
+                    _ = tokio::time::sleep(tokio::time::Duration::from_millis(1500)) => continue,
+                }
+            }
+
+            let mut processed_any_in_batch = false;
+
+            for pending_asset in pending_assets {
+                if cancellation_token.is_cancelled() {
+                    break;
+                }
+
+                let asset_id_clone = pending_asset.asset_id.clone();
+                let path_clone = pending_asset.path.clone();
+                let format_type_clone = pending_asset.format_type.clone();
+                let format_registry_clone = self.format_registry.clone();
+
+                let fingerprint_result = tokio::task::spawn_blocking(move || {
+                    Self::generate_fingerprint(
+                        &asset_id_clone,
+                        &path_clone,
+                        &format_type_clone,
+                        &format_registry_clone,
+                    )
+                })
+                .await;
+
+                match fingerprint_result {
+                    Ok(Ok(fingerprint)) => {
+                        if let Err(database_error) = self.duplicates_repo.save_fingerprint(fingerprint).await {
+                            error!(
+                                "DuplicateWorker: failed to save fingerprint for {}: {}",
+                                pending_asset.asset_id, database_error
+                            );
+                        } else {
+                            processed_any_in_batch = true;
+                        }
+                    }
+                    Ok(Err(generation_error)) => {
+                        error!(
+                            "DuplicateWorker: error generating fingerprint for {}: {}",
+                            pending_asset.asset_id, generation_error
+                        );
+                    }
+                    Err(join_error) => {
+                        error!(
+                            "DuplicateWorker: blocking task panicked for {}: {}",
+                            pending_asset.asset_id, join_error
+                        );
                     }
                 }
             }
-        })
+
+            if processed_any_in_batch && !cancellation_token.is_cancelled() {
+                if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await {
+                    warn!("DuplicateWorker: failed to auto-group exact matches in background: {}", scan_error);
+                } else {
+                    let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
+                        group_id: String::new(),
+                        group_type: "exact".to_string(),
+                        confidence: 1.0,
+                        canonical_asset_id: None,
+                        candidate_count: 2,
+                        rule_set_id: "exact-match".to_string(),
+                    });
+                }
+            }
+        }
     }
 
     /// Process a single event. 
@@ -78,11 +203,11 @@ impl DuplicateWorker {
                 let format_registry_clone = self.format_registry.clone();
                 
                 // Spawn a blocking task to perform heavy CPU/IO hashing
-                let fingerprint_res = tokio::task::spawn_blocking(move || {
+                let fingerprint_result = tokio::task::spawn_blocking(move || {
                     Self::generate_fingerprint(&asset_id_clone, &path_clone, &format, &format_registry_clone)
                 }).await;
 
-                match fingerprint_res {
+                match fingerprint_result {
                     Ok(Ok(fingerprint)) => {
                         if let Err(database_error) = self.duplicates_repo.save_fingerprint(fingerprint).await {
                             error!("DuplicateWorker: failed to save fingerprint for {}: {}", asset_id, database_error);

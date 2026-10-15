@@ -14,15 +14,52 @@ use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 use std::sync::Mutex;
+use std::sync::RwLock;
+
+/// Represents the current runtime status of a manual duplicate scan.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DuplicateScanStatus {
+    pub is_running: bool,
+    pub phase: String,
+    pub processed: usize,
+    pub total: usize,
+}
+
+impl Default for DuplicateScanStatus {
+    fn default() -> Self {
+        Self {
+            is_running: false,
+            phase: "idle".to_string(),
+            processed: 0,
+            total: 0,
+        }
+    }
+}
+
+/// RAII guard ensuring `is_running` is always reset to `false` when the scan scope exits.
+struct ScanRunningGuard {
+    status: Arc<RwLock<DuplicateScanStatus>>,
+}
+
+impl Drop for ScanRunningGuard {
+    fn drop(&mut self) {
+        if let Ok(mut status_guard) = self.status.write() {
+            status_guard.is_running = false;
+            status_guard.phase = "idle".to_string();
+        }
+    }
+}
 
 /// Command handler for duplicate operations.
+#[derive(Clone)]
 pub struct DuplicateCommandService {
     duplicates_repo: Arc<dyn DuplicatesRepository>,
     ledger: Arc<dyn TransactionalAssetLedger>,
     event_bus: Arc<dyn AppEventBus>,
     asset_query_handler: Arc<dyn AssetQueryHandler>,
     format_registry: Arc<FormatRegistry>,
-    scan_cancel_token: Mutex<Option<CancellationToken>>,
+    scan_cancel_token: Arc<Mutex<Option<CancellationToken>>>,
+    scan_status: Arc<RwLock<DuplicateScanStatus>>,
 }
 
 impl DuplicateCommandService {
@@ -47,7 +84,8 @@ impl DuplicateCommandService {
             event_bus,
             asset_query_handler,
             format_registry,
-            scan_cancel_token: Mutex::new(None),
+            scan_cancel_token: Arc::new(Mutex::new(None)),
+            scan_status: Arc::new(RwLock::new(DuplicateScanStatus::default())),
         }
     }
 
@@ -278,10 +316,30 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
     pub async fn start_duplicate_scan(&self) -> AppResult<()> {
-        let token = CancellationToken::new();
         {
-            let mut guard = self.scan_cancel_token.lock().unwrap_or_else(|poison| poison.into_inner());
-            if let Some(old_token) = guard.replace(token.clone()) {
+            let status_guard = self.scan_status.read().unwrap_or_else(|poison_error| poison_error.into_inner());
+            if status_guard.is_running {
+                tracing::warn!("DuplicateCommandService: scan already in progress, ignoring duplicate start request");
+                return Ok(());
+            }
+        }
+
+        {
+            let mut status_guard = self.scan_status.write().unwrap_or_else(|poison_error| poison_error.into_inner());
+            status_guard.is_running = true;
+            status_guard.phase = "preparing".to_string();
+            status_guard.processed = 0;
+            status_guard.total = 0;
+        }
+
+        let _scan_running_guard = ScanRunningGuard {
+            status: self.scan_status.clone(),
+        };
+
+        let cancellation_token = CancellationToken::new();
+        {
+            let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
+            if let Some(old_token) = cancellation_guard.replace(cancellation_token.clone()) {
                 old_token.cancel();
             }
         }
@@ -290,8 +348,14 @@ impl DuplicateCommandService {
             tokio::sync::mpsc::unbounded_channel::<(usize, usize)>();
 
         let event_bus_clone = self.event_bus.clone();
+        let scan_status_clone = self.scan_status.clone();
         tokio::spawn(async move {
             while let Some((processed, total)) = progress_receiver.recv().await {
+                if let Ok(mut status_guard) = scan_status_clone.write() {
+                    status_guard.phase = "hashing".to_string();
+                    status_guard.processed = processed;
+                    status_guard.total = total;
+                }
                 let _ = event_bus_clone.publish(DomainEvent::DuplicateScanProgressed {
                     processed,
                     matched: 0,
@@ -303,38 +367,75 @@ impl DuplicateCommandService {
 
         self.duplicates_repo.backfill_missing_fingerprints().await?;
 
-        let rehashed = self
+        let rehashed_count = self
             .duplicates_repo
-            .rehash_pending_fingerprints(Some(token.clone()), Some(progress_sender), Some(self.format_registry.clone()))
+            .rehash_pending_fingerprints(
+                Some(cancellation_token.clone()),
+                Some(progress_sender),
+                Some(self.format_registry.clone()),
+            )
             .await?;
 
         tracing::info!(
             "DuplicateCommandService: rehashed {} pending fingerprints before scan",
-            rehashed
+            rehashed_count
         );
 
-        self.duplicates_repo.run_exact_match_scan(Some(token.clone())).await?;
-        self.duplicates_repo.run_visual_match_scan(Some(token.clone())).await?;
+        if cancellation_token.is_cancelled() {
+            tracing::info!("DuplicateCommandService: scan cancelled after rehashing");
+            return Ok(());
+        }
+
+        {
+            if let Ok(mut status_guard) = self.scan_status.write() {
+                status_guard.phase = "exact_matching".to_string();
+            }
+        }
+        self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await?;
+
+        if cancellation_token.is_cancelled() {
+            tracing::info!("DuplicateCommandService: scan cancelled after exact matching");
+            return Ok(());
+        }
+
+        {
+            if let Ok(mut status_guard) = self.scan_status.write() {
+                status_guard.phase = "visual_matching".to_string();
+            }
+        }
+        self.duplicates_repo.run_visual_match_scan(Some(cancellation_token.clone())).await?;
 
         let _ = self.event_bus.publish(DomainEvent::DuplicateScanFinished {
             groups_created: 0,
         });
 
-        let mut guard = self.scan_cancel_token.lock().unwrap_or_else(|poison| poison.into_inner());
-        if let Some(current) = guard.as_ref() {
-            if current.is_cancelled() {
-                *guard = None;
+        let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
+        if let Some(current_token) = cancellation_guard.as_ref() {
+            if current_token.is_cancelled() {
+                *cancellation_guard = None;
             }
         }
 
         Ok(())
     }
 
+    /// Returns the current runtime status of the duplicate scan.
+    pub fn get_scan_status(&self) -> DuplicateScanStatus {
+        self.scan_status
+            .read()
+            .map(|status_guard| status_guard.clone())
+            .unwrap_or_default()
+    }
+
     pub fn cancel_duplicate_scan(&self) {
-        let mut guard = self.scan_cancel_token.lock().unwrap_or_else(|poison| poison.into_inner());
-        if let Some(token) = guard.take() {
+        let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
+        if let Some(token) = cancellation_guard.take() {
             token.cancel();
             tracing::info!("DuplicateCommandService: cancelled ongoing scan");
+        }
+        if let Ok(mut status_guard) = self.scan_status.write() {
+            status_guard.is_running = false;
+            status_guard.phase = "idle".to_string();
         }
     }
 

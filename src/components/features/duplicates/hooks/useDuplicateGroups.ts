@@ -1,4 +1,13 @@
-import { createSignal, createResource, createMemo, Resource, Setter, Accessor } from 'solid-js';
+/* eslint-disable max-lines */
+import {
+    createSignal,
+    createResource,
+    createMemo,
+    onMount,
+    Resource,
+    Setter,
+    Accessor
+} from 'solid-js';
 import { duplicatesApi } from '../../../../lib/duplicates';
 import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
@@ -95,6 +104,29 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             console.error('Failed to load duplicate groups:', error);
             return [];
         }
+    });
+
+    onMount(() => {
+        void (async () => {
+            try {
+                const scanStatus = await duplicatesApi.getDuplicateScanStatus();
+                if (scanStatus.is_running) {
+                    setIsScanning(true);
+                    if (scanStatus.total > 0) {
+                        setScanProgress({
+                            processed: scanStatus.processed,
+                            matched: 0,
+                            groupsCreated: 0,
+                            total: scanStatus.total
+                        });
+                    } else {
+                        setScanProgress(null);
+                    }
+                }
+            } catch (statusError: unknown) {
+                console.error('Failed to get duplicate scan status on mount:', statusError);
+            }
+        })();
     });
 
     const handleScanProgressEvent = (eventData: Record<string, number>): void => {

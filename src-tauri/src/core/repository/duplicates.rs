@@ -187,4 +187,16 @@ pub trait DuplicatesRepository: Send + Sync {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the database operation fails.
     async fn reset_duplicate_index(&self) -> AppResult<()>;
+
+    /// Retrieves assets that do not yet have a duplicate fingerprint computed.
+    ///
+    /// # Arguments
+    /// * `limit` - The maximum number of assets to return.
+    ///
+    /// # Errors
+    /// Returns `AppError::DatabaseError` if the query fails.
+    async fn get_assets_needing_fingerprints(
+        &self,
+        limit: u32,
+    ) -> AppResult<Vec<crate::core::models::PendingFingerprintAsset>>;
 }

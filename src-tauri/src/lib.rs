@@ -117,6 +117,7 @@ pub fn run() {
             delivery::tauri::commands::duplicates::undo_duplicate_resolution,
             delivery::tauri::commands::duplicates::start_duplicate_scan,
             delivery::tauri::commands::duplicates::cancel_duplicate_scan,
+            delivery::tauri::commands::duplicates::get_duplicate_scan_status,
             delivery::tauri::commands::duplicates::apply_duplicate_metadata_merge,
             delivery::tauri::commands::duplicates::update_duplicate_rule_set,
             delivery::tauri::commands::duplicates::get_active_duplicate_rule_set,

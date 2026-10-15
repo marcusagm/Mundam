@@ -13,6 +13,13 @@ export interface BackendDuplicateGroup {
     updated_at: string;
 }
 
+export interface DuplicateScanStatus {
+    is_running: boolean;
+    phase: string;
+    processed: number;
+    total: number;
+}
+
 export interface BackendDuplicateCandidate {
     group_id: string;
     asset_id: string;
@@ -338,6 +345,15 @@ export const duplicatesApi = {
      */
     rebuildDuplicateIndex: async (): Promise<void> => {
         return invoke('rebuild_duplicate_index');
+    },
+
+    /**
+     * Retrieves the current runtime scan status from the backend.
+     *
+     * @returns {Promise<DuplicateScanStatus>} The current duplicate scan status.
+     */
+    getDuplicateScanStatus: async (): Promise<DuplicateScanStatus> => {
+        return invoke<DuplicateScanStatus>('get_duplicate_scan_status');
     }
 };
 

@@ -123,6 +123,7 @@
     "allow-undo-duplicate-resolution",
     "allow-start-duplicate-scan",
     "allow-cancel-duplicate-scan",
+    "allow-get-duplicate-scan-status",
     "allow-update-duplicate-rule-set",
     "allow-apply-duplicate-metadata-merge",
     "allow-get-active-duplicate-rule-set",

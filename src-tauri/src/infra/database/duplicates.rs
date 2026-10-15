@@ -119,4 +119,11 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
     async fn reset_duplicate_index(&self) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::reset_duplicate_index(&self.pool).await
     }
+
+    async fn get_assets_needing_fingerprints(
+        &self,
+        limit: u32,
+    ) -> AppResult<Vec<crate::core::models::PendingFingerprintAsset>> {
+        crate::infra::database::handlers::duplicates_handler::get_assets_needing_fingerprints(&self.pool, limit).await
+    }
 }

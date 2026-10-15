@@ -393,6 +393,11 @@ description = "Enables cancel_duplicate_scan"
 commands.allow = ["cancel_duplicate_scan"]
 
 [[permission]]
+identifier = "allow-get-duplicate-scan-status"
+description = "Enables get_duplicate_scan_status"
+commands.allow = ["get_duplicate_scan_status"]
+
+[[permission]]
 identifier = "allow-update-duplicate-rule-set"
 description = "Enables update_duplicate_rule_set"
 commands.allow = ["update_duplicate_rule_set"]

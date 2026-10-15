@@ -687,6 +687,13 @@ pub async fn run_visual_match_scan(
     let mut discovered_groups: Vec<DiscoveredGroupInfo> = Vec::new();
 
     for primary_index in 0..total_assets_count {
+        if let Some(active_cancellation_token) = &cancellation_token {
+            if active_cancellation_token.is_cancelled() {
+                tracing::info!("run_visual_match_scan: cancelled during pairwise comparison");
+                return Ok(());
+            }
+        }
+
         if grouped_asset_indices[primary_index] {
             continue;
         }
@@ -1047,3 +1054,43 @@ pub async fn reset_duplicate_index(pool: &SqlitePool) -> AppResult<()> {
     tracing::info!("reset_duplicate_index: successfully wiped all duplicate tables");
     Ok(())
 }
+
+/// Retrieves assets that do not yet have a duplicate fingerprint computed.
+///
+/// # Arguments
+/// * `pool` - The SQLite database connection pool.
+/// * `limit` - The maximum number of assets to return.
+///
+/// # Errors
+/// Returns `AppError::Database` if the query fails.
+pub async fn get_assets_needing_fingerprints(
+    pool: &SqlitePool,
+    limit: u32,
+) -> AppResult<Vec<crate::core::models::PendingFingerprintAsset>> {
+    let limit_integer = limit as i64;
+    let database_rows = sqlx::query!(
+        r#"
+        SELECT a.id as "id!", a.path as "path!", a.format_type as "format_type!"
+        FROM assets a
+        LEFT JOIN duplicate_fingerprints df ON a.id = df.asset_id
+        WHERE df.asset_id IS NULL AND a.state != 'trashed' AND a.deleted_at IS NULL
+        LIMIT ?
+        "#,
+        limit_integer
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let pending_assets = database_rows
+        .into_iter()
+        .map(|database_row| crate::core::models::PendingFingerprintAsset {
+            asset_id: database_row.id,
+            path: database_row.path,
+            format_type: database_row.format_type,
+        })
+        .collect();
+
+    Ok(pending_assets)
+}
+
