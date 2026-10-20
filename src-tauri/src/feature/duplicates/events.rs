@@ -6,7 +6,7 @@ use crate::core::models::DuplicateFingerprint;
 use crate::feature::settings::SettingsService;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 /// Background worker that listens to domain events and generates
 /// duplicates fingerprints for new assets.
@@ -38,6 +38,8 @@ impl DuplicateWorker {
         self: Arc<Self>,
         cancellation_token: CancellationToken,
     ) -> tauri::async_runtime::JoinHandle<()> {
+        info!("DuplicateWorker: starting event listener and background polling loops");
+
         let worker_instance_for_events = self.clone();
         let token_for_events = cancellation_token.clone();
         let events_join_handle = tauri::async_runtime::spawn(async move {
@@ -52,13 +54,14 @@ impl DuplicateWorker {
 
         tauri::async_runtime::spawn(async move {
             let _ = tokio::join!(events_join_handle, polling_join_handle);
+            info!("DuplicateWorker: all worker tasks have stopped");
         })
     }
 
     /// Listens to domain events on the event bus.
     async fn listen_to_domain_events(&self, cancellation_token: CancellationToken) {
         let mut event_subscriber = self.event_bus.subscribe();
-        info!("DuplicateWorker: started and listening for DomainEvents");
+        info!("DuplicateWorker: event listener loop started and subscribing to DomainEvents");
 
         loop {
             tokio::select! {
@@ -68,16 +71,16 @@ impl DuplicateWorker {
                             self.handle_single_event(event).await;
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
-                            warn!("DuplicateWorker: lagged behind {} events", skipped_count);
+                            warn!("DuplicateWorker: lagged behind {} events in event bus", skipped_count);
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                            error!("DuplicateWorker subscriber channel closed. Exiting.");
+                            error!("DuplicateWorker: subscriber channel closed, terminating event listener");
                             break;
                         }
                     }
                 }
                 _ = cancellation_token.cancelled() => {
-                    info!("DuplicateWorker: Event listener cancelled via token. Shutting down.");
+                    info!("DuplicateWorker: event listener cancelled via token. Shutting down.");
                     break;
                 }
             }
@@ -86,7 +89,7 @@ impl DuplicateWorker {
 
     /// Autonomous background loop that processes assets missing fingerprints.
     async fn background_fingerprint_loop(&self, cancellation_token: CancellationToken) {
-        info!("DuplicateWorker: background fingerprint polling loop started");
+        info!("DuplicateWorker: autonomous background fingerprint polling loop started");
 
         loop {
             if cancellation_token.is_cancelled() {
@@ -101,6 +104,7 @@ impl DuplicateWorker {
             };
 
             if !is_auto_detect_enabled {
+                debug!("DuplicateWorker: auto_detect_duplicates is disabled in settings, waiting...");
                 tokio::select! {
                     _ = cancellation_token.cancelled() => break,
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => continue,
@@ -126,12 +130,16 @@ impl DuplicateWorker {
                     _ = cancellation_token.cancelled() => break,
                     _ = tokio::time::sleep(tokio::time::Duration::from_millis(1500)) => continue,
                 }
+            } else {
+                info!("DuplicateWorker: background loop found {} pending asset(s) needing fingerprints", pending_assets.len());
             }
 
             let mut processed_any_in_batch = false;
+            let total_batch_count = pending_assets.len();
 
-            for pending_asset in pending_assets {
+            for (asset_index, pending_asset) in pending_assets.into_iter().enumerate() {
                 if cancellation_token.is_cancelled() {
+                    info!("DuplicateWorker: background loop cancelled during batch processing at asset {}/{}", asset_index + 1, total_batch_count);
                     break;
                 }
 
@@ -139,6 +147,15 @@ impl DuplicateWorker {
                 let path_clone = pending_asset.path.clone();
                 let format_type_clone = pending_asset.format_type.clone();
                 let format_registry_clone = self.format_registry.clone();
+
+                debug!(
+                    "DuplicateWorker: [{}/{}] generating fingerprint for asset_id={}, path={}, format={}",
+                    asset_index + 1,
+                    total_batch_count,
+                    pending_asset.asset_id,
+                    pending_asset.path,
+                    pending_asset.format_type
+                );
 
                 let fingerprint_result = tokio::task::spawn_blocking(move || {
                     Self::generate_fingerprint(
@@ -152,12 +169,19 @@ impl DuplicateWorker {
 
                 match fingerprint_result {
                     Ok(Ok(fingerprint)) => {
+                        let content_hash_summary = fingerprint.content_hash.clone();
+                        let perceptual_hash_summary = fingerprint.perceptual_hash.clone();
+
                         if let Err(database_error) = self.duplicates_repo.save_fingerprint(fingerprint).await {
                             error!(
                                 "DuplicateWorker: failed to save fingerprint for {}: {}",
                                 pending_asset.asset_id, database_error
                             );
                         } else {
+                            debug!(
+                                "DuplicateWorker: saved fingerprint for asset_id={} (content_hash={:?}, perceptual_hash={:?})",
+                                pending_asset.asset_id, content_hash_summary, perceptual_hash_summary
+                            );
                             processed_any_in_batch = true;
                         }
                     }
@@ -177,9 +201,11 @@ impl DuplicateWorker {
             }
 
             if processed_any_in_batch && !cancellation_token.is_cancelled() {
+                info!("DuplicateWorker: finished processing background batch of {} asset(s), running exact match scan", total_batch_count);
                 if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await {
                     warn!("DuplicateWorker: failed to auto-group exact matches in background: {}", scan_error);
                 } else {
+                    info!("DuplicateWorker: exact match scan completed successfully after background batch");
                     let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
                         group_id: String::new(),
                         group_type: "exact".to_string(),
@@ -198,6 +224,7 @@ impl DuplicateWorker {
     async fn handle_single_event(&self, event: DomainEvent) {
         match event {
             DomainEvent::AssetCreated { asset_id, path, format } => {
+                info!("DuplicateWorker: received DomainEvent::AssetCreated for asset_id={}, path={}, format={}", asset_id, path, format);
                 let asset_id_clone = asset_id.clone();
                 let path_clone = path.clone();
                 let format_registry_clone = self.format_registry.clone();
@@ -209,10 +236,16 @@ impl DuplicateWorker {
 
                 match fingerprint_result {
                     Ok(Ok(fingerprint)) => {
+                        let content_hash_summary = fingerprint.content_hash.clone();
+                        let perceptual_hash_summary = fingerprint.perceptual_hash.clone();
+
                         if let Err(database_error) = self.duplicates_repo.save_fingerprint(fingerprint).await {
                             error!("DuplicateWorker: failed to save fingerprint for {}: {}", asset_id, database_error);
                         } else {
-                            info!("DuplicateWorker: successfully generated and saved fingerprint for {}", asset_id);
+                            info!(
+                                "DuplicateWorker: successfully generated and saved fingerprint for asset_id={} (content_hash={:?}, perceptual_hash={:?})",
+                                asset_id, content_hash_summary, perceptual_hash_summary
+                            );
                             
                             let is_auto_detect_enabled = match self.settings_service.get_settings().await {
                                 Ok(application_settings) => application_settings.auto_detect_duplicates,
@@ -220,9 +253,11 @@ impl DuplicateWorker {
                             };
 
                             if is_auto_detect_enabled {
+                                info!("DuplicateWorker: auto_detect_duplicates is enabled, running exact match scan for asset_id={}", asset_id);
                                 if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(None).await {
                                     warn!("DuplicateWorker: failed to auto-group exact matches: {}", scan_error);
                                 } else {
+                                    info!("DuplicateWorker: exact match scan succeeded for asset_id={}", asset_id);
                                     let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
                                         group_id: String::new(),
                                         group_type: "exact".to_string(),
@@ -233,7 +268,7 @@ impl DuplicateWorker {
                                     });
                                 }
                             } else {
-                                tracing::debug!("DuplicateWorker: auto-detect on import is disabled in settings");
+                                debug!("DuplicateWorker: auto-detect on import is disabled in settings");
                             }
                         }
                     }
@@ -246,14 +281,18 @@ impl DuplicateWorker {
                 }
             }
             DomainEvent::AssetDeleted { asset_id, .. } => {
-                info!("DuplicateWorker: cleaning up fingerprint and candidates for deleted asset {}", asset_id);
+                info!("DuplicateWorker: received DomainEvent::AssetDeleted for asset_id={}, cleaning up fingerprint and candidates", asset_id);
                 
                 if let Err(error) = self.duplicates_repo.delete_fingerprint(&asset_id).await {
                     error!("DuplicateWorker: failed to delete fingerprint for {}: {}", asset_id, error);
+                } else {
+                    debug!("DuplicateWorker: deleted fingerprint for asset_id={}", asset_id);
                 }
 
                 if let Err(error) = self.duplicates_repo.remove_candidate_from_groups(&asset_id).await {
                     error!("DuplicateWorker: failed to remove candidate {} from groups: {}", asset_id, error);
+                } else {
+                    debug!("DuplicateWorker: removed candidate asset_id={} from all duplicate groups", asset_id);
                 }
             }
             _ => {}
@@ -291,6 +330,11 @@ impl DuplicateWorker {
             
         let file_size = metadata.len() as i64;
 
+        debug!(
+            "generate_fingerprint: hashing asset_id={}, path={}, format={}, file_size={}",
+            asset_id, path, format, file_size
+        );
+
         // Compute Blake3 hash using streaming (8KB chunks) to avoid loading the whole file
         let mut file = std::fs::File::open(path)
             .map_err(|error| format!("Failed to open file {}: {}", path, error))?;
@@ -319,8 +363,15 @@ impl DuplicateWorker {
                 let direct_open_result = image::open(file_path);
 
                 let resolved_dynamic_image = match direct_open_result {
-                    Ok(loaded_image) => Some(loaded_image),
-                    Err(_) => {
+                    Ok(loaded_image) => {
+                        debug!("generate_fingerprint: direct image::open succeeded for asset_id={}", asset_id);
+                        Some(loaded_image)
+                    }
+                    Err(open_error) => {
+                        debug!(
+                            "generate_fingerprint: direct image::open failed for asset_id={} ({}), attempting FormatProvider fallback",
+                            asset_id, open_error
+                        );
                         // Stage 2: FormatProvider fallback for exotic formats (RAW, PSD, HDR, EXR, etc.)
                         // This runs inside spawn_blocking, so block_on is safe here.
                         crate::feature::duplicates::fingerprints::resolve_image_via_format_provider(
@@ -338,6 +389,11 @@ impl DuplicateWorker {
                     let multiscale_hash = crate::feature::duplicates::fingerprints::compute_multiscale_dhash_256(&dynamic_image);
                     let spatial_block_hash = crate::feature::duplicates::fingerprints::compute_spatial_block_hash(&dynamic_image);
 
+                    debug!(
+                        "generate_fingerprint: resolved image for asset_id={}, dimensions={}x{}, dhash={:016x}",
+                        asset_id, image_width, image_height, dhash_value
+                    );
+
                     (
                         Some(format!("{:016x}", dhash_value)),
                         Some(spatial_block_hash),
@@ -346,6 +402,10 @@ impl DuplicateWorker {
                         Some(image_height as i32),
                     )
                 } else {
+                    warn!(
+                        "generate_fingerprint: could not decode image pixels for asset_id={}, path={}",
+                        asset_id, path
+                    );
                     (None, None, None, None, None)
                 }
             } else {

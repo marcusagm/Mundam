@@ -169,10 +169,24 @@ pub fn resolve_image_via_format_provider(
     file_path: &std::path::Path,
     asset_id: &str,
 ) -> Option<image::DynamicImage> {
-    let provider = format_registry.resolve(file_path, &[])?;
+    let format_provider = match format_registry.resolve(file_path, &[]) {
+        Some(found_provider) => found_provider,
+        None => {
+            tracing::debug!(
+                "resolve_image_via_format_provider: no registered provider found for file_path={:?}, asset_id={}",
+                file_path,
+                asset_id
+            );
+            return None;
+        }
+    };
 
     // Try PreviewCapability first (highest fidelity)
-    if let Some(preview_capability) = provider.preview() {
+    if let Some(preview_capability) = format_provider.preview() {
+        tracing::debug!(
+            "resolve_image_via_format_provider: attempting preview capability for asset_id={}",
+            asset_id
+        );
         let preview_result = tokio::runtime::Handle::current().block_on(async {
             preview_capability
                 .generate_preview(file_path, asset_id)
@@ -180,13 +194,21 @@ pub fn resolve_image_via_format_provider(
         });
         if let Ok((preview_bytes, _mime_type)) = preview_result {
             if let Ok(loaded_image) = image::load_from_memory(&preview_bytes) {
+                tracing::debug!(
+                    "resolve_image_via_format_provider: successfully decoded image via preview capability for asset_id={}",
+                    asset_id
+                );
                 return Some(loaded_image);
             }
         }
     }
 
     // Fallback: ThumbnailCapability with large size_hint for better hash quality
-    if let Some(thumbnail_capability) = provider.thumbnail() {
+    if let Some(thumbnail_capability) = format_provider.thumbnail() {
+        tracing::debug!(
+            "resolve_image_via_format_provider: falling back to thumbnail capability (1024px) for asset_id={}",
+            asset_id
+        );
         let thumbnail_result = tokio::runtime::Handle::current().block_on(async {
             thumbnail_capability
                 .generate(file_path, asset_id, 1024)
@@ -194,10 +216,20 @@ pub fn resolve_image_via_format_provider(
         });
         if let Ok(thumbnail_bytes) = thumbnail_result {
             if let Ok(loaded_image) = image::load_from_memory(&thumbnail_bytes) {
+                tracing::debug!(
+                    "resolve_image_via_format_provider: successfully decoded image via thumbnail capability for asset_id={}",
+                    asset_id
+                );
                 return Some(loaded_image);
             }
         }
     }
+
+    tracing::warn!(
+        "resolve_image_via_format_provider: failed to decode raster image via FormatProvider for asset_id={}, file_path={:?}",
+        asset_id,
+        file_path
+    );
 
     None
 }

@@ -96,12 +96,18 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
 
     const [groups, { mutate, refetch }] = createResource(async () => {
         try {
+            console.info('[Duplicates] Fetching groups (open, ignored, resolved)...');
             const openGroups = await duplicatesApi.getDuplicateGroups('open');
             const ignoredGroups = await duplicatesApi.getDuplicateGroups('ignored');
             const resolvedGroups = await duplicatesApi.getDuplicateGroups('resolved');
+            console.info('[Duplicates] Groups loaded:', {
+                open: openGroups.length,
+                ignored: ignoredGroups.length,
+                resolved: resolvedGroups.length
+            });
             return [...openGroups, ...ignoredGroups, ...resolvedGroups];
         } catch (error: unknown) {
-            console.error('Failed to load duplicate groups:', error);
+            console.error('[Duplicates] Failed to load duplicate groups:', error);
             return [];
         }
     });
@@ -109,8 +115,13 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     onMount(() => {
         void (async () => {
             try {
+                console.info('[Duplicates] Checking scan status on mount...');
                 const scanStatus = await duplicatesApi.getDuplicateScanStatus();
                 if (scanStatus.is_running) {
+                    console.info(
+                        '[Duplicates] Scan is actively running in background:',
+                        scanStatus
+                    );
                     setIsScanning(true);
                     if (scanStatus.total > 0) {
                         setScanProgress({
@@ -124,12 +135,16 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
                     }
                 }
             } catch (statusError: unknown) {
-                console.error('Failed to get duplicate scan status on mount:', statusError);
+                console.error(
+                    '[Duplicates] Failed to get duplicate scan status on mount:',
+                    statusError
+                );
             }
         })();
     });
 
     const handleScanProgressEvent = (eventData: Record<string, number>): void => {
+        // console.debug('[Duplicates] Scan progress event received:', eventData);
         setScanProgress({
             processed: eventData.processed ?? 0,
             matched: eventData.matched ?? 0,
@@ -157,6 +172,9 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
         if (domainEvent.type === 'DuplicateScanFinished') {
+            console.info(
+                '[Duplicates] DuplicateScanFinished event received, refreshing groups and stats'
+            );
             setIsScanning(false);
             setScanProgress(null);
             refetch();
@@ -164,6 +182,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
         if (isGroupMutationEventType(domainEvent.type)) {
+            // console.debug('[Duplicates] Group mutation event received:', domainEvent.type);
             if (domainEvent.type === 'DuplicateGroupCreated') {
                 setNewGroupsFoundCount(previous => previous + 1);
             }
@@ -249,6 +268,11 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         keptAssetIds?: string[]
     ): Promise<void> => {
         try {
+            console.info('[Duplicates] Resolving duplicate group:', {
+                groupId,
+                action,
+                keptAssetIds
+            });
             await duplicatesApi.resolveDuplicateGroup(groupId, action, keptAssetIds);
             void metadata.loadStats();
 
@@ -298,6 +322,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
      */
     const undoResolution = async (groupId: string): Promise<void> => {
         try {
+            console.info('[Duplicates] Undoing resolution for group:', groupId);
             await duplicatesApi.undoDuplicateResolution(groupId);
             void metadata.loadStats();
 
@@ -338,11 +363,12 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
      */
     const startScan = async (): Promise<void> => {
         try {
+            console.info('[Duplicates] Triggering manual duplicate scan');
             setIsScanning(true);
             setScanProgress(null);
             await duplicatesApi.startDuplicateScan();
         } catch (error: unknown) {
-            console.error('Failed to start scan:', error);
+            console.error('[Duplicates] Failed to start scan:', error);
             setIsScanning(false);
             throw error;
         }
@@ -355,11 +381,12 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
      */
     const cancelScan = async (): Promise<void> => {
         try {
+            console.info('[Duplicates] Cancelling duplicate scan');
             await duplicatesApi.cancelDuplicateScan();
             setIsScanning(false);
             setScanProgress(null);
         } catch (error: unknown) {
-            console.error('Failed to cancel scan:', error);
+            console.error('[Duplicates] Failed to cancel scan:', error);
         }
     };
 

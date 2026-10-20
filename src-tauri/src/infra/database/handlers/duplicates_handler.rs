@@ -434,6 +434,7 @@ pub async fn run_exact_match_scan(
     pool: &SqlitePool,
     cancellation_token: Option<tokio_util::sync::CancellationToken>,
 ) -> AppResult<()> {
+    tracing::info!("run_exact_match_scan: starting scan for identical content hashes");
     sqlx::query!(
         r#"
         INSERT OR IGNORE INTO duplicate_rule_sets (
@@ -460,6 +461,7 @@ pub async fn run_exact_match_scan(
     }
 
     backfill_missing_fingerprints(pool).await?;
+    tracing::debug!("run_exact_match_scan: backfilled missing fingerprints");
 
     let duplicate_hash_records = sqlx::query!(
         r#"
@@ -479,6 +481,11 @@ pub async fn run_exact_match_scan(
         tracing::error!("Failed to fetch exact match groups: {:?}", database_error);
         AppError::Database(database_error)
     })?;
+
+    tracing::info!(
+        "run_exact_match_scan: identified {} unique content hash(es) with multiple assets",
+        duplicate_hash_records.len()
+    );
 
     for hash_record in duplicate_hash_records {
         if let Some(token) = &cancellation_token {
@@ -532,6 +539,12 @@ pub async fn run_exact_match_scan(
             new_group_id
         };
 
+        tracing::debug!(
+            "run_exact_match_scan: processing group for content_hash={}, group_id={}",
+            content_hash_value,
+            group_id
+        );
+
         sqlx::query!(
             r#"
             INSERT INTO duplicate_candidates (group_id, asset_id, score, reasons, is_selected)
@@ -562,6 +575,8 @@ pub async fn run_exact_match_scan(
 
         database_transaction.commit().await.map_err(AppError::Database)?;
     }
+
+    tracing::info!("run_exact_match_scan: completed exact match scan");
 
     Ok(())
 }
@@ -606,7 +621,7 @@ pub async fn run_visual_match_scan(
     .await
     .map_err(AppError::Database)?;
 
-    let (rule_set_id, minimum_score, consider_visual_match, consider_crop_match) = match rule_set_record {
+    let (rule_set_id_option, minimum_score, consider_visual_match, consider_crop_match) = match rule_set_record {
         Some(record) => (
             record.id,
             record.min_score,
@@ -616,10 +631,21 @@ pub async fn run_visual_match_scan(
         None => return Ok(()),
     };
 
+    let rule_set_identifier = rule_set_id_option.unwrap_or_else(|| "visual-match".to_string());
+    let rule_set_id_reference: &str = &rule_set_identifier;
+
     if !consider_visual_match && !consider_crop_match {
         tracing::info!("run_visual_match_scan: visual and crop matching both disabled in active rule set");
         return Ok(());
     }
+
+    tracing::info!(
+        "run_visual_match_scan: starting visual matching scan (rule_set={}, min_score={}, visual={}, crop={})",
+        rule_set_id_reference,
+        minimum_score,
+        consider_visual_match,
+        consider_crop_match
+    );
 
     struct VisualCandidateData {
         asset_id: String,
@@ -669,6 +695,11 @@ pub async fn run_visual_match_scan(
             }
         }
     }
+
+    tracing::info!(
+        "run_visual_match_scan: loaded {} candidate asset(s) with perceptual hashes for comparison",
+        candidate_assets.len()
+    );
 
     struct DiscoveredCandidateInfo {
         asset_id: String,
@@ -771,6 +802,11 @@ pub async fn run_visual_match_scan(
         }
     }
 
+    tracing::info!(
+        "run_visual_match_scan: pairwise evaluation completed, found {} visual/crop duplicate group(s)",
+        discovered_groups.len()
+    );
+
     let mut database_transaction = pool.begin().await.map_err(AppError::Database)?;
 
     sqlx::query!(
@@ -780,7 +816,7 @@ pub async fn run_visual_match_scan(
     .await
     .map_err(AppError::Database)?;
 
-    for discovered_group in discovered_groups {
+    for discovered_group in &discovered_groups {
         if let Some(token) = &cancellation_token {
             if token.is_cancelled() {
                 tracing::info!("run_visual_match_scan cancelled");
@@ -791,13 +827,21 @@ pub async fn run_visual_match_scan(
         let new_group_id = uuid::Uuid::new_v4().to_string();
         let candidate_count = discovered_group.candidates.len() as i64;
 
+        tracing::debug!(
+            "run_visual_match_scan: persisting group_id={} with {} candidate(s), type={}, confidence={:.4}",
+            new_group_id,
+            candidate_count,
+            discovered_group.group_type,
+            discovered_group.confidence
+        );
+
         sqlx::query!(
             r#"
             INSERT INTO duplicate_groups (id, rule_set_id, group_type, confidence, status, candidate_count, created_at, updated_at)
             VALUES (?, ?, ?, ?, 'open', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             "#,
             new_group_id,
-            rule_set_id,
+            rule_set_id_reference,
             discovered_group.group_type,
             discovered_group.confidence,
             candidate_count
@@ -806,7 +850,7 @@ pub async fn run_visual_match_scan(
         .await
         .map_err(AppError::Database)?;
 
-        for candidate_record in discovered_group.candidates {
+        for candidate_record in &discovered_group.candidates {
             let serialized_reasons = serde_json::to_string(&candidate_record.reasons)
                 .unwrap_or_else(|_| "[]".to_string());
 
@@ -827,6 +871,11 @@ pub async fn run_visual_match_scan(
     }
 
     database_transaction.commit().await.map_err(AppError::Database)?;
+
+    tracing::info!(
+        "run_visual_match_scan: successfully persisted {} visual duplicate group(s) to database",
+        discovered_groups.len()
+    );
 
     Ok(())
 }
@@ -1012,6 +1061,15 @@ pub async fn rehash_pending_fingerprints(
         if let Some(sender) = &progress_sender {
             let _ = sender.send((processed_index + 1, total_pending_count));
         }
+
+        if (processed_index + 1) % 50 == 0 || (processed_index + 1) == total_pending_count {
+            tracing::info!(
+                "rehash_pending_fingerprints: progress {}/{} ({} successfully rehashed)",
+                processed_index + 1,
+                total_pending_count,
+                rehashed_count
+            );
+        }
     }
 
     tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending_count);
@@ -1082,7 +1140,7 @@ pub async fn get_assets_needing_fingerprints(
     .await
     .map_err(AppError::Database)?;
 
-    let pending_assets = database_rows
+    let pending_assets: Vec<crate::core::models::PendingFingerprintAsset> = database_rows
         .into_iter()
         .map(|database_row| crate::core::models::PendingFingerprintAsset {
             asset_id: database_row.id,
@@ -1090,6 +1148,14 @@ pub async fn get_assets_needing_fingerprints(
             format_type: database_row.format_type,
         })
         .collect();
+
+    if !pending_assets.is_empty() {
+        tracing::debug!(
+            "get_assets_needing_fingerprints: fetched {} pending asset(s) needing fingerprints (limit={})",
+            pending_assets.len(),
+            limit
+        );
+    }
 
     Ok(pending_assets)
 }
