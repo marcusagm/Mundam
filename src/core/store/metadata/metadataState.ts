@@ -22,6 +22,9 @@ export interface MetadataState {
     smartFolders: SmartFolder[];
     libraryStats: {
         total_assets: number;
+        total_folders: number;
+        total_tags: number;
+        total_size_bytes: number;
         untagged_assets: number;
         has_tags_assets: number;
         favorite_assets: number;
@@ -31,6 +34,7 @@ export interface MetadataState {
         tag_counts: Map<string, number>;
         folder_counts: Map<string, number>;
         folder_counts_recursive: Map<string, number>;
+        family_stats: import('../../../lib/tags').FamilyStat[];
     };
     tagUpdateVersion: number;
 }
@@ -41,6 +45,9 @@ export const [metadataState, setMetadataState] = createStore<MetadataState>({
     smartFolders: [],
     libraryStats: {
         total_assets: 0,
+        total_folders: 0,
+        total_tags: 0,
+        total_size_bytes: 0,
         untagged_assets: 0,
         has_tags_assets: 0,
         favorite_assets: 0,
@@ -49,7 +56,8 @@ export const [metadataState, setMetadataState] = createStore<MetadataState>({
         duplicate_assets: 0,
         tag_counts: new Map(),
         folder_counts: new Map(),
-        folder_counts_recursive: new Map()
+        folder_counts_recursive: new Map(),
+        family_stats: []
     },
     tagUpdateVersion: 0
 });

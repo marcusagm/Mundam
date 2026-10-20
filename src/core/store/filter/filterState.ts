@@ -21,6 +21,7 @@ export interface FilterSnapshot {
     filterHasTags: boolean;
     filterFavorites: boolean;
     filterTrash: boolean;
+    filterFamily: string | null;
     searchQuery: string;
     /** Whether to use fuzzy matching for the search query */
     searchFuzzy: boolean;
@@ -49,6 +50,7 @@ export const defaultSnapshot: FilterSnapshot = {
     filterHasTags: false,
     filterFavorites: false,
     filterTrash: false,
+    filterFamily: null,
     searchQuery: '',
     searchFuzzy: false,
     advancedSearch: null,

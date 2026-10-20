@@ -204,6 +204,17 @@ pub struct FolderCount {
     pub count: i64,
 }
 
+/// Statistics for assets grouped by media family (e.g., image, video, audio, document).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FamilyStat {
+    /// Media family identifier (e.g. "image", "video", "audio", "document", "project")
+    pub family: String,
+    /// Total number of active assets in this family
+    pub count: i64,
+    /// Total file size in bytes for this family
+    pub total_size_bytes: i64,
+}
+
 /// Comprehensive statistics about the library.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryStats {
@@ -234,6 +245,9 @@ pub struct LibraryStats {
     /// Asset counts per folder including all subfolders.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub folder_counts_recursive: Option<Vec<FolderCount>>,
+    /// Breakdown of assets and disk usage per media family.
+    #[serde(default)]
+    pub family_stats: Vec<FamilyStat>,
 }
 
 /// Parameters for filtering asset listings.

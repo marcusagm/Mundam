@@ -40,20 +40,25 @@ export const locationActions = {
         try {
             const stats = await tagService.getLibraryStats();
             const tagMap = new Map();
-            stats.tag_counts.forEach(c => tagMap.set(c.tag_id, c.count));
+            stats.tag_counts.forEach(tagCount => tagMap.set(tagCount.tag_id, tagCount.count));
 
             const folderMap = new Map();
-            stats.folder_counts.forEach(c => folderMap.set(c.folder_id, c.count));
+            stats.folder_counts.forEach(folderCount =>
+                folderMap.set(folderCount.folder_id, folderCount.count)
+            );
 
             const folderRecursiveMap = new Map();
             if (stats.folder_counts_recursive) {
-                stats.folder_counts_recursive.forEach(c =>
-                    folderRecursiveMap.set(c.folder_id, c.count)
+                stats.folder_counts_recursive.forEach(folderCount =>
+                    folderRecursiveMap.set(folderCount.folder_id, folderCount.count)
                 );
             }
 
             setMetadataState('libraryStats', {
                 total_assets: stats.total_assets,
+                total_folders: stats.total_folders,
+                total_tags: stats.total_tags,
+                total_size_bytes: stats.total_size_bytes,
                 untagged_assets: stats.untagged_assets,
                 has_tags_assets: stats.has_tags_assets,
                 favorite_assets: stats.favorite_assets,
@@ -62,7 +67,8 @@ export const locationActions = {
                 duplicate_assets: stats.duplicate_assets,
                 tag_counts: tagMap,
                 folder_counts: folderMap,
-                folder_counts_recursive: folderRecursiveMap
+                folder_counts_recursive: folderRecursiveMap,
+                family_stats: stats.family_stats ?? []
             });
         } catch (error) {
             console.error('Failed to load library stats:', error);

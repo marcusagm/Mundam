@@ -14,8 +14,17 @@ export interface Tag {
     order_index: number;
 }
 
+export interface FamilyStat {
+    family: string;
+    count: number;
+    total_size_bytes: number;
+}
+
 export interface LibraryStats {
     total_assets: number;
+    total_folders: number;
+    total_tags: number;
+    total_size_bytes: number;
     untagged_assets: number;
     has_tags_assets: number;
     favorite_assets: number;
@@ -25,6 +34,7 @@ export interface LibraryStats {
     tag_counts: { tag_id: string; count: number }[];
     folder_counts: { folder_id: string; count: number }[];
     folder_counts_recursive: { folder_id: string; count: number }[];
+    family_stats: FamilyStat[];
 }
 
 export const tagService = {

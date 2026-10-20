@@ -18,14 +18,16 @@
 
 ## Home
 
-- [ ] Mostrar a lista de arquivos mais recentes de todas as pastas indexadas.
-- [ ] Adicionar contator de pastas indexadas e arquivos na capa da aplicação.
-- [ ] Adicionar contator de arquivos por formato, um contador por tipo como imagem, audio, video, documentos, etc.
-- [ ] Adicionar contator de tags.
-- [ ] Adicioanr contator de smart folders.
-- [ ] Adicionar contator de arquivos duplicados.
-- [ ] Adicionar contator de arquivos favoritos.
-- [ ] Adicionar contator de arquivos na lixeira.
+- [x] Mostrar a lista de arquivos mais recentes adicionados ou indexados de todas as pastas indexadas.
+- [x] Adicionar contator de pastas indexadas e arquivos na capa da aplicação.
+- [x] Adicionar sessão com números de arquivos e tamanho total ocupado em disco por tipo como imagem, audio, video, documentos, etc.
+- [x] Adicionar contator de tags.
+  - [x] Arquivos com tags
+  - [x] Arquivos sem tags
+- [x] Adicioanr contator de smart folders.
+- [x] Adicionar contator de arquivos duplicados.
+- [x] Adicionar contator de arquivos favoritos.
+- [x] Adicionar contator de arquivos na lixeira.
 
 ## Library
 
@@ -67,7 +69,7 @@
 - [ ] Adicionar visualização por icones.
 - [ ] Implementar a funcionalidade de clicar e arrastar no vazio para selecionar múltiplos itens na Grid e no mansory.
 - [ ] A listagem de tabelas mostra colunas diferentes da configurada no painel de ordenação na área de busca. Uma idea é remover as opções de exibição quando a visualização de tabela estiver ativa, ou substituir as opções pelas mesmas opções de colunas exibidas ao clicar com o direito sobre o cabeçalho.
-- [ ] Na listagem de tabelas os iceons de audio e video não estão aparecendo. Talvez esteja com problemas para todos os assets que não possuem thumbail.
+- [ ] Na listagem de tabelas os icones de audio e video não estão aparecendo. Talvez esteja com problemas para todos os assets que não possuem thumbail.
 
 ## Assets
 

@@ -121,7 +121,7 @@ function App() {
             <Show when={system.rootPath()} fallback={<WelcomeView header={renderTitleBar()} />}>
                 <Switch fallback={<GalleryView header={renderTitleBar()} />}>
                     <Match when={activeApplicationView() === 'home'}>
-                        <HomeView header={renderTitleBar()} />
+                        <HomeView header={renderTitleBar()} onNavigate={setActiveApplicationView} />
                     </Match>
                     <Match when={activeApplicationView() === 'gallery'}>
                         <GalleryView header={renderTitleBar()} />

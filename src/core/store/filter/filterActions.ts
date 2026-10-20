@@ -82,6 +82,11 @@ export const filterActions = {
         filterActions.setTrash(!filterState.filterTrash);
     },
 
+    setFamily: (family: string | null) => {
+        setFilterState('filterFamily', family);
+        historyActions.pushHistory();
+    },
+
     setFolder: (folderId: string | null) => {
         setFilterState('selectedFolderId', folderId);
         historyActions.pushHistory();
@@ -246,6 +251,7 @@ export const filterActions = {
             filterHasTags: false,
             filterFavorites: false,
             filterTrash: false,
+            filterFamily: null,
             searchQuery: '',
             searchFuzzy: false,
             advancedSearch: null
@@ -260,6 +266,7 @@ export const filterActions = {
             filterState.filterHasTags ||
             filterState.filterFavorites ||
             filterState.filterTrash ||
+            filterState.filterFamily !== null ||
             filterState.selectedFolderId !== null ||
             filterState.searchQuery !== '' ||
             filterState.advancedSearch !== null

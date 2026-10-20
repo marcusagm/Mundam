@@ -12,8 +12,8 @@ pub use duplicates::{
 };
 
 pub use asset::{
-    Asset, AssetColor, AssetFilter, AssetState, AssetSummaryDto, Folder, FolderCount, LibraryStats,
-    PageParams, PaginatedAssetsDto, Tag, TagCount,
+    Asset, AssetColor, AssetFilter, AssetState, AssetSummaryDto, FamilyStat, Folder, FolderCount,
+    LibraryStats, PageParams, PaginatedAssetsDto, Tag, TagCount,
 };
 pub use search::{LogicalOperator, SearchCriteria, SearchCriterion, SearchGroup, SearchItem};
 pub use smart_folder::SmartFolder;

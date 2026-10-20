@@ -97,6 +97,33 @@ pub async fn get_library_stats(pool: &SqlitePool, _registry: &crate::core::forma
         .map(|(folder_id, count)| crate::core::models::FolderCount { folder_id, count })
         .collect();
 
+    let family_stats_rows = sqlx::query(
+        r#"
+        SELECT 
+            COALESCE(family, 'unknown') as family,
+            COUNT(id) as count,
+            COALESCE(SUM(file_size), 0) as total_size_bytes
+        FROM assets
+        WHERE deleted_at IS NULL
+        GROUP BY family
+        ORDER BY total_size_bytes DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let family_stats = family_stats_rows
+        .into_iter()
+        .map(|row| {
+            use sqlx::Row;
+            crate::core::models::FamilyStat {
+                family: row.get::<String, _>("family"),
+                count: row.get::<i64, _>("count"),
+                total_size_bytes: row.get::<i64, _>("total_size_bytes"),
+            }
+        })
+        .collect();
+
     Ok(crate::core::models::LibraryStats {
         total_assets: stats_row.total_assets,
         total_folders: stats_row.total_folders,
@@ -111,5 +138,6 @@ pub async fn get_library_stats(pool: &SqlitePool, _registry: &crate::core::forma
         tag_counts,
         folder_counts,
         folder_counts_recursive: Some(folder_counts_recursive),
+        family_stats,
     })
 }

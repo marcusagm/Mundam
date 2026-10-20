@@ -311,6 +311,8 @@ sequenceDiagram
 | 13  | Manipulação direta de FS em entrega/workers  | Lógica física de mover/restaurar na entrega  | Centralizado no Saga pós-commit do Ledger           |
 | 14  | Resolução duplicada de caminho de lixeira    | Funções helper locais em mutations e worker  | Unificado em `core::trash::resolve_trash_path`      |
 | 15  | Monólito de 991 linhas em `infra/sqlite/`    | Ausência de segregação de responsabilidades  | Decomposto em Facade, Handlers e Query Handlers     |
+| 16  | Inanição do DuplicateWorker em lote          | `backfill_missing_fingerprints` em `run_exact_match_scan` criava placeholders `pending_`, impedindo a query `df.asset_id IS NULL` | Removido backfill do scan exato e expandido `get_assets_needing_fingerprints` para processar `pending_%` e versões legadas |
+| 17  | Distorção de distância de Hamming em dHash 180° e espelhamento horizontal | Reversão do eixo X inverte o operador diferencial de gradiente $I(x) < I(x+1)$ | Negação booleana dos bits do gradiente dHash para rotação de 180° e espelhamento horizontal |
 
 ---
 
@@ -468,6 +470,24 @@ A **Fase 4** introduziu as ferramentas de configuração e regras de filtragem p
      - [`infra/database/handlers/duplicates_handler.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/handlers/duplicates_handler.rs): Handlers de mutações, transações de agrupamento e algoritmos de varredura.
      - [`infra/database/query_handlers/duplicates_queries.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/query_handlers/duplicates_queries.rs): Queries puras de leitura de grupos e candidatos.
 
+### Fase 5.3 — Invariância Geométrica, Limiares Independentes e Resiliência em Segundo Plano (Concluída - Outubro/2026)
+1. ✅ **Motor de Invariância Geométrica (matcher.rs)**:
+   - Permutação de bits de 64 bits para rotações ortogonais de 90°, 180° e 270° (`rotate_dhash_90`, `rotate_dhash_180`, `rotate_dhash_270`).
+   - Inversão diferencial de gradiente para transformações que revertem o eixo horizontal (`mirror_dhash_horizontal` e `rotate_dhash_180`), garantindo 100% de similaridade em imagens rotacionadas e espelhadas.
+   - Espelhamento vertical com inversão de linhas (`mirror_dhash_vertical`).
+   - Geração dinâmica das 8 variantes do grupo diédrico $D_4$ (`generate_dhash_variants`) controlada pelas flags `allow_rotation` e `allow_mirroring`.
+   - Permutação espacial correspondente da matriz $4 \times 4$ de 16 blocos do spatial block hash.
+   - Suíte de 29 testes unitários cobrindo todas as permutações e arquivos reais de teste (`olka 2.png` original, `olka 4.png` cópia exata, `olka 5.png` rotacionado 180°, `olka 6.png` flip vertical, `olka 7.png` flip horizontal, `olka.png` desenho sobreposto e `olka 3.png` recorte).
+2. ✅ **Limiares Independentes para Similaridade Visual e Recorte**:
+   - Provisionamento das colunas `min_visual_score` (padrão 0.90) e `min_crop_score` (padrão 0.85) em `duplicate_rule_sets`.
+   - Resolução granular de thresholds em `run_visual_match_scan` com fallback transparente para `min_score`.
+   - Sliders dedicados na interface em `DuplicateRulesForm.tsx`, permitindo calibração independente de tolerância para similaridade global vs recortes parciais.
+3. ✅ **Correção de Inanição e Execução Contínua em Segundo Plano**:
+   - Remoção de `backfill_missing_fingerprints` de dentro de `run_exact_match_scan`, impedindo que os lotes do `DuplicateWorker` fossem bloqueados durante importação de pastas.
+   - Expansão de `get_assets_needing_fingerprints` para incluir registros provisórios `pending_%` e versões desatualizadas de fingerprint.
+   - Disparo automático de `run_visual_match_scan` ao esvaziar a fila de fingerprints se similaridade visual ou de recorte estiverem ativadas.
+   - Emissão de `DomainEvent::DuplicateGroupCreated` restrita a varreduras com contagem real de grupos encontrados (`> 0`).
+
 ---
 
 ## 12. Melhorias Futuras e Débito Técnico
@@ -560,6 +580,27 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
    > - **Possíveis Melhorias Futuras**:
    >   - *Detecção de Variações Angulares e Espelhamento*: Estender o motor de matching para considerar rotações ortogonais (90°, 180°, 270°) e flips especulares, utilizando as colunas `allow_rotation` e `allow_mirroring` já provisionadas no esquema SQL.
    >   - *Limiares Independentes*: Configurar limiares de tolerância desacoplados para matches visuais globais versus matches de recorte por quadrantes.
+   >
+   > ---
+   >
+   > #### 📋 Extensão das Entregas Técnicas (Outubro/2026):
+   >
+   > - **Detecção de Variações Angulares e Espelhamento [✅ Concluído - Outubro/2026]**:
+   >   - *Motor de Permutações e Grupo Diédrico ($D_4$)*: Implementação de permutações de bits de 64 bits para rotações ortogonais de 90°, 180° e 270° (`rotate_dhash_90`, `rotate_dhash_180`, `rotate_dhash_270`), e espelhamentos horizontal e vertical (`mirror_dhash_horizontal`, `mirror_dhash_vertical`) em [`matcher.rs`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/feature/duplicates/matcher.rs).
+   >   - *Inversão Diferencial de Gradiente*: Descoberta e correção da inversão matemática de gradiente no dHash ($I(x) < I(x+1)$ vs $I_{rev}(x) > I_{rev}(x+1)$) para rotações de 180° e flips horizontais, eliminando distorções de distância de Hamming e assegurando 100% de similaridade em imagens espelhadas e rotacionadas.
+   >   - *Permutações Espaciais no Spatial Block Hash*: A matriz $4 \times 4$ de 16 blocos de luminância agora acompanha as rotações e espelhamentos espaciais para cada variante gerada.
+   >   - *Ativação Condicional*: A geração de variantes é controlada diretamente pelas colunas `allow_rotation` e `allow_mirroring` da tabela `duplicate_rule_sets`, gerando dinamicamente de 1 a 8 variantes por candidato.
+   >   - *Validação Rigorosa*: 29 testes unitários em Rust aprovados, incluindo casos de teste com arquivos reais (`olka 2.png` original, `olka 4.png` cópia exata, `olka 5.png` rotacionado 180°, `olka 6.png` flip vertical, `olka 7.png` flip horizontal, `olka.png` desenho sobreposto e `olka 3.png` recorte).
+   > - **Limiares Independentes para Similaridade Visual e Recorte [✅ Concluído - Outubro/2026]**:
+   >   - *Esquema SQL & Persistência*: Adicionadas as colunas `min_visual_score REAL NOT NULL DEFAULT 0.9` e `min_crop_score REAL NOT NULL DEFAULT 0.85` na tabela `duplicate_rule_sets`.
+   >   - *Resolução no Backend*: O manipulador [`run_visual_match_scan`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src-tauri/src/infra/database/handlers/duplicates_handler.rs) resolve e propaga `effective_visual_threshold` e `effective_crop_threshold` com fallback transparente para `min_score`.
+   >   - *Controles na Interface*: No formulário [`DuplicateRulesForm.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/DuplicateRulesForm.tsx), foram adicionados sliders independentes para "Visual Match Threshold" e "Crop / Derived Match Threshold", permitindo calibrar sensibilidades separadas para imagens similares globais vs recortes parciais.
+   >   - *Refatoração UI e Linter*: O formulário foi modularizado em subcomponentes atômicos (`DuplicateProfileSelector`, `DuplicateDetectionToggles`, `DuplicateThresholdSliders`, `DuplicateToleranceToggles`) e funções utilitárias puras em `useDuplicateRulesHelpers.ts`, garantindo conformidade com o limite de complexidade ciclomática do ESLint (<= 10).
+   > - **Resolução de Inanição no Processamento em Lote do DuplicateWorker [✅ Concluído - Outubro/2026]**:
+   >   - *Causa Raiz*: `run_exact_match_scan` chamava `backfill_missing_fingerprints`, preenchendo todos os arquivos não processados da biblioteca com hashes `pending_`. Como a busca em segundo plano utilizava `WHERE df.asset_id IS NULL`, o worker parava após o primeiro lote de 10 ativos, deixando os demais congelados em estado pendente até que o usuário clicasse manualmente em "Scan now".
+   >   - *Correção*: Removida a chamada prematura a `backfill_missing_fingerprints` de dentro de `run_exact_match_scan`, e expandida a query de `get_assets_needing_fingerprints` para processar arquivos sem registro, com hash `pending_%` ou com `fingerprint_version < 5`.
+   >   - *Disparo Automático de Varredura Visual*: Quando a fila em segundo plano é esgotada (`pending_assets.is_empty()`), se regras visuais ou de recorte estiverem ativas, o worker agora executa automaticamente o `run_visual_match_scan` em segundo plano.
+   >   - *Emissão Precisa de Eventos*: `run_exact_match_scan` e `run_visual_match_scan` agora retornam a contagem de grupos encontrados (`AppResult<usize>`), emitindo `DomainEvent::DuplicateGroupCreated` apenas quando grupos reais são descobertos, evitando falsas notificações de novos grupos na interface.
 
 
 5. **Thumbnails em alta resolução**: [✅ Concluído - Outubro/2026]  
@@ -615,4 +656,4 @@ Para garantir a escalabilidade e a manutenibilidade a longo prazo, os seguintes 
 
 O módulo de duplicados do Mundam possui uma base arquitetural sólida, moderna e completa: o modelo de domínio cobre todos os conceitos necessários, a persistência em banco de dados segue a arquitetura Hexagonal e CQRS dividida em Facade, Handlers e Queries, a integração com o Asset Ledger garante atomicidade transacional e auditoria completa, e o frontend oferece uma experiência rica, reativa e interativa de revisão e resolução.
 
-Com as entregas da **Fase 5.1** (proteções rigorosas contra falsos positivos com guards de entropia zero, penalização Jaccard para fundos lisos e validação cruzada de block hash) e da **Fase 5.2** (unificação definitiva do ciclo de vida da lixeira via Ledger Saga Pattern e decomposição modular de `infra/database/`), o sistema atingiu um patamar de alta confiabilidade operacional e consistência de dados. Os próximos passos focam na otimização de performance para coleções massivas (batch queries N+1 e lista virtualizada) e na introdução do fluxo de desfazer (Undo) diretamente na interface de duplicatas.
+Com as entregas da **Fase 5.1** (proteções rigorosas contra falsos positivos com guards de entropia zero, penalização Jaccard para fundos lisos e validação cruzada de block hash), da **Fase 5.2** (unificação definitiva do ciclo de vida da lixeira via Ledger Saga Pattern e decomposição modular de `infra/database/`) e da **Fase 5.3** (invariância geométrica para rotações ortogonais e espelhamento, limiares independentes para visual e recorte, lista virtualizada de alta performance, e resolução da inanição do worker em segundo plano), o subsistema atingiu um patamar de maturidade completo e estado-da-arte, operando de forma totalmente autônoma, resiliente e precisa.

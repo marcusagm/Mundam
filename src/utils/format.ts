@@ -183,3 +183,50 @@ export const formatCompactNumber = (numericCount: number, maximumValue: number =
     }
     return numericCount.toString();
 };
+
+interface RelativeTimeInterval {
+    readonly secondsInUnit: number;
+    readonly singularLabel: string;
+    readonly pluralLabel: string;
+}
+
+const RELATIVE_TIME_INTERVAL_LIST: readonly RelativeTimeInterval[] = [
+    { secondsInUnit: 31536000, singularLabel: '1 year ago', pluralLabel: 'years ago' },
+    { secondsInUnit: 2592000, singularLabel: '1 month ago', pluralLabel: 'months ago' },
+    { secondsInUnit: 86400, singularLabel: 'Yesterday', pluralLabel: 'days ago' },
+    { secondsInUnit: 3600, singularLabel: '1 hour ago', pluralLabel: 'hours ago' },
+    { secondsInUnit: 60, singularLabel: '1 minute ago', pluralLabel: 'minutes ago' }
+];
+
+/**
+ * Formats a date string or Date object to a relative human-readable time string (e.g., "Just now", "5 minutes ago", "2 days ago").
+ *
+ * @param {string | Date} dateSource - The date string or Date object to format.
+ * @returns {string} The relative formatted time string.
+ *
+ * @example
+ * const relativeTime = formatRelativeTime("2026-10-20T01:00:00Z");
+ */
+export function formatRelativeTime(dateSource: string | Date): string {
+    if (!dateSource) return '-';
+    const dateObject = typeof dateSource === 'string' ? new Date(dateSource) : dateSource;
+    const targetTimestampMilliseconds = dateObject.getTime();
+    if (isNaN(targetTimestampMilliseconds)) return '-';
+
+    const elapsedSeconds = Math.floor((Date.now() - targetTimestampMilliseconds) / 1000);
+
+    if (elapsedSeconds < 60) {
+        return 'Just now';
+    }
+
+    for (const timeInterval of RELATIVE_TIME_INTERVAL_LIST) {
+        const unitsCount = Math.floor(elapsedSeconds / timeInterval.secondsInUnit);
+        if (unitsCount >= 1) {
+            return unitsCount === 1
+                ? timeInterval.singularLabel
+                : `${unitsCount} ${timeInterval.pluralLabel}`;
+        }
+    }
+
+    return 'Just now';
+}

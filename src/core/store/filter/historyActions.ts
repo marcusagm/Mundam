@@ -17,7 +17,8 @@ export const historyActions = {
             sortOrder: filterState.sortOrder,
             filterHasTags: filterState.filterHasTags,
             filterFavorites: filterState.filterFavorites,
-            filterTrash: filterState.filterTrash
+            filterTrash: filterState.filterTrash,
+            filterFamily: filterState.filterFamily
         };
 
         // Check if the current state is different from the last history item

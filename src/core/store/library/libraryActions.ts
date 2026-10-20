@@ -54,6 +54,7 @@ export const libraryActions = {
                 hasTags: filterState.filterHasTags ? true : undefined,
                 favoritesOnly: filterState.filterFavorites ? true : undefined,
                 trashOnly: filterState.filterTrash ? true : undefined,
+                family: filterState.filterFamily || undefined,
                 folderId: filterState.selectedFolderId?.toString() || undefined,
                 recursive: filterState.folderRecursiveView,
                 tags: filterState.selectedTags.map(String),
