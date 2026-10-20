@@ -90,6 +90,7 @@ impl DuplicateWorker {
     /// Autonomous background loop that processes assets missing fingerprints.
     async fn background_fingerprint_loop(&self, cancellation_token: CancellationToken) {
         info!("DuplicateWorker: autonomous background fingerprint polling loop started");
+        let mut has_processed_any_assets_since_last_idle = false;
 
         loop {
             if cancellation_token.is_cancelled() {
@@ -125,6 +126,34 @@ impl DuplicateWorker {
             };
 
             if pending_assets.is_empty() {
+                if has_processed_any_assets_since_last_idle && !cancellation_token.is_cancelled() {
+                    has_processed_any_assets_since_last_idle = false;
+                    info!("DuplicateWorker: all pending fingerprints processed, checking if visual match scan should run");
+                    if let Ok(Some(active_rule_set)) = self.duplicates_repo.get_active_rule_set().await {
+                        if active_rule_set.consider_visual_match || active_rule_set.consider_crop_match {
+                            info!("DuplicateWorker: running background visual match scan after completing fingerprint batches");
+                            match self.duplicates_repo.run_visual_match_scan(Some(cancellation_token.clone())).await {
+                                Ok(visual_groups_count) => {
+                                    info!("DuplicateWorker: background visual match scan completed (found {} groups)", visual_groups_count);
+                                    if visual_groups_count > 0 {
+                                        let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
+                                            group_id: String::new(),
+                                            group_type: "visual".to_string(),
+                                            confidence: 0.9,
+                                            canonical_asset_id: None,
+                                            candidate_count: 2,
+                                            rule_set_id: active_rule_set.id.clone(),
+                                        });
+                                    }
+                                }
+                                Err(visual_match_error) => {
+                                    warn!("DuplicateWorker: background visual match scan failed: {}", visual_match_error);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // No pending assets, idle wait
                 tokio::select! {
                     _ = cancellation_token.cancelled() => break,
@@ -183,6 +212,7 @@ impl DuplicateWorker {
                                 pending_asset.asset_id, content_hash_summary, perceptual_hash_summary
                             );
                             processed_any_in_batch = true;
+                            has_processed_any_assets_since_last_idle = true;
                         }
                     }
                     Ok(Err(generation_error)) => {
@@ -202,18 +232,23 @@ impl DuplicateWorker {
 
             if processed_any_in_batch && !cancellation_token.is_cancelled() {
                 info!("DuplicateWorker: finished processing background batch of {} asset(s), running exact match scan", total_batch_count);
-                if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await {
-                    warn!("DuplicateWorker: failed to auto-group exact matches in background: {}", scan_error);
-                } else {
-                    info!("DuplicateWorker: exact match scan completed successfully after background batch");
-                    let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
-                        group_id: String::new(),
-                        group_type: "exact".to_string(),
-                        confidence: 1.0,
-                        canonical_asset_id: None,
-                        candidate_count: 2,
-                        rule_set_id: "exact-match".to_string(),
-                    });
+                match self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await {
+                    Ok(exact_groups_count) => {
+                        info!("DuplicateWorker: exact match scan completed successfully after background batch (found {} groups)", exact_groups_count);
+                        if exact_groups_count > 0 {
+                            let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
+                                group_id: String::new(),
+                                group_type: "exact".to_string(),
+                                confidence: 1.0,
+                                canonical_asset_id: None,
+                                candidate_count: 2,
+                                rule_set_id: "exact-match".to_string(),
+                            });
+                        }
+                    }
+                    Err(scan_error) => {
+                        warn!("DuplicateWorker: failed to auto-group exact matches in background: {}", scan_error);
+                    }
                 }
             }
         }
@@ -254,18 +289,23 @@ impl DuplicateWorker {
 
                             if is_auto_detect_enabled {
                                 info!("DuplicateWorker: auto_detect_duplicates is enabled, running exact match scan for asset_id={}", asset_id);
-                                if let Err(scan_error) = self.duplicates_repo.run_exact_match_scan(None).await {
-                                    warn!("DuplicateWorker: failed to auto-group exact matches: {}", scan_error);
-                                } else {
-                                    info!("DuplicateWorker: exact match scan succeeded for asset_id={}", asset_id);
-                                    let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
-                                        group_id: String::new(),
-                                        group_type: "exact".to_string(),
-                                        confidence: 1.0,
-                                        canonical_asset_id: Some(asset_id.clone()),
-                                        candidate_count: 2,
-                                        rule_set_id: "exact-match".to_string(),
-                                    });
+                                match self.duplicates_repo.run_exact_match_scan(None).await {
+                                    Ok(exact_groups_count) => {
+                                        info!("DuplicateWorker: exact match scan succeeded for asset_id={} (found {} groups)", asset_id, exact_groups_count);
+                                        if exact_groups_count > 0 {
+                                            let _ = self.event_bus.publish(DomainEvent::DuplicateGroupCreated {
+                                                group_id: String::new(),
+                                                group_type: "exact".to_string(),
+                                                confidence: 1.0,
+                                                canonical_asset_id: Some(asset_id.clone()),
+                                                candidate_count: 2,
+                                                rule_set_id: "exact-match".to_string(),
+                                            });
+                                        }
+                                    }
+                                    Err(scan_error) => {
+                                        warn!("DuplicateWorker: failed to auto-group exact matches: {}", scan_error);
+                                    }
                                 }
                             } else {
                                 debug!("DuplicateWorker: auto-detect on import is disabled in settings");

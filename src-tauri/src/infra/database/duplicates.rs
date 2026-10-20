@@ -87,7 +87,7 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         crate::infra::database::handlers::duplicates_handler::update_group_status(&self.pool, group_id, status).await
     }
 
-    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
+    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
         crate::infra::database::handlers::duplicates_handler::run_exact_match_scan(&self.pool, token).await
     }
 
@@ -95,7 +95,7 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         crate::infra::database::handlers::duplicates_handler::backfill_missing_fingerprints(&self.pool).await
     }
 
-    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()> {
+    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
         crate::infra::database::handlers::duplicates_handler::run_visual_match_scan(&self.pool, token).await
     }
 

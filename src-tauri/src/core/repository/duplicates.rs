@@ -127,7 +127,7 @@ pub trait DuplicatesRepository: Send + Sync {
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query fails.
-    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()>;
+    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
 
     /// Backfills missing fingerprint rows for assets that are not yet in duplicate_fingerprints.
     /// This ensures all newly indexed assets have placeholder records ready for rehashing.
@@ -140,7 +140,7 @@ pub trait DuplicatesRepository: Send + Sync {
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query fails.
-    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<()>;
+    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
 
     /// Rehashes all fingerprints that have a pending or placeholder hash.
     /// This is necessary because BatchCreate during indexing does not emit

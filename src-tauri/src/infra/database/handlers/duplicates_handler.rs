@@ -438,7 +438,7 @@ pub async fn remove_candidate_from_groups(pool: &SqlitePool, asset_id: &str) -> 
 pub async fn run_exact_match_scan(
     pool: &SqlitePool,
     cancellation_token: Option<tokio_util::sync::CancellationToken>,
-) -> AppResult<()> {
+) -> AppResult<usize> {
     tracing::info!("run_exact_match_scan: starting scan for identical content hashes");
     sqlx::query!(
         r#"
@@ -461,12 +461,9 @@ pub async fn run_exact_match_scan(
     if let Some(active_rule_set) = active_rule_set_option {
         if !active_rule_set.consider_exact_match {
             tracing::info!("run_exact_match_scan: exact matching is disabled in active rule set");
-            return Ok(());
+            return Ok(0);
         }
     }
-
-    backfill_missing_fingerprints(pool).await?;
-    tracing::debug!("run_exact_match_scan: backfilled missing fingerprints");
 
     let duplicate_hash_records = sqlx::query!(
         r#"
@@ -487,9 +484,10 @@ pub async fn run_exact_match_scan(
         AppError::Database(database_error)
     })?;
 
+    let total_duplicate_groups_count = duplicate_hash_records.len();
     tracing::info!(
         "run_exact_match_scan: identified {} unique content hash(es) with multiple assets",
-        duplicate_hash_records.len()
+        total_duplicate_groups_count
     );
 
     for hash_record in duplicate_hash_records {
@@ -583,7 +581,7 @@ pub async fn run_exact_match_scan(
 
     tracing::info!("run_exact_match_scan: completed exact match scan");
 
-    Ok(())
+    Ok(total_duplicate_groups_count)
 }
 
 /// Runs a database-level scan to find visually similar duplicates and group them.
@@ -597,7 +595,7 @@ pub async fn run_exact_match_scan(
 pub async fn run_visual_match_scan(
     pool: &SqlitePool,
     cancellation_token: Option<tokio_util::sync::CancellationToken>,
-) -> AppResult<()> {
+) -> AppResult<usize> {
     sqlx::query!(
         r#"
         INSERT OR IGNORE INTO duplicate_rule_sets (
@@ -648,7 +646,7 @@ pub async fn run_visual_match_scan(
             record.allow_rotation != 0,
             record.allow_mirroring != 0,
         ),
-        None => return Ok(()),
+        None => return Ok(0),
     };
 
     let rule_set_identifier = rule_set_id_option.unwrap_or_else(|| "visual-match".to_string());
@@ -669,7 +667,7 @@ pub async fn run_visual_match_scan(
 
     if !consider_visual_match && !consider_crop_match {
         tracing::info!("run_visual_match_scan: visual and crop matching both disabled in active rule set");
-        return Ok(());
+        return Ok(0);
     }
 
     tracing::info!(
@@ -757,7 +755,7 @@ pub async fn run_visual_match_scan(
         if let Some(active_cancellation_token) = &cancellation_token {
             if active_cancellation_token.is_cancelled() {
                 tracing::info!("run_visual_match_scan: cancelled during pairwise comparison");
-                return Ok(());
+                return Ok(0);
             }
         }
 
@@ -911,12 +909,13 @@ pub async fn run_visual_match_scan(
 
     database_transaction.commit().await.map_err(AppError::Database)?;
 
+    let total_visual_groups_count = discovered_groups.len();
     tracing::info!(
         "run_visual_match_scan: successfully persisted {} visual duplicate group(s) to database",
-        discovered_groups.len()
+        total_visual_groups_count
     );
 
-    Ok(())
+    Ok(total_visual_groups_count)
 }
 
 /// Rehashes all fingerprints that have a pending or outdated hash.
@@ -1170,7 +1169,14 @@ pub async fn get_assets_needing_fingerprints(
         SELECT a.id as "id!", a.path as "path!", a.format_type as "format_type!"
         FROM assets a
         LEFT JOIN duplicate_fingerprints df ON a.id = df.asset_id
-        WHERE df.asset_id IS NULL AND a.state != 'trashed' AND a.deleted_at IS NULL
+        WHERE (
+            df.asset_id IS NULL 
+            OR df.content_hash LIKE 'pending_%' 
+            OR df.content_hash LIKE 'hash_%' 
+            OR df.fingerprint_version < 5
+        )
+        AND a.state != 'trashed' 
+        AND a.deleted_at IS NULL
         LIMIT ?
         "#,
         limit_integer

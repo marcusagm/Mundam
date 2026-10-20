@@ -429,7 +429,7 @@ impl DuplicateCommandService {
             }
         }
         tracing::info!("DuplicateCommandService: [3/4] running exact match scan");
-        self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await?;
+        let exact_groups_count = self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await?;
 
         if cancellation_token.is_cancelled() {
             tracing::info!("DuplicateCommandService: scan cancelled after exact matching");
@@ -442,10 +442,10 @@ impl DuplicateCommandService {
             }
         }
         tracing::info!("DuplicateCommandService: [4/4] running visual match scan");
-        self.duplicates_repo.run_visual_match_scan(Some(cancellation_token.clone())).await?;
+        let visual_groups_count = self.duplicates_repo.run_visual_match_scan(Some(cancellation_token.clone())).await?;
 
         let _ = self.event_bus.publish(DomainEvent::DuplicateScanFinished {
-            groups_created: 0,
+            groups_created: exact_groups_count + visual_groups_count,
         });
 
         tracing::info!("DuplicateCommandService: full duplicate scan completed successfully");
