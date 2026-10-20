@@ -1,6 +1,7 @@
 import { createSignal, onMount } from 'solid-js';
 import { duplicatesApi, BackendDuplicateRuleSet } from '../../../../lib/duplicates';
 import { DuplicateRuleProfile } from '../types';
+import { deriveProfileFromRuleSet, checkRuleSetEquality } from './useDuplicateRulesHelpers';
 
 export interface UseDuplicateRulesResult {
     selectedProfile: () => DuplicateRuleProfile;
@@ -31,99 +32,6 @@ export interface UseDuplicateRulesResult {
     loadActiveRules: () => Promise<void>;
     saveRules: () => Promise<void>;
     saveAndRescan: () => Promise<void>;
-}
-
-function isExactMatchProfile(ruleSet: BackendDuplicateRuleSet): boolean {
-    if (ruleSet.id === 'exact-match') {
-        return true;
-    }
-    return (
-        ruleSet.consider_exact_match &&
-        !ruleSet.consider_visual_match &&
-        !ruleSet.consider_crop_match
-    );
-}
-
-function isAggressiveProfile(ruleSet: BackendDuplicateRuleSet): boolean {
-    if (ruleSet.id === 'aggressive') {
-        return true;
-    }
-    return (
-        ruleSet.consider_exact_match && ruleSet.consider_visual_match && ruleSet.consider_crop_match
-    );
-}
-
-function isVisualMatchProfile(ruleSet: BackendDuplicateRuleSet): boolean {
-    if (ruleSet.id === 'visual-match') {
-        return true;
-    }
-    return (
-        !ruleSet.consider_exact_match &&
-        ruleSet.consider_visual_match &&
-        !ruleSet.consider_crop_match
-    );
-}
-
-function deriveProfileFromRuleSet(ruleSet: BackendDuplicateRuleSet): DuplicateRuleProfile {
-    if (isExactMatchProfile(ruleSet)) {
-        return 'exact-match';
-    }
-    if (isAggressiveProfile(ruleSet)) {
-        return 'aggressive';
-    }
-    if (isVisualMatchProfile(ruleSet)) {
-        return 'visual-match';
-    }
-    return 'custom';
-}
-
-function checkRuleSetEquality(
-    ruleSet: BackendDuplicateRuleSet | null,
-    exactMatch: boolean,
-    visualMatch: boolean,
-    cropMatch: boolean,
-    ignoreResolution: boolean,
-    ignoreCompression: boolean,
-    allowRotation: boolean,
-    allowMirroring: boolean,
-    similarityScore: number,
-    visualScore: number,
-    cropScore: number
-): boolean {
-    if (!ruleSet) {
-        return true;
-    }
-    if (exactMatch !== ruleSet.consider_exact_match) {
-        return false;
-    }
-    if (visualMatch !== ruleSet.consider_visual_match) {
-        return false;
-    }
-    if (cropMatch !== ruleSet.consider_crop_match) {
-        return false;
-    }
-    if (ignoreResolution !== ruleSet.ignore_resolution_difference) {
-        return false;
-    }
-    if (ignoreCompression !== ruleSet.ignore_recompression) {
-        return false;
-    }
-    if (allowRotation !== ruleSet.allow_rotation) {
-        return false;
-    }
-    if (allowMirroring !== ruleSet.allow_mirroring) {
-        return false;
-    }
-    if (Math.abs(similarityScore - ruleSet.min_score) > 0.001) {
-        return false;
-    }
-    if (Math.abs(visualScore - ruleSet.min_visual_score) > 0.001) {
-        return false;
-    }
-    if (Math.abs(cropScore - ruleSet.min_crop_score) > 0.001) {
-        return false;
-    }
-    return true;
 }
 
 /**

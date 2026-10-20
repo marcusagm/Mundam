@@ -37,15 +37,19 @@ pub fn rotate_dhash_90_clockwise(hash: u64) -> u64 {
 }
 
 /// Rotates a 64-bit dHash 180°.
+/// Rotates a 64-bit dHash 180°.
 ///
-/// Maps `(row, col) → (7 - row, 7 - col)` which is equivalent to
-/// reversing the entire 64-bit sequence.
+/// Maps `(row, col) → (7 - row, 7 - col)` and inverts the gradient direction
+/// because left ↔ right is reversed (`pixel_left > pixel_right` becomes `pixel_right > pixel_left`).
 pub fn rotate_dhash_180(hash: u64) -> u64 {
     let mut rotated: u64 = 0;
-    for bit_index in 0..64u32 {
-        let destination_bit_index = 63 - bit_index;
-        if hash & (1u64 << bit_index) != 0 {
-            rotated |= 1u64 << destination_bit_index;
+    for row in 0..8u32 {
+        for col in 0..8u32 {
+            let source_bit_index = row * 8 + col;
+            let destination_bit_index = (7 - row) * 8 + (7 - col);
+            if hash & (1u64 << source_bit_index) == 0 {
+                rotated |= 1u64 << destination_bit_index;
+            }
         }
     }
     rotated
@@ -70,14 +74,15 @@ pub fn rotate_dhash_270_clockwise(hash: u64) -> u64 {
 
 /// Mirrors a 64-bit dHash horizontally (left ↔ right flip).
 ///
-/// Reverses the bit order within each 8-bit row: `(row, col) → (row, 7 - col)`.
+/// Reverses column order within each 8-bit row and inverts the gradient bit:
+/// `(row, col) → (row, 7 - col)` with `bit = !bit`.
 pub fn mirror_dhash_horizontal(hash: u64) -> u64 {
     let mut mirrored: u64 = 0;
     for row in 0..8u32 {
         for col in 0..8u32 {
             let source_bit_index = row * 8 + col;
             let destination_bit_index = row * 8 + (7 - col);
-            if hash & (1u64 << source_bit_index) != 0 {
+            if hash & (1u64 << source_bit_index) == 0 {
                 mirrored |= 1u64 << destination_bit_index;
             }
         }
@@ -87,7 +92,8 @@ pub fn mirror_dhash_horizontal(hash: u64) -> u64 {
 
 /// Mirrors a 64-bit dHash vertically (top ↔ bottom flip).
 ///
-/// Reverses row order: `(row, col) → (7 - row, col)`.
+/// Reverses row order: `(row, col) → (7 - row, col)`. Does not invert the
+/// gradient bit because horizontal direction is preserved.
 pub fn mirror_dhash_vertical(hash: u64) -> u64 {
     let mut mirrored: u64 = 0;
     for row in 0..8u32 {
@@ -108,9 +114,6 @@ pub fn mirror_dhash_vertical(hash: u64) -> u64 {
 /// Returns a `Vec` containing the original hash plus all enabled
 /// permutations. The caller should compare each variant and take
 /// the maximum similarity score.
-///
-/// When both rotation and mirroring are enabled, up to 8 variants
-/// are produced (4 rotations × 2 mirror states).
 pub fn generate_hash_variants(
     hash: u64,
     allow_rotation: bool,
@@ -126,12 +129,11 @@ pub fn generate_hash_variants(
     }
 
     if allow_mirroring {
-        let mirrored_hash = mirror_dhash_horizontal(hash);
-        variants.push(mirrored_hash);
+        variants.push(mirror_dhash_horizontal(hash));
+        variants.push(mirror_dhash_vertical(hash));
         if allow_rotation {
-            variants.push(rotate_dhash_90_clockwise(mirrored_hash));
-            variants.push(rotate_dhash_180(mirrored_hash));
-            variants.push(rotate_dhash_270_clockwise(mirrored_hash));
+            variants.push(rotate_dhash_90_clockwise(mirror_dhash_horizontal(hash)));
+            variants.push(rotate_dhash_270_clockwise(mirror_dhash_horizontal(hash)));
         }
     }
 
@@ -943,7 +945,7 @@ mod tests {
     fn test_generate_variants_mirror_only() {
         let original_hash: u64 = 0x4777ac2327478753;
         let variants = generate_hash_variants(original_hash, false, true);
-        assert_eq!(variants.len(), 2, "Mirror-only should produce 2 variants (original + mirrored)");
+        assert_eq!(variants.len(), 3, "Mirror-only should produce 3 variants (original + horizontal + vertical)");
     }
 
     #[test]
@@ -1077,6 +1079,147 @@ mod tests {
             result.is_some(),
             "Visual match should pass with a low visual threshold even if crop threshold is high"
         );
+    }
+
+    #[test]
+    fn test_real_olka_sample_files() {
+        use crate::feature::duplicates::fingerprints::{
+            compute_multiscale_dhash_256, compute_perceptual_dhash_64, compute_spatial_block_hash,
+        };
+        use std::path::Path;
+
+        let sample_directory_path = Path::new("../file-samples/Arquivos para testes/Image/png");
+        let original_image_path = sample_directory_path.join("olka 2.png");
+
+        if !original_image_path.exists() {
+            println!("Sample files not found at {:?}, skipping test", original_image_path);
+            return;
+        }
+
+        let original_image = image::open(&original_image_path).expect("Failed to open olka 2.png");
+        let original_hash = compute_perceptual_dhash_64(&original_image);
+        let original_multiscale = compute_multiscale_dhash_256(&original_image);
+        let original_spatial_block = compute_spatial_block_hash(&original_image);
+        let original_dimensions = (
+            Some(original_image.width() as i32),
+            Some(original_image.height() as i32),
+        );
+        let original_file_size = std::fs::metadata(&original_image_path)
+            .ok()
+            .map(|metadata| metadata.len() as i64);
+
+        println!("\n=== Real Sample Olka Files Evaluation ===");
+        println!(
+            "Original olka 2.png: hash=0x{:016x}, dims={:?}",
+            original_hash, original_dimensions
+        );
+
+
+        let test_file_names = [
+            ("olka 4.png", "Cópia exata"),
+            ("olka 5.png", "Rotacionado 180º"),
+            ("olka 6.png", "Flip vertical"),
+            ("olka 7.png", "Flip horizontal"),
+            ("olka.png", "Original com uma linha desenhada"),
+            ("olka 3.png", "Recortada"),
+        ];
+
+        for (sample_file_name, _sample_description) in test_file_names {
+            let sample_file_path = sample_directory_path.join(sample_file_name);
+            if !sample_file_path.exists() {
+                println!("File {:?} does not exist, skipping", sample_file_path);
+                continue;
+            }
+
+            let sample_image = image::open(&sample_file_path).expect("Failed to open sample image");
+            let sample_hash = compute_perceptual_dhash_64(&sample_image);
+            let sample_multiscale = compute_multiscale_dhash_256(&sample_image);
+            let sample_spatial_block = compute_spatial_block_hash(&sample_image);
+            let sample_dimensions = (
+                Some(sample_image.width() as i32),
+                Some(sample_image.height() as i32),
+            );
+            let sample_file_size = std::fs::metadata(&sample_file_path)
+                .ok()
+                .map(|metadata| metadata.len() as i64);
+
+            let direct_similarity = calculate_visual_similarity(original_hash, sample_hash);
+            let (crop_two_by_two, _crop_three_by_three) =
+                calculate_crop_subgrid_scores(&original_spatial_block, &sample_spatial_block);
+
+            let variant_similarity_rotation = calculate_visual_similarity_with_variants(
+                original_hash,
+                sample_hash,
+                true,
+                false,
+            );
+            let variant_similarity_mirror = calculate_visual_similarity_with_variants(
+                original_hash,
+                sample_hash,
+                false,
+                true,
+            );
+
+            let evaluated_match = evaluate_visual_and_crop_match(
+                original_hash,
+                sample_hash,
+                Some(&original_multiscale),
+                Some(&sample_multiscale),
+                Some(&original_spatial_block),
+                Some(&sample_spatial_block),
+                original_dimensions,
+                sample_dimensions,
+                original_file_size,
+                sample_file_size,
+                0.70,
+                0.70,
+                true,
+                true,
+                true,
+                true,
+            );
+
+            if sample_file_name == "olka 4.png" {
+                assert!(
+                    direct_similarity >= 0.99,
+                    "Exact copy must match original with >= 99% similarity"
+                );
+                assert!(evaluated_match.is_some(), "Exact copy must be accepted");
+            } else if sample_file_name == "olka 5.png" {
+                assert!(
+                    variant_similarity_rotation >= 0.90,
+                    "180° rotated image must match with >= 90% similarity under rotation variants"
+                );
+                assert!(evaluated_match.is_some(), "180° rotated image must be accepted");
+            } else if sample_file_name == "olka 6.png" {
+                assert!(
+                    variant_similarity_mirror >= 0.99,
+                    "Vertically flipped image must match with >= 99% similarity under mirror variants"
+                );
+                assert!(evaluated_match.is_some(), "Vertically flipped image must be accepted");
+            } else if sample_file_name == "olka 7.png" {
+                assert!(
+                    variant_similarity_mirror >= 0.90,
+                    "Horizontally flipped image must match with >= 90% similarity under mirror variants"
+                );
+                assert!(evaluated_match.is_some(), "Horizontally flipped image must be accepted");
+            } else if sample_file_name == "olka.png" {
+                assert!(
+                    direct_similarity >= 0.99,
+                    "Original with a drawn line must match with >= 99% similarity"
+                );
+                assert!(evaluated_match.is_some(), "Image with drawn line must be accepted");
+            } else if sample_file_name == "olka 3.png" {
+                assert!(
+                    direct_similarity >= 0.65,
+                    "Cropped image must show partial visual similarity >= 65%"
+                );
+                assert!(
+                    crop_two_by_two >= 0.55,
+                    "Cropped image must show subgrid overlap >= 55%"
+                );
+            }
+        }
     }
 }
 
