@@ -157,6 +157,8 @@ describe('duplicatesApi batch candidate loading', () => {
             allow_rotation: false,
             allow_mirroring: false,
             min_score: 0.9,
+            min_visual_score: 0.9,
+            min_crop_score: 0.85,
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z'
         };
@@ -184,6 +186,8 @@ describe('duplicatesApi batch candidate loading', () => {
             allow_rotation: false,
             allow_mirroring: false,
             min_score: 0.85,
+            min_visual_score: 0.85,
+            min_crop_score: 0.85,
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z'
         };

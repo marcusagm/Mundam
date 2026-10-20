@@ -57,6 +57,14 @@ export interface DuplicateRuleConfiguration {
     ignoreResolutionDifference: boolean;
     /** Whether recompression between formats is ignored */
     ignoreRecompression: boolean;
+    /** Whether to check rotated (90°/180°/270°) hash variants */
+    allowRotation: boolean;
+    /** Whether to check horizontally mirrored hash variants */
+    allowMirroring: boolean;
     /** Minimum confidence score threshold (0.50 to 1.00) */
     minimumScore: number;
+    /** Independent minimum score for visual/perceptual matches (0.50 to 1.00) */
+    minimumVisualScore: number;
+    /** Independent minimum score for crop/derived matches (0.50 to 1.00) */
+    minimumCropScore: number;
 }

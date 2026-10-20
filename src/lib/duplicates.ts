@@ -174,6 +174,8 @@ export interface BackendDuplicateRuleSet {
     allow_rotation: boolean;
     allow_mirroring: boolean;
     min_score: number;
+    min_visual_score: number;
+    min_crop_score: number;
     created_at: string;
     updated_at: string;
 }

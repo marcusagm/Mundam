@@ -105,6 +105,8 @@ pub struct DuplicateRuleSet {
     pub allow_rotation: bool,
     pub allow_mirroring: bool,
     pub min_score: f64,
+    pub min_visual_score: f64,
+    pub min_crop_score: f64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

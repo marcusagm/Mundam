@@ -9,7 +9,11 @@ export interface UseDuplicateRulesResult {
     considerCropMatch: () => boolean;
     ignoreResolutionDifference: () => boolean;
     ignoreRecompression: () => boolean;
+    allowRotation: () => boolean;
+    allowMirroring: () => boolean;
     minimumScore: () => number;
+    minimumVisualScore: () => number;
+    minimumCropScore: () => number;
     isLoading: () => boolean;
     isSaving: () => boolean;
     setConsiderExactMatch: (value: boolean) => void;
@@ -17,7 +21,11 @@ export interface UseDuplicateRulesResult {
     setConsiderCropMatch: (value: boolean) => void;
     setIgnoreResolutionDifference: (value: boolean) => void;
     setIgnoreRecompression: (value: boolean) => void;
+    setAllowRotation: (value: boolean) => void;
+    setAllowMirroring: (value: boolean) => void;
     setMinimumScore: (value: number) => void;
+    setMinimumVisualScore: (value: number) => void;
+    setMinimumCropScore: (value: number) => void;
     handleProfileChange: (profileIdentifier: string) => void;
     hasUnsavedChanges: () => boolean;
     loadActiveRules: () => Promise<void>;
@@ -76,7 +84,11 @@ function checkRuleSetEquality(
     cropMatch: boolean,
     ignoreResolution: boolean,
     ignoreCompression: boolean,
-    similarityScore: number
+    allowRotation: boolean,
+    allowMirroring: boolean,
+    similarityScore: number,
+    visualScore: number,
+    cropScore: number
 ): boolean {
     if (!ruleSet) {
         return true;
@@ -96,7 +108,19 @@ function checkRuleSetEquality(
     if (ignoreCompression !== ruleSet.ignore_recompression) {
         return false;
     }
+    if (allowRotation !== ruleSet.allow_rotation) {
+        return false;
+    }
+    if (allowMirroring !== ruleSet.allow_mirroring) {
+        return false;
+    }
     if (Math.abs(similarityScore - ruleSet.min_score) > 0.001) {
+        return false;
+    }
+    if (Math.abs(visualScore - ruleSet.min_visual_score) > 0.001) {
+        return false;
+    }
+    if (Math.abs(cropScore - ruleSet.min_crop_score) > 0.001) {
         return false;
     }
     return true;
@@ -117,7 +141,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
     const [considerCropMatch, setConsiderCropMatch] = createSignal<boolean>(false);
     const [ignoreResolutionDifference, setIgnoreResolutionDifference] = createSignal<boolean>(true);
     const [ignoreRecompression, setIgnoreRecompression] = createSignal<boolean>(true);
+    const [allowRotation, setAllowRotation] = createSignal<boolean>(false);
+    const [allowMirroring, setAllowMirroring] = createSignal<boolean>(false);
     const [minimumScore, setMinimumScore] = createSignal<number>(0.9);
+    const [minimumVisualScore, setMinimumVisualScore] = createSignal<number>(0.9);
+    const [minimumCropScore, setMinimumCropScore] = createSignal<number>(0.85);
     const [isLoading, setIsLoading] = createSignal<boolean>(false);
     const [isSaving, setIsSaving] = createSignal<boolean>(false);
 
@@ -137,7 +165,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
                 setConsiderCropMatch(activeRuleSet.consider_crop_match);
                 setIgnoreResolutionDifference(activeRuleSet.ignore_resolution_difference);
                 setIgnoreRecompression(activeRuleSet.ignore_recompression);
+                setAllowRotation(activeRuleSet.allow_rotation);
+                setAllowMirroring(activeRuleSet.allow_mirroring);
                 setMinimumScore(activeRuleSet.min_score);
+                setMinimumVisualScore(activeRuleSet.min_visual_score);
+                setMinimumCropScore(activeRuleSet.min_crop_score);
             }
         } catch (error) {
             console.error('Failed to load active duplicate rules:', error);
@@ -161,21 +193,33 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
             setConsiderCropMatch(false);
             setIgnoreResolutionDifference(false);
             setIgnoreRecompression(false);
+            setAllowRotation(false);
+            setAllowMirroring(false);
             setMinimumScore(1.0);
+            setMinimumVisualScore(1.0);
+            setMinimumCropScore(1.0);
         } else if (normalizedProfile === 'visual-match') {
             setConsiderExactMatch(false);
             setConsiderVisualMatch(true);
             setConsiderCropMatch(false);
             setIgnoreResolutionDifference(true);
             setIgnoreRecompression(true);
+            setAllowRotation(false);
+            setAllowMirroring(false);
             setMinimumScore(0.9);
+            setMinimumVisualScore(0.9);
+            setMinimumCropScore(0.85);
         } else if (normalizedProfile === 'aggressive') {
             setConsiderExactMatch(true);
             setConsiderVisualMatch(true);
             setConsiderCropMatch(true);
             setIgnoreResolutionDifference(true);
             setIgnoreRecompression(true);
+            setAllowRotation(true);
+            setAllowMirroring(false);
             setMinimumScore(0.7);
+            setMinimumVisualScore(0.7);
+            setMinimumCropScore(0.7);
         }
     };
 
@@ -198,9 +242,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
                 consider_crop_match: considerCropMatch(),
                 ignore_resolution_difference: ignoreResolutionDifference(),
                 ignore_recompression: ignoreRecompression(),
-                allow_rotation: false,
-                allow_mirroring: false,
+                allow_rotation: allowRotation(),
+                allow_mirroring: allowMirroring(),
                 min_score: minimumScore(),
+                min_visual_score: minimumVisualScore(),
+                min_crop_score: minimumCropScore(),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
@@ -228,7 +274,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
             considerCropMatch(),
             ignoreResolutionDifference(),
             ignoreRecompression(),
-            minimumScore()
+            allowRotation(),
+            allowMirroring(),
+            minimumScore(),
+            minimumVisualScore(),
+            minimumCropScore()
         );
     };
 
@@ -251,7 +301,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
         considerCropMatch,
         ignoreResolutionDifference,
         ignoreRecompression,
+        allowRotation,
+        allowMirroring,
         minimumScore,
+        minimumVisualScore,
+        minimumCropScore,
         isLoading,
         isSaving,
         setConsiderExactMatch,
@@ -259,7 +313,11 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
         setConsiderCropMatch,
         setIgnoreResolutionDifference,
         setIgnoreRecompression,
+        setAllowRotation,
+        setAllowMirroring,
         setMinimumScore,
+        setMinimumVisualScore,
+        setMinimumCropScore,
         handleProfileChange,
         hasUnsavedChanges,
         loadActiveRules,

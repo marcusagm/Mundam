@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT OR IGNORE INTO duplicate_rule_sets (\n            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at\n        ) VALUES (\n            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, 0.9, 0.85, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\n        )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "98815cb7db37aa90d6c46aaca848b85b52284d14434a1f3deb2cdda4d495cc8a"
+}

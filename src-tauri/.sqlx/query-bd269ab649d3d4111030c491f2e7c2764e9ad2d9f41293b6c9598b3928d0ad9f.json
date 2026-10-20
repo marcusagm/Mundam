@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT id, min_score, min_visual_score, min_crop_score,\n               consider_visual_match, consider_crop_match,\n               allow_rotation, allow_mirroring\n        FROM duplicate_rule_sets\n        ORDER BY updated_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "min_score",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "min_visual_score",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "min_crop_score",
+        "ordinal": 3,
+        "type_info": "Float"
+      },
+      {
+        "name": "consider_visual_match",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "consider_crop_match",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "allow_rotation",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "allow_mirroring",
+        "ordinal": 7,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bd269ab649d3d4111030c491f2e7c2764e9ad2d9f41293b6c9598b3928d0ad9f"
+}

@@ -67,6 +67,8 @@ pub async fn get_rule_sets(pool: &SqlitePool) -> AppResult<Vec<DuplicateRuleSet>
             allow_rotation as "allow_rotation: bool", 
             allow_mirroring as "allow_mirroring: bool", 
             min_score as "min_score: f64", 
+            min_visual_score as "min_visual_score: f64", 
+            min_crop_score as "min_crop_score: f64", 
             created_at as "created_at: chrono::DateTime<chrono::Utc>", 
             updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
         FROM duplicate_rule_sets
@@ -95,9 +97,9 @@ pub async fn get_active_rule_set(pool: &SqlitePool) -> AppResult<Option<Duplicat
     sqlx::query!(
         r#"
         INSERT OR IGNORE INTO duplicate_rule_sets (
-            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at
         ) VALUES (
-            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, 0.9, 0.85, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
         "#
     )
@@ -121,6 +123,8 @@ pub async fn get_active_rule_set(pool: &SqlitePool) -> AppResult<Option<Duplicat
             allow_rotation as "allow_rotation: bool", 
             allow_mirroring as "allow_mirroring: bool", 
             min_score as "min_score: f64", 
+            min_visual_score as "min_visual_score: f64", 
+            min_crop_score as "min_crop_score: f64", 
             created_at as "created_at: chrono::DateTime<chrono::Utc>", 
             updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
         FROM duplicate_rule_sets

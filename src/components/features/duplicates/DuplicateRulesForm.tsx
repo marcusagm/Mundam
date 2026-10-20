@@ -1,4 +1,4 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { Select } from '../../ui/Select';
 import { Slider } from '../../ui/Slider';
 import { Switch } from '../../ui/Switch';
@@ -19,8 +19,16 @@ export interface DuplicateRulesFormProperties {
     ignoreResolutionDifference: boolean;
     /** Whether format recompressions are ignored */
     ignoreRecompression: boolean;
-    /** Current similarity threshold (0.50 to 1.00) */
+    /** Whether rotated (90°/180°/270°) hash variants are tested */
+    allowRotation: boolean;
+    /** Whether horizontally mirrored hash variants are tested */
+    allowMirroring: boolean;
+    /** Current shared similarity threshold (0.50 to 1.00) */
     minimumScore: number;
+    /** Current visual match threshold (0.50 to 1.00) */
+    minimumVisualScore: number;
+    /** Current crop match threshold (0.50 to 1.00) */
+    minimumCropScore: number;
     /** Whether controls are disabled */
     isDisabled?: boolean;
     /** Callback when profile changes */
@@ -35,8 +43,16 @@ export interface DuplicateRulesFormProperties {
     onIgnoreResolutionDifferenceChange: (checked: boolean) => void;
     /** Callback when ignore recompression toggle changes */
     onIgnoreRecompressionChange: (checked: boolean) => void;
-    /** Callback when similarity threshold slider changes */
+    /** Callback when rotation toggle changes */
+    onAllowRotationChange: (checked: boolean) => void;
+    /** Callback when mirroring toggle changes */
+    onAllowMirroringChange: (checked: boolean) => void;
+    /** Callback when shared similarity threshold slider changes */
     onMinimumScoreChange: (score: number) => void;
+    /** Callback when visual threshold slider changes */
+    onMinimumVisualScoreChange: (score: number) => void;
+    /** Callback when crop threshold slider changes */
+    onMinimumCropScoreChange: (score: number) => void;
 }
 
 const DETECTION_PROFILES = [
@@ -151,14 +167,50 @@ export const DuplicateRulesForm: Component<DuplicateRulesFormProperties> = compo
                     />
                 </div>
 
+                <div class="duplicate-rules-row">
+                    <div class="duplicate-rules-row-text">
+                        <span class="duplicate-rules-row-label">
+                            Detect rotations (90° / 180° / 270°)
+                        </span>
+                        <span class="duplicate-rules-row-desc">
+                            Matches images that have been rotated by orthogonal angles.
+                        </span>
+                    </div>
+                    <Switch
+                        checked={componentProperties.allowRotation}
+                        onCheckedChange={componentProperties.onAllowRotationChange}
+                        disabled={componentProperties.isDisabled || !isCustomMode()}
+                    />
+                </div>
+
+                <div class="duplicate-rules-row">
+                    <div class="duplicate-rules-row-text">
+                        <span class="duplicate-rules-row-label">
+                            Detect mirrored (flipped) images
+                        </span>
+                        <span class="duplicate-rules-row-desc">
+                            Matches images that have been horizontally flipped.
+                        </span>
+                    </div>
+                    <Switch
+                        checked={componentProperties.allowMirroring}
+                        onCheckedChange={componentProperties.onAllowMirroringChange}
+                        disabled={componentProperties.isDisabled || !isCustomMode()}
+                    />
+                </div>
+            </div>
+
+            <div class="duplicate-rules-section">
+                <h3 class="duplicate-rules-section-title">Similarity Thresholds</h3>
+
                 <div class="duplicate-rules-row-slider">
                     <div class="duplicate-rules-row-text">
                         <span class="duplicate-rules-row-label">
-                            Similarity Threshold (
-                            {(componentProperties.minimumScore * 100).toFixed(0)}%)
+                            Global Threshold ({(componentProperties.minimumScore * 100).toFixed(0)}
+                            %)
                         </span>
                         <span class="duplicate-rules-row-desc">
-                            Lower values find more near-duplicates but increase false positives.
+                            Shared fallback threshold. Used when independent thresholds are not set.
                         </span>
                     </div>
                     <Slider
@@ -171,6 +223,54 @@ export const DuplicateRulesForm: Component<DuplicateRulesFormProperties> = compo
                         isDisabled={componentProperties.isDisabled || !isCustomMode()}
                     />
                 </div>
+
+                <Show when={componentProperties.considerVisualMatch}>
+                    <div class="duplicate-rules-row-slider">
+                        <div class="duplicate-rules-row-text">
+                            <span class="duplicate-rules-row-label">
+                                Visual Match Threshold (
+                                {(componentProperties.minimumVisualScore * 100).toFixed(0)}%)
+                            </span>
+                            <span class="duplicate-rules-row-desc">
+                                Minimum perceptual similarity required for visual matches. Lower
+                                values find more near-duplicates but increase false positives.
+                            </span>
+                        </div>
+                        <Slider
+                            value={componentProperties.minimumVisualScore}
+                            minimumValue={0.5}
+                            maximumValue={1.0}
+                            stepValue={0.01}
+                            showTicks={false}
+                            onValueChange={componentProperties.onMinimumVisualScoreChange}
+                            isDisabled={componentProperties.isDisabled || !isCustomMode()}
+                        />
+                    </div>
+                </Show>
+
+                <Show when={componentProperties.considerCropMatch}>
+                    <div class="duplicate-rules-row-slider">
+                        <div class="duplicate-rules-row-text">
+                            <span class="duplicate-rules-row-label">
+                                Crop Match Threshold (
+                                {(componentProperties.minimumCropScore * 100).toFixed(0)}%)
+                            </span>
+                            <span class="duplicate-rules-row-desc">
+                                Minimum spatial block hash overlap for crop/derivative matches.
+                                Lower values detect more aggressive crops.
+                            </span>
+                        </div>
+                        <Slider
+                            value={componentProperties.minimumCropScore}
+                            minimumValue={0.5}
+                            maximumValue={1.0}
+                            stepValue={0.01}
+                            showTicks={false}
+                            onValueChange={componentProperties.onMinimumCropScoreChange}
+                            isDisabled={componentProperties.isDisabled || !isCustomMode()}
+                        />
+                    </div>
+                </Show>
             </div>
 
             <Alert variant="info">

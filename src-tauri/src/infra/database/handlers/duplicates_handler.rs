@@ -85,9 +85,10 @@ pub async fn save_rule_set(pool: &SqlitePool, rule_set: DuplicateRuleSet) -> App
             consider_exact_match, consider_visual_match, consider_crop_match, 
             ignore_resolution_difference, ignore_recompression, 
             allow_rotation, allow_mirroring, min_score, 
+            min_visual_score, min_crop_score,
             created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name = excluded.name,
             description = excluded.description,
@@ -99,6 +100,8 @@ pub async fn save_rule_set(pool: &SqlitePool, rule_set: DuplicateRuleSet) -> App
             allow_rotation = excluded.allow_rotation,
             allow_mirroring = excluded.allow_mirroring,
             min_score = excluded.min_score,
+            min_visual_score = excluded.min_visual_score,
+            min_crop_score = excluded.min_crop_score,
             updated_at = excluded.updated_at
         "#,
         rule_set.id,
@@ -112,6 +115,8 @@ pub async fn save_rule_set(pool: &SqlitePool, rule_set: DuplicateRuleSet) -> App
         rule_set.allow_rotation,
         rule_set.allow_mirroring,
         rule_set.min_score,
+        rule_set.min_visual_score,
+        rule_set.min_crop_score,
         rule_set.created_at,
         rule_set.updated_at
     )
@@ -438,9 +443,9 @@ pub async fn run_exact_match_scan(
     sqlx::query!(
         r#"
         INSERT OR IGNORE INTO duplicate_rule_sets (
-            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at
         ) VALUES (
-            'exact-match', 'Exact Match', 'Finds identical files using hash', 1, 0, 0, 0, 0, 0, 0, 1.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            'exact-match', 'Exact Match', 'Finds identical files using hash', 1, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 1.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
         "#
     )
@@ -596,9 +601,9 @@ pub async fn run_visual_match_scan(
     sqlx::query!(
         r#"
         INSERT OR IGNORE INTO duplicate_rule_sets (
-            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, created_at, updated_at
+            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at
         ) VALUES (
-            'visual-match', 'Visual Match', 'Finds similar images using perceptual hash', 0, 1, 0, 1, 1, 0, 0, 0.9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            'visual-match', 'Visual Match', 'Finds similar images using perceptual hash', 0, 1, 0, 1, 1, 0, 0, 0.9, 0.9, 0.85, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
         "#
     )
@@ -611,7 +616,9 @@ pub async fn run_visual_match_scan(
 
     let rule_set_record = sqlx::query!(
         r#"
-        SELECT id, min_score, consider_visual_match, consider_crop_match
+        SELECT id, min_score, min_visual_score, min_crop_score,
+               consider_visual_match, consider_crop_match,
+               allow_rotation, allow_mirroring
         FROM duplicate_rule_sets
         ORDER BY updated_at DESC
         LIMIT 1
@@ -621,12 +628,25 @@ pub async fn run_visual_match_scan(
     .await
     .map_err(AppError::Database)?;
 
-    let (rule_set_id_option, minimum_score, consider_visual_match, consider_crop_match) = match rule_set_record {
+    let (
+        rule_set_id_option,
+        minimum_score,
+        minimum_visual_score,
+        minimum_crop_score,
+        consider_visual_match,
+        consider_crop_match,
+        rotation_enabled,
+        mirroring_enabled,
+    ) = match rule_set_record {
         Some(record) => (
             record.id,
             record.min_score,
+            record.min_visual_score,
+            record.min_crop_score,
             record.consider_visual_match != 0,
             record.consider_crop_match != 0,
+            record.allow_rotation != 0,
+            record.allow_mirroring != 0,
         ),
         None => return Ok(()),
     };
@@ -634,17 +654,33 @@ pub async fn run_visual_match_scan(
     let rule_set_identifier = rule_set_id_option.unwrap_or_else(|| "visual-match".to_string());
     let rule_set_id_reference: &str = &rule_set_identifier;
 
+    // Resolve effective thresholds: use independent scores if they are non-zero,
+    // otherwise fall back to the shared min_score for backward compatibility.
+    let effective_visual_threshold = if minimum_visual_score > 0.0 {
+        minimum_visual_score
+    } else {
+        minimum_score
+    };
+    let effective_crop_threshold = if minimum_crop_score > 0.0 {
+        minimum_crop_score
+    } else {
+        minimum_score
+    };
+
     if !consider_visual_match && !consider_crop_match {
         tracing::info!("run_visual_match_scan: visual and crop matching both disabled in active rule set");
         return Ok(());
     }
 
     tracing::info!(
-        "run_visual_match_scan: starting visual matching scan (rule_set={}, min_score={}, visual={}, crop={})",
+        "run_visual_match_scan: starting visual matching scan (rule_set={}, visual_threshold={}, crop_threshold={}, visual={}, crop={}, rotation={}, mirroring={})",
         rule_set_id_reference,
-        minimum_score,
+        effective_visual_threshold,
+        effective_crop_threshold,
         consider_visual_match,
-        consider_crop_match
+        consider_crop_match,
+        rotation_enabled,
+        mirroring_enabled
     );
 
     struct VisualCandidateData {
@@ -767,9 +803,12 @@ pub async fn run_visual_match_scan(
                 (comparison_asset.image_width, comparison_asset.image_height),
                 primary_asset.file_size_bytes,
                 comparison_asset.file_size_bytes,
-                minimum_score,
+                effective_visual_threshold,
+                effective_crop_threshold,
                 consider_visual_match,
                 consider_crop_match,
+                rotation_enabled,
+                mirroring_enabled,
             );
 
             if let Some(evaluation) = match_result {

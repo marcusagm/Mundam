@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT \n            id as \"id!\", name as \"name!\", description, \n            consider_exact_match as \"consider_exact_match: bool\", \n            consider_visual_match as \"consider_visual_match: bool\", \n            consider_crop_match as \"consider_crop_match: bool\", \n            ignore_resolution_difference as \"ignore_resolution_difference: bool\", \n            ignore_recompression as \"ignore_recompression: bool\", \n            allow_rotation as \"allow_rotation: bool\", \n            allow_mirroring as \"allow_mirroring: bool\", \n            min_score as \"min_score: f64\", \n            created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_rule_sets\n        ORDER BY updated_at DESC\n        LIMIT 1\n        ",
+  "query": "\n        SELECT \n            id as \"id!\", name as \"name!\", description, \n            consider_exact_match as \"consider_exact_match: bool\", \n            consider_visual_match as \"consider_visual_match: bool\", \n            consider_crop_match as \"consider_crop_match: bool\", \n            ignore_resolution_difference as \"ignore_resolution_difference: bool\", \n            ignore_recompression as \"ignore_recompression: bool\", \n            allow_rotation as \"allow_rotation: bool\", \n            allow_mirroring as \"allow_mirroring: bool\", \n            min_score as \"min_score: f64\", \n            min_visual_score as \"min_visual_score: f64\", \n            min_crop_score as \"min_crop_score: f64\", \n            created_at as \"created_at: chrono::DateTime<chrono::Utc>\", \n            updated_at as \"updated_at: chrono::DateTime<chrono::Utc>\"\n        FROM duplicate_rule_sets\n        ORDER BY updated_at DESC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -59,13 +59,23 @@
         "type_info": "Float"
       },
       {
-        "name": "created_at: chrono::DateTime<chrono::Utc>",
+        "name": "min_visual_score: f64",
         "ordinal": 11,
+        "type_info": "Float"
+      },
+      {
+        "name": "min_crop_score: f64",
+        "ordinal": 12,
+        "type_info": "Float"
+      },
+      {
+        "name": "created_at: chrono::DateTime<chrono::Utc>",
+        "ordinal": 13,
         "type_info": "Text"
       },
       {
         "name": "updated_at: chrono::DateTime<chrono::Utc>",
-        "ordinal": 12,
+        "ordinal": 14,
         "type_info": "Text"
       }
     ],
@@ -85,8 +95,10 @@
       false,
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "28ca7951ebc4efca89515ab2f84451db4c8ab34c90627762118fa7dad1566fc8"
+  "hash": "ca91acccf5e98453d3f44b212112e79d9f27794f881c888837d9330d8c2250fa"
 }

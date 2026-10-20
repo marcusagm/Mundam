@@ -66,7 +66,11 @@ export const DuplicateRulesModal: Component<
                 considerCropMatch={duplicateRules.considerCropMatch()}
                 ignoreResolutionDifference={duplicateRules.ignoreResolutionDifference()}
                 ignoreRecompression={duplicateRules.ignoreRecompression()}
+                allowRotation={duplicateRules.allowRotation()}
+                allowMirroring={duplicateRules.allowMirroring()}
                 minimumScore={duplicateRules.minimumScore()}
+                minimumVisualScore={duplicateRules.minimumVisualScore()}
+                minimumCropScore={duplicateRules.minimumCropScore()}
                 isDisabled={duplicateRules.isSaving()}
                 onProfileChange={duplicateRules.handleProfileChange}
                 onConsiderExactMatchChange={duplicateRules.setConsiderExactMatch}
@@ -74,7 +78,11 @@ export const DuplicateRulesModal: Component<
                 onConsiderCropMatchChange={duplicateRules.setConsiderCropMatch}
                 onIgnoreResolutionDifferenceChange={duplicateRules.setIgnoreResolutionDifference}
                 onIgnoreRecompressionChange={duplicateRules.setIgnoreRecompression}
+                onAllowRotationChange={duplicateRules.setAllowRotation}
+                onAllowMirroringChange={duplicateRules.setAllowMirroring}
                 onMinimumScoreChange={duplicateRules.setMinimumScore}
+                onMinimumVisualScoreChange={duplicateRules.setMinimumVisualScore}
+                onMinimumCropScoreChange={duplicateRules.setMinimumCropScore}
             />
         </Modal>
     );

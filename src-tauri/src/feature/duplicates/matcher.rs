@@ -11,6 +11,137 @@ pub struct DuplicateMatchResult {
     pub reasons: Vec<String>,
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// dHash (8×8 = 64-bit) bit-permutation routines
+// ────────────────────────────────────────────────────────────────────────────
+//
+// A 64-bit dHash encodes an 8×8 gradient grid. Bit index `row * 8 + col`
+// maps to position (row, col) in the grid. Rotating or flipping the grid
+// requires remapping every bit to its new position.
+
+/// Rotates a 64-bit dHash 90° clockwise.
+///
+/// Maps `(row, col) → (col, 7 - row)`.
+pub fn rotate_dhash_90_clockwise(hash: u64) -> u64 {
+    let mut rotated: u64 = 0;
+    for row in 0..8u32 {
+        for col in 0..8u32 {
+            let source_bit_index = row * 8 + col;
+            let destination_bit_index = col * 8 + (7 - row);
+            if hash & (1u64 << source_bit_index) != 0 {
+                rotated |= 1u64 << destination_bit_index;
+            }
+        }
+    }
+    rotated
+}
+
+/// Rotates a 64-bit dHash 180°.
+///
+/// Maps `(row, col) → (7 - row, 7 - col)` which is equivalent to
+/// reversing the entire 64-bit sequence.
+pub fn rotate_dhash_180(hash: u64) -> u64 {
+    let mut rotated: u64 = 0;
+    for bit_index in 0..64u32 {
+        let destination_bit_index = 63 - bit_index;
+        if hash & (1u64 << bit_index) != 0 {
+            rotated |= 1u64 << destination_bit_index;
+        }
+    }
+    rotated
+}
+
+/// Rotates a 64-bit dHash 270° clockwise (= 90° counter-clockwise).
+///
+/// Maps `(row, col) → (7 - col, row)`.
+pub fn rotate_dhash_270_clockwise(hash: u64) -> u64 {
+    let mut rotated: u64 = 0;
+    for row in 0..8u32 {
+        for col in 0..8u32 {
+            let source_bit_index = row * 8 + col;
+            let destination_bit_index = (7 - col) * 8 + row;
+            if hash & (1u64 << source_bit_index) != 0 {
+                rotated |= 1u64 << destination_bit_index;
+            }
+        }
+    }
+    rotated
+}
+
+/// Mirrors a 64-bit dHash horizontally (left ↔ right flip).
+///
+/// Reverses the bit order within each 8-bit row: `(row, col) → (row, 7 - col)`.
+pub fn mirror_dhash_horizontal(hash: u64) -> u64 {
+    let mut mirrored: u64 = 0;
+    for row in 0..8u32 {
+        for col in 0..8u32 {
+            let source_bit_index = row * 8 + col;
+            let destination_bit_index = row * 8 + (7 - col);
+            if hash & (1u64 << source_bit_index) != 0 {
+                mirrored |= 1u64 << destination_bit_index;
+            }
+        }
+    }
+    mirrored
+}
+
+/// Mirrors a 64-bit dHash vertically (top ↔ bottom flip).
+///
+/// Reverses row order: `(row, col) → (7 - row, col)`.
+pub fn mirror_dhash_vertical(hash: u64) -> u64 {
+    let mut mirrored: u64 = 0;
+    for row in 0..8u32 {
+        for col in 0..8u32 {
+            let source_bit_index = row * 8 + col;
+            let destination_bit_index = (7 - row) * 8 + col;
+            if hash & (1u64 << source_bit_index) != 0 {
+                mirrored |= 1u64 << destination_bit_index;
+            }
+        }
+    }
+    mirrored
+}
+
+/// Generates all relevant hash variants for comparison based on
+/// rotation and mirroring flags.
+///
+/// Returns a `Vec` containing the original hash plus all enabled
+/// permutations. The caller should compare each variant and take
+/// the maximum similarity score.
+///
+/// When both rotation and mirroring are enabled, up to 8 variants
+/// are produced (4 rotations × 2 mirror states).
+pub fn generate_hash_variants(
+    hash: u64,
+    allow_rotation: bool,
+    allow_mirroring: bool,
+) -> Vec<u64> {
+    let mut variants: Vec<u64> = Vec::with_capacity(8);
+    variants.push(hash);
+
+    if allow_rotation {
+        variants.push(rotate_dhash_90_clockwise(hash));
+        variants.push(rotate_dhash_180(hash));
+        variants.push(rotate_dhash_270_clockwise(hash));
+    }
+
+    if allow_mirroring {
+        let mirrored_hash = mirror_dhash_horizontal(hash);
+        variants.push(mirrored_hash);
+        if allow_rotation {
+            variants.push(rotate_dhash_90_clockwise(mirrored_hash));
+            variants.push(rotate_dhash_180(mirrored_hash));
+            variants.push(rotate_dhash_270_clockwise(mirrored_hash));
+        }
+    }
+
+    variants
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Similarity scoring functions
+// ────────────────────────────────────────────────────────────────────────────
+
 /// Calculates visual similarity between two 64-bit gradient difference hashes.
 ///
 /// Computes normalized Hamming distance: `1.0 - (hamming_distance / 64.0)`.
@@ -49,6 +180,34 @@ pub fn calculate_visual_similarity(hash_one: u64, hash_two: u64) -> f64 {
     } else {
         hamming_similarity
     }
+}
+
+/// Calculates the best visual similarity between `hash_one` and all variants
+/// of `hash_two`, considering rotation and mirroring when enabled.
+///
+/// When `allow_rotation` or `allow_mirroring` is true, generates permuted
+/// variants of `hash_two` and returns the maximum similarity found.
+pub fn calculate_visual_similarity_with_variants(
+    hash_one: u64,
+    hash_two: u64,
+    allow_rotation: bool,
+    allow_mirroring: bool,
+) -> f64 {
+    if !allow_rotation && !allow_mirroring {
+        return calculate_visual_similarity(hash_one, hash_two);
+    }
+
+    let hash_two_variants = generate_hash_variants(hash_two, allow_rotation, allow_mirroring);
+    let mut best_similarity: f64 = 0.0;
+
+    for variant_hash in hash_two_variants {
+        let current_similarity = calculate_visual_similarity(hash_one, variant_hash);
+        if current_similarity > best_similarity {
+            best_similarity = current_similarity;
+        }
+    }
+
+    best_similarity
 }
 
 /// Calculates multi-scale similarity between two 256-bit hexadecimal hash strings.
@@ -220,9 +379,12 @@ fn evaluate_subgrid_overlap(
 /// * `dimension_two` - Dimensions (width, height) of the second image.
 /// * `file_size_one` - File size in bytes of the first image.
 /// * `file_size_two` - File size in bytes of the second image.
-/// * `minimum_score_threshold` - Minimum confidence score required to form a match.
+/// * `visual_score_threshold` - Minimum confidence score for visual/perceptual matches.
+/// * `crop_score_threshold` - Minimum confidence score for crop/derived matches.
 /// * `consider_visual_match` - Whether visual/perceptual matching is enabled in the active rule set.
 /// * `consider_crop_match` - Whether crop matching is enabled in the active rule set.
+/// * `allow_rotation` - Whether to test rotated (90°/180°/270°) hash variants.
+/// * `allow_mirroring` - Whether to test horizontally mirrored hash variants.
 ///
 /// # Returns
 /// An `Option<DuplicateMatchResult>` if the similarity exceeds the minimum threshold.
@@ -238,9 +400,12 @@ pub fn evaluate_visual_and_crop_match(
     dimension_two: (Option<i32>, Option<i32>),
     file_size_one: Option<i64>,
     file_size_two: Option<i64>,
-    minimum_score_threshold: f64,
+    visual_score_threshold: f64,
+    crop_score_threshold: f64,
     consider_visual_match: bool,
     consider_crop_match: bool,
+    allow_rotation: bool,
+    allow_mirroring: bool,
 ) -> Option<DuplicateMatchResult> {
     // Guard: Reject degenerate zero-hash images. Images that decode as fully uniform
     // (black, white, or failed decode) produce hash 0x0, which has zero visual entropy
@@ -249,7 +414,12 @@ pub fn evaluate_visual_and_crop_match(
         return None;
     }
 
-    let visual_similarity = calculate_visual_similarity(hash_one, hash_two);
+    let visual_similarity = calculate_visual_similarity_with_variants(
+        hash_one,
+        hash_two,
+        allow_rotation,
+        allow_mirroring,
+    );
 
     let actual_multiscale_similarity = match (multi_scale_one, multi_scale_two) {
         (Some(first_hex), Some(second_hex)) => {
@@ -259,7 +429,7 @@ pub fn evaluate_visual_and_crop_match(
     };
 
     // Primary check: Direct visual/perceptual match
-    if consider_visual_match && visual_similarity >= minimum_score_threshold {
+    if consider_visual_match && visual_similarity >= visual_score_threshold {
         // When multiscale hash is available and visual similarity is below 0.85,
         // require multiscale similarity >= 0.65 to ensure the match is not a low-entropy
         // artifact of matching background zeros.
@@ -271,6 +441,10 @@ pub fn evaluate_visual_and_crop_match(
             let mut explainable_reasons: Vec<String> = Vec::new();
             let percentage_formatted = (visual_similarity * 100.0).round() as u32;
             explainable_reasons.push(format!("visual_similarity:{}%", percentage_formatted));
+
+            if allow_rotation || allow_mirroring {
+                explainable_reasons.push("rotation_mirroring_checked".to_string());
+            }
 
             if let (Some(width_one), Some(height_one), Some(width_two), Some(height_two)) = (
                 dimension_one.0,
@@ -331,9 +505,9 @@ pub fn evaluate_visual_and_crop_match(
             // 3x3 subgrid covers 56.25% of the image (144 bits of entropy)
             // 2x2 subgrid covers only 25% of the image (64 bits of entropy), so it requires
             // a stricter threshold (>= 0.85) to overcome the multi-position noise floor.
-            let matches_three_by_three = crop_three_by_three >= minimum_score_threshold;
+            let matches_three_by_three = crop_three_by_three >= crop_score_threshold;
             let matches_two_by_two =
-                crop_two_by_two >= 0.85 && crop_two_by_two >= minimum_score_threshold;
+                crop_two_by_two >= 0.85 && crop_two_by_two >= crop_score_threshold;
 
             if matches_three_by_three || matches_two_by_two {
                 let accepted_score = if matches_three_by_three {
@@ -382,6 +556,7 @@ pub fn evaluate_visual_and_crop_match(
     None
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -422,7 +597,10 @@ mod tests {
             Some(1000),
             Some(2000),
             0.70,
+            0.70,
             true,
+            false,
+            false,
             false,
         );
         assert!(
@@ -446,8 +624,11 @@ mod tests {
             Some(1000),
             Some(2000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -474,8 +655,11 @@ mod tests {
             Some(500000),
             Some(300000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -502,8 +686,11 @@ mod tests {
             Some(1000000),
             Some(50000000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -530,8 +717,11 @@ mod tests {
             Some(1000000),
             Some(300000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -557,8 +747,11 @@ mod tests {
             Some(40000),
             Some(36000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -584,8 +777,11 @@ mod tests {
             Some(30000),
             Some(29000),
             0.70,
+            0.70,
             true,
             true,
+            false,
+            false,
         );
         assert!(
             result.is_none(),
@@ -610,7 +806,10 @@ mod tests {
             Some(500000),
             Some(500000),
             0.70,
+            0.70,
             true,
+            false,
+            false,
             false,
         );
         assert!(result.is_some(), "Identical hashes should always match");
@@ -633,6 +832,9 @@ mod tests {
             Some(500000),
             Some(500000),
             0.70,
+            0.70,
+            false,
+            false,
             false,
             false,
         );
@@ -641,4 +843,240 @@ mod tests {
             "When consider_visual_match is false and consider_crop_match is false, no visual match should form"
         );
     }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Rotation / mirroring bit-permutation tests
+    // ────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_rotate_90_four_times_returns_original() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let once_rotated = rotate_dhash_90_clockwise(original_hash);
+        let twice_rotated = rotate_dhash_90_clockwise(once_rotated);
+        let thrice_rotated = rotate_dhash_90_clockwise(twice_rotated);
+        let fully_rotated = rotate_dhash_90_clockwise(thrice_rotated);
+        assert_eq!(
+            original_hash, fully_rotated,
+            "Four 90° rotations must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_rotate_180_is_involution() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let double_rotated = rotate_dhash_180(rotate_dhash_180(original_hash));
+        assert_eq!(
+            original_hash, double_rotated,
+            "Two 180° rotations must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_rotate_270_is_inverse_of_rotate_90() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let rotated_90_then_270 = rotate_dhash_270_clockwise(rotate_dhash_90_clockwise(original_hash));
+        assert_eq!(
+            original_hash, rotated_90_then_270,
+            "90° CW followed by 270° CW must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_rotate_90_followed_by_270_returns_original() {
+        let original_hash: u64 = 0xb1957762a39ba986;
+        let rotated_270_then_90 = rotate_dhash_90_clockwise(rotate_dhash_270_clockwise(original_hash));
+        assert_eq!(
+            original_hash, rotated_270_then_90,
+            "270° CW followed by 90° CW must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_mirror_horizontal_is_involution() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let double_mirrored = mirror_dhash_horizontal(mirror_dhash_horizontal(original_hash));
+        assert_eq!(
+            original_hash, double_mirrored,
+            "Two horizontal mirrors must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_mirror_vertical_is_involution() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let double_mirrored = mirror_dhash_vertical(mirror_dhash_vertical(original_hash));
+        assert_eq!(
+            original_hash, double_mirrored,
+            "Two vertical mirrors must return to the original hash"
+        );
+    }
+
+    #[test]
+    fn test_rotation_changes_the_hash() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let rotated_hash = rotate_dhash_90_clockwise(original_hash);
+        assert_ne!(
+            original_hash, rotated_hash,
+            "A non-symmetric hash should change after 90° rotation"
+        );
+    }
+
+    #[test]
+    fn test_mirror_changes_the_hash() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let mirrored_hash = mirror_dhash_horizontal(original_hash);
+        assert_ne!(
+            original_hash, mirrored_hash,
+            "A non-symmetric hash should change after horizontal mirror"
+        );
+    }
+
+    #[test]
+    fn test_generate_variants_rotation_only() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let variants = generate_hash_variants(original_hash, true, false);
+        assert_eq!(variants.len(), 4, "Rotation-only should produce 4 variants (0°, 90°, 180°, 270°)");
+        assert_eq!(variants[0], original_hash, "First variant should be the original hash");
+    }
+
+    #[test]
+    fn test_generate_variants_mirror_only() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let variants = generate_hash_variants(original_hash, false, true);
+        assert_eq!(variants.len(), 2, "Mirror-only should produce 2 variants (original + mirrored)");
+    }
+
+    #[test]
+    fn test_generate_variants_rotation_and_mirror() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let variants = generate_hash_variants(original_hash, true, true);
+        assert_eq!(variants.len(), 8, "Rotation + mirror should produce 8 variants (4 rotations × 2 mirror states)");
+    }
+
+    #[test]
+    fn test_generate_variants_neither_produces_single_entry() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let variants = generate_hash_variants(original_hash, false, false);
+        assert_eq!(variants.len(), 1, "No rotation or mirror should produce 1 variant (original only)");
+    }
+
+    #[test]
+    fn test_rotated_hash_matches_original_with_rotation_enabled() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let rotated_hash = rotate_dhash_90_clockwise(original_hash);
+
+        // Without rotation: similarity should be significantly less than 1.0
+        let without_rotation = calculate_visual_similarity(original_hash, rotated_hash);
+        assert!(
+            without_rotation < 0.95,
+            "Rotated hash should not be near-identical to original without rotation handling"
+        );
+
+        // With rotation: should find perfect match via variant search
+        let with_rotation = calculate_visual_similarity_with_variants(
+            original_hash,
+            rotated_hash,
+            true,
+            false,
+        );
+        assert!(
+            (with_rotation - 1.0).abs() < f64::EPSILON,
+            "Rotated hash should match 100% when rotation is enabled"
+        );
+    }
+
+    #[test]
+    fn test_mirrored_hash_matches_original_with_mirroring_enabled() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let mirrored_hash = mirror_dhash_horizontal(original_hash);
+
+        // Without mirroring: similarity should be less than perfect
+        let without_mirroring = calculate_visual_similarity(original_hash, mirrored_hash);
+        assert!(
+            without_mirroring < 0.95,
+            "Mirrored hash should not be near-identical to original without mirror handling"
+        );
+
+        // With mirroring: should find perfect match
+        let with_mirroring = calculate_visual_similarity_with_variants(
+            original_hash,
+            mirrored_hash,
+            false,
+            true,
+        );
+        assert!(
+            (with_mirroring - 1.0).abs() < f64::EPSILON,
+            "Mirrored hash should match 100% when mirroring is enabled"
+        );
+    }
+
+    #[test]
+    fn test_rotated_image_matched_via_evaluate_with_rotation() {
+        let original_hash: u64 = 0x4777ac2327478753;
+        let rotated_hash = rotate_dhash_180(original_hash);
+
+        let result = evaluate_visual_and_crop_match(
+            original_hash,
+            rotated_hash,
+            None,
+            None,
+            None,
+            None,
+            (Some(1000), Some(566)),
+            (Some(566), Some(1000)),
+            Some(500000),
+            Some(500000),
+            0.70,
+            0.70,
+            true,
+            false,
+            true,  // allow_rotation
+            false, // allow_mirroring
+        );
+        assert!(
+            result.is_some(),
+            "180° rotated image should be matched when rotation is enabled"
+        );
+        let match_result = result.unwrap();
+        assert!(
+            (match_result.score - 1.0).abs() < f64::EPSILON,
+            "Rotated match score should be 1.0"
+        );
+        assert!(
+            match_result.reasons.contains(&"rotation_mirroring_checked".to_string()),
+            "Reasons should mention rotation/mirroring was checked"
+        );
+    }
+
+    #[test]
+    fn test_independent_thresholds_visual_passes_crop_fails() {
+        // When visual and crop thresholds are independent, a score between them
+        // should pass visual but not crop.
+        let casa_hash: u64 = 0x4777ac2327478753;
+
+        // With visual threshold at 0.50, identical hashes should pass
+        let result = evaluate_visual_and_crop_match(
+            casa_hash,
+            casa_hash,
+            None,
+            None,
+            None,
+            None,
+            (Some(1000), Some(566)),
+            (Some(1000), Some(566)),
+            Some(500000),
+            Some(500000),
+            0.50,  // visual threshold (low)
+            0.99,  // crop threshold (high, but irrelevant since visual passes first)
+            true,
+            true,
+            false,
+            false,
+        );
+        assert!(
+            result.is_some(),
+            "Visual match should pass with a low visual threshold even if crop threshold is high"
+        );
+    }
 }
+
