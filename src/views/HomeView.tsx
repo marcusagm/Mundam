@@ -1,12 +1,7 @@
 import { Component, JSX, onMount } from 'solid-js';
 import { ApplicationView } from '../components/layout/TitleBar/types';
 import { useMetadata } from '../core/hooks';
-import {
-    HomeHeroMetrics,
-    HomeMediaBreakdown,
-    HomeRecentStream,
-    HomeQuickActions
-} from '../components/features/home';
+import { HomeQuickAccess, HomeMediaBreakdown, HomeRecentStream } from '../components/features/home';
 import '../components/features/home/home.css';
 
 export interface HomeViewProperties {
@@ -19,10 +14,9 @@ export interface HomeViewProperties {
 /**
  * Main Home view of the application.
  * Functions as the central Asset Command Center with:
- * - Library pulse metrics and quick filter teleport chips
- * - Media family and disk footprint composition breakdown
- * - Stream of most recently added or indexed assets
- * - Quick management and discovery shortcuts
+ * - Quick access counters ribbon for all key library dimensions
+ * - Media family and disk footprint composition breakdown (table/list)
+ * - Stream of most recently added or indexed assets (occupying 2/3 width)
  *
  * @param {HomeViewProperties} properties - Component properties.
  * @returns {JSX.Element} The rendered home view.
@@ -56,14 +50,15 @@ export const HomeView: Component<HomeViewProperties> = properties => {
         <div class="home-container">
             {properties.header}
             <main class="home-scroll-area">
-                <HomeHeroMetrics onNavigate={handleNavigate} />
-                <HomeQuickActions onNavigate={handleNavigate} />
-                <HomeMediaBreakdown
-                    familyStatistics={metadata.stats.family_stats}
-                    totalSizeBytes={metadata.stats.total_size_bytes}
-                    onNavigate={handleNavigate}
-                />
-                <HomeRecentStream onNavigate={handleNavigate} />
+                <HomeQuickAccess onNavigate={handleNavigate} />
+                <div class="home-columns-container">
+                    <HomeMediaBreakdown
+                        familyStatistics={metadata.stats.family_stats}
+                        totalSizeBytes={metadata.stats.total_size_bytes}
+                        onNavigate={handleNavigate}
+                    />
+                    <HomeRecentStream onNavigate={handleNavigate} />
+                </div>
             </main>
         </div>
     );

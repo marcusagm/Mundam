@@ -21,7 +21,6 @@
  */
 
 export * from './types';
-export * from './HomeHeroMetrics';
+export * from './HomeQuickAccess';
 export * from './HomeMediaBreakdown';
 export * from './HomeRecentStream';
-export * from './HomeQuickActions';

@@ -20,9 +20,9 @@ export interface MediaFamilyDisplayConfiguration {
 }
 
 /**
- * Properties for the hero metrics ribbon component.
+ * Properties for the quick access counters grid component.
  */
-export interface HomeHeroMetricsProperties {
+export interface HomeQuickAccessProperties {
     /** Callback to switch application view */
     onNavigate: (view: ApplicationView) => void;
 }
@@ -43,14 +43,6 @@ export interface HomeMediaBreakdownProperties {
  * Properties for the recent assets stream component.
  */
 export interface HomeRecentStreamProperties {
-    /** Callback to switch application view */
-    onNavigate: (view: ApplicationView) => void;
-}
-
-/**
- * Properties for the quick actions toolbar component.
- */
-export interface HomeQuickActionsProperties {
     /** Callback to switch application view */
     onNavigate: (view: ApplicationView) => void;
 }
