@@ -1,5 +1,16 @@
 # Recursos
 
+## Geral
+
+- [ ] Criar sistema de atualização automática.
+- [ ] Criar splashscreen.
+- [ ] O sistema deve solicitar corretamente as permissões para o Sistema Operacional de acesso necessários para o funcionamento do aplicativo, principlamente no MacOS.
+- [ ] Criar script para automatizar a configuração de ambiente de desenvolvimento inicial para cada plataforma (Windows, MacOS, Linux), incluindo a instalação de dependências e configuração de variáveis de ambiente.
+- [ ] Sistema de exportação e importação de configurações do aplicativo.
+- [ ] Atualizar README com instruções atualizadas para o novo backend com link para a documentação completa para usuário e desenvolvedor.
+- [ ] Atualizar tela de about com as informações das atuais dependências, links corretos para repositórios e licenças.
+- [ ] Fazer uma analise completa sobre as licenças atuais de dependencias e compatibilidade com o projeto atual.
+
 ## Atalhos
 
 - [x] Adicionar atalho para omitir as sidebars com a tecla "tab" como padrão.
@@ -12,9 +23,11 @@
 - [x] A seleção utilizando o mouse como shift+click e crtl+click não está sendo listada na tela de configurações de atalhos.
 - [ ] Verificar funcionamento padrão de botões adicionais do mouse que por padrão servem para voltar e avançar.
 
-## Acessibilidade
+## Acessibilidade e aparencia
 
 - [ ] Adicionar verificações de `prefers-reduced-motion` no CSS para animações de layout.
+- [ ] Permitir que o usuário customize os tokens de cores do aplicativo.
+- [ ] Permitir que o usuário carregue temas personalizados para o aplicativo.
 
 ## Home
 
@@ -86,6 +99,20 @@
   - [ ] Linux
 - [ ] Adicionar tags pelo menu de contexto seja a um asset ou a todos os assets selecionados.
 
+## Tags
+
+- [ ] Permitir a criação de multiplas tags de uma vez através de uma tela com um campo de texto que permita a inserção de várias tags em formato de lista markdown, que permita definir hieraquia e ordem das tags, alem de cores. Uma sugestão é definir um padrão como:
+  ```
+  - Tag 1: color=<cor>
+  - Tag 2: color=<cor>
+    - Subtag 2.1: color=<cor>
+    - Subtag 2.2: color=<cor>
+  - Tag 3: color=<cor>
+  ```
+  Na janela deve ter a opção de manter tags existentes ou remover, com o aviso de que remover tags existentes apagará todas as tags atualmente associadas aos assets. O acesso a essa funcionalidade deve ser através de um botão ao lado do atual botão de adicionar tags.
+- [ ] Permitir a exportação de tags em formato de lista markdown, mantendo a hierarquia, ordem e cores definidas.
+- [ ] Adicionar ao menu de contexto a opção de que tags filhas tenham a mesma cor da tag pai. Essa opção deve ser padrão do sistema, mas desativada se o usuário definir uma cor personalizada para a tag filha. Precisamos ter atenção ao comportamento ao alterar a cor da tag pai, garantindo que as tags filhas sejam atualizadas corretamente, exceto quando tiverem cores personalizadas.
+
 ## Modo de desenvolvimento
 
 - [ ] Ativar modo de desenvolvimento no menu de configurações.
@@ -106,9 +133,6 @@
 - [x] Ao carregar o arquivo, mostrar um loader de forma que não trave a interface do usuário, permitindo que ele possa sair do itemview quando quiser, cancelando o processo se necessário.
 - [ ] Permitir acesso a detalhes do arquivo na item view.
 - [ ] Agora com a barra de título personalizada, é necessário resolver o problema de não conseguir mover a janela quando um item está sendo visualizado.
-- [ ] Criar sistema de atualização automática.
-- [ ] Criar splashscreen.
-- [ ] O sistema deve solicitar corretamente as permissões para o Sistema Operacional de acesso necessários para o funcionamento do aplicativo, principlamente no MacOS.
 
 ### Imagens
 

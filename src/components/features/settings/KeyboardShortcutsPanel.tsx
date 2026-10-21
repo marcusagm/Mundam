@@ -16,72 +16,11 @@ import { SectionGroup } from '../../ui/SectionGroup';
 import { MouseInteractionsReference } from './MouseInteractionsReference';
 import './keyboard-shortcuts-panel.css';
 import { Button, Kbd } from '../../ui';
-
-type ScopeGroup = {
-    scope: string;
-    label: string;
-    shortcuts: RegisteredShortcut[];
-};
-
-const SCOPE_LABELS: Record<string, string> = {
-    global: 'Global',
-    'image-viewer': 'Image Viewer',
-    viewport: 'Viewport',
-    'duplicate-finder': 'Duplicate Finder',
-    'video-player': 'Video Player',
-    'audio-player': 'Audio Player',
-    search: 'Search',
-    modal: 'Modal'
-};
-
-function groupShortcutsByScope(shortcuts: RegisteredShortcut[]): Map<string, RegisteredShortcut[]> {
-    const groups = new Map<string, RegisteredShortcut[]>();
-    for (const shortcut of shortcuts) {
-        const scope = shortcut.scope || 'global';
-        if (!groups.has(scope)) {
-            groups.set(scope, []);
-        }
-        groups.get(scope)!.push(shortcut);
-    }
-    return groups;
-}
-
-function buildOrderedScopeGroups(groups: Map<string, RegisteredShortcut[]>): ScopeGroup[] {
-    const order = [
-        'global',
-        'viewport',
-        'image-viewer',
-        'duplicate-finder',
-        'video-player',
-        'audio-player',
-        'search',
-        'modal'
-    ];
-    const result: ScopeGroup[] = [];
-
-    for (const scope of order) {
-        const scopedShortcuts = groups.get(scope);
-        if (scopedShortcuts && scopedShortcuts.length > 0) {
-            result.push({
-                scope,
-                label: SCOPE_LABELS[scope] || scope,
-                shortcuts: scopedShortcuts.sort((a, b) => a.name.localeCompare(b.name))
-            });
-        }
-    }
-
-    for (const [scope, scopedShortcuts] of groups) {
-        if (!order.includes(scope) && scopedShortcuts.length > 0) {
-            result.push({
-                scope,
-                label: SCOPE_LABELS[scope] || scope,
-                shortcuts: scopedShortcuts.sort((a, b) => a.name.localeCompare(b.name))
-            });
-        }
-    }
-
-    return result;
-}
+import {
+    buildOrderedScopeGroups,
+    groupShortcutsByScope,
+    type ScopeGroup
+} from './data/shortcutScopeGroups';
 
 export const KeyboardShortcutsPanel: Component = () => {
     const [editingId, setEditingId] = createSignal<string | null>(null);
