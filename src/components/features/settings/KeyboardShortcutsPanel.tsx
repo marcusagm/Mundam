@@ -6,9 +6,14 @@
 import { Component, createSignal, createMemo, For, Show, onCleanup, createEffect } from 'solid-js';
 import { RotateCcw, AlertTriangle, Check, X } from 'lucide-solid';
 import { shortcutStore } from '../../../core/input/store/shortcutStore';
-import { formatShortcutForDisplay, buildCanonicalId } from '../../../core/input/normalizer';
+import {
+    formatShortcutForDisplay,
+    buildCanonicalId,
+    resolveKeyboardEventKey
+} from '../../../core/input/normalizer';
 import type { RegisteredShortcut, ModifierKey } from '../../../core/input/types';
 import { SectionGroup } from '../../ui/SectionGroup';
+import { MouseInteractionsReference } from './MouseInteractionsReference';
 import './keyboard-shortcuts-panel.css';
 import { Button, Kbd } from '../../ui';
 
@@ -22,6 +27,9 @@ const SCOPE_LABELS: Record<string, string> = {
     global: 'Global',
     'image-viewer': 'Image Viewer',
     viewport: 'Viewport',
+    'duplicate-finder': 'Duplicate Finder',
+    'video-player': 'Video Player',
+    'audio-player': 'Audio Player',
     search: 'Search',
     modal: 'Modal'
 };
@@ -39,7 +47,16 @@ function groupShortcutsByScope(shortcuts: RegisteredShortcut[]): Map<string, Reg
 }
 
 function buildOrderedScopeGroups(groups: Map<string, RegisteredShortcut[]>): ScopeGroup[] {
-    const order = ['global', 'image-viewer', 'viewport', 'search', 'modal'];
+    const order = [
+        'global',
+        'viewport',
+        'image-viewer',
+        'duplicate-finder',
+        'video-player',
+        'audio-player',
+        'search',
+        'modal'
+    ];
     const result: ScopeGroup[] = [];
 
     for (const scope of order) {
@@ -162,6 +179,8 @@ export const KeyboardShortcutsPanel: Component = () => {
                     )}
                 </For>
             </div>
+
+            <MouseInteractionsReference />
         </div>
     );
 };
@@ -215,6 +234,8 @@ const ShortcutRow: Component<ShortcutRowProps> = props => {
         inputRef.focus();
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Tab') return;
+
             e.preventDefault();
             e.stopPropagation();
 
@@ -231,7 +252,7 @@ const ShortcutRow: Component<ShortcutRowProps> = props => {
 
             // Build the key combination
             const modifiers = extractModifiers(e);
-            const key = e.code || e.key;
+            const key = resolveKeyboardEventKey(e);
             const canonical = buildCanonicalId(modifiers, key);
 
             props.onRecordKeys(canonical);

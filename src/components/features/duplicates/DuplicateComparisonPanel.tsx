@@ -9,7 +9,7 @@ import { DuplicateSmartActionsBar } from './DuplicateSmartActionsBar';
 import { MetadataMergeModal } from './MetadataMergeModal';
 import { useCandidateAnalysis } from './hooks/useCandidateAnalysis';
 import { getGroupTypeBadgeVariant, formatGroupTypeLabel } from '../../../lib/duplicates';
-import { createShortcut } from '../../../core/input';
+import { useCommands } from '../../../core/input';
 import './duplicate-comparison-panel.css';
 
 export interface DuplicateComparisonPanelProperties {
@@ -134,49 +134,59 @@ export const DuplicateComparisonPanel: Component<
         setIsSplitViewOpen(true);
     };
 
-    createShortcut({
-        keys: 'd',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            if (!isProcessing()) handleIgnoreGroup();
-        }
-    });
+    const activeCandidateCount = () =>
+        properties.group.candidates.filter(candidate => !candidate.isTrashed).length;
 
-    createShortcut({
-        keys: 'Backspace',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            if (!isProcessing()) handleIgnoreGroup();
-        }
-    });
+    let panelElement: HTMLDivElement | undefined;
 
-    createShortcut({
-        keys: 'Delete',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            if (!isProcessing()) handleIgnoreGroup();
-        }
-    });
+    const focusCandidate = (offset: 1 | -1) => {
+        const candidateCards = Array.from(
+            panelElement?.querySelectorAll<HTMLElement>(
+                '[data-duplicate-candidate-id]:not(.is-trashed)'
+            ) ?? []
+        );
+        if (candidateCards.length === 0) return;
 
-    createShortcut({
-        keys: 'k',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            if (isProcessing()) return;
+        const currentIndex = candidateCards.findIndex(card => card === document.activeElement);
+        const fallbackIndex = offset === 1 ? 0 : candidateCards.length - 1;
+        const nextIndex =
+            currentIndex === -1
+                ? fallbackIndex
+                : Math.min(Math.max(currentIndex + offset, 0), candidateCards.length - 1);
+        candidateCards[nextIndex].focus();
+    };
+
+    const toggleFocusedCandidate = () => {
+        const candidateIdentifier = document.activeElement?.getAttribute(
+            'data-duplicate-candidate-id'
+        );
+        if (candidateIdentifier && panelElement?.contains(document.activeElement)) {
+            toggleCandidate(candidateIdentifier);
+        }
+    };
+
+    useCommands({
+        'duplicates:next-candidate': () => focusCandidate(1),
+        'duplicates:previous-candidate': () => focusCandidate(-1),
+        'duplicates:toggle-selection': toggleFocusedCandidate,
+        'duplicates:ignore-group': () => {
+            if (!isProcessing() && properties.group.status === 'open') handleIgnoreGroup();
+        },
+        'duplicates:keep-selected': () => {
+            if (isProcessing() || properties.group.status !== 'open') return;
             if (selectedCandidateIdentifiers().size > 0) {
                 handleKeepSelected();
             } else if (largestCandidate()) {
                 handleSmartAction(largestCandidate());
             }
+        },
+        'duplicates:open-split-view': () => {
+            if (activeCandidateCount() >= 2) handleOpenSplitView();
         }
     });
 
     return (
-        <div class="comparison-panel">
+        <div class="comparison-panel" ref={panelElement}>
             <div class="comparison-header">
                 <div class="comparison-title-container">
                     <h2>Group Details</h2>
@@ -193,10 +203,7 @@ export const DuplicateComparisonPanel: Component<
                     <Button
                         variant="secondary"
                         onClick={handleOpenSplitView}
-                        disabled={
-                            properties.group.candidates.filter(candidate => !candidate.isTrashed)
-                                .length < 2
-                        }
+                        disabled={activeCandidateCount() < 2}
                     >
                         <Columns size={16} class="duplicate-comparison-button-icon" />
                         Split View

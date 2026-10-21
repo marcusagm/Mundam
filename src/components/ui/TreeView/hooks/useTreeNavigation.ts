@@ -52,6 +52,7 @@ export const useTreeNavigation = (options: UseTreeNavigationOptions) => {
                 options.onSelect?.();
             }
         },
+        ignoreInputs: false,
         enabled: () => !options.isEditing() && options.isFocused()
     });
 

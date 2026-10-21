@@ -33,7 +33,10 @@ export interface InputScope {
 export const SCOPE_PRIORITIES: Record<string, number> = {
     global: 0,
     viewport: 10,
+    'duplicate-finder': 20,
     'image-viewer': 50,
+    'video-player': 60,
+    'audio-player': 60,
     editing: 1000,
     search: 1100,
     modal: 1200
@@ -150,10 +153,18 @@ export interface ShortcutDefinition {
     isDefault?: boolean;
     /** Whether this is a system/UI shortcut (hidden from settings panel) */
     system?: boolean;
+    /** Yield to any focused interactive control (button, link, widget role) */
+    yieldToInteractive?: boolean;
+    /** Yield to focused widgets that consume arrow keys themselves (sliders, listboxes) */
+    yieldToNavigationWidgets?: boolean;
+    /** Fire even when a focusable control owns focus; text inputs stay protected */
+    allowOnInteractive?: boolean;
 }
 
 export interface RegisteredShortcut extends ShortcutDefinition {
     id: string;
+    /** Keys assigned before any user customization */
+    defaultKeys: string;
     tokens: InputToken[];
     normalizedKeys: string;
 }

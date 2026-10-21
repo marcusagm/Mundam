@@ -22,17 +22,21 @@ export const LibrarySidebarPanel: Component = () => {
 
     return (
         <SidebarPanel title="Library" class="panel-fixed">
-            <div
+            <button
+                type="button"
                 class={`nav-item ${isAllItemsActive() ? 'active' : ''}`}
+                aria-pressed={isAllItemsActive()}
                 onClick={() => filters.clearAll()}
             >
                 <Layers size={16} />
                 <span style={{ flex: 1 }}>All Items</span>
                 <CountBadge count={metadata.stats.total_assets} variant="secondary" />
-            </div>
-            <div
+            </button>
+            <button
+                type="button"
                 class={`nav-item ${filters.filterUntagged ? 'active' : ''}`}
-                onClick={() => filters.toggleUntagged()}
+                aria-pressed={filters.filterUntagged}
+                onClick={event => filters.toggleUntagged(event.ctrlKey || event.metaKey)}
             >
                 <BookmarkX size={16} />
                 <span style={{ flex: 1 }}>Untagged</span>
@@ -41,10 +45,12 @@ export const LibrarySidebarPanel: Component = () => {
                     variant="secondary"
                     showZero={true}
                 />
-            </div>
-            <div
+            </button>
+            <button
+                type="button"
                 class={`nav-item ${filters.filterHasTags ? 'active' : ''}`}
-                onClick={() => filters.toggleHasTags()}
+                aria-pressed={filters.filterHasTags}
+                onClick={event => filters.toggleHasTags(event.ctrlKey || event.metaKey)}
             >
                 <BookmarkCheck size={16} />
                 <span style={{ flex: 1 }}>Has Tags</span>
@@ -53,10 +59,12 @@ export const LibrarySidebarPanel: Component = () => {
                     variant="secondary"
                     showZero={true}
                 />
-            </div>
-            <div
+            </button>
+            <button
+                type="button"
                 class={`nav-item ${filters.filterFavorites ? 'active' : ''}`}
-                onClick={() => filters.toggleFavorites()}
+                aria-pressed={filters.filterFavorites}
+                onClick={event => filters.toggleFavorites(event.ctrlKey || event.metaKey)}
             >
                 <Heart size={16} />
                 <span style={{ flex: 1 }}>Favorites</span>
@@ -65,10 +73,12 @@ export const LibrarySidebarPanel: Component = () => {
                     variant="secondary"
                     showZero={true}
                 />
-            </div>
-            <div
+            </button>
+            <button
+                type="button"
                 class={`nav-item ${filters.filterTrash ? 'active' : ''}`}
-                onClick={() => filters.toggleTrash()}
+                aria-pressed={filters.filterTrash}
+                onClick={event => filters.toggleTrash(event.ctrlKey || event.metaKey)}
             >
                 <Trash2 size={16} />
                 <span style={{ flex: 1 }}>Trash</span>
@@ -77,7 +87,7 @@ export const LibrarySidebarPanel: Component = () => {
                     variant="secondary"
                     showZero={true}
                 />
-            </div>
+            </button>
         </SidebarPanel>
     );
 };

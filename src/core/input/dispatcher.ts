@@ -13,6 +13,7 @@ import { emitCommand } from './commandBus';
 export { onCommand, clearCommandHandlers } from './commandBus';
 
 const INPUT_ELEMENTS = ['INPUT', 'TEXTAREA', 'SELECT'];
+const ARROW_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 
 function isInputFocused(target?: EventTarget | null): boolean {
     if (typeof document === 'undefined') return false;
@@ -57,12 +58,38 @@ function isInteractiveFocused(target?: EventTarget | null): boolean {
             'radio',
             'tab',
             'switch',
-            'treeitem'
+            'treeitem',
+            'combobox',
+            'listbox',
+            'option',
+            'searchbox',
+            'slider',
+            'spinbutton',
+            'textbox'
         ];
         if (role && interactiveRoles.includes(role)) return true;
     }
 
     return false;
+}
+
+function isArrowNavigationWidgetFocused(target?: EventTarget | null): boolean {
+    if (typeof document === 'undefined') return false;
+
+    const focusedElement =
+        target instanceof HTMLElement ? target : (document.activeElement as HTMLElement | null);
+    const role = focusedElement?.getAttribute('role');
+    const navigationWidgetRoles = [
+        'combobox',
+        'listbox',
+        'option',
+        'searchbox',
+        'slider',
+        'spinbutton',
+        'textbox'
+    ];
+
+    return navigationWidgetRoles.includes(role ?? '');
 }
 
 interface MatchResult {
@@ -287,9 +314,17 @@ function shouldYieldToInteractive(
     token: InputToken,
     target?: EventTarget | null
 ): boolean {
-    if (shortcut.ignoreInputs === false) return false;
-    if (token.id !== 'Enter' && token.id !== 'Space') return false;
-    return isInteractiveFocused(target);
+    if (shortcut.ignoreInputs === false || shortcut.allowOnInteractive) return false;
+    if (shortcut.yieldToInteractive && isInteractiveFocused(target)) return true;
+
+    const key = token.id.split('+').pop();
+    if (key === 'Enter' || key === 'Space') return isInteractiveFocused(target);
+
+    return (
+        shortcut.yieldToNavigationWidgets === true &&
+        ARROW_KEYS.includes(key ?? '') &&
+        isArrowNavigationWidgetFocused(target)
+    );
 }
 
 /**

@@ -79,6 +79,14 @@ export {
     useScopeOnMount
 } from './primitives/createInputScope';
 
+export { createFocusScope } from './primitives/createFocusScope';
+
+export {
+    useNavigationShortcuts,
+    getNavigationCommand,
+    type NavigationShortcutItem
+} from './primitives/useNavigationShortcuts';
+
 export {
     createGesture,
     usePinchGesture,

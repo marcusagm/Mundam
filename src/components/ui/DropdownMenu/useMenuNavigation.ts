@@ -137,7 +137,7 @@ export const useMenuNavigation = (items: Accessor<DropdownMenuItem[]>, onClose: 
     });
 
     createShortcut({
-        keys: ['Escape', 'Tab'],
+        keys: 'Escape',
         scope: 'menu',
         priority: 1510,
         system: true,

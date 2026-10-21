@@ -189,9 +189,14 @@ export function canonicalizeShortcut(shortcut: string): string {
 // Token Creation
 // =============================================================================
 
+export function resolveKeyboardEventKey(event: KeyboardEvent): string {
+    const key = event.code || normalizeKeyCode(event.key);
+    return key === 'Backspace' ? 'Delete' : key;
+}
+
 export function createKeyboardToken(event: KeyboardEvent): InputToken {
     const modifiers = extractModifiersFromEvent(event);
-    const key = event.code || normalizeKeyCode(event.key);
+    const key = resolveKeyboardEventKey(event);
     const id = buildCanonicalId(modifiers, key);
 
     return {
@@ -219,6 +224,12 @@ export function createPointerToken(event: PointerEvent | MouseEvent): InputToken
             break;
         case 2:
             buttonName = 'RightClick';
+            break;
+        case 3:
+            buttonName = 'BackClick';
+            break;
+        case 4:
+            buttonName = 'ForwardClick';
             break;
         default:
             buttonName = `Button${event.button}`;

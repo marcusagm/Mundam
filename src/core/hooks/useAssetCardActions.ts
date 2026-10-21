@@ -8,12 +8,15 @@
 
 import { useSelection } from './useSelection';
 import { useViewport } from './useViewport';
+import { useLibrary } from './useLibrary';
 import { libraryState } from '../store/library';
 import { type AssetItem } from '../../types';
 
 export interface AssetCardActions {
     /** Toggle selection for an item, optionally with multi-select or range-select */
     handleSelect: (itemId: string, modifiers: { multi: boolean; shift: boolean }) => void;
+    /** Move selected items, or the focused item, to the trash. */
+    handleMoveToTrash: (focusedItemId: string | null) => Promise<void>;
     /** Open item in detail/preview view */
     handleOpen: (itemId: string) => void;
     /** Check if an item is currently selected */
@@ -25,6 +28,7 @@ export interface AssetCardActions {
 export function useAssetCardActions(): AssetCardActions {
     const selection = useSelection();
     const viewport = useViewport();
+    const library = useLibrary();
 
     return {
         handleSelect: (itemId: string, modifiers: { multi: boolean; shift: boolean }) => {
@@ -34,6 +38,24 @@ export function useAssetCardActions(): AssetCardActions {
             } else {
                 selection.toggle(itemId, modifiers.multi);
             }
+        },
+
+        handleMoveToTrash: async (focusedItemId: string | null) => {
+            const currentItemIdentifiers = new Set(library.items.map(item => item.id));
+            const selectedItemIdentifiers = selection.selectedIds.filter(identifier =>
+                currentItemIdentifiers.has(identifier)
+            );
+            const itemIdentifiersToTrash =
+                selectedItemIdentifiers.length > 0
+                    ? selectedItemIdentifiers
+                    : focusedItemId && currentItemIdentifiers.has(focusedItemId)
+                      ? [focusedItemId]
+                      : [];
+
+            if (itemIdentifiersToTrash.length === 0) return;
+
+            await library.moveToTrashAssets(itemIdentifiersToTrash);
+            selection.clear();
         },
 
         handleOpen: (itemId: string) => {

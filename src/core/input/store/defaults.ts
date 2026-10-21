@@ -1,9 +1,27 @@
+/* eslint-disable max-lines */
 import type { ShortcutDefinition } from '../types';
+
+/**
+ * Behaviour traits shared by every shortcut of a scope. Keeping them here lets the
+ * dispatcher stay scope-agnostic while widgets inside each scope keep native key handling.
+ */
+const SCOPE_TRAITS: Record<string, Partial<ShortcutDefinition>> = {
+    viewport: { yieldToInteractive: true },
+    'image-viewer': { yieldToNavigationWidgets: true },
+    'duplicate-finder': { yieldToNavigationWidgets: true },
+    'video-player': { yieldToNavigationWidgets: true },
+    'audio-player': { yieldToNavigationWidgets: true }
+};
+
+/** True when the focused element itself carries the given data attribute. */
+function isFocusedElementMarked(dataAttribute: string): boolean {
+    return typeof document !== 'undefined' && !!document.activeElement?.hasAttribute(dataAttribute);
+}
 
 /**
  * Default shortcut definitions for the application.
  */
-export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
+const BASE_SHORTCUTS: ShortcutDefinition[] = [
     // Global scope
     {
         name: 'Focus Search',
@@ -16,24 +34,6 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         preventDefault: true
     },
     {
-        name: 'Select All',
-        description: 'Select all items',
-        keys: 'Meta+KeyA',
-        scope: 'global',
-        command: 'app:select-all',
-        category: 'Selection',
-        ignoreInputs: true
-    },
-    {
-        name: 'Deselect All',
-        description: 'Clear selection',
-        keys: 'Escape',
-        scope: 'global',
-        command: 'app:deselect-all',
-        category: 'Selection',
-        ignoreInputs: false
-    },
-    {
         name: 'Settings',
         description: 'Open application settings',
         keys: 'Meta+Comma',
@@ -42,13 +42,32 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         category: 'Application'
     },
     {
-        name: 'Clear Search / Blur',
-        description: 'Clear search query or blur input',
-        keys: 'Escape',
-        scope: 'search',
-        command: 'search:clear',
-        category: 'Search',
-        ignoreInputs: false
+        name: 'Toggle Sidebars',
+        description: 'Hide or show the library sidebar and inspector',
+        keys: 'Meta+KeyB',
+        scope: 'global',
+        command: 'app:toggle-sidebars',
+        category: 'Navigation'
+    },
+    {
+        name: 'Mouse Back',
+        description: 'Go back in filter history with the mouse back button',
+        keys: 'BackClick',
+        scope: 'global',
+        command: 'app:history-back',
+        category: 'Navigation',
+        ignoreInputs: false,
+        system: true
+    },
+    {
+        name: 'Mouse Forward',
+        description: 'Go forward in filter history with the mouse forward button',
+        keys: 'ForwardClick',
+        scope: 'global',
+        command: 'app:history-forward',
+        category: 'Navigation',
+        ignoreInputs: false,
+        system: true
     },
 
     // Viewport Interaction
@@ -122,7 +141,17 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         keys: 'Shift+Space',
         scope: 'viewport',
         command: 'viewport:select-add',
-        category: 'Selection'
+        category: 'Selection',
+        ignoreInputs: true
+    },
+    {
+        name: 'Deselect All',
+        description: 'Clear the current selection',
+        keys: 'Escape',
+        scope: 'viewport',
+        command: 'viewport:deselect-all',
+        category: 'Selection',
+        ignoreInputs: true
     },
     {
         name: 'Select All Items',
@@ -130,6 +159,15 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         keys: 'Meta+KeyA',
         scope: 'viewport',
         command: 'viewport:select-all',
+        category: 'Selection',
+        ignoreInputs: true
+    },
+    {
+        name: 'Move to Trash',
+        description: 'Move selected or focused items to the trash',
+        keys: 'Delete',
+        scope: 'viewport',
+        command: 'viewport:move-to-trash',
         category: 'Selection',
         ignoreInputs: true
     },
@@ -233,45 +271,216 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         category: 'Viewer'
     },
 
-    // Search Scope
+    // Duplicate finder scope
+    {
+        name: 'Next Group',
+        description: 'Select the next duplicate group',
+        keys: 'ArrowDown',
+        scope: 'duplicate-finder',
+        command: 'duplicates:next-group',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Previous Group',
+        description: 'Select the previous duplicate group',
+        keys: 'ArrowUp',
+        scope: 'duplicate-finder',
+        command: 'duplicates:previous-group',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Next Candidate',
+        description: 'Focus the next file of the selected group',
+        keys: 'ArrowRight',
+        scope: 'duplicate-finder',
+        command: 'duplicates:next-candidate',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Previous Candidate',
+        description: 'Focus the previous file of the selected group',
+        keys: 'ArrowLeft',
+        scope: 'duplicate-finder',
+        command: 'duplicates:previous-candidate',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Toggle Selection',
+        description: 'Select the focused group or toggle the focused file',
+        keys: 'Space',
+        scope: 'duplicate-finder',
+        command: 'duplicates:toggle-selection',
+        category: 'Duplicates',
+        allowOnInteractive: true,
+        enabledWhen: () => isFocusedElementMarked('data-duplicate-selectable')
+    },
+    {
+        name: 'Ignore Group',
+        description: 'Ignore the selected duplicate group',
+        keys: 'Delete',
+        scope: 'duplicate-finder',
+        command: 'duplicates:ignore-group',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Keep Selected',
+        description: 'Keep the selected files, or the largest one when none is selected',
+        keys: 'KeyK',
+        scope: 'duplicate-finder',
+        command: 'duplicates:keep-selected',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Open Split View',
+        description: 'Compare the files of the selected group side by side',
+        keys: 'KeyS',
+        scope: 'duplicate-finder',
+        command: 'duplicates:open-split-view',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Scan / Cancel Scan',
+        description: 'Start a duplicate scan, or cancel the one in progress',
+        keys: 'KeyR',
+        scope: 'duplicate-finder',
+        command: 'duplicates:toggle-scan',
+        category: 'Duplicates'
+    },
+    {
+        name: 'Configure Rules',
+        description: 'Open the duplicate detection settings',
+        keys: 'KeyC',
+        scope: 'duplicate-finder',
+        command: 'duplicates:open-rules',
+        category: 'Duplicates'
+    },
+
+    // Video player scope
+    {
+        name: 'Play/Pause',
+        description: 'Toggle video playback',
+        keys: 'Space',
+        scope: 'video-player',
+        command: 'video:toggle-play',
+        category: 'Player'
+    },
+    {
+        name: 'Play/Pause (Alternative)',
+        description: 'Toggle video playback',
+        keys: 'KeyK',
+        scope: 'video-player',
+        command: 'video:toggle-play',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Backward',
+        description: 'Rewind 5 seconds',
+        keys: 'ArrowLeft',
+        scope: 'video-player',
+        command: 'video:seek-backward',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Backward (Alternative)',
+        description: 'Rewind 5 seconds',
+        keys: 'KeyJ',
+        scope: 'video-player',
+        command: 'video:seek-backward',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Forward',
+        description: 'Skip forward 5 seconds',
+        keys: 'ArrowRight',
+        scope: 'video-player',
+        command: 'video:seek-forward',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Forward (Alternative)',
+        description: 'Skip forward 5 seconds',
+        keys: 'KeyL',
+        scope: 'video-player',
+        command: 'video:seek-forward',
+        category: 'Player'
+    },
+    {
+        name: 'Volume Up',
+        description: 'Increase the volume by 10%',
+        keys: 'ArrowUp',
+        scope: 'video-player',
+        command: 'video:volume-up',
+        category: 'Player'
+    },
+    {
+        name: 'Volume Down',
+        description: 'Decrease the volume by 10%',
+        keys: 'ArrowDown',
+        scope: 'video-player',
+        command: 'video:volume-down',
+        category: 'Player'
+    },
+    {
+        name: 'Toggle Fullscreen',
+        description: 'Enter or leave fullscreen',
+        keys: 'KeyF',
+        scope: 'video-player',
+        command: 'video:toggle-fullscreen',
+        category: 'Player'
+    },
+    {
+        name: 'Toggle Mute',
+        description: 'Mute or unmute the video',
+        keys: 'KeyM',
+        scope: 'video-player',
+        command: 'video:toggle-mute',
+        category: 'Player'
+    },
+
+    // Audio player scope
+    {
+        name: 'Play/Pause',
+        description: 'Toggle audio playback',
+        keys: 'Space',
+        scope: 'audio-player',
+        command: 'audio:toggle-play',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Backward',
+        description: 'Rewind 5 seconds',
+        keys: 'ArrowLeft',
+        scope: 'audio-player',
+        command: 'audio:seek-backward',
+        category: 'Player'
+    },
+    {
+        name: 'Seek Forward',
+        description: 'Skip forward 5 seconds',
+        keys: 'ArrowRight',
+        scope: 'audio-player',
+        command: 'audio:seek-forward',
+        category: 'Player'
+    },
+    {
+        name: 'Toggle Mute',
+        description: 'Mute or unmute the audio',
+        keys: 'KeyM',
+        scope: 'audio-player',
+        command: 'audio:toggle-mute',
+        category: 'Player'
+    },
+
+    // Search and modal scopes
     {
         name: 'Close Search',
-        description: 'Close search or clear input',
+        description: 'Clear the search query or blur the search input',
         keys: 'Escape',
         scope: 'search',
         command: 'search:close',
         category: 'Search',
         ignoreInputs: false
     },
-    {
-        name: 'Next Result',
-        description: 'Select next search result',
-        keys: 'ArrowDown',
-        scope: 'search',
-        command: 'search:next',
-        category: 'Search',
-        ignoreInputs: false
-    },
-    {
-        name: 'Previous Result',
-        description: 'Select previous search result',
-        keys: 'ArrowUp',
-        scope: 'search',
-        command: 'search:prev',
-        category: 'Search',
-        ignoreInputs: false
-    },
-    {
-        name: 'Execute Result',
-        description: 'Open selected result',
-        keys: 'Enter',
-        scope: 'search',
-        command: 'search:exec',
-        category: 'Search',
-        ignoreInputs: false
-    },
-
-    // Modal scope
     {
         name: 'Close Modal',
         description: 'Close the active modal',
@@ -280,14 +489,10 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
         command: 'modal:close',
         category: 'Modal',
         ignoreInputs: false
-    },
-    {
-        name: 'Confirm Modal',
-        description: 'Confirm/Submit active modal',
-        keys: 'Enter',
-        scope: 'modal',
-        command: 'modal:confirm',
-        category: 'Modal',
-        ignoreInputs: false
     }
 ];
+
+export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = BASE_SHORTCUTS.map(definition => ({
+    ...SCOPE_TRAITS[definition.scope ?? 'global'],
+    ...definition
+}));

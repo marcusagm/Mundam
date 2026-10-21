@@ -4,6 +4,7 @@ import { Button } from '../Button';
 import { Loader } from '../Loader';
 import { Play, Pause, AlertCircle } from 'lucide-solid';
 import { videoState } from '../../../core/store/videoStore';
+import { createFocusScope, useCommands } from '../../../core/input';
 import { VideoProvider, useVideoContext } from './VideoPlayerContext';
 import { VideoControls } from './VideoControls';
 import { VideoPlayerProps } from './types';
@@ -51,28 +52,19 @@ const VideoPlayerContent: Component = () => {
         }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        resetControlsTimeout();
+    const focusScope = createFocusScope('video-player');
+    const changeVolume = (delta: number) =>
+        handleVolumeChange(Math.min(Math.max((videoState.volume() + delta) * 100, 0), 100));
 
-        const actionMap: Record<string, () => void> = {
-            Space: togglePlay,
-            KeyK: togglePlay,
-            ArrowLeft: () => skip(-5),
-            KeyJ: () => skip(-5),
-            ArrowRight: () => skip(5),
-            KeyL: () => skip(5),
-            ArrowUp: () => handleVolumeChange(Math.min((videoState.volume() + 0.1) * 100, 100)),
-            ArrowDown: () => handleVolumeChange(Math.max((videoState.volume() - 0.1) * 100, 0)),
-            KeyF: toggleFullscreen,
-            KeyM: toggleMute
-        };
-
-        const action = actionMap[e.code];
-        if (action) {
-            e.preventDefault();
-            action();
-        }
-    };
+    useCommands({
+        'video:toggle-play': focusScope.whenFocused(() => togglePlay()),
+        'video:seek-backward': focusScope.whenFocused(() => skip(-5)),
+        'video:seek-forward': focusScope.whenFocused(() => skip(5)),
+        'video:volume-up': focusScope.whenFocused(() => changeVolume(0.1)),
+        'video:volume-down': focusScope.whenFocused(() => changeVolume(-0.1)),
+        'video:toggle-fullscreen': focusScope.whenFocused(() => toggleFullscreen()),
+        'video:toggle-mute': focusScope.whenFocused(() => toggleMute())
+    });
 
     return (
         <div
@@ -85,7 +77,9 @@ const VideoPlayerContent: Component = () => {
             onMouseMove={resetControlsTimeout}
             onMouseEnter={resetControlsTimeout}
             onContextMenu={resetControlsTimeout}
-            onKeyDown={handleKeyDown}
+            onKeyDown={resetControlsTimeout}
+            onFocusIn={focusScope.onFocusIn}
+            onFocusOut={focusScope.onFocusOut}
             tabindex="0"
         >
             <Show when={isTranscoding()}>

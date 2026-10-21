@@ -47,6 +47,7 @@ export const useTagNavigation = (options: {
                 );
             }
         },
+        ignoreInputs: false,
         preventDefault: true
     });
 
@@ -62,6 +63,7 @@ export const useTagNavigation = (options: {
                 );
             }
         },
+        ignoreInputs: false,
         preventDefault: true
     });
 
@@ -96,6 +98,7 @@ export const useTagNavigation = (options: {
             }
             options.setHighlightedIndex(-1);
         },
+        ignoreInputs: false,
         preventDefault: true
     });
 
@@ -107,6 +110,7 @@ export const useTagNavigation = (options: {
             options.setShowSuggestions(false);
             options.setHighlightedIndex(-1);
         },
+        ignoreInputs: false,
         preventDefault: true
     });
 };

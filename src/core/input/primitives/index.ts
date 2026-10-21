@@ -9,6 +9,12 @@ export {
     createAnyKeyPressed,
     createAllKeysPressed
 } from './createKeyState';
-export { createInputScope, createConditionalScope, useScopeOnMount } from './createInputScope';
+export { createFocusScope } from './createFocusScope';
+export {
+    useNavigationShortcuts,
+    getNavigationCommand,
+    type NavigationShortcutItem
+} from './useNavigationShortcuts';
+
 export { createGesture, usePinchGesture, useSwipeGesture, useRotateGesture } from './createGesture';
 export { useCommand, useCommands } from './useCommand';

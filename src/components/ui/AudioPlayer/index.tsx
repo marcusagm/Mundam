@@ -25,7 +25,7 @@ const AudioPlayerContent: Component = () => {
         error,
         lastAction,
         isActuallyLoading,
-        handleKeyDown
+        focusScope
     } = useAudioContext();
 
     return (
@@ -35,7 +35,8 @@ const AudioPlayerContent: Component = () => {
                 props.variant === 'compact' && 'ui-audio-player-compact',
                 props.class
             )}
-            onKeyDown={handleKeyDown}
+            onFocusIn={focusScope.onFocusIn}
+            onFocusOut={focusScope.onFocusOut}
             tabindex="0"
         >
             <audio

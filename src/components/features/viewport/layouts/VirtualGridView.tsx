@@ -141,6 +141,9 @@ export const VirtualGridView: Component = (): JSX.Element => {
         scrollContainer,
         onSelect: (itemId: string, modifiers: { multi: boolean; shift: boolean }) =>
             actions.handleSelect(itemId, modifiers),
+        onSelectAll: () => selection.select(library.items.map(item => item.id)),
+        onDeselectAll: selection.clear,
+        onMoveToTrash: actions.handleMoveToTrash,
         onOpen: (itemId: string) => actions.handleOpen(itemId),
         isSelected: actions.isSelected,
         getSelectedIds: actions.getSelectedIds,

@@ -102,7 +102,10 @@ export function extractSelectionModifiers(argument?: Event | ShortcutPayload): {
     if (payload.meta && Array.isArray(payload.meta.modifiers)) {
         const modifiers = payload.meta.modifiers as string[];
         return {
-            multi: modifiers.includes('Control') || modifiers.includes('Meta'),
+            multi:
+                modifiers.includes('Ctrl') ||
+                modifiers.includes('Control') ||
+                modifiers.includes('Meta'),
             shift: modifiers.includes('Shift')
         };
     }

@@ -1,4 +1,5 @@
 import { Component, JSX, createSignal, createContext, useContext, Accessor } from 'solid-js';
+import { useCommands } from '../core/input';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui/Resizable';
 import '../styles/global.css';
 import './app-shell.css';
@@ -129,6 +130,17 @@ export const AppShell: Component<AppShellProperties> = props => {
             return nextState;
         });
     };
+
+    const toggleSidebars = () => {
+        const shouldOpen = !isSidebarOpen() && !isInspectorOpen();
+        setIsSidebarOpen(shouldOpen);
+        setIsInspectorOpen(shouldOpen);
+        saveStates(shouldOpen, shouldOpen);
+    };
+
+    useCommands({
+        'app:toggle-sidebars': toggleSidebars
+    });
 
     // Calculate initial sizes based on persistence or defaults
     const sidebarInitialSize = persistedLayout?.[0] ?? 18;

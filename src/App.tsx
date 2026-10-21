@@ -1,11 +1,5 @@
 import { onMount, onCleanup, Show, createEffect, createSignal, Switch, Match } from 'solid-js';
-import {
-    useSystem,
-    useNotification,
-    useSelection,
-    useLibrary,
-    useMetadataNotifications
-} from './core/hooks';
+import { useSystem, useNotification, useFilters, useMetadataNotifications } from './core/hooks';
 import { WelcomeView, HomeView, GalleryView, DuplicateFinderView } from './views';
 import { TitleBar, type ApplicationView } from './components/layout/TitleBar';
 // Dialog removed (moved to WelcomeView)
@@ -22,7 +16,7 @@ import { Sonner } from './components/ui';
 import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 // Input System
-import { InputProvider, useShortcuts } from './core/input';
+import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
 
 /**
@@ -34,8 +28,7 @@ import { InputProvider, useShortcuts } from './core/input';
 function App() {
     const system = useSystem();
     const notification = useNotification();
-    const selection = useSelection();
-    const lib = useLibrary();
+    const filters = useFilters();
 
     const [activeApplicationView, setActiveApplicationView] =
         createSignal<ApplicationView>('gallery');
@@ -43,35 +36,11 @@ function App() {
     // Start background sync notifications
     useMetadataNotifications();
 
-    // Global shortcuts via Input Service
-    useShortcuts([
-        {
-            keys: 'Meta+Comma',
-            name: 'Settings',
-            action: () => system.openSettings(true)
-        },
-        {
-            keys: 'Meta+KeyA',
-            name: 'Select All',
-            ignoreInputs: true,
-            action: () => {
-                const allIds = lib.items.map(i => i.id);
-                selection.select(allIds);
-            }
-        },
-        {
-            keys: 'Escape',
-            name: 'Deselect All',
-            action: () => {
-                const active = document.activeElement;
-                if (active && ['INPUT', 'TEXTAREA'].includes(active.tagName)) {
-                    (active as HTMLElement).blur();
-                } else {
-                    selection.select([]);
-                }
-            }
-        }
-    ]);
+    useCommands({
+        'app:settings': () => system.openSettings(true),
+        'app:history-back': () => filters.goBack(),
+        'app:history-forward': () => filters.goForward()
+    });
 
     // Root-level DND cleanup
     createEffect(() => {

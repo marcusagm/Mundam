@@ -20,6 +20,12 @@ function createShortcutStore() {
     const [shortcuts, setShortcuts] = createSignal<Map<string, RegisteredShortcut>>(new Map());
     const [nextIdValue, setNextIdValue] = createSignal(1);
     const [customizations, setCustomizations] = createSignal<Map<string, string>>(new Map());
+    // User keys by "name::scope"; survives unregister/register cycles of dynamic shortcuts
+    const savedKeys = new Map<string, string>();
+
+    function getStorageKey(name: string, scope?: string): string {
+        return `${name}::${scope || 'global'}`;
+    }
 
     function generateShortcutId(): string {
         const id = `sc_${nextIdValue()}`;
@@ -27,12 +33,15 @@ function createShortcutStore() {
         return id;
     }
 
-    function resolveFinalKeys(definition: ShortcutDefinition, currentId: string): string {
-        const customKeys = customizations().get(currentId);
-        if (customKeys) return customKeys;
+    function joinKeys(keys: string | string[]): string {
+        return typeof keys === 'string' ? keys : keys.join(' ');
+    }
 
-        if (typeof definition.keys === 'string') return definition.keys;
-        return definition.keys.join(' ');
+    function resolveCustomKeys(definition: ShortcutDefinition, currentId: string) {
+        return (
+            customizations().get(currentId) ??
+            savedKeys.get(getStorageKey(definition.name, definition.scope))
+        );
     }
 
     function calculateIgnoreInputs(definition: ShortcutDefinition, tokens: InputToken[]): boolean {
@@ -52,39 +61,32 @@ function createShortcutStore() {
     ): RegisteredShortcut {
         const currentId = definition.id || generateShortcutId();
         const finalHandler = handler || definition.handler;
-        const finalKeys = resolveFinalKeys(definition, currentId);
+        const customKeys = resolveCustomKeys(definition, currentId);
+        const finalKeys = customKeys ?? joinKeys(definition.keys);
         const tokens = normalizeKeysToTokens(finalKeys);
+
+        const defaultKeys =
+            (definition as Partial<RegisteredShortcut>).defaultKeys ?? joinKeys(definition.keys);
 
         return {
             ...definition,
             id: currentId,
             handler: finalHandler,
             keys: finalKeys,
+            defaultKeys,
             tokens,
             normalizedKeys: canonicalizeShortcut(finalKeys),
             scope: definition.scope || 'global',
             priority: definition.priority ?? 0,
             ignoreInputs: calculateIgnoreInputs(definition, tokens),
             preventDefault: definition.preventDefault ?? true,
-            isDefault: definition.isDefault ?? true
+            isDefault: customKeys === undefined ? (definition.isDefault ?? true) : false
         };
     }
 
     async function saveShortcutsToBackend() {
         try {
-            const data: Record<string, string> = {};
-            const currentCustomizations = customizations();
-            const allShortcuts = shortcuts();
-
-            for (const [id, keys] of currentCustomizations) {
-                const shortcut = allShortcuts.get(id);
-                if (shortcut) {
-                    const storageKey = `${shortcut.name}::${shortcut.scope || 'global'}`;
-                    data[storageKey] = keys;
-                }
-            }
-
-            await invoke('set_setting', { key: 'shortcuts', value: data });
+            await invoke('set_setting', { key: 'shortcuts', value: Object.fromEntries(savedKeys) });
         } catch (error) {
             console.warn('[ShortcutStore] Failed to save shortcuts:', error);
         }
@@ -133,6 +135,8 @@ function createShortcutStore() {
                 isDefault: false
             };
 
+            savedKeys.set(getStorageKey(current.name, current.scope), newKeys);
+
             setShortcuts(previous => {
                 const next = new Map(previous);
                 next.set(id, updated);
@@ -143,22 +147,24 @@ function createShortcutStore() {
         },
 
         resetToDefault: (id: string) => {
-            const defaultDefinition = DEFAULT_SHORTCUTS.find(
-                definition => definition.id === id || definition.name === shortcuts().get(id)?.name
-            );
-
-            if (!defaultDefinition) {
-                console.warn(`[ShortcutStore] Cannot reset: no default found for ${id}`);
+            const current = shortcuts().get(id);
+            if (!current) {
+                console.warn(`[ShortcutStore] Cannot reset: shortcut ${id} not found`);
                 return;
             }
 
+            savedKeys.delete(getStorageKey(current.name, current.scope));
             setCustomizations(previous => {
                 const next = new Map(previous);
                 next.delete(id);
                 return next;
             });
 
-            const registered = createRegisteredShortcut({ ...defaultDefinition, id });
+            const registered = createRegisteredShortcut({
+                ...current,
+                keys: current.defaultKeys,
+                isDefault: true
+            });
             setShortcuts(previous => {
                 const next = new Map(previous);
                 next.set(id, registered);
@@ -169,14 +175,23 @@ function createShortcutStore() {
         },
 
         resetAllToDefaults: () => {
+            savedKeys.clear();
             setCustomizations(new Map());
 
-            const newShortcuts = new Map<string, RegisteredShortcut>();
-            for (const definition of DEFAULT_SHORTCUTS) {
-                const registered = createRegisteredShortcut(definition);
-                newShortcuts.set(registered.id, registered);
-            }
-            setShortcuts(newShortcuts);
+            setShortcuts(previous => {
+                const next = new Map<string, RegisteredShortcut>();
+                for (const current of previous.values()) {
+                    next.set(
+                        current.id,
+                        createRegisteredShortcut({
+                            ...current,
+                            keys: current.defaultKeys,
+                            isDefault: true
+                        })
+                    );
+                }
+                return next;
+            });
             saveShortcutsToBackend();
         },
 
@@ -216,6 +231,7 @@ function createShortcutStore() {
             if (saved) {
                 for (const [key, keys] of Object.entries(saved)) {
                     const [name, scope] = key.split('::');
+                    savedKeys.set(key, keys);
                     const found = Array.from(shortcuts().values()).find(
                         shortcut =>
                             shortcut.name === name &&
@@ -266,9 +282,7 @@ function createShortcutStore() {
         getDefault: (id: string): ShortcutDefinition | undefined => {
             const current = shortcuts().get(id);
             if (!current) return undefined;
-            return DEFAULT_SHORTCUTS.find(
-                definition => definition.id === id || definition.name === current.name
-            );
+            return { ...current, keys: current.defaultKeys };
         }
     };
 }

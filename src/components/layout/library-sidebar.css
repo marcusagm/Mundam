@@ -21,13 +21,21 @@
   align-items: center;
   gap: var(--p-space-s);
   text-align: left;
+  background: transparent;
+  border: 0;
   color: var(--text-secondary);
   font-size: var(--p-font-size-xs);
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
   border-radius: var(--radius-s);
   margin-bottom: var(--p-space-xxs);
   transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--action-primary-bg);
+  outline-offset: -2px;
 }
 
 .nav-item:hover {

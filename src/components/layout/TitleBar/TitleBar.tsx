@@ -4,6 +4,12 @@ import { Dynamic } from 'solid-js/web';
 import { Tooltip } from '../../ui';
 import { useMetadata } from '../../../core/hooks';
 import { detectPlatform } from '../../../core/input/utils/platform';
+import {
+    getNavigationCommand,
+    shortcutStore,
+    useNavigationShortcuts,
+    formatShortcutForDisplay
+} from '../../../core/input';
 import { formatCompactNumber } from '../../../utils/format';
 import { WindowControls } from './WindowControls';
 import type { TitleBarProperties, TitleBarNavigationItem, ApplicationView } from './types';
@@ -54,6 +60,18 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
     const metadata = useMetadata();
     const navigationItems = buildNavigationItems();
 
+    useNavigationShortcuts(
+        () => navigationItems.map(item => ({ id: item.view, label: item.label })),
+        view => properties.onViewChange(view)
+    );
+
+    const getTooltipContent = (item: TitleBarNavigationItem): string => {
+        const shortcut = shortcutStore.getByCommand(getNavigationCommand(item.view));
+        return shortcut
+            ? `${item.label} (${formatShortcutForDisplay(shortcut.keys as string)})`
+            : item.label;
+    };
+
     /**
      * Handles a navigation button click, delegating the view change to the parent.
      *
@@ -75,7 +93,7 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
             <nav class="titlebar-navigation" aria-label="Application views">
                 <For each={navigationItems}>
                     {navigationItem => (
-                        <Tooltip content={navigationItem.label} placement="bottom">
+                        <Tooltip content={getTooltipContent(navigationItem)} placement="bottom">
                             <button
                                 class="titlebar-navigation-button"
                                 classList={{

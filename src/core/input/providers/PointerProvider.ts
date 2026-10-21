@@ -61,7 +61,7 @@ export function createPointerProvider(): () => void {
     }
 
     // Attach listeners
-    document.addEventListener('pointerdown', onPointerDown, { passive: true });
+    document.addEventListener('pointerdown', onPointerDown, { passive: false });
     window.addEventListener('wheel', onWheel, { passive: false });
 
     attached = true;

@@ -123,13 +123,8 @@ export const DuplicateCandidateCard: Component<DuplicateCandidateCardProperties>
             onClick={() => {
                 if (!props.candidate.isTrashed) props.onToggle(props.candidate.id);
             }}
-            onKeyDown={event => {
-                if (props.candidate.isTrashed) return;
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    props.onToggle(props.candidate.id);
-                }
-            }}
+            data-duplicate-selectable
+            data-duplicate-candidate-id={props.candidate.id}
         >
             <div class="candidate-card-body">
                 <Show when={props.candidate.isTrashed}>

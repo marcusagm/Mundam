@@ -19,6 +19,11 @@ import type { ShortcutPayload } from '../input/types';
 import type { ItemPosition } from '../viewport';
 import { findByIndex, findBestCandidate, extractSelectionModifiers } from './gridNavHelpers';
 
+function getMotionAwareScrollBehavior(): ScrollBehavior {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'auto';
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+}
+
 export interface GridKeyboardNavOptions {
     /** Array of visible items with positions */
     visibleItems: Accessor<ItemPosition[]>;
@@ -30,6 +35,12 @@ export interface GridKeyboardNavOptions {
     scrollContainer: Accessor<HTMLDivElement | undefined>;
     /** Callback when item should be selected */
     onSelect: (id: string, modifiers: { multi: boolean; shift: boolean }) => void;
+    /** Callback to select every item currently shown by the viewport. */
+    onSelectAll: () => void;
+    /** Callback to clear the current selection. */
+    onDeselectAll: () => void;
+    /** Callback to move selected or focused items to the trash. */
+    onMoveToTrash: (focusedId: string | null) => void;
     /** Callback when item should be opened */
     onOpen: (id: string) => void;
     /** Check if item is selected */
@@ -90,6 +101,7 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
     const scrollToItem = async (id: string) => {
         const container = options.scrollContainer();
         if (!container) return;
+        const scrollBehavior = getMotionAwareScrollBehavior();
 
         // First try visible items (sync)
         let pos: ItemPosition | null | undefined = options.visibleItems().find(p => p.id === id);
@@ -115,7 +127,7 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
 
             container.scrollTo({
                 top: estimatedTop - container.clientHeight / 2,
-                behavior: 'smooth'
+                behavior: scrollBehavior
             });
             return;
         }
@@ -134,13 +146,13 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
             // Scroll up to show item
             container.scrollTo({
                 top: itemTop - 16,
-                behavior: 'smooth'
+                behavior: scrollBehavior
             });
         } else if (itemBottom > scrollTop + containerRect.height) {
             // Scroll down to show item
             container.scrollTo({
                 top: itemBottom - containerRect.height + 16,
-                behavior: 'smooth'
+                behavior: scrollBehavior
             });
         }
     };
@@ -203,7 +215,14 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
                 const modifiers = extractSelectionModifiers(argument);
                 options.onSelect(current, modifiers);
             }
-        }
+        },
+        addToSelection: () => {
+            const current = focusedId();
+            if (current !== null) options.onSelect(current, { multi: true, shift: false });
+        },
+        selectAll: options.onSelectAll,
+        deselectAll: options.onDeselectAll,
+        moveToTrash: () => options.onMoveToTrash(focusedId())
     };
 
     // Register Shortcuts
@@ -216,7 +235,11 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
         'viewport:home': actions.home,
         'viewport:end': actions.end,
         'viewport:toggle-select': actions.toggleSelect,
-        'viewport:open': actions.open
+        'viewport:open': actions.open,
+        'viewport:select-add': actions.addToSelection,
+        'viewport:select-all': actions.selectAll,
+        'viewport:deselect-all': actions.deselectAll,
+        'viewport:move-to-trash': actions.moveToTrash
     });
 
     return {

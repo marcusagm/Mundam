@@ -2,6 +2,7 @@ import { createSignal, createEffect, createMemo, createUniqueId, untrack } from 
 import { invoke } from '@tauri-apps/api/core';
 import { audioState, audioActions } from '../../../core/store/audioStore';
 import { createHlsPlayer } from '../../../lib/hls-player';
+import { createFocusScope, useCommands } from '../../../core/input';
 import { AudioPlayerProps } from './types';
 
 export function useAudioPlayer(props: AudioPlayerProps) {
@@ -156,30 +157,21 @@ export function useAudioPlayer(props: AudioPlayerProps) {
         ref.currentTime = Math.min(Math.max(ref.currentTime + seconds, 0), duration());
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        switch (e.code) {
-            case 'Space':
-                e.preventDefault();
-                togglePlay();
-                break;
-            case 'ArrowLeft':
-                e.preventDefault();
-                skip(-5);
-                break;
-            case 'ArrowRight':
-                e.preventDefault();
-                skip(5);
-                break;
-            case 'KeyM': {
-                e.preventDefault();
-                const muted = !audioState.isMuted();
-                audioActions.setIsMuted(muted);
-                const ref = audioRef();
-                if (ref) ref.muted = muted;
-                break;
-            }
-        }
+    const toggleMute = () => {
+        const muted = !audioState.isMuted();
+        audioActions.setIsMuted(muted);
+        const ref = audioRef();
+        if (ref) ref.muted = muted;
     };
+
+    const focusScope = createFocusScope('audio-player');
+
+    useCommands({
+        'audio:toggle-play': focusScope.whenFocused(() => togglePlay()),
+        'audio:seek-backward': focusScope.whenFocused(() => skip(-5)),
+        'audio:seek-forward': focusScope.whenFocused(() => skip(5)),
+        'audio:toggle-mute': focusScope.whenFocused(toggleMute)
+    });
 
     return {
         playerId,
@@ -202,7 +194,7 @@ export function useAudioPlayer(props: AudioPlayerProps) {
         handleLoadedMetadata,
         handleVolumeChange,
         skip,
-        handleKeyDown,
+        focusScope,
         hlsPlayer
     };
 }

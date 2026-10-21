@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Loader } from '../components/ui/Loader';
 import { useDuplicateGroups } from '../components/features/duplicates/hooks/useDuplicateGroups';
-import { createShortcut } from '../core/input';
+import { createConditionalScope, useCommands } from '../core/input';
 
 import './duplicate-finder-view.css';
 
@@ -51,6 +51,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
 
     const [isRulesModalOpen, setIsRulesModalOpen] = createSignal(false);
 
+    createConditionalScope('duplicate-finder', () => true, 20);
+
     const selectedGroup = () => {
         const currentGroups = groups();
         if (!currentGroups) return undefined;
@@ -67,31 +69,23 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         return (progress.processed / progress.total) * 100;
     });
 
-    createShortcut({
-        keys: 'ArrowDown',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            const currentVisible = visibleGroups();
-            if (!currentVisible || currentVisible.length === 0) return;
-            const currentIndex = currentVisible.findIndex(group => group.id === selectedGroupId());
-            const nextIndex =
-                currentIndex < currentVisible.length - 1 ? currentIndex + 1 : currentIndex;
-            if (currentVisible[nextIndex]) selectGroup(currentVisible[nextIndex].id);
-        }
-    });
+    const moveGroupSelection = (offset: 1 | -1) => {
+        const currentVisible = visibleGroups();
+        if (!currentVisible || currentVisible.length === 0) return;
+        const currentIndex = currentVisible.findIndex(group => group.id === selectedGroupId());
+        const nextIndex = Math.min(Math.max(currentIndex + offset, 0), currentVisible.length - 1);
+        selectGroup(currentVisible[nextIndex].id);
+    };
 
-    createShortcut({
-        keys: 'ArrowUp',
-        scope: 'viewport',
-        system: true,
-        action: () => {
-            const currentVisible = visibleGroups();
-            if (!currentVisible || currentVisible.length === 0) return;
-            const currentIndex = currentVisible.findIndex(group => group.id === selectedGroupId());
-            const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-            if (currentVisible[prevIndex]) selectGroup(currentVisible[prevIndex].id);
-        }
+    useCommands({
+        'duplicates:next-group': () => moveGroupSelection(1),
+        'duplicates:previous-group': () => moveGroupSelection(-1),
+        'duplicates:toggle-selection': () => {
+            const groupId = document.activeElement?.getAttribute('data-duplicate-group-id');
+            if (groupId) selectGroup(groupId);
+        },
+        'duplicates:toggle-scan': () => (isScanning() ? cancelScan() : startScan()),
+        'duplicates:open-rules': () => setIsRulesModalOpen(true)
     });
 
     return (

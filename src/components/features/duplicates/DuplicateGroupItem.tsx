@@ -36,12 +36,8 @@ export const DuplicateGroupItem: Component<DuplicateGroupItemProperties> = props
             role="button"
             tabIndex={0}
             onClick={() => props.onSelect()}
-            onKeyDown={event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    props.onSelect();
-                }
-            }}
+            data-duplicate-selectable
+            data-duplicate-group-id={props.group.id}
             class={`group-list-item ${props.isSelected ? 'is-selected' : ''} ${isIgnored() ? 'is-ignored' : ''} ${isResolved() ? 'is-resolved' : ''}`}
         >
             <div class="group-list-item-header">

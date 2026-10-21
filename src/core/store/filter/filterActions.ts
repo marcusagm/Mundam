@@ -1,3 +1,4 @@
+import { batch } from 'solid-js';
 import { APP_CONFIG } from '../../../config/constants';
 import {
     SearchGroupSchema,
@@ -21,6 +22,33 @@ import { criterionHelpers } from './criterionHelpers';
 const { setFilterState } = filterStateInternal;
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+type QuickFilterKey = 'filterUntagged' | 'filterHasTags' | 'filterFavorites' | 'filterTrash';
+
+function toggleQuickFilter(filterKey: QuickFilterKey, isAdditive: boolean): void {
+    const shouldActivate = !filterState[filterKey];
+
+    batch(() => {
+        if (shouldActivate && !isAdditive) {
+            setFilterState({
+                filterUntagged: filterKey === 'filterUntagged',
+                filterHasTags: filterKey === 'filterHasTags',
+                filterFavorites: filterKey === 'filterFavorites',
+                filterTrash: filterKey === 'filterTrash'
+            });
+        } else {
+            setFilterState(filterKey, shouldActivate);
+        }
+
+        if (shouldActivate && (filterKey === 'filterUntagged' || filterKey === 'filterHasTags')) {
+            setFilterState('selectedTags', []);
+            if (filterKey === 'filterUntagged') setFilterState('filterHasTags', false);
+            if (filterKey === 'filterHasTags') setFilterState('filterUntagged', false);
+        }
+    });
+
+    historyActions.pushHistory();
+}
 
 export const filterActions = {
     ...historyActions,
@@ -47,8 +75,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleUntagged: () => {
-        filterActions.setUntagged(!filterState.filterUntagged);
+    toggleUntagged: (isAdditive = false) => {
+        toggleQuickFilter('filterUntagged', isAdditive);
     },
 
     setHasTags: (isActive: boolean) => {
@@ -60,8 +88,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleHasTags: () => {
-        filterActions.setHasTags(!filterState.filterHasTags);
+    toggleHasTags: (isAdditive = false) => {
+        toggleQuickFilter('filterHasTags', isAdditive);
     },
 
     setFavorites: (isActive: boolean) => {
@@ -69,8 +97,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleFavorites: () => {
-        filterActions.setFavorites(!filterState.filterFavorites);
+    toggleFavorites: (isAdditive = false) => {
+        toggleQuickFilter('filterFavorites', isAdditive);
     },
 
     setTrash: (isActive: boolean) => {
@@ -78,8 +106,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleTrash: () => {
-        filterActions.setTrash(!filterState.filterTrash);
+    toggleTrash: (isAdditive = false) => {
+        toggleQuickFilter('filterTrash', isAdditive);
     },
 
     setFamily: (family: string | null) => {
