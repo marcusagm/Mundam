@@ -55,7 +55,20 @@ Built with **Tauri v2**, **Rust**, and **SolidJS**, Mundam combines the raw powe
 *   **CMake** (Required for compiling native C/C++ format integrations like GoPro RAW)
 *   **macOS / Linux / Windows** (Build tools required)
 
-### Getting Started
+### Automated Setup (recommended)
+
+After cloning, run the setup script for your platform. It installs the system prerequisites (compilers, CMake, libclang, WebKitGTK on Linux), **FFmpeg/FFprobe**, **Assimp**, downloads **PDFium**, fetches the submodules and runs `npm install`. LibRaw is compiled from source by the `rsraw` crate, so it only needs CMake/libclang/a C++ compiler.
+
+```bash
+./scripts/setup.sh                 # macOS (Homebrew) and Linux (apt/dnf/pacman/zypper)
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1   # Windows (winget)
+```
+
+Options: `--skip-system` / `-SkipSystem` (don't install packages), `--check` / `-Check` (run `cargo check` at the end), `-y` (non-interactive, Unix). On Windows, open a new terminal afterwards so `PATH` and `LIBCLANG_PATH` are refreshed. Assimp is optional on Windows (no package available): without `assimp.exe` in `src-tauri/assimp/windows-x64/`, 3D previews are disabled.
+
+### Getting Started (manual)
 
 1.  **Clone the repository**
     ```bash

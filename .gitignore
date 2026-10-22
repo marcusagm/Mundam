@@ -42,3 +42,9 @@ desktop.ini
 # (Most Tauri ignores are in src-tauri/.gitignore, but avoiding redundancy here)
 
 /file-samples
+# Local native tools staged by scripts/setup-*
+/src-tauri/ffmpeg/ffprobe
+/src-tauri/ffmpeg/*.exe
+/src-tauri/assimp/windows-x64/assimp.exe
+/src-tauri/binaries/pdfium/*.so
+/src-tauri/binaries/pdfium/*.dll
