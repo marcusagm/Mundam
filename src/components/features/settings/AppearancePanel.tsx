@@ -1,4 +1,5 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
+import { CustomThemeEditor } from './CustomThemeEditor';
 import { SectionGroup } from '../../ui/SectionGroup';
 import { RadioGroup, RadioGroupItem } from '../../ui/RadioGroup';
 import { Select } from '../../ui/Select';
@@ -49,8 +50,13 @@ export const AppearancePanel: Component = () => {
                         <RadioGroupItem value="light" label="Light" />
                         <RadioGroupItem value="dark" label="Dark" />
                         <RadioGroupItem value="system" label="System" />
+                        <RadioGroupItem value="custom" label="Custom" />
                     </RadioGroup>
                 </div>
+
+                <Show when={appearance().mode === 'custom'}>
+                    <CustomThemeEditor />
+                </Show>
 
                 <div class="appearance-setting-row">
                     <span class="setting-label">Accent Theme:</span>

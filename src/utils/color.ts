@@ -336,3 +336,55 @@ export function generateColorFormats(hexColor: string): ColorFormatOption[] {
         }
     ];
 }
+
+const SAFE_CSS_COLOR_PATTERN =
+    /^(#[0-9a-fA-F]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color)\([0-9a-zA-Z%.,\s/+-]+\))$/;
+const MAXIMUM_CSS_COLOR_LENGTH = 100;
+
+/**
+ * Checks whether a string is a plain CSS color (hex or functional notation).
+ * Rejects `url()`, `var()`, semicolons, braces and any other non-color content,
+ * so the value is safe to assign to a custom property.
+ *
+ * @param {string} value - The CSS value to validate.
+ * @returns {boolean} True if the value is a safe CSS color.
+ *
+ * @example
+ * ```ts
+ * isSafeCssColor('oklch(50% 0.1 200)'); // true
+ * isSafeCssColor('red; background: url(x)'); // false
+ * ```
+ */
+export function isSafeCssColor(value: string): boolean {
+    return value.length <= MAXIMUM_CSS_COLOR_LENGTH && SAFE_CSS_COLOR_PATTERN.test(value.trim());
+}
+
+/**
+ * Converts any CSS color understood by the browser (including oklch) to `#rrggbb`
+ * by rasterizing it on a 1x1 canvas.
+ *
+ * @param {string} cssColor - The CSS color to convert.
+ * @returns {string | null} The hexadecimal color, or null if it cannot be resolved.
+ *
+ * @example
+ * ```ts
+ * convertCssColorToHexadecimal('rgb(255, 0, 0)'); // '#ff0000'
+ * ```
+ */
+export function convertCssColorToHexadecimal(cssColor: string): string | null {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = '#000';
+    context.fillStyle = cssColor;
+    context.fillRect(0, 0, 1, 1);
+
+    const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+    if (alpha === 0) return null;
+
+    return `#${[red, green, blue].map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
+}

@@ -63,10 +63,11 @@
 - [x] Verificar fuzzy search, pois parece não estar funcionando bem.
 > **Limite de Relevância Fixo (500)**: Atualmente o limite de busca difusa é hard-coded para os 500 melhores resultados (`LIMIT 500`). Isso atende a grande maioria dos casos mas, para bibliotecas com centenas de milhares de assets, o usuário pode sentir falta de algum registro marginal que não obteve um score suficiente no BM25 para entrar no top 500. Pode-se tornar esse limite configurável nas configurações globais da aplicação.
 
+- [x] permitir a criação de queries de buscas avançadas com grupos que permitam o uso de operadores AND/OR aninhados.
 - [ ] Adicionar sistema de sugestões.
 - [ ] Permitir a busca por Harmonia de cores 
 - [ ] Busca recursiva por tags, incluir tags filhas na busca.
-- [ ] Busca recursiva por pastas, incluir pastas filhas na busca.
+- [x] Busca recursiva por pastas, incluir pastas filhas na busca.
 
 ## Folders
 

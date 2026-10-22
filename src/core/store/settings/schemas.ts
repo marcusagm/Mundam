@@ -4,7 +4,8 @@ import { z } from 'zod';
  * Schema for appearance preferences.
  */
 export const AppearancePayloadSchema = z.object({
-    mode: z.enum(['dark', 'light', 'system']).optional(),
+    mode: z.enum(['dark', 'light', 'system', 'custom']).optional(),
+    customThemeId: z.string().max(100).nullable().optional(),
     theme: z
         .enum([
             'neutral',

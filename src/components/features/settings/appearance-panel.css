@@ -43,3 +43,33 @@
     font-size: var(--p-font-size-xxs);
     color: var(--text-tertiary);
 }
+
+.appearance-theme-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--p-space-s);
+}
+
+.appearance-token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--p-space-s) var(--p-space-m);
+}
+
+.appearance-token {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--p-space-xs);
+}
+
+.appearance-token > :first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.appearance-theme-select,
+.appearance-theme-name {
+    width: 220px;
+}

@@ -230,3 +230,23 @@ export function formatRelativeTime(dateSource: string | Date): string {
 
     return 'Just now';
 }
+
+/**
+ * Converts free text into a lowercase, dash-separated slug suitable for file names.
+ *
+ * @param {string} text - The text to convert.
+ * @param {string} [fallback] - Value returned when the slug would be empty.
+ * @returns {string} The slug.
+ *
+ * @example
+ * ```ts
+ * formatSlug('My Ocean Theme!'); // 'my-ocean-theme'
+ * ```
+ */
+export const formatSlug = (text: string, fallback: string = 'untitled'): string => {
+    const slug = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    return slug || fallback;
+};
