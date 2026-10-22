@@ -215,6 +215,22 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
         category: 'Viewer'
     },
     {
+        name: 'Reset View',
+        description: 'Reset rotation, flip, pan and zoom',
+        keys: 'Meta+Digit2',
+        scope: 'image-viewer',
+        command: 'viewer:reset-view',
+        category: 'Viewer'
+    },
+    {
+        name: 'Select Tool',
+        description: 'Activate select tool (normal clicks, drag image to other apps)',
+        keys: 'KeyV',
+        scope: 'image-viewer',
+        command: 'viewer:tool-select',
+        category: 'Viewer'
+    },
+    {
         name: 'Pan Tool',
         description: 'Activate pan tool',
         keys: 'KeyH',

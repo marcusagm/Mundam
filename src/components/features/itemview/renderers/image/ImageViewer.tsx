@@ -1,6 +1,12 @@
 import { Component, onMount, createSignal, onCleanup } from 'solid-js';
 import { useItemViewContext } from '../../ItemViewContext';
-import { useViewport } from '../../../../../core/hooks';
+import { useViewport, useLibrary } from '../../../../../core/hooks';
+import { assetDragSource } from '../../../../../core/dnd';
+
+// Referenced so the `use:assetDragSource` directive is not tree-shaken
+void assetDragSource;
+
+const ROTATION_SNAP_STEP = 45;
 
 interface ImageViewerProps {
     src: string;
@@ -13,6 +19,8 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
     const { rotation, setRotation, flip, tool, reset } = useItemViewContext();
 
     const viewport = useViewport();
+    const lib = useLibrary();
+    const currentItem = () => lib.items.find(i => i.id.toString() === viewport.activeItemId());
 
     let imgRef: HTMLImageElement | undefined;
     let containerRef: HTMLDivElement | undefined;
@@ -62,6 +70,8 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
 
     // Mouse Interaction
     const handleMouseDown = (e: MouseEvent) => {
+        // Select tool keeps native behavior so the image can be dragged out of the app
+        if (tool() === 'select') return;
         e.preventDefault();
         setIsDragging(true);
 
@@ -92,7 +102,9 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
 
             const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
             const deg = ((angle - startRotation()) * 180) / Math.PI;
-            setRotation(deg);
+            setRotation(
+                e.shiftKey ? Math.round(deg / ROTATION_SNAP_STEP) * ROTATION_SNAP_STEP : deg
+            );
         }
     };
 
@@ -122,7 +134,14 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
             style={{
-                cursor: tool() === 'pan' ? (isDragging() ? 'grabbing' : 'grab') : 'crosshair',
+                cursor:
+                    tool() === 'select'
+                        ? 'default'
+                        : tool() === 'pan'
+                          ? isDragging()
+                              ? 'grabbing'
+                              : 'grab'
+                          : 'crosshair',
                 width: '100%',
                 height: '100%',
                 overflow: 'hidden',
@@ -138,7 +157,15 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
                 alt={props.alt}
                 onLoad={onImageLoad}
                 onError={onImageLoadError}
-                draggable={false}
+                use:assetDragSource={{
+                    id: viewport.activeItemId() ?? '',
+                    path: currentItem()?.path ?? '',
+                    thumbnailPath: currentItem()?.thumbnail_path ?? null,
+                    isSelected: false,
+                    getSelectedIds: () => [],
+                    getItemInfo: () => currentItem(),
+                    enabled: tool() === 'select'
+                }}
                 style={{
                     transform: `translate(${viewport.pan().x}px, ${viewport.pan().y}px) rotate(${rotation()}deg) scale(${viewport.zoom() / 100}) scaleX(${flip().horizontal ? -1 : 1}) scaleY(${flip().vertical ? -1 : 1})`,
                     'transform-origin': 'center',
@@ -146,7 +173,7 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
                     'max-width': 'none',
                     'max-height': 'none',
                     'user-select': 'none',
-                    'pointer-events': 'none' // Pass events to container
+                    'pointer-events': tool() === 'select' ? 'auto' : 'none' // Other tools pass events to container
                 }}
             />
         </div>

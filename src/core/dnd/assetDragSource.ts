@@ -8,7 +8,7 @@
  * need to attach drop handlers to each item.
  */
 
-import { onCleanup } from 'solid-js';
+import { createEffect, onCleanup } from 'solid-js';
 import { setDragItem, DragItem } from './dnd-core';
 import { createDragGhost } from './ghost';
 import { AssetItem } from '../../types';
@@ -26,6 +26,8 @@ export interface AssetDragSourceParams {
     getSelectedIds: () => string[];
     /** Get item info by ID (for ghost creation) */
     getItemInfo: (id: string) => { path: string; thumbnail_path: string | null } | undefined;
+    /** Allows dragging only while true (defaults to always enabled) */
+    enabled?: boolean;
 }
 
 /**
@@ -34,6 +36,10 @@ export interface AssetDragSourceParams {
  */
 export function assetDragSource(el: HTMLElement, accessor: () => AssetDragSourceParams) {
     const handleDragStart = (e: DragEvent) => {
+        if (accessor().enabled === false) {
+            e.preventDefault();
+            return;
+        }
         e.stopPropagation();
         if (!e.dataTransfer) return;
 
@@ -108,7 +114,9 @@ export function assetDragSource(el: HTMLElement, accessor: () => AssetDragSource
     };
 
     // Attach listeners
-    el.setAttribute('draggable', 'true');
+    createEffect(() => {
+        el.setAttribute('draggable', accessor().enabled === false ? 'false' : 'true');
+    });
     el.addEventListener('dragstart', handleDragStart);
     el.addEventListener('dragend', handleDragEnd);
 

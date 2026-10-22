@@ -18,7 +18,7 @@ export interface Position {
     y: number;
 }
 
-export type ViewportTool = 'pan' | 'rotate';
+export type ViewportTool = 'select' | 'pan' | 'rotate';
 
 interface ItemViewContextState {
     rotation: Accessor<number>;
@@ -45,6 +45,8 @@ interface ItemViewContextState {
 
     resetTrigger: Accessor<number>;
     reset: () => void;
+    /** Restores rotation, flip, pan and zoom (fit to screen) keeping the active tool */
+    resetView: () => void;
 }
 
 export interface FontSettings {
@@ -68,7 +70,7 @@ const ItemViewContext = createContext<ItemViewContextState>();
 export const ItemViewProvider: ParentComponent = props => {
     const [rotation, setRotation] = createSignal(0);
     const [flip, setFlip] = createSignal<FlipState>({ horizontal: false, vertical: false });
-    const [tool, setTool] = createSignal<ViewportTool>('pan');
+    const [tool, setTool] = createSignal<ViewportTool>('select');
     const [mediaType, setMediaType] = createSignal<MediaType>('unknown');
 
     // Timer / Slideshow
@@ -97,7 +99,7 @@ export const ItemViewProvider: ParentComponent = props => {
     const reset = () => {
         setRotation(0);
         setFlip({ horizontal: false, vertical: false });
-        setTool('pan');
+        setTool('select');
         // DO NOT reset mediaType here
 
         // Reset Settings
@@ -118,6 +120,13 @@ export const ItemViewProvider: ParentComponent = props => {
         setResetTrigger(t => t + 1);
     };
 
+    const resetView = () => {
+        setRotation(0);
+        setFlip({ horizontal: false, vertical: false });
+        // Fit resets zoom and pan to the initial state
+        window.dispatchEvent(new CustomEvent('viewport:fit'));
+    };
+
     const value: ItemViewContextState = {
         rotation,
         setRotation,
@@ -136,7 +145,8 @@ export const ItemViewProvider: ParentComponent = props => {
         modelSettings,
         setModelSettings,
         resetTrigger,
-        reset
+        reset,
+        resetView
     };
 
     return <ItemViewContext.Provider value={value}>{props.children}</ItemViewContext.Provider>;

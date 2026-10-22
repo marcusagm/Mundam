@@ -47,7 +47,8 @@ const ItemViewContent: Component = () => {
         slideshowDuration,
         setSlideshowPlaying,
         setTool,
-        setFlip
+        setFlip,
+        resetView
     } = useItemViewContext();
 
     let overlayRef: HTMLDivElement | undefined;
@@ -126,6 +127,8 @@ const ItemViewContent: Component = () => {
         'viewer:zoom-out': zoomOut,
         'viewer:fit-screen': fitToScreen,
         'viewer:original-size': originalSize,
+        'viewer:reset-view': resetView,
+        'viewer:tool-select': () => setTool('select'),
         'viewer:tool-pan': () => setTool('pan'),
         'viewer:tool-rotate': () => setTool('rotate'),
         'viewer:previous': () => navigate(-1),

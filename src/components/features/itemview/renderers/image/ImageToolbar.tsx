@@ -1,11 +1,12 @@
 import { Button, Select, Slider, ToggleGroup, ToggleGroupItem, Tooltip } from '../../../../ui';
-import { useItemViewContext, FlipState } from '../../ItemViewContext';
+import { useItemViewContext, FlipState, ViewportTool } from '../../ItemViewContext';
 import { useViewport } from '../../../../../core/hooks';
 import { ShortcutHint } from '../../common/ToolbarUtils';
 import { Component } from 'solid-js';
 import {
     RotateCw,
     Hand,
+    MousePointer2,
     Play,
     Pause,
     Clock,
@@ -14,7 +15,8 @@ import {
     ZoomIn,
     ZoomOut,
     Fullscreen,
-    Maximize2
+    Maximize2,
+    RotateCcw
 } from 'lucide-solid';
 
 export const ImageToolbar: Component = () => {
@@ -26,7 +28,8 @@ export const ImageToolbar: Component = () => {
         slideshowPlaying,
         setSlideshowPlaying,
         slideshowDuration,
-        setSlideshowDuration
+        setSlideshowDuration,
+        resetView
     } = useItemViewContext();
 
     const toggleFlipH = () => setFlip((f: FlipState) => ({ ...f, horizontal: !f.horizontal }));
@@ -93,6 +96,11 @@ export const ImageToolbar: Component = () => {
                         <Fullscreen size={16} />
                     </Button>
                 </Tooltip>
+                <Tooltip position="bottom" content={<ShortcutHint name="Reset View" />}>
+                    <Button variant="ghost" size="icon" onClick={resetView}>
+                        <RotateCcw size={16} />
+                    </Button>
+                </Tooltip>
             </div>
 
             <div class="toolbar-group">
@@ -100,8 +108,13 @@ export const ImageToolbar: Component = () => {
                 <ToggleGroup
                     type="single"
                     value={tool()}
-                    onValueChange={(val: string) => val && setTool(val as 'pan' | 'rotate')}
+                    onValueChange={(val: string) => val && setTool(val as ViewportTool)}
                 >
+                    <Tooltip position="bottom" content={<ShortcutHint name="Select Tool" />}>
+                        <ToggleGroupItem value="select">
+                            <MousePointer2 size={16} />
+                        </ToggleGroupItem>
+                    </Tooltip>
                     <Tooltip position="bottom" content={<ShortcutHint name="Pan Tool" />}>
                         <ToggleGroupItem value="pan">
                             <Hand size={16} />

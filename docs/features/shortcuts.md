@@ -34,16 +34,17 @@ os painéis é `Meta+B`, evitando interromper a navegação por teclado.
 
 ### Visualizador de item
 
-| Tecla                 | Ação                                    |
-| --------------------- | --------------------------------------- |
-| `Escape`              | Fechar o visualizador                   |
-| `+` / `-`             | Aumentar/diminuir o zoom                |
-| `Meta+0`              | Ajustar à tela                          |
-| `Meta+1`              | Mostrar em tamanho original (100%)      |
-| `H` / `R`             | Ativar ferramenta de pan/rotação        |
-| `←` / `→`             | Item anterior/próximo                   |
-| `Space`               | Iniciar/pausar a apresentação de slides |
-| `Shift+H` / `Shift+V` | Espelhar horizontal/verticalmente       |
+| Tecla                 | Ação                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| `Escape`              | Fechar o visualizador                                      |
+| `+` / `-`             | Aumentar/diminuir o zoom                                   |
+| `Meta+0`              | Ajustar à tela                                             |
+| `Meta+1`              | Mostrar em tamanho original (100%)                         |
+| `Meta+2`              | Resetar a visualização (rotação, espelhamento, pan e zoom) |
+| `V` / `H` / `R`       | Ativar ferramenta de seleção/pan/rotação                   |
+| `←` / `→`             | Item anterior/próximo                                      |
+| `Space`               | Iniciar/pausar a apresentação de slides                    |
+| `Shift+H` / `Shift+V` | Espelhar horizontal/verticalmente                          |
 
 ### Busca
 
@@ -62,15 +63,17 @@ As ações “Next Result” e “Previous Result” não são atalhos separados
 
 ## Interações com mouse
 
-| Interação                         | Ação                                                                                                       |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `Shift+clique` em um asset        | Selecionar o intervalo entre o último asset selecionado e o clicado                                        |
-| `Ctrl+clique` ou `Meta+clique`    | Alternar o asset clicado sem limpar a seleção atual                                                        |
-| Botão voltar do mouse             | Voltar no histórico de filtros                                                                             |
-| Botão avançar do mouse            | Avançar no histórico de filtros                                                                            |
-| Clique em um filtro rápido        | Ativar somente esse filtro (Untagged, Has Tags, Favorites e Trash são exclusivos); clicar de novo desativa |
-| Clique em uma tag ou pasta        | Substituir a seleção por esse item; clicar no único item selecionado limpa o filtro                        |
-| `Ctrl`/`Meta`+clique em tag/pasta | Adicionar/remover o item sem limpar os demais selecionados                                                 |
+| Interação                                      | Ação                                                                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `Shift+clique` em um asset                     | Selecionar o intervalo entre o último asset selecionado e o clicado                                        |
+| `Ctrl+clique` ou `Meta+clique`                 | Alternar o asset clicado sem limpar a seleção atual                                                        |
+| `Shift` + arrastar com a ferramenta de rotação | Travar a rotação da imagem em múltiplos de 45° (0°, 45°, 90°… 315°)                                        |
+| Arrastar a imagem com a ferramenta de seleção  | Arrastar o arquivo para outro programa, como nos assets da galeria                                         |
+| Botão voltar do mouse                          | Voltar no histórico de filtros                                                                             |
+| Botão avançar do mouse                         | Avançar no histórico de filtros                                                                            |
+| Clique em um filtro rápido                     | Ativar somente esse filtro (Untagged, Has Tags, Favorites e Trash são exclusivos); clicar de novo desativa |
+| Clique em uma tag ou pasta                     | Substituir a seleção por esse item; clicar no único item selecionado limpa o filtro                        |
+| `Ctrl`/`Meta`+clique em tag/pasta              | Adicionar/remover o item sem limpar os demais selecionados                                                 |
 
 As interações com mouse são fixas e aparecem na tela de atalhos para consulta; não são
 remapeáveis como atalhos de teclado.

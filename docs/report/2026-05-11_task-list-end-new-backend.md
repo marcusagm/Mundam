@@ -137,6 +137,8 @@
 
 ### Imagens
 
+- [x] Adicionar atalho de para a ferramenta de rotação para travar em angulos de 45 º.
+- [x] Adicionar ferramenta select tool para permitir que o usuário arraste a imagem para outros programas.
 - [ ] Adicionar opção de copiar imagem na visualização de imagens.
 - [ ] Adicionar sistema de notas para imagens permitindo texto e desenhos.
 - [ ] Visualizardor de gifs com controle de play/pause, de velocidade de reprodução e timeline para navigating entre frames.
