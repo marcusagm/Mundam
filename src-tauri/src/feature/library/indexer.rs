@@ -53,6 +53,8 @@ pub struct LibraryIndexer {
     /// with matching size + created_at can be paired as a move instead of delete+create.
     /// Tuple: (removal_timestamp, file_size, created_at_from_db)
     pub(crate) recent_removals: Arc<DashMap<PathBuf, (DateTime<Utc>, u64, Option<DateTime<Utc>>)>>,
+    /// Paths being moved by the Ledger itself (trash/restore); watcher events on them are ignored.
+    pub(crate) path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
 }
 
 impl LibraryIndexer {
@@ -77,7 +79,14 @@ impl LibraryIndexer {
             registry,
             concurrency_limit: 200,
             recent_removals: Arc::new(DashMap::new()),
+            path_guard: Arc::new(crate::core::path_guard::LedgerPathGuard::new()),
         }
+    }
+
+    /// Shares the Ledger's path guard so its own file moves are not re-indexed.
+    pub fn with_path_guard(mut self, path_guard: Arc<crate::core::path_guard::LedgerPathGuard>) -> Self {
+        self.path_guard = path_guard;
+        self
     }
 
     /// Sets a custom concurrency limit, clamped to [10, 500].

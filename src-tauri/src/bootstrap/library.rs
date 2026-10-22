@@ -52,6 +52,10 @@ pub async fn init(app: &AppHandle) {
     };
 
     // Initialize Indexer
+    let path_guard = app
+        .state::<Arc<crate::core::path_guard::LedgerPathGuard>>()
+        .inner()
+        .clone();
     let indexer = Arc::new(
         crate::feature::library::indexer::LibraryIndexer::new(
             asset_query_handler.clone(),
@@ -59,7 +63,8 @@ pub async fn init(app: &AppHandle) {
             event_bus.clone(),
             format_registry.clone(),
         )
-        .with_concurrency_limit(concurrency_limit),
+        .with_concurrency_limit(concurrency_limit)
+        .with_path_guard(path_guard),
     );
     app.manage(indexer.clone());
 

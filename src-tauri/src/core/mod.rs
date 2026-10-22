@@ -9,6 +9,7 @@ pub use events::{AppEventBus, DomainEvent};
 
 pub mod ledger;
 pub mod models;
+pub mod path_guard;
 pub mod repository;
 pub mod settings;
 pub mod trash;

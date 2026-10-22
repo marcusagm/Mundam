@@ -33,6 +33,9 @@ pub struct SqliteAssetLedger {
     /// to resolve trash file paths without leaking infrastructure concerns
     /// into domain payloads.
     app_data_directory: PathBuf,
+    /// Paths touched by Saga file moves, shared with the watcher-driven indexer
+    /// so it ignores events caused by the Ledger itself.
+    path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
 }
 
 impl SqliteAssetLedger {
@@ -44,8 +47,14 @@ impl SqliteAssetLedger {
     /// * `event_bus` - The event bus for publishing domain events.
     /// * `app_data_directory` - The root directory for app-local data,
     ///   used to resolve trash paths in Saga post-commit steps.
-    pub fn new(pool: SqlitePool, event_bus: Arc<dyn AppEventBus>, app_data_directory: PathBuf) -> Self {
-        Self { pool, event_bus, app_data_directory }
+    /// * `path_guard` - Registry of paths the watcher must ignore.
+    pub fn new(
+        pool: SqlitePool,
+        event_bus: Arc<dyn AppEventBus>,
+        app_data_directory: PathBuf,
+        path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
+    ) -> Self {
+        Self { pool, event_bus, app_data_directory, path_guard }
     }
 }
 
@@ -529,7 +538,12 @@ impl SqliteAssetLedger {
             return;
         }
 
-        match tokio::fs::rename(&asset.path, &trash_path).await {
+        self.path_guard.mark(&asset.path);
+        self.path_guard.mark(&trash_path);
+        let rename_result = tokio::fs::rename(&asset.path, &trash_path).await;
+        self.path_guard.mark(&asset.path);
+
+        match rename_result {
             Ok(_) => {
                 tracing::info!(
                     "Ledger: MoveToTrash SUCCESS for {} → {}",
@@ -573,7 +587,7 @@ impl SqliteAssetLedger {
     /// timestamped format and the legacy naming convention.
     async fn execute_saga_restore_from_trash(&self, asset: &Asset) {
         let original_path = asset.path.clone();
-
+        self.path_guard.mark(&original_path);
         // After RestoreFromTrash handler clears deleted_at, the asset no longer
         // has deleted_at set. We need to look up the most recent MOVE_TO_TRASH
         // audit log to find where the file was placed. However, the handler
@@ -634,7 +648,10 @@ impl SqliteAssetLedger {
             return;
         }
 
-        match tokio::fs::rename(&source_path, &original_path).await {
+        let rename_result = tokio::fs::rename(&source_path, &original_path).await;
+        self.path_guard.mark(&original_path);
+
+        match rename_result {
             Ok(_) => {
                 tracing::info!(
                     "Ledger: RestoreFromTrash SUCCESS for {} → {}",

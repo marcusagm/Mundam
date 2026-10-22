@@ -36,7 +36,10 @@ pub async fn handle_create(
         .file_name()
         .and_then(|file_name_os| file_name_os.to_str())
         .ok_or_else(|| AppError::ValidationFailed("Invalid file path".to_string()))?;
-    let path_string = payload.path.to_string_lossy().to_string();
+    let path_string = {
+        use unicode_normalization::UnicodeNormalization;
+        payload.path.to_string_lossy().nfc().collect::<String>()
+    };
     let state_string = payload.state_init.to_string();
     let file_size_i64 = payload.file_size as i64;
 

@@ -43,10 +43,14 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
         ));
     app.manage(asset_query_handler.clone());
 
+    let path_guard = Arc::new(crate::core::path_guard::LedgerPathGuard::new());
+    app.manage(path_guard.clone());
+
     let asset_ledger_impl = Arc::new(crate::infra::database::ledger::SqliteAssetLedger::new(
         db_manager.pool().clone(),
         event_bus.clone(),
         dirs.app_data.clone(),
+        path_guard,
     ));
 
     // Run database path normalization cleanup (one-time logic)

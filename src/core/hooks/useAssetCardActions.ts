@@ -9,6 +9,7 @@
 import { useSelection } from './useSelection';
 import { useViewport } from './useViewport';
 import { useLibrary } from './useLibrary';
+import { useTrashActions } from './useTrashActions';
 import { libraryState } from '../store/library';
 import { type AssetItem } from '../../types';
 
@@ -29,6 +30,7 @@ export function useAssetCardActions(): AssetCardActions {
     const selection = useSelection();
     const viewport = useViewport();
     const library = useLibrary();
+    const trash = useTrashActions();
 
     return {
         handleSelect: (itemId: string, modifiers: { multi: boolean; shift: boolean }) => {
@@ -54,7 +56,7 @@ export function useAssetCardActions(): AssetCardActions {
 
             if (itemIdentifiersToTrash.length === 0) return;
 
-            await library.moveToTrashAssets(itemIdentifiersToTrash);
+            await trash.moveToTrash(itemIdentifiersToTrash);
             selection.clear();
         },
 

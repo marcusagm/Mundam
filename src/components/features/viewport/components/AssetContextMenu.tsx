@@ -14,6 +14,7 @@ import { invokeCommand } from '../../../../lib/api';
 import { AssetItem } from '../../../../types';
 import { selectionState } from '../../../../core/store/selectionStore';
 import { useLibrary } from '../../../../core/hooks/useLibrary';
+import { useTrashActions } from '../../../../core/hooks/useTrashActions';
 import { useNotification } from '../../../../core/hooks/useNotification';
 import { useFilters } from '../../../../core/hooks/useFilters';
 import { PromptModal } from '../../../ui/Modal/PromptModal';
@@ -43,7 +44,8 @@ export interface AssetContextMenuProps {
  * @returns {JSX.Element} - Component AssetContextMenu.
  */
 export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
-    const { items: allItems, moveToTrashAssets, restoreFromTrashAssets } = useLibrary();
+    const { items: allItems, restoreFromTrashAssets } = useLibrary();
+    const trash = useTrashActions();
     const notify = useNotification();
     const filters = useFilters();
 
@@ -84,22 +86,8 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
         props.onClose();
     };
 
-    const handleMoveToTrashAssets = async (assets: AssetItem[], isMulti: boolean) => {
-        const ids = assets.map(a => a.id);
-        await moveToTrashAssets(ids);
-
-        notify.success(
-            isMulti ? `${assets.length} items moved to trash` : 'Item moved to trash',
-            undefined,
-            {
-                label: 'Undo',
-                onClick: async () => {
-                    const ids = assets.map(a => a.id);
-                    await restoreFromTrashAssets(ids);
-                    notify.success('Action undone', 'Items have been restored');
-                }
-            }
-        );
+    const handleMoveToTrashAssets = async (assets: AssetItem[]) => {
+        await trash.moveToTrash(assets.map(a => a.id));
         props.onClose();
     };
 
@@ -212,7 +200,7 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
                 type: 'item',
                 label: isMulti ? 'Move to Trash' : 'Move to Trash',
                 icon: Trash2,
-                action: () => handleMoveToTrashAssets(assets, isMulti)
+                action: () => handleMoveToTrashAssets(assets)
             });
         }
 

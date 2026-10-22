@@ -13,6 +13,8 @@ import { APP_CONFIG } from '../../../config/constants';
 const { setLibraryState } = libraryStateInternal;
 const BATCH_SIZE = APP_CONFIG.BATCH_SIZE;
 let currentOffset = 0;
+// Identifies the latest refresh so slower, older responses never overwrite newer data.
+let latestRefreshRequestId = 0;
 
 import { itemActions } from './itemActions';
 import type { SearchGroup, SearchCriterion } from '../../../types';
@@ -88,8 +90,11 @@ export const libraryActions = {
         if (libraryState.isRefreshing && reset) return;
         if (reset) setLibraryState('isRefreshing', true);
 
+        const requestId = ++latestRefreshRequestId;
+
         try {
             const { items, total_items } = await libraryActions.fetchLibraryBatch(0);
+            if (requestId !== latestRefreshRequestId) return;
             setLibraryState('items', reconcile(items, { key: 'id' }));
             setLibraryState('totalItems', total_items);
             currentOffset = BATCH_SIZE;

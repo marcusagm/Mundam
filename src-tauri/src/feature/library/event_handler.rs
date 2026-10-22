@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
+use unicode_normalization::UnicodeNormalization;
 
 use super::indexer::LibraryIndexer;
 
@@ -101,6 +102,10 @@ impl LibraryIndexer {
     async fn handle_file_discovered(&self, path: String) {
         let entry_path = PathBuf::from(&path);
 
+        if self.path_guard.is_marked(&entry_path) {
+            debug!("Indexer: Ignoring ledger-initiated create for {}", path);
+            return;
+        }
         // Strategic Delay: On macOS, a Rename is often emitted as Delete then Create.
         // 500ms gives enough time for handle_path_deleted to populate recent_removals.
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
@@ -176,12 +181,18 @@ impl LibraryIndexer {
     async fn handle_file_creation(&self, entry_path: PathBuf) -> AppResult<()> {
         let path_str = entry_path.to_string_lossy().to_string();
 
-        if let Ok(Some(_)) = self.query_handler.find_asset_by_path(&path_str).await {
-            debug!(
-                "Indexer: Asset already exists for path '{}', skipping duplicate creation",
-                entry_path.display()
-            );
-            return Ok(());
+        // The DB may hold the path in either Unicode form (accented names on macOS);
+        // checking only one form would insert a duplicate asset.
+        let nfc_path: String = path_str.nfc().collect();
+        let nfd_path: String = path_str.nfd().collect();
+        for candidate in [&path_str, &nfc_path, &nfd_path] {
+            if let Ok(Some(_)) = self.query_handler.find_asset_by_path(candidate).await {
+                debug!(
+                    "Indexer: Asset already exists for path '{}', skipping duplicate creation",
+                    entry_path.display()
+                );
+                return Ok(());
+            }
         }
 
         let extension = entry_path
@@ -235,6 +246,13 @@ impl LibraryIndexer {
     /// can still pair late renames/moves.
     async fn handle_path_deleted(&self, path: String) {
         let entry_path = PathBuf::from(&path);
+
+        // A delete event for a path that is ledger-owned or exists again is stale
+        // (e.g. a trashed file that was already restored) and must not touch the DB.
+        if self.path_guard.is_marked(&entry_path) || entry_path.exists() {
+            debug!("Indexer: Ignoring stale/ledger-initiated DELETE for {}", path);
+            return;
+        }
         info!("Indexer: Processing DELETE for: {}", path);
 
         let mut old_size = 0;
@@ -276,6 +294,11 @@ impl LibraryIndexer {
     async fn handle_path_renamed(&self, from: String, to: String) {
         let from_path = PathBuf::from(&from);
         let to_path = PathBuf::from(&to);
+
+        if self.path_guard.is_marked(&from_path) || self.path_guard.is_marked(&to_path) {
+            debug!("Indexer: Ignoring ledger-initiated rename {} -> {}", from, to);
+            return;
+        }
 
         self.recent_removals.remove(&from_path);
 
