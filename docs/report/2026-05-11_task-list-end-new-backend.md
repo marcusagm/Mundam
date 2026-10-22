@@ -130,10 +130,10 @@
 
 ### Geral
 
-- [ ] Adicionar nome do arquivo acima da toolbar.
+- [x] Adicionar nome do arquivo acima da toolbar.
 - [x] Ao carregar o arquivo, mostrar um loader de forma que não trave a interface do usuário, permitindo que ele possa sair do itemview quando quiser, cancelando o processo se necessário.
 - [ ] Permitir acesso a detalhes do arquivo na item view.
-- [ ] Agora com a barra de título personalizada, é necessário resolver o problema de não conseguir mover a janela quando um item está sendo visualizado.
+- [x] Agora com a barra de título personalizada, é necessário resolver o problema de não conseguir mover a janela quando um item está sendo visualizado.
 
 ### Imagens
 

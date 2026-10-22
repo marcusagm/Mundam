@@ -29,6 +29,8 @@ interface ModelViewerProps {
     filename: string;
     /** Optional thumbnail flag */
     thumbnail?: string | null;
+    /** Called when the model finished loading or failed */
+    onReady?: () => void;
 }
 
 interface ModelViewerElement extends HTMLElement {
@@ -106,6 +108,8 @@ export const ModelViewer: Component<ModelViewerProps> = props => {
             >
                 <model-viewer
                     ref={viewerRef}
+                    on:load={() => props.onReady?.()}
+                    on:error={() => props.onReady?.()}
                     src={glbUrl()!}
                     poster={thumbUrl()}
                     alt={`3D model: ${props.filename}`}

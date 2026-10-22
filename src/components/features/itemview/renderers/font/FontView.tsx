@@ -1,5 +1,5 @@
 import { Button } from '../../../../ui';
-import { Component, createSignal, onCleanup, onMount, Switch, Match, Show } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, Switch, Match, Show } from 'solid-js';
 import { useItemViewContext } from '../../ItemViewContext';
 import { PreviewTab } from './tabs/PreviewTab';
 import { WaterfallTab } from './tabs/WaterfallTab';
@@ -11,6 +11,8 @@ import './font-view.css';
 interface FontViewProps {
     src: string;
     fontName: string;
+    /** Called when the font finished loading or failed */
+    onReady?: () => void;
 }
 
 export const FontView: Component<FontViewProps> = props => {
@@ -22,24 +24,38 @@ export const FontView: Component<FontViewProps> = props => {
     );
     const [fontFamily, setFontFamily] = createSignal<string>('sans-serif');
 
-    onMount(async () => {
-        try {
-            const familyName = `font-preview-${props.fontName.replace(/\s+/g, '-')}-${Date.now()}`;
-            // Load Font
-            const fontFace = new FontFace(familyName, `url(${props.src})`);
-            await fontFace.load();
-            document.fonts.add(fontFace);
+    createEffect(() => {
+        const source = props.src;
+        const fontName = props.fontName;
+        let cancelled = false;
+        let loadedFace: FontFace | undefined;
 
-            setFontFamily(familyName);
-            setLoaded(true);
+        setLoaded(false);
+        setError(null);
 
-            onCleanup(() => {
-                document.fonts.delete(fontFace);
-            });
-        } catch (err) {
-            console.error(err);
-            setError('Failed to load font file.');
-        }
+        onCleanup(() => {
+            cancelled = true;
+            if (loadedFace) document.fonts.delete(loadedFace);
+        });
+
+        (async () => {
+            try {
+                const familyName = `font-preview-${fontName.replace(/\s+/g, '-')}-${Date.now()}`;
+                const fontFace = new FontFace(familyName, `url(${source})`);
+                await fontFace.load();
+                if (cancelled) return;
+                document.fonts.add(fontFace);
+                loadedFace = fontFace;
+
+                setFontFamily(familyName);
+                setLoaded(true);
+            } catch (err) {
+                if (cancelled) return;
+                console.error(err);
+                setError('Failed to load font file.');
+            }
+            props.onReady?.();
+        })();
     });
 
     return (

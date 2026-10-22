@@ -1,5 +1,5 @@
 import { VideoPlayer as UIVideoPlayer } from '../../../../ui';
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createEffect, createSignal, Show } from 'solid-js';
 import { Loader } from '../../../../ui/Loader';
 import { type TranscodeQuality } from '../../../../../lib/stream-utils';
 import { transcodeState } from '../../../../../core/store/transcodeStore';
@@ -11,6 +11,8 @@ interface VideoPlayerProps {
     assetId: string;
     /** Full file path (not URL) */
     path: string;
+    /** Called once the source is resolved (or failed to resolve) */
+    onReady?: () => void;
 }
 
 /**
@@ -26,6 +28,12 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
         () => props.path,
         quality
     );
+
+    createEffect(() => {
+        if (!probeResult.loading && (videoUrl() || probeError())) {
+            props.onReady?.();
+        }
+    });
 
     const handleQualityChange = (newQuality: TranscodeQuality) => {
         setQuality(newQuality);

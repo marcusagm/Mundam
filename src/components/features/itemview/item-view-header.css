@@ -1,0 +1,39 @@
+.item-view-header {
+    display: flex;
+    align-items: center;
+    height: var(--titlebar-height, 38px);
+    border-bottom: 1px solid var(--border-subtle);
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* macOS: reserve space for native traffic lights */
+.item-view-header--macos {
+    padding-left: 78px;
+}
+
+.item-view-header-platform-area {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.item-view-header-title {
+    flex: 1;
+    min-width: 0;
+    padding: 0 var(--p-space-m);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Keeps the title visually centered on macOS, mirroring the traffic lights inset */
+.item-view-header--macos .item-view-header-balance {
+    width: 78px;
+    flex-shrink: 0;
+}

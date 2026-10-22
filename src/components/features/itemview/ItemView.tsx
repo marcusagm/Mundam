@@ -13,6 +13,7 @@ import { useViewport, useLibrary } from '../../../core/hooks';
 import { useCommands, createConditionalScope } from '../../../core/input';
 import { ItemViewProvider, useItemViewContext, FlipState } from './ItemViewContext';
 import { BaseToolbar } from './common/BaseToolbar';
+import { ItemViewHeader } from './common/ItemViewHeader';
 import { ImageToolbar } from './renderers/image/ImageToolbar';
 import { FontToolbar } from './renderers/font/FontToolbar';
 import { ImageViewer } from './renderers/image/ImageViewer';
@@ -143,6 +144,7 @@ const ItemViewContent: Component = () => {
             role="dialog"
             aria-modal="true"
         >
+            <ItemViewHeader filename={item()?.filename} />
             <BaseToolbar>
                 <Switch>
                     <Match
@@ -214,15 +216,24 @@ const ItemViewContent: Component = () => {
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'video'}>
-                            <VideoPlayer assetId={item()!.id.toString()} path={item()!.path} />
+                            <VideoPlayer
+                                assetId={item()!.id.toString()}
+                                path={item()!.path}
+                                onReady={() => setIsPreviewLoading(false)}
+                            />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'audio'}>
-                            <AudioRenderer assetId={item()!.id.toString()} path={item()!.path} />
+                            <AudioRenderer
+                                assetId={item()!.id.toString()}
+                                path={item()!.path}
+                                onReady={() => setIsPreviewLoading(false)}
+                            />
                         </Match>
                         <Match when={mediaType() === 'font'}>
                             <FontView
                                 src={`asset://localhost/${item()!.id}`}
                                 fontName={item()!.filename}
+                                onReady={() => setIsPreviewLoading(false)}
                             />
                         </Match>
                         <Match when={getMediaType(item()!.filename) === 'model3d'}>
@@ -230,6 +241,7 @@ const ItemViewContent: Component = () => {
                                 assetId={item()!.id}
                                 filename={item()!.filename}
                                 thumbnail={item()!.thumbnail_path}
+                                onReady={() => setIsPreviewLoading(false)}
                             />
                         </Match>
                     </Switch>
