@@ -73,6 +73,7 @@ interface ColumnConfig {
  * @returns {JSX.Element} The virtual list view.
  */
 export const VirtualListView: Component = (): JSX.Element => {
+    let lastPriorityKey = '';
     /**
      * Library store
      *
@@ -450,6 +451,11 @@ export const VirtualListView: Component = (): JSX.Element => {
                         const idsToPrioritize = items
                             .filter(item => !item.thumbnail_path)
                             .map((item: AssetItem) => item.id);
+
+                        // Skip repeated requests for the same set (e.g. triggered by data updates)
+                        const requestKey = idsToPrioritize.join(',');
+                        if (requestKey === lastPriorityKey) return;
+                        lastPriorityKey = requestKey;
 
                         if (idsToPrioritize.length > 0) {
                             lib.setThumbnailPriority(idsToPrioritize);

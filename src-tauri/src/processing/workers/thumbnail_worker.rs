@@ -89,6 +89,9 @@ impl ThumbnailWorker {
             };
                 
             let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrent));
+            // IDs currently being processed; prevents several slots from picking the same asset.
+            let in_flight: Arc<std::sync::Mutex<std::collections::HashSet<String>>> =
+                Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
 
             loop {
                 if token.is_cancelled() {
@@ -104,23 +107,47 @@ impl ThumbnailWorker {
                     Err(_) => break, // Semaphore closed
                 };
 
-                // 2. Poll for work
-                let mut next_id = worker_arc.priority_state.pop_batch(1).into_iter().next();
+                // 2. Poll for work (UI priorities first, skipping assets already in flight)
+                let mut next_id = None;
                 let mut is_priority = true;
 
-                if next_id.is_none() {
-                    if let Ok(mut ids) = worker_arc.query_handler.get_assets_needing_thumbnails(1).await {
-                        next_id = ids.pop();
+                while let Some(candidate) = worker_arc.priority_state.pop_batch(1).into_iter().next() {
+                    let already_running = in_flight
+                        .lock()
+                        .map(|set| set.contains(&candidate))
+                        .unwrap_or(false);
+                    if !already_running {
+                        next_id = Some(candidate);
+                        break;
                     }
+                }
+
+                if next_id.is_none() {
                     is_priority = false;
+                    let running_count = in_flight.lock().map(|set| set.len()).unwrap_or(0);
+                    if let Ok(ids) = worker_arc
+                        .query_handler
+                        .get_assets_needing_thumbnails((running_count + 1) as u32)
+                        .await
+                    {
+                        let running = in_flight.lock().map(|set| set.clone()).unwrap_or_default();
+                        next_id = ids.into_iter().find(|id| !running.contains(id));
+                    }
                 }
 
                 // 3. Dispatch work or wait
                 if let Some(id) = next_id {
                     let worker_clone = worker_arc.clone();
+                    if let Ok(mut set) = in_flight.lock() {
+                        set.insert(id.clone());
+                    }
+                    let in_flight_clone = in_flight.clone();
                     tokio::spawn(async move {
-                        if let Err(e) = worker_clone.process_single(id, is_priority).await {
+                        if let Err(e) = worker_clone.process_single(id.clone(), is_priority).await {
                             error!("ThumbnailWorker: Process error: {}", e);
+                        }
+                        if let Ok(mut set) = in_flight_clone.lock() {
+                            set.remove(&id);
                         }
                         // Permit is returned when dropped here
                         drop(permit);

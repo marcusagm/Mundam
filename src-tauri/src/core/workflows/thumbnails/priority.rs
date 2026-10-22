@@ -107,9 +107,14 @@ mod tests {
         let state = ThumbnailPriorityState::default();
         state.push_priorities(vec!["1".to_string(), "2".to_string()]);
 
-        // Pushing "1" then "2" to front results in ["2", "1"]
+        // The first ID of a batch is the top of the viewport and is served first.
         let batch = state.pop_batch(2);
-        assert_eq!(batch, vec!["2".to_string(), "1".to_string()]);
+        assert_eq!(batch, vec!["1".to_string(), "2".to_string()]);
+
+        // A newer batch takes precedence over older pending IDs.
+        state.push_priorities(vec!["3".to_string()]);
+        state.push_priorities(vec!["4".to_string()]);
+        assert_eq!(state.pop_batch(2), vec!["4".to_string(), "3".to_string()]);
     }
 
     /// Tests the batch limit of the priority queue.

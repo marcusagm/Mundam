@@ -12,7 +12,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use unicode_normalization::UnicodeNormalization;
 use walkdir::DirEntry;
+
+/// Normalizes a path to NFC; macOS may report NFD while the database stores NFC.
+pub fn nfc_path(path: &std::path::Path) -> PathBuf {
+    PathBuf::from(path.to_string_lossy().nfc().collect::<String>())
+}
 
 /// Intermediate result produced by each fan-out producer task.
 pub enum AssetDiscoveryResult {
@@ -48,7 +54,7 @@ pub async fn classify_file_entry(
     registry: &crate::core::formats::registry::FormatRegistry,
     root_folder_id: &Option<String>,
 ) -> AssetDiscoveryResult {
-    let entry_path = entry.path().to_path_buf();
+    let entry_path = nfc_path(entry.path());
     let path_str = entry_path.to_string_lossy().to_string();
 
     let metadata = match entry.metadata() {

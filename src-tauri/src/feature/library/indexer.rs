@@ -27,7 +27,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, instrument, warn};
 use walkdir::WalkDir;
 
-use super::classifier::{classify_file_entry, AssetDiscoveryResult};
+use super::classifier::{classify_file_entry, nfc_path, AssetDiscoveryResult};
 
 /// Service responsible for indexing library folders using a parallel
 /// producer-consumer pipeline.
@@ -111,6 +111,7 @@ impl LibraryIndexer {
     #[instrument(skip(self), fields(path = %path.display()))]
     pub async fn scan_directory(&self, path: PathBuf, folder_id: Option<String>) -> AppResult<()> {
         let scan_start_time = std::time::Instant::now();
+        let path = nfc_path(&path);
         let root_str = path.to_string_lossy().to_string();
         info!(
             "▶ Scan STARTED for: {} (concurrency_limit={})",
@@ -188,12 +189,12 @@ impl LibraryIndexer {
 
         let verified_file_paths: std::collections::HashSet<String> = file_entries
             .iter()
-            .map(|entry| entry.path().to_string_lossy().to_string())
+            .map(|entry| nfc_path(entry.path()).to_string_lossy().to_string())
             .collect();
 
         let verified_folder_paths: std::collections::HashSet<String> = directory_entries
             .iter()
-            .map(|entry| entry.path().to_string_lossy().to_string())
+            .map(|entry| nfc_path(entry.path()).to_string_lossy().to_string())
             .collect();
 
         let (discovered_count, unchanged_count, error_count) = self
@@ -243,7 +244,7 @@ impl LibraryIndexer {
         let folder_cache: Arc<RwLock<HashMap<PathBuf, String>>> = Arc::new(RwLock::new({
             let mut map = HashMap::new();
             for folder in &existing_folders {
-                map.insert(folder.path.clone(), folder.id.clone());
+                map.insert(nfc_path(&folder.path), folder.id.clone());
             }
             if let Some(ref root_id) = current_root_id {
                 map.insert(root_path.clone(), root_id.clone());
@@ -254,7 +255,7 @@ impl LibraryIndexer {
         directory_entries.sort_by_key(|entry| entry.path().components().count());
 
         for dir_entry in directory_entries.iter() {
-            let dir_path = dir_entry.path().to_path_buf();
+            let dir_path = nfc_path(dir_entry.path());
             let dir_path_str = dir_path.to_string_lossy().to_string();
 
             {
@@ -448,7 +449,7 @@ impl LibraryIndexer {
         }
 
         for folder in existing_folders {
-            let folder_path_str = folder.path.to_string_lossy().to_string();
+            let folder_path_str = nfc_path(&folder.path).to_string_lossy().to_string();
 
             if folder_path_str.starts_with(root_str)
                 && folder_path_str != root_str

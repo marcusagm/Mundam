@@ -8,7 +8,7 @@
  *   const { visibleItems, totalHeight, ... } = useVirtualViewport("masonry", items);
  */
 
-import { createEffect, onCleanup, on } from 'solid-js';
+import { createEffect, createMemo, onCleanup, on, untrack } from 'solid-js';
 import {
     createViewportController,
     type LayoutMode,
@@ -104,33 +104,36 @@ export function useVirtualViewport(
 
     /* Priority Thumbnail Generation */
     const lib = useLibrary();
-    let priorityDebounce: ReturnType<typeof setTimeout> | undefined;
+    // Only the set of visible IDs matters: thumbnail updates must not re-trigger the request.
+    const visibleIdsKey = createMemo(() =>
+        controller
+            .visibleItems()
+            .map(v => v.id)
+            .join(',')
+    );
 
-    createEffect(() => {
-        const visible = controller.visibleItems();
-        if (visible.length === 0) return;
+    createEffect(
+        on(visibleIdsKey, key => {
+            if (!key) return;
 
-        // Debounce to prevent excessive updates during fast scrolling
-        if (priorityDebounce) clearTimeout(priorityDebounce);
-        priorityDebounce = setTimeout(() => {
-            const libraryItems = lib.items;
-            const visible = controller.visibleItems();
+            const debounceTimer = setTimeout(() => {
+                const missingThumbnailIds = new Set(
+                    untrack(() => lib.items)
+                        .filter(item => !item.thumbnail_path)
+                        .map(item => String(item.id))
+                );
+                const idsToPrioritize = untrack(() => controller.visibleItems())
+                    .map(v => v.id)
+                    .filter(id => missingThumbnailIds.has(id));
 
-            // Extract IDs from visible items that actually need a thumbnail
-            // Use find() to look into the library items (O(N * M))
-            const idsToPrioritize = visible
-                .filter(v => {
-                    const asset = libraryItems.find(i => String(i.id) === v.id);
-                    // Only prioritize if it definitely has no thumbnail metadata stored in the frontend yet
-                    return asset && !asset.thumbnail_path;
-                })
-                .map(v => v.id);
+                if (idsToPrioritize.length > 0) {
+                    lib.setThumbnailPriority(idsToPrioritize);
+                }
+            }, 150);
 
-            if (idsToPrioritize.length > 0) {
-                lib.setThumbnailPriority(idsToPrioritize);
-            }
-        }, 150); // 150ms debounce
-    });
+            onCleanup(() => clearTimeout(debounceTimer));
+        })
+    );
 
     return {
         visibleItems: controller.visibleItems,
