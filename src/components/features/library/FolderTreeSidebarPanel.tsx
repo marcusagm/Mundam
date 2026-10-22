@@ -118,9 +118,9 @@ export const FolderTreeSidebarPanel: Component = () => {
      *
      * @param node - The selected tree node.
      */
-    const handleSelect = (node: TreeNode) => {
+    const handleSelect = (node: TreeNode, isAdditive = false) => {
         const data = node.data as FolderNodeData;
-        filters.setFolder(data.folderIdentifier);
+        filters.selectFolder(data.folderIdentifier, isAdditive);
     };
 
     /**
@@ -138,11 +138,7 @@ export const FolderTreeSidebarPanel: Component = () => {
 
     // --- Selection State ---
     const activeSelectionIdentifiers = createMemo(() => {
-        const identifiers: (string | number)[] = [];
-        if (filters.selectedFolderId) {
-            identifiers.push(`folder-${filters.selectedFolderId}`);
-        }
-        return identifiers;
+        return filters.selectedFolderIds.map(folderId => `folder-${folderId}`);
     });
 
     return (

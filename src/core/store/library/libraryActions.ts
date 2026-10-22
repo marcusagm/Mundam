@@ -57,7 +57,9 @@ export const libraryActions = {
                 favoritesOnly: filterState.filterFavorites ? true : undefined,
                 trashOnly: filterState.filterTrash ? true : undefined,
                 family: filterState.filterFamily || undefined,
-                folderId: filterState.selectedFolderId?.toString() || undefined,
+                folderIds: filterState.selectedFolderIds.length
+                    ? filterState.selectedFolderIds.map(String)
+                    : undefined,
                 recursive: filterState.folderRecursiveView,
                 tags: filterState.selectedTags.map(String),
                 searchQuery: filterState.searchQuery,
@@ -141,8 +143,8 @@ export const libraryActions = {
         if (payload.updated && payload.updated.length > 0) {
             const updatedItems = payload.updated;
             import('../metadata').then(({ metadataState }) => {
-                const { selectedFolderId, recursive, locations, currentItems } = untrack(() => ({
-                    selectedFolderId: filterState.selectedFolderId,
+                const { selectedFolderIds, recursive, locations, currentItems } = untrack(() => ({
+                    selectedFolderIds: [...filterState.selectedFolderIds],
                     recursive: filterState.folderRecursiveView,
                     locations: metadataState.locations,
                     currentItems: libraryState.items
@@ -167,10 +169,12 @@ export const libraryActions = {
 
                 for (const item of updatedItems) {
                     const isNowInView =
-                        !selectedFolderId ||
-                        (recursive
-                            ? isChildOf(item.folder_id, selectedFolderId)
-                            : item.folder_id === selectedFolderId);
+                        selectedFolderIds.length === 0 ||
+                        selectedFolderIds.some(folderId =>
+                            recursive
+                                ? isChildOf(item.folder_id, folderId)
+                                : item.folder_id === folderId
+                        );
 
                     const wasKnown = currentItems.some(i => i.id === item.id);
 

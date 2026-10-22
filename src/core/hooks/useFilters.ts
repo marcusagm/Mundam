@@ -19,8 +19,8 @@ export const useFilters = () => {
         get selectedTags() {
             return filterState.selectedTags;
         },
-        get selectedFolderId() {
-            return filterState.selectedFolderId;
+        get selectedFolderIds() {
+            return filterState.selectedFolderIds;
         },
         get folderRecursiveView() {
             return filterState.folderRecursiveView;
@@ -68,6 +68,7 @@ export const useFilters = () => {
             return filterActions.canGoForward();
         },
 
+        selectTag: withRefresh(filterActions.selectTag),
         toggleTag: withRefresh(filterActions.toggleTag),
         setUntagged: withRefresh(filterActions.setUntagged),
         toggleUntagged: withRefresh(filterActions.toggleUntagged),
@@ -77,7 +78,8 @@ export const useFilters = () => {
         toggleFavorites: withRefresh(filterActions.toggleFavorites),
         setTrash: withRefresh(filterActions.setTrash),
         toggleTrash: withRefresh(filterActions.toggleTrash),
-        setFolder: withRefresh(filterActions.setFolder),
+        selectFolder: withRefresh(filterActions.selectFolder),
+        clearFolders: withRefresh(filterActions.clearFolders),
         setFolderRecursiveView: withRefresh(filterActions.setFolderRecursiveView),
         /** Updates the text search query */
         setSearch: withRefresh(filterActions.setSearch),

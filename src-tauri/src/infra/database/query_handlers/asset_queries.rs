@@ -6,6 +6,31 @@ use crate::infra::database::models::AssetSummaryDb;
 use chrono::{DateTime, Utc};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
+/// Appends a folder restriction (any of `folder_ids`, optionally with descendants).
+/// An empty list adds no restriction.
+fn push_folder_filter(
+    query_builder: &mut QueryBuilder<Sqlite>,
+    column: &str,
+    folder_ids: Vec<String>,
+    recursive: bool,
+) {
+    if folder_ids.is_empty() {
+        return;
+    }
+    query_builder.push(format!(" AND {} IN (", column));
+    if recursive {
+        query_builder.push("WITH RECURSIVE subfolders AS (SELECT id FROM folders WHERE id IN (");
+    }
+    let mut separated = query_builder.separated(", ");
+    for id in folder_ids {
+        separated.push_bind(id);
+    }
+    if recursive {
+        query_builder.push(") UNION ALL SELECT f.id FROM folders f JOIN subfolders ON f.parent_id = subfolders.id) SELECT id FROM subfolders");
+    }
+    query_builder.push(")");
+}
+
 /// Finds all assets in the database.
 ///
 /// # Returns
@@ -214,15 +239,8 @@ pub async fn list_paginated(
         }
     }
 
-    if let Some(folder_id) = filter.folder_id {
-        if filter.recursive.unwrap_or(false) {
-            query_builder.push(" AND a.folder_id IN (WITH RECURSIVE subfolders AS (SELECT id FROM folders WHERE id = ");
-            query_builder.push_bind(folder_id);
-            query_builder.push(" UNION ALL SELECT f.id FROM folders f JOIN subfolders ON f.parent_id = subfolders.id) SELECT id FROM subfolders)");
-        } else {
-            query_builder.push(" AND a.folder_id = ");
-            query_builder.push_bind(folder_id);
-        }
+    if let Some(folder_ids) = filter.folder_ids {
+        push_folder_filter(&mut query_builder, "a.folder_id", folder_ids, filter.recursive.unwrap_or(false));
     }
 
     if let Some(tags) = filter.tags {
@@ -577,15 +595,8 @@ pub async fn get_asset_count(pool: &SqlitePool, _registry: &crate::core::formats
         }
     }
 
-    if let Some(folder_id) = filter.folder_id {
-        if filter.recursive.unwrap_or(false) {
-            query_builder.push(" AND folder_id IN (WITH RECURSIVE subfolders AS (SELECT id FROM folders WHERE id = ");
-            query_builder.push_bind(folder_id);
-            query_builder.push(" UNION ALL SELECT f.id FROM folders f JOIN subfolders ON f.parent_id = subfolders.id) SELECT id FROM subfolders)");
-        } else {
-            query_builder.push(" AND folder_id = ");
-            query_builder.push_bind(folder_id);
-        }
+    if let Some(folder_ids) = filter.folder_ids {
+        push_folder_filter(&mut query_builder, "folder_id", folder_ids, filter.recursive.unwrap_or(false));
     }
 
     if let Some(tags) = filter.tags {

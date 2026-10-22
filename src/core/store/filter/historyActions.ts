@@ -7,7 +7,7 @@ export const historyActions = {
     pushHistory: () => {
         const snapshot: FilterSnapshot = {
             selectedTags: filterState.selectedTags,
-            selectedFolderId: filterState.selectedFolderId,
+            selectedFolderIds: filterState.selectedFolderIds,
             folderRecursiveView: filterState.folderRecursiveView,
             filterUntagged: filterState.filterUntagged,
             searchQuery: filterState.searchQuery,

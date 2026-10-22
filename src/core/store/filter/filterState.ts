@@ -15,7 +15,7 @@ export type ViewLayout = 'masonry-v' | 'masonry-h' | 'grid' | 'list';
 
 export interface FilterSnapshot {
     selectedTags: string[];
-    selectedFolderId: string | null;
+    selectedFolderIds: string[];
     folderRecursiveView: boolean;
     filterUntagged: boolean;
     filterHasTags: boolean;
@@ -44,7 +44,7 @@ export const STORAGE_KEY = 'mundam-filter-preference';
 
 export const defaultSnapshot: FilterSnapshot = {
     selectedTags: [],
-    selectedFolderId: null,
+    selectedFolderIds: [],
     folderRecursiveView: false,
     filterUntagged: false,
     filterHasTags: false,
@@ -83,7 +83,7 @@ export const [filterState, setFilterState] = createStore<FilterState>({
     ...persisted,
     // Don't persist these
     selectedTags: [],
-    selectedFolderId: null,
+    selectedFolderIds: [],
     filterUntagged: false,
     filterHasTags: false,
     filterFavorites: false,

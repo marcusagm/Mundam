@@ -62,14 +62,15 @@ As ações “Next Result” e “Previous Result” não são atalhos separados
 
 ## Interações com mouse
 
-| Interação                         | Ação                                                                |
-| --------------------------------- | ------------------------------------------------------------------- |
-| `Shift+clique` em um asset        | Selecionar o intervalo entre o último asset selecionado e o clicado |
-| `Ctrl+clique` ou `Meta+clique`    | Alternar o asset clicado sem limpar a seleção atual                 |
-| Botão voltar do mouse             | Voltar no histórico de filtros                                      |
-| Botão avançar do mouse            | Avançar no histórico de filtros                                     |
-| Clique em um filtro               | Ativar somente esse filtro rápido                                   |
-| `Ctrl`/`Meta`+clique em um filtro | Adicionar/remover esse filtro sem limpar os demais filtros rápidos  |
+| Interação                         | Ação                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `Shift+clique` em um asset        | Selecionar o intervalo entre o último asset selecionado e o clicado                                        |
+| `Ctrl+clique` ou `Meta+clique`    | Alternar o asset clicado sem limpar a seleção atual                                                        |
+| Botão voltar do mouse             | Voltar no histórico de filtros                                                                             |
+| Botão avançar do mouse            | Avançar no histórico de filtros                                                                            |
+| Clique em um filtro rápido        | Ativar somente esse filtro (Untagged, Has Tags, Favorites e Trash são exclusivos); clicar de novo desativa |
+| Clique em uma tag ou pasta        | Substituir a seleção por esse item; clicar no único item selecionado limpa o filtro                        |
+| `Ctrl`/`Meta`+clique em tag/pasta | Adicionar/remover o item sem limpar os demais selecionados                                                 |
 
 As interações com mouse são fixas e aparecem na tela de atalhos para consulta; não são
 remapeáveis como atalhos de teclado.

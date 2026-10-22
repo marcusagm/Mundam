@@ -19,9 +19,9 @@
 - [x] Na tela de configurações de atalhos, em search, possuem next and previous result o que seria o mesmo que os atalhos para mover entre assets na viewport.
 - [x] Em global possui os atalhos select all e deselect all, mas deveriam estar apenas em viewport
 - [x] Adicionar atalho para enviar um item para a lixeira (delete)
-- [ ] A seleção de filtros deve ter o padrão de selecionar apenas um filtro, caso o usuário selecione um filtro segurando ctrl, ele deve adicionar o filtro aos filtro ativos.
+- [x] A seleção de filtros deve ter o padrão de selecionar apenas um filtro, caso o usuário selecione um filtro segurando ctrl, ele deve adicionar o filtro aos filtro ativos.
 - [x] A seleção utilizando o mouse como shift+click e crtl+click não está sendo listada na tela de configurações de atalhos.
-- [ ] Verificar funcionamento padrão de botões adicionais do mouse que por padrão servem para voltar e avançar.
+- [x] Verificar funcionamento padrão de botões adicionais do mouse que por padrão servem para voltar e avançar.
 
 ## Acessibilidade e aparencia
 

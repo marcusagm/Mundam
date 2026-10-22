@@ -124,17 +124,17 @@ export const SearchToolbar: Component = () => {
             });
         }
 
-        if (filters.selectedFolderId !== null) {
-            const folder = metadata.locations.find(f => f.id === filters.selectedFolderId);
+        filters.selectedFolderIds.forEach(folderId => {
+            const folder = metadata.locations.find(f => f.id === folderId);
             if (folder) {
                 list.push({
                     type: 'folder',
                     label: 'Folder',
                     value: folder.name,
-                    onRemove: () => filters.setFolder(null)
+                    onRemove: () => filters.selectFolder(folderId, true)
                 });
             }
-        }
+        });
 
         if (filters.filterUntagged) {
             list.push({

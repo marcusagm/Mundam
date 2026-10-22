@@ -31,7 +31,7 @@ const TreeViewItemRow: Component<{
     hasChildren: boolean;
     dragDrop: ReturnType<typeof useTreeDragDrop>;
     defaultIcon?: Component;
-    onSelect?: () => void;
+    onSelect?: (isAdditive: boolean) => void;
     onToggle: (event: MouseEvent) => void;
     onContextMenu?: (event: MouseEvent) => void;
     onRename: (newName: string) => void;
@@ -61,7 +61,7 @@ const TreeViewItemRow: Component<{
             onDragLeave={() => props.dragDrop.handleDragLeave()}
             onDragEnter={event => event.preventDefault()}
             onDrop={event => props.dragDrop.handleDrop(event)}
-            onClick={() => !props.isEditing && props.onSelect?.()}
+            onClick={event => !props.isEditing && props.onSelect?.(event.ctrlKey || event.metaKey)}
             onContextMenu={event => props.onContextMenu?.(event)}
             onFocusIn={() => props.onFocusChange(true)}
             onFocusOut={() => props.onFocusChange(false)}
@@ -189,7 +189,7 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
                 hasChildren={hasChildren()}
                 dragDrop={dragDrop}
                 defaultIcon={props.defaultIcon}
-                onSelect={() => props.onSelect?.(props.node)}
+                onSelect={isAdditive => props.onSelect?.(props.node, isAdditive)}
                 onToggle={event => {
                     event.stopPropagation();
                     if (hasChildren()) {

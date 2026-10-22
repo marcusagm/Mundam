@@ -192,7 +192,7 @@ export interface AssetFilter {
     searchQuery?: string;
     /** Whether to use FTS5 trigram fuzzy matching for the search query */
     searchFuzzy?: boolean;
-    folderId?: string;
+    folderIds?: string[];
     recursive?: boolean;
     tags?: string[];
     untagged?: boolean;

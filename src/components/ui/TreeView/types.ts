@@ -71,7 +71,8 @@ export interface TreeViewProps<T = unknown> {
     acceptedDragTypes?: string[];
 
     /** Callback function invoked when a node is clicked or selected. */
-    onSelect?: (node: TreeNode<T>) => void;
+    /** `isAdditive` is true for Ctrl/Meta+click. */
+    onSelect?: (node: TreeNode<T>, isAdditive?: boolean) => void;
     /** Callback function invoked when a node expansion state is toggled. */
     onToggle?: (id: string | number) => void;
     /** Callback function invoked when a context menu is requested for a specific node. */

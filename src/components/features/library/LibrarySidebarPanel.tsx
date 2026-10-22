@@ -13,7 +13,7 @@ export const LibrarySidebarPanel: Component = () => {
     });
 
     const isAllItemsActive = () =>
-        !filters.selectedFolderId &&
+        filters.selectedFolderIds.length === 0 &&
         !filters.filterUntagged &&
         !filters.filterHasTags &&
         !filters.filterFavorites &&
@@ -36,7 +36,7 @@ export const LibrarySidebarPanel: Component = () => {
                 type="button"
                 class={`nav-item ${filters.filterUntagged ? 'active' : ''}`}
                 aria-pressed={filters.filterUntagged}
-                onClick={event => filters.toggleUntagged(event.ctrlKey || event.metaKey)}
+                onClick={() => filters.toggleUntagged()}
             >
                 <BookmarkX size={16} />
                 <span style={{ flex: 1 }}>Untagged</span>
@@ -50,7 +50,7 @@ export const LibrarySidebarPanel: Component = () => {
                 type="button"
                 class={`nav-item ${filters.filterHasTags ? 'active' : ''}`}
                 aria-pressed={filters.filterHasTags}
-                onClick={event => filters.toggleHasTags(event.ctrlKey || event.metaKey)}
+                onClick={() => filters.toggleHasTags()}
             >
                 <BookmarkCheck size={16} />
                 <span style={{ flex: 1 }}>Has Tags</span>
@@ -64,7 +64,7 @@ export const LibrarySidebarPanel: Component = () => {
                 type="button"
                 class={`nav-item ${filters.filterFavorites ? 'active' : ''}`}
                 aria-pressed={filters.filterFavorites}
-                onClick={event => filters.toggleFavorites(event.ctrlKey || event.metaKey)}
+                onClick={() => filters.toggleFavorites()}
             >
                 <Heart size={16} />
                 <span style={{ flex: 1 }}>Favorites</span>
@@ -78,7 +78,7 @@ export const LibrarySidebarPanel: Component = () => {
                 type="button"
                 class={`nav-item ${filters.filterTrash ? 'active' : ''}`}
                 aria-pressed={filters.filterTrash}
-                onClick={event => filters.toggleTrash(event.ctrlKey || event.metaKey)}
+                onClick={() => filters.toggleTrash()}
             >
                 <Trash2 size={16} />
                 <span style={{ flex: 1 }}>Trash</span>

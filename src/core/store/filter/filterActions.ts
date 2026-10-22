@@ -25,46 +25,57 @@ let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 type QuickFilterKey = 'filterUntagged' | 'filterHasTags' | 'filterFavorites' | 'filterTrash';
 
-function toggleQuickFilter(filterKey: QuickFilterKey, isAdditive: boolean): void {
+/** Quick filters are mutually exclusive: activating one deactivates the others. */
+function toggleQuickFilter(filterKey: QuickFilterKey): void {
     const shouldActivate = !filterState[filterKey];
 
     batch(() => {
-        if (shouldActivate && !isAdditive) {
-            setFilterState({
-                filterUntagged: filterKey === 'filterUntagged',
-                filterHasTags: filterKey === 'filterHasTags',
-                filterFavorites: filterKey === 'filterFavorites',
-                filterTrash: filterKey === 'filterTrash'
-            });
-        } else {
-            setFilterState(filterKey, shouldActivate);
-        }
+        setFilterState({
+            filterUntagged: shouldActivate && filterKey === 'filterUntagged',
+            filterHasTags: shouldActivate && filterKey === 'filterHasTags',
+            filterFavorites: shouldActivate && filterKey === 'filterFavorites',
+            filterTrash: shouldActivate && filterKey === 'filterTrash'
+        });
 
         if (shouldActivate && (filterKey === 'filterUntagged' || filterKey === 'filterHasTags')) {
             setFilterState('selectedTags', []);
-            if (filterKey === 'filterUntagged') setFilterState('filterHasTags', false);
-            if (filterKey === 'filterHasTags') setFilterState('filterUntagged', false);
         }
     });
 
     historyActions.pushHistory();
 }
 
+/** Toggles `id` inside `list`, adding or removing it. */
+function toggleInList(list: string[], id: string): string[] {
+    return list.includes(id) ? list.filter(item => item !== id) : [...list, id];
+}
+
+/** Ordinary selection replaces the list; clicking the only selected item clears it. */
+function replaceInList(list: string[], id: string): string[] {
+    return list.length === 1 && list[0] === id ? [] : [id];
+}
+
 export const filterActions = {
     ...historyActions,
     ...criterionHelpers,
 
-    toggleTag: (tagId: string) => {
-        const current = filterState.selectedTags;
-        if (current.includes(tagId)) {
-            setFilterState('selectedTags', tags => tags.filter(id => id !== tagId));
-        } else {
-            setFilterState({
-                selectedTags: [...current, tagId],
-                filterUntagged: false
-            });
-        }
+    /**
+     * Selects a tag. Ordinary selection replaces the current tags;
+     * additive selection (Ctrl/Meta+click) toggles the tag in the selection.
+     */
+    selectTag: (tagId: string, isAdditive = false) => {
+        const next = isAdditive
+            ? toggleInList(filterState.selectedTags, tagId)
+            : replaceInList(filterState.selectedTags, tagId);
+        batch(() => {
+            setFilterState('selectedTags', next);
+            if (next.includes(tagId)) setFilterState('filterUntagged', false);
+        });
         historyActions.pushHistory();
+    },
+
+    toggleTag: (tagId: string) => {
+        filterActions.selectTag(tagId, true);
     },
 
     setUntagged: (isActive: boolean) => {
@@ -75,8 +86,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleUntagged: (isAdditive = false) => {
-        toggleQuickFilter('filterUntagged', isAdditive);
+    toggleUntagged: () => {
+        toggleQuickFilter('filterUntagged');
     },
 
     setHasTags: (isActive: boolean) => {
@@ -88,8 +99,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleHasTags: (isAdditive = false) => {
-        toggleQuickFilter('filterHasTags', isAdditive);
+    toggleHasTags: () => {
+        toggleQuickFilter('filterHasTags');
     },
 
     setFavorites: (isActive: boolean) => {
@@ -97,8 +108,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleFavorites: (isAdditive = false) => {
-        toggleQuickFilter('filterFavorites', isAdditive);
+    toggleFavorites: () => {
+        toggleQuickFilter('filterFavorites');
     },
 
     setTrash: (isActive: boolean) => {
@@ -106,8 +117,8 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    toggleTrash: (isAdditive = false) => {
-        toggleQuickFilter('filterTrash', isAdditive);
+    toggleTrash: () => {
+        toggleQuickFilter('filterTrash');
     },
 
     setFamily: (family: string | null) => {
@@ -115,8 +126,22 @@ export const filterActions = {
         historyActions.pushHistory();
     },
 
-    setFolder: (folderId: string | null) => {
-        setFilterState('selectedFolderId', folderId);
+    /**
+     * Selects a folder. Ordinary selection replaces the current folders;
+     * additive selection (Ctrl/Meta+click) toggles the folder in the selection.
+     */
+    selectFolder: (folderId: string, isAdditive = false) => {
+        setFilterState(
+            'selectedFolderIds',
+            isAdditive
+                ? toggleInList(filterState.selectedFolderIds, folderId)
+                : replaceInList(filterState.selectedFolderIds, folderId)
+        );
+        historyActions.pushHistory();
+    },
+
+    clearFolders: () => {
+        setFilterState('selectedFolderIds', []);
         historyActions.pushHistory();
     },
 
@@ -274,7 +299,7 @@ export const filterActions = {
     clearAll: () => {
         setFilterState({
             selectedTags: [],
-            selectedFolderId: null,
+            selectedFolderIds: [],
             filterUntagged: false,
             filterHasTags: false,
             filterFavorites: false,
@@ -295,7 +320,7 @@ export const filterActions = {
             filterState.filterFavorites ||
             filterState.filterTrash ||
             filterState.filterFamily !== null ||
-            filterState.selectedFolderId !== null ||
+            filterState.selectedFolderIds.length > 0 ||
             filterState.searchQuery !== '' ||
             filterState.advancedSearch !== null
         );

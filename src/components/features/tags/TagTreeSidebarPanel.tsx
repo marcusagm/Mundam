@@ -265,7 +265,7 @@ export const TagTreeSidebarPanel: Component = () => {
         >
             <TreeView
                 items={tagTreeHierarchy()}
-                onSelect={node => filters.toggleTag(String(node.id))}
+                onSelect={(node, isAdditive) => filters.selectTag(String(node.id), isAdditive)}
                 selectedIds={filters.selectedTags}
                 onContextMenu={handleContextMenu}
                 editingId={editingId()}
