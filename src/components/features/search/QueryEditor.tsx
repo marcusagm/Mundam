@@ -5,7 +5,11 @@ import { Info, Pencil, Check, Trash2, CircleQuestionMark } from 'lucide-solid';
 import { RadioGroup, RadioGroupItem } from '../../ui/RadioGroup';
 import { Tooltip } from '../../ui/Tooltip';
 import { SEARCH_FIELDS, OPERATORS_FOR_TYPE } from '../../../core/store/filter/constants';
-import { type LogicalOperator, type SearchCriterion } from '../../../core/store/filter';
+import {
+    type LogicalOperator,
+    type SearchCriterion,
+    type SearchGroup
+} from '../../../core/store/filter';
 import { cn } from '../../../lib/utils';
 import { criterionHandlerRegistry } from './fields';
 import { CriterionFieldRendererProperties } from './fields/types';
@@ -120,6 +124,26 @@ const CriterionItem: Component<{
     );
 };
 
+const QueryItems: Component<{
+    items: SearchGroup['items'];
+    search: ReturnType<typeof useAdvancedSearch>;
+}> = props => (
+    <For each={props.items}>
+        {(item, index) =>
+            'key' in item ? (
+                <CriterionItem item={item} index={index()} search={props.search} />
+            ) : (
+                <div class="criterion-group">
+                    <div class="criterion-group-heading">
+                        {item.logicalOperator === 'and' ? 'All of' : 'Any of'}
+                    </div>
+                    <QueryItems items={item.items} search={props.search} />
+                </div>
+            )
+        }
+    </For>
+);
+
 export const QueryEditor: Component<QueryEditorProps> = props => {
     return (
         <div class="query-editor-section">
@@ -140,11 +164,7 @@ export const QueryEditor: Component<QueryEditorProps> = props => {
                         </div>
                     </div>
                 </Show>
-                <For each={props.search.criteria()}>
-                    {(item, index) => (
-                        <CriterionItem item={item} index={index()} search={props.search} />
-                    )}
-                </For>
+                <QueryItems items={props.search.criteria()} search={props.search} />
             </div>
 
             <div class="match-mode-section">

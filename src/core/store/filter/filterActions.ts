@@ -30,6 +30,7 @@ function toggleQuickFilter(filterKey: QuickFilterKey): void {
     const shouldActivate = !filterState[filterKey];
 
     batch(() => {
+        if (shouldActivate) clearAdvancedSearch();
         setFilterState({
             filterUntagged: shouldActivate && filterKey === 'filterUntagged',
             filterHasTags: shouldActivate && filterKey === 'filterHasTags',
@@ -55,6 +56,10 @@ function replaceInList(list: string[], id: string): string[] {
     return list.length === 1 && list[0] === id ? [] : [id];
 }
 
+function clearAdvancedSearch(): void {
+    if (filterState.advancedSearch) setFilterState('advancedSearch', null);
+}
+
 export const filterActions = {
     ...historyActions,
     ...criterionHelpers,
@@ -68,6 +73,7 @@ export const filterActions = {
             ? toggleInList(filterState.selectedTags, tagId)
             : replaceInList(filterState.selectedTags, tagId);
         batch(() => {
+            clearAdvancedSearch();
             setFilterState('selectedTags', next);
             if (next.includes(tagId)) setFilterState('filterUntagged', false);
         });
@@ -79,10 +85,11 @@ export const filterActions = {
     },
 
     setUntagged: (isActive: boolean) => {
-        setFilterState('filterUntagged', isActive);
-        if (isActive) {
-            setFilterState('selectedTags', []);
-        }
+        batch(() => {
+            if (isActive) clearAdvancedSearch();
+            setFilterState('filterUntagged', isActive);
+            if (isActive) setFilterState('selectedTags', []);
+        });
         historyActions.pushHistory();
     },
 
@@ -91,11 +98,14 @@ export const filterActions = {
     },
 
     setHasTags: (isActive: boolean) => {
-        setFilterState('filterHasTags', isActive);
-        if (isActive) {
-            setFilterState('selectedTags', []);
-            setFilterState('filterUntagged', false);
-        }
+        batch(() => {
+            if (isActive) clearAdvancedSearch();
+            setFilterState('filterHasTags', isActive);
+            if (isActive) {
+                setFilterState('selectedTags', []);
+                setFilterState('filterUntagged', false);
+            }
+        });
         historyActions.pushHistory();
     },
 
@@ -104,7 +114,10 @@ export const filterActions = {
     },
 
     setFavorites: (isActive: boolean) => {
-        setFilterState('filterFavorites', isActive);
+        batch(() => {
+            if (isActive) clearAdvancedSearch();
+            setFilterState('filterFavorites', isActive);
+        });
         historyActions.pushHistory();
     },
 
@@ -113,7 +126,10 @@ export const filterActions = {
     },
 
     setTrash: (isActive: boolean) => {
-        setFilterState('filterTrash', isActive);
+        batch(() => {
+            if (isActive) clearAdvancedSearch();
+            setFilterState('filterTrash', isActive);
+        });
         historyActions.pushHistory();
     },
 
@@ -131,12 +147,15 @@ export const filterActions = {
      * additive selection (Ctrl/Meta+click) toggles the folder in the selection.
      */
     selectFolder: (folderId: string, isAdditive = false) => {
-        setFilterState(
-            'selectedFolderIds',
-            isAdditive
-                ? toggleInList(filterState.selectedFolderIds, folderId)
-                : replaceInList(filterState.selectedFolderIds, folderId)
-        );
+        batch(() => {
+            clearAdvancedSearch();
+            setFilterState(
+                'selectedFolderIds',
+                isAdditive
+                    ? toggleInList(filterState.selectedFolderIds, folderId)
+                    : replaceInList(filterState.selectedFolderIds, folderId)
+            );
+        });
         historyActions.pushHistory();
     },
 
@@ -181,7 +200,19 @@ export const filterActions = {
             }
         }
 
-        setFilterState('advancedSearch', search);
+        if (search) {
+            batch(() => {
+                setFilterState('selectedTags', []);
+                setFilterState('selectedFolderIds', []);
+                setFilterState('filterUntagged', false);
+                setFilterState('filterHasTags', false);
+                setFilterState('filterFavorites', false);
+                setFilterState('filterTrash', false);
+                setFilterState('advancedSearch', search);
+            });
+        } else {
+            setFilterState('advancedSearch', null);
+        }
         historyActions.pushHistory();
         return { success: true, data: undefined };
     },

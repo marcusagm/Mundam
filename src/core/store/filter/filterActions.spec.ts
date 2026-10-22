@@ -33,6 +33,19 @@ describe('quick filter selection', () => {
 
         expect(filterState.filterTrash).toBe(false);
     });
+
+    it('clears an active advanced search when a quick filter is selected', () => {
+        filterActions.setAdvancedSearch({
+            id: 'advanced',
+            logicalOperator: 'and',
+            items: []
+        });
+
+        filterActions.toggleFavorites();
+
+        expect(filterState.advancedSearch).toBeNull();
+        expect(filterState.filterFavorites).toBe(true);
+    });
 });
 
 describe('tag and folder selection', () => {
@@ -74,5 +87,41 @@ describe('tag and folder selection', () => {
 
         filterActions.selectFolder('f1', true);
         expect(filterState.selectedFolderIds).toEqual(['f2', 'f1']);
+    });
+
+    it('clears tags, folders and quick filters when advanced search is selected', () => {
+        filterActions.selectTag('tag');
+        filterActions.selectFolder('folder');
+        filterActions.toggleTrash();
+
+        filterActions.setAdvancedSearch({
+            id: 'advanced',
+            logicalOperator: 'and',
+            items: []
+        });
+
+        expect(filterState.selectedTags).toEqual([]);
+        expect(filterState.selectedFolderIds).toEqual([]);
+        expect(filterState.filterTrash).toBe(false);
+        expect(filterState.advancedSearch).not.toBeNull();
+    });
+
+    it('clears advanced search when a tag or folder is selected', () => {
+        filterActions.setAdvancedSearch({
+            id: 'advanced',
+            logicalOperator: 'and',
+            items: []
+        });
+
+        filterActions.selectTag('tag');
+        expect(filterState.advancedSearch).toBeNull();
+
+        filterActions.setAdvancedSearch({
+            id: 'advanced',
+            logicalOperator: 'and',
+            items: []
+        });
+        filterActions.selectFolder('folder');
+        expect(filterState.advancedSearch).toBeNull();
     });
 });

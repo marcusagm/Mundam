@@ -9,6 +9,7 @@ import { AdvancedSearchModal } from './AdvancedSearchModal';
 import { createConditionalScope, useCommands, shortcutStore } from '../../../core/input';
 import { formatShortcutForDisplay } from '../../../core/input/normalizer';
 import { cn } from '../../../lib/utils';
+import { createId } from '../../../lib/primitives/createId';
 import './search-toolbar.css';
 
 /**
@@ -102,6 +103,45 @@ export const SearchToolbar: Component = () => {
         if (!filters.advancedSearch) return null;
         const currentJson = JSON.stringify(filters.advancedSearch);
         return metadata.smartFolders.find(sf => sf.query_json === currentJson);
+    });
+
+    const sidebarFiltersQuery = createMemo<SearchGroup | undefined>(() => {
+        const groups: SearchGroup[] = [];
+        if (filters.selectedTags.length > 0) {
+            groups.push({
+                id: createId('group'),
+                logicalOperator: 'or',
+                items: filters.selectedTags.map(tagId => ({
+                    id: createId('criterion'),
+                    key: 'tags',
+                    operator: 'contains',
+                    value: tagId,
+                    displayValue: metadata.tags.find(tag => tag.id === tagId)?.name || tagId
+                }))
+            });
+        }
+
+        if (filters.selectedFolderIds.length > 0) {
+            groups.push({
+                id: createId('group'),
+                logicalOperator: 'or',
+                items: filters.selectedFolderIds.map(folderId => ({
+                    id: createId('criterion'),
+                    key: 'folder',
+                    operator: filters.folderRecursiveView ? 'in' : 'is',
+                    value: folderId,
+                    displayValue:
+                        metadata.locations.find(folder => folder.id === folderId)?.name || folderId
+                }))
+            });
+        }
+
+        if (groups.length === 0) return undefined;
+        return {
+            id: createId('group'),
+            logicalOperator: 'and',
+            items: groups
+        };
     });
 
     /**
@@ -256,7 +296,7 @@ export const SearchToolbar: Component = () => {
                 isSmartFolderMode={!!currentSmartFolder()}
                 initialIdentifier={currentSmartFolder()?.id}
                 initialName={currentSmartFolder()?.name}
-                initialQuery={filters.advancedSearch || undefined}
+                initialQuery={filters.advancedSearch || sidebarFiltersQuery()}
                 onSave={(name: string, query: SearchGroup, id?: string) =>
                     metadata.saveSmartFolder(name, query, id).then(result => {
                         if (result.success) {

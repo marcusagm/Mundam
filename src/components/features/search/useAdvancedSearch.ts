@@ -10,6 +10,40 @@ import { fromISO } from '../../../utils/format';
 import { supportedFormats } from '../../../core/store/systemStore';
 
 export type SearchValue = string | number | null | Date;
+type SearchItem = SearchGroup['items'][number];
+
+const updateCriteriaTree = (
+    items: SearchItem[],
+    criterionId: string,
+    update: (criterion: SearchCriterion) => SearchCriterion
+): SearchItem[] =>
+    items.map(item => {
+        if ('key' in item) return item.id === criterionId ? update(item) : item;
+        return { ...item, items: updateCriteriaTree(item.items, criterionId, update) };
+    });
+
+const removeCriteriaTree = (items: SearchItem[], criterionId: string): SearchItem[] =>
+    items.reduce<SearchItem[]>((remaining, item) => {
+        if ('key' in item) {
+            if (item.id !== criterionId) remaining.push(item);
+            return remaining;
+        }
+
+        const remainingItems = removeCriteriaTree(item.items, criterionId);
+        if (remainingItems.length > 0) remaining.push({ ...item, items: remainingItems });
+        return remaining;
+    }, []);
+
+const findCriterion = (items: SearchItem[], criterionId: string): SearchCriterion | undefined => {
+    for (const item of items) {
+        if ('key' in item && item.id === criterionId) return item;
+        if (!('key' in item)) {
+            const match = findCriterion(item.items, criterionId);
+            if (match) return match;
+        }
+    }
+    return undefined;
+};
 
 const extractArrayValue = (
     key: string,
@@ -72,7 +106,7 @@ export const useAdvancedSearch = (
     }
 ) => {
     // Top-level state management (local for the editor session)
-    const [criteria, setCriteria] = createSignal<SearchCriterion[]>([]);
+    const [criteria, setCriteria] = createSignal<SearchItem[]>([]);
     const [matchMode, setMatchMode] = createSignal<LogicalOperator>('and');
 
     // New criteria builder (Add mode) state
@@ -109,7 +143,7 @@ export const useAdvancedSearch = (
             const initialQuery = queryOptions.initialQuery();
             if (initialQuery) {
                 setMatchMode(initialQuery.logicalOperator);
-                setCriteria(initialQuery.items.filter(item => 'key' in item) as SearchCriterion[]);
+                setCriteria(initialQuery.items);
             } else {
                 setCriteria([]);
                 setMatchMode('and');
@@ -193,7 +227,7 @@ export const useAdvancedSearch = (
         const activeEditingId = editingId();
         if (!activeEditingId) return;
 
-        const originalCriterion = criteria().find(criterion => criterion.id === activeEditingId);
+        const originalCriterion = findCriterion(criteria(), activeEditingId);
         if (!originalCriterion) return;
 
         const activeErrors = filterActions.validateCriterion(
@@ -225,16 +259,11 @@ export const useAdvancedSearch = (
 
         const displayValue = filterActions.formatCriterionDisplay(partiallyUpdatedCriterion);
 
-        setCriteria(previousCriteriaList =>
-            previousCriteriaList.map(criterion => {
-                if (criterion.id === activeEditingId) {
-                    return {
-                        ...partiallyUpdatedCriterion,
-                        displayValue
-                    };
-                }
-                return criterion;
-            })
+        setCriteria(previousItems =>
+            updateCriteriaTree(previousItems, activeEditingId, () => ({
+                ...partiallyUpdatedCriterion,
+                displayValue
+            }))
         );
         setEditingId(null);
         setEditingValidationErrors({});
@@ -275,7 +304,7 @@ export const useAdvancedSearch = (
      * @param criterionId - The unique identifier of the criterion to be deleted.
      */
     const handleRemoveCriteria = (criterionId: string) => {
-        setCriteria(criteria().filter(criterion => criterion.id !== criterionId));
+        setCriteria(removeCriteriaTree(criteria(), criterionId));
     };
 
     /** Wipes all defined criteria and resets match mode to default. */

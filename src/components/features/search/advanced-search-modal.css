@@ -56,7 +56,6 @@
     padding: var(--p-space-m);
 }
 
-
 .match-mode-section {
     display: flex;
     flex-direction: column;
@@ -184,6 +183,20 @@
     border-radius: var(--radius-s);
     border: 1px solid transparent;
     transition: all 0.2s ease;
+}
+
+.criterion-group {
+    display: grid;
+    gap: var(--p-space-xs);
+    margin-left: var(--p-space-m);
+    padding-left: var(--p-space-s);
+    border-left: 2px solid var(--border-subtle);
+}
+
+.criterion-group-heading {
+    color: var(--text-tertiary);
+    font-size: var(--p-font-size-xs);
+    font-weight: 600;
 }
 
 .criterion-item:hover {

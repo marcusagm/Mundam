@@ -18,7 +18,8 @@ export const LibrarySidebarPanel: Component = () => {
         !filters.filterHasTags &&
         !filters.filterFavorites &&
         !filters.filterTrash &&
-        filters.selectedTags.length === 0;
+        filters.selectedTags.length === 0 &&
+        !filters.advancedSearch;
 
     return (
         <SidebarPanel title="Library" class="panel-fixed">
