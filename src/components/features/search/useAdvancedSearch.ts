@@ -1,49 +1,26 @@
-import { createSignal, createMemo, createEffect } from 'solid-js';
+import { createSignal, createEffect } from 'solid-js';
 import {
     type SearchCriterion,
     type LogicalOperator,
     type SearchGroup,
     filterActions
 } from '../../../core/store/filter';
-import { SEARCH_FIELDS, OPERATORS_FOR_TYPE } from '../../../core/store/filter/constants';
 import { fromISO } from '../../../utils/format';
-import { supportedFormats } from '../../../core/store/systemStore';
+import type { SearchValue } from './useCriterionBuilder';
+import {
+    addItemToGroup,
+    countCriteria,
+    createEmptyGroup,
+    findCriterion,
+    pruneEmptyGroups,
+    removeCriterion,
+    removeGroup,
+    setGroupOperator,
+    updateCriterion,
+    type SearchItem
+} from './searchTree';
 
-export type SearchValue = string | number | null | Date;
-type SearchItem = SearchGroup['items'][number];
-
-const updateCriteriaTree = (
-    items: SearchItem[],
-    criterionId: string,
-    update: (criterion: SearchCriterion) => SearchCriterion
-): SearchItem[] =>
-    items.map(item => {
-        if ('key' in item) return item.id === criterionId ? update(item) : item;
-        return { ...item, items: updateCriteriaTree(item.items, criterionId, update) };
-    });
-
-const removeCriteriaTree = (items: SearchItem[], criterionId: string): SearchItem[] =>
-    items.reduce<SearchItem[]>((remaining, item) => {
-        if ('key' in item) {
-            if (item.id !== criterionId) remaining.push(item);
-            return remaining;
-        }
-
-        const remainingItems = removeCriteriaTree(item.items, criterionId);
-        if (remainingItems.length > 0) remaining.push({ ...item, items: remainingItems });
-        return remaining;
-    }, []);
-
-const findCriterion = (items: SearchItem[], criterionId: string): SearchCriterion | undefined => {
-    for (const item of items) {
-        if ('key' in item && item.id === criterionId) return item;
-        if (!('key' in item)) {
-            const match = findCriterion(item.items, criterionId);
-            if (match) return match;
-        }
-    }
-    return undefined;
-};
+export type { SearchValue };
 
 const extractArrayValue = (
     key: string,
@@ -93,31 +70,16 @@ const extractSingleValue = (key: string, value: unknown, unitMultiplier: string)
  * @param queryOptions - Configuration for visibility and initial query state.
  * @returns An object containing reactive state accessors and action handlers.
  */
-export const useAdvancedSearch = (
-    metadata: {
-        locations: { id: string; name: string }[];
-        tags: { id: string; name: string }[];
-    },
-    queryOptions: {
-        /** Function that returns whether the advanced search panel is currently open. */
-        isOpen: () => boolean;
-        /** Function that returns the initial search group to populate the editor. */
-        initialQuery: () => SearchGroup | undefined;
-    }
-) => {
-    // Top-level state management (local for the editor session)
-    const [criteria, setCriteria] = createSignal<SearchItem[]>([]);
-    const [matchMode, setMatchMode] = createSignal<LogicalOperator>('and');
+export const useAdvancedSearch = (queryOptions: {
+    /** Function that returns whether the advanced search panel is currently open. */
+    isOpen: () => boolean;
+    /** Function that returns the initial search group to populate the editor. */
+    initialQuery: () => SearchGroup | undefined;
+}) => {
+    /** Root group of the query. It always exists and can never be removed. */
+    const [rootGroup, setRootGroup] = createSignal<SearchGroup>(createEmptyGroup());
 
-    // New criteria builder (Add mode) state
-    const [currentKey, setCurrentKey] = createSignal('tags');
-    const [currentOperator, setCurrentOperator] = createSignal('contains');
-    const [currentValue, setCurrentValue] = createSignal<SearchValue>(null);
-    const [currentValue2, setCurrentValue2] = createSignal<SearchValue>(null);
-    const [currentUnitMultiplier, setCurrentUnitMultiplier] = createSignal('1048576');
-    const [validationErrors, setValidationErrors] = createSignal<Record<string, string>>({});
-
-    // Existing criteria editing state
+    // Existing criteria editing state (only one criterion is edited at a time)
     const [editingId, setEditingId] = createSignal<string | null>(null);
     const [editingValue, setEditingValue] = createSignal<SearchValue>(null);
     const [editingValue2, setEditingValue2] = createSignal<SearchValue>(null);
@@ -126,77 +88,14 @@ export const useAdvancedSearch = (
         Record<string, string>
     >({});
 
-    /** Derived signal identifying the currently selected field configuration. */
-    const selectedField = createMemo(() =>
-        SEARCH_FIELDS.find(field => field.value === currentKey())
-    );
-
-    /** Derived list of operators valid for the currently selected field's data type. */
-    const availableOperators = createMemo(() => {
-        const field = selectedField();
-        return field ? OPERATORS_FOR_TYPE[field.type] || [] : [];
-    });
-
     /** Synchronizes internal state with the provided initial query whenever the panel opens. */
     createEffect(() => {
         if (queryOptions.isOpen()) {
-            const initialQuery = queryOptions.initialQuery();
-            if (initialQuery) {
-                setMatchMode(initialQuery.logicalOperator);
-                setCriteria(initialQuery.items);
-            } else {
-                setCriteria([]);
-                setMatchMode('and');
-            }
-            // Reset temporary builder and editing states
-            setCurrentValue(null);
-            setCurrentValue2(null);
-            setValidationErrors({});
+            setRootGroup(queryOptions.initialQuery() ?? createEmptyGroup());
             setEditingValidationErrors({});
             setEditingId(null);
         }
     });
-
-    /** Automatically resets the operator and values when the search key (field) changes. */
-    createEffect(() => {
-        const field = selectedField();
-        if (field) {
-            const defaultComparisonOperator = OPERATORS_FOR_TYPE[field.type]?.[0]?.value;
-            setCurrentOperator(defaultComparisonOperator || '');
-
-            // Synchronize initial state values with UI visual expectations.
-            if (field.type === 'rating') {
-                setCurrentValue(0);
-            } else if (field.type === 'select') {
-                const firstAvailableFormat = supportedFormats()[0]?.extensions[0];
-                setCurrentValue(firstAvailableFormat || '');
-            } else if (field.type === 'folder') {
-                const firstLocationId = metadata.locations[0]?.id;
-                setCurrentValue(firstLocationId ? Number(firstLocationId) : null);
-            } else if (field.type === 'number' || field.type === 'size') {
-                setCurrentValue(1);
-            } else {
-                setCurrentValue(null);
-            }
-
-            setCurrentValue2(null);
-            setValidationErrors({});
-            setEditingValidationErrors({});
-        }
-    });
-
-    /** Validates the current 'Add mode' builder state using store logic. */
-    const validateCurrentBuilderState = () => {
-        const activeErrors = filterActions.validateCriterion(
-            currentKey(),
-            currentOperator(),
-            currentValue(),
-            currentValue2(),
-            currentUnitMultiplier()
-        );
-        setValidationErrors(activeErrors);
-        return Object.keys(activeErrors).length === 0;
-    };
 
     /**
      * Activates the editing mode for a specific existing criterion.
@@ -227,7 +126,7 @@ export const useAdvancedSearch = (
         const activeEditingId = editingId();
         if (!activeEditingId) return;
 
-        const originalCriterion = findCriterion(criteria(), activeEditingId);
+        const originalCriterion = findCriterion(rootGroup(), activeEditingId);
         if (!originalCriterion) return;
 
         const activeErrors = filterActions.validateCriterion(
@@ -259,8 +158,8 @@ export const useAdvancedSearch = (
 
         const displayValue = filterActions.formatCriterionDisplay(partiallyUpdatedCriterion);
 
-        setCriteria(previousItems =>
-            updateCriteriaTree(previousItems, activeEditingId, () => ({
+        setRootGroup(previousRoot =>
+            updateCriterion(previousRoot, activeEditingId, () => ({
                 ...partiallyUpdatedCriterion,
                 displayValue
             }))
@@ -269,77 +168,58 @@ export const useAdvancedSearch = (
         setEditingValidationErrors({});
     };
 
-    /** Adds the currently constructed criterion from the builder into the active list. */
-    const handleAddCriteria = () => {
-        if (!validateCurrentBuilderState()) return;
+    /** Adds a criterion or a nested group to the group identified by `groupId`. */
+    const handleAddItem = (groupId: string, item: SearchItem) => {
+        setRootGroup(previousRoot => addItemToGroup(previousRoot, groupId, item));
+    };
 
-        const { finalValue, unitMultiplier } = filterActions.processCriterion(
-            currentKey(),
-            currentOperator(),
-            currentValue(),
-            currentValue2(),
-            currentUnitMultiplier()
-        );
+    /** Adds a new empty group inside the group identified by `parentGroupId`. */
+    const handleAddGroup = (parentGroupId: string, logicalOperator: LogicalOperator = 'and') => {
+        handleAddItem(parentGroupId, createEmptyGroup(logicalOperator));
+    };
 
-        const newCriterionObject: SearchCriterion = {
-            id: `temp_${Math.random().toString(36).substr(2, 9)}`, // Temporary local ID
-            key: currentKey(),
-            operator: currentOperator(),
-            value: finalValue as SearchCriterion['value'],
-            unitMultiplier,
-            displayValue: '' // Will be updated below
-        };
+    /** Removes a nested group. The root group is protected and ignored. */
+    const handleRemoveGroup = (groupId: string) => {
+        setRootGroup(previousRoot => removeGroup(previousRoot, groupId));
+    };
 
-        newCriterionObject.displayValue = filterActions.formatCriterionDisplay(newCriterionObject);
-
-        setCriteria([...criteria(), newCriterionObject]);
-
-        // Clean up builder values after successful addition
-        setCurrentValue(null);
-        setCurrentValue2(null);
+    /** Changes how the items of a group are combined (AND/OR). */
+    const handleSetGroupOperator = (groupId: string, logicalOperator: LogicalOperator) => {
+        setRootGroup(previousRoot => setGroupOperator(previousRoot, groupId, logicalOperator));
     };
 
     /**
-     * Removes a specific criterion from the active search list.
+     * Removes a specific criterion from the query.
      * @param criterionId - The unique identifier of the criterion to be deleted.
      */
     const handleRemoveCriteria = (criterionId: string) => {
-        setCriteria(removeCriteriaTree(criteria(), criterionId));
+        if (editingId() === criterionId) setEditingId(null);
+        setRootGroup(previousRoot => removeCriterion(previousRoot, criterionId));
     };
 
-    /** Wipes all defined criteria and resets match mode to default. */
+    /** Wipes all criteria and nested groups, keeping an empty root group. */
     const handleResetAllCriteria = () => {
-        setCriteria([]);
-        setMatchMode('and');
+        setEditingId(null);
+        setRootGroup(previousRoot => ({ ...previousRoot, logicalOperator: 'and', items: [] }));
     };
+
+    /** Number of criteria across all groups. */
+    const criteriaCount = () => countCriteria(rootGroup());
+
+    /** Root group ready to be searched or saved, without empty groups. */
+    const buildQuery = (): SearchGroup => pruneEmptyGroups(rootGroup());
 
     return {
         // Reactive State Accessors
-        criteria,
-        matchMode,
-        currentKey,
-        currentOperator,
-        currentValue,
-        currentValue2,
-        currentUnitMultiplier,
-        validationErrors,
+        rootGroup,
+        criteriaCount,
         editingId,
         editingValue,
         editingValue2,
         editingUnitMultiplier,
         editingValidationErrors,
-        selectedField,
-        availableOperators,
 
         // Direct State Mutators
-        setCriteria,
-        setMatchMode,
-        setCurrentKey,
-        setCurrentOperator,
-        setCurrentValue,
-        setCurrentValue2,
-        setCurrentUnitMultiplier,
-        setValidationErrors,
         setEditingId,
         setEditingValue,
         setEditingValue2,
@@ -347,9 +227,13 @@ export const useAdvancedSearch = (
         setEditingValidationErrors,
 
         // Business Logic Actions
+        buildQuery,
         handleStartEdit,
         handleConfirmEdit,
-        handleAddCriteria,
+        handleAddItem,
+        handleAddGroup,
+        handleRemoveGroup,
+        handleSetGroupOperator,
         handleRemoveCriteria,
         handleReset: handleResetAllCriteria
     };

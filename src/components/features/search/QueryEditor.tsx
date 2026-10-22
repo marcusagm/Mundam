@@ -1,7 +1,7 @@
 import { Button } from '../../ui';
 import { Component, For, Show, createMemo } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { Info, Pencil, Check, Trash2, CircleQuestionMark } from 'lucide-solid';
+import { Info, Pencil, Check, Trash2, Plus, CircleQuestionMark } from 'lucide-solid';
 import { RadioGroup, RadioGroupItem } from '../../ui/RadioGroup';
 import { Tooltip } from '../../ui/Tooltip';
 import { SEARCH_FIELDS, OPERATORS_FOR_TYPE } from '../../../core/store/filter/constants';
@@ -14,6 +14,7 @@ import { cn } from '../../../lib/utils';
 import { criterionHandlerRegistry } from './fields';
 import { CriterionFieldRendererProperties } from './fields/types';
 import { useAdvancedSearch, SearchValue } from './useAdvancedSearch';
+import { CriteriaBuilder } from './CriteriaBuilder';
 
 export interface QueryEditorProps {
     search: ReturnType<typeof useAdvancedSearch>;
@@ -124,65 +125,78 @@ const CriterionItem: Component<{
     );
 };
 
-const QueryItems: Component<{
-    items: SearchGroup['items'];
+const GroupEditor: Component<{
+    group: SearchGroup;
     search: ReturnType<typeof useAdvancedSearch>;
-}> = props => (
-    <For each={props.items}>
-        {(item, index) =>
-            'key' in item ? (
-                <CriterionItem item={item} index={index()} search={props.search} />
-            ) : (
-                <div class="criterion-group">
-                    <div class="criterion-group-heading">
-                        {item.logicalOperator === 'and' ? 'All of' : 'Any of'}
-                    </div>
-                    <QueryItems items={item.items} search={props.search} />
-                </div>
-            )
-        }
-    </For>
-);
+}> = props => {
+    const isRoot = () => props.group.id === props.search.rootGroup().id;
 
-export const QueryEditor: Component<QueryEditorProps> = props => {
     return (
-        <div class="query-editor-section">
-            <div class="section-title">
-                Query Editor
-                <Tooltip content="Review and manage your active criteria. You can edit values in-line or remove them. All criteria work together based on the 'Any' or 'All' match mode below.">
-                    <CircleQuestionMark size={12} />
-                </Tooltip>
-            </div>
-            <div class="criteria-list">
-                <Show when={props.search.criteria().length === 0}>
-                    <div class="empty-query-info">
-                        <Info size={24} />
-                        <div>
-                            <strong>Empty Query</strong>
-                            <br />
-                            Your query is currently empty. Create a criteria above to enable search.
-                        </div>
-                    </div>
-                </Show>
-                <QueryItems items={props.search.criteria()} search={props.search} />
-            </div>
-
-            <div class="match-mode-section">
-                <div class="section-title">
-                    Match Mode
-                    <Tooltip content="Choose how to combine your criteria. 'All' requires every condition to be met, while 'Any' matches if at least one condition is met.">
-                        <CircleQuestionMark size={12} />
-                    </Tooltip>
-                </div>
+        <div class={cn('criterion-group', isRoot() && 'root')}>
+            <div class="criterion-group-header">
+                <span class="criterion-group-heading">{isRoot() ? 'Match' : 'Group'}</span>
                 <RadioGroup
-                    value={props.search.matchMode()}
-                    onValueChange={val => props.search.setMatchMode(val as LogicalOperator)}
+                    value={props.group.logicalOperator}
+                    onValueChange={val =>
+                        props.search.handleSetGroupOperator(props.group.id, val as LogicalOperator)
+                    }
                     orientation="horizontal"
                     class="match-radio-horizontal"
                 >
                     <RadioGroupItem value="or" label="Any (OR)" />
                     <RadioGroupItem value="and" label="All (AND)" />
                 </RadioGroup>
+                <Show when={!isRoot()}>
+                    <Button
+                        variant="ghost-destructive"
+                        size="icon"
+                        title="Remove group"
+                        onClick={() => props.search.handleRemoveGroup(props.group.id)}
+                    >
+                        <Trash2 size={14} />
+                    </Button>
+                </Show>
+            </div>
+            <Show when={props.group.items.length === 0}>
+                <div class="empty-query-info">
+                    <Info size={24} />
+                    <div>This group is empty. Add a criterion below.</div>
+                </div>
+            </Show>
+            <For each={props.group.items}>
+                {(item, index) =>
+                    'key' in item ? (
+                        <CriterionItem item={item} index={index()} search={props.search} />
+                    ) : (
+                        <GroupEditor group={item} search={props.search} />
+                    )
+                }
+            </For>
+            <CriteriaBuilder onAdd={c => props.search.handleAddItem(props.group.id, c)} />
+            <div class="group-actions">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => props.search.handleAddGroup(props.group.id, 'or')}
+                >
+                    <Plus size={14} /> Add group
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+export const QueryEditor: Component<QueryEditorProps> = props => {
+    return (
+        <div class="query-editor-section">
+            <div class="section-title">
+                Query Editor
+                <Tooltip content="Each group combines its criteria with 'All' (AND) or 'Any' (OR). Groups can be nested to build complex queries.">
+                    <CircleQuestionMark size={12} />
+                </Tooltip>
+            </div>
+            <div class="criteria-list">
+                <GroupEditor group={props.search.rootGroup()} search={props.search} />
             </div>
         </div>
     );

@@ -49,7 +49,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    /* height: 100%; */
     color: var(--text-tertiary);
     gap: var(--p-space-s);
     text-align: center;
@@ -246,4 +246,16 @@
     display: flex;
     align-items: flex-start;
     width: 100%;
+}
+
+.criterion-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.criterion-group .group-actions {
+    display: flex;
+    justify-content: flex-start;
 }

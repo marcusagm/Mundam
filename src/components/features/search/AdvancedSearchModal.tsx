@@ -1,12 +1,10 @@
 import { Button, Input, Modal } from '../../ui';
 import { Component, createSignal, createEffect } from 'solid-js';
 import { Search, Save } from 'lucide-solid';
-import { useFilters, useMetadata } from '../../../core/hooks';
+import { useFilters } from '../../../core/hooks';
 import { SearchGroup } from '../../../core/store/filter';
-import { createId } from '../../../lib/primitives/createId';
 import { ActionResult } from '../../../core/types/actions';
 import { useAdvancedSearch } from './useAdvancedSearch';
-import { CriteriaBuilder } from './CriteriaBuilder';
 import { QueryEditor } from './QueryEditor';
 import './advanced-search-modal.css';
 
@@ -44,13 +42,12 @@ export const AdvancedSearchModal: Component<
     AdvancedSearchModalProperties
 > = componentProperties => {
     const filters = useFilters();
-    const metadata = useMetadata();
 
     const [smartFolderName, setSmartFolderName] = createSignal(
         componentProperties.initialName || ''
     );
 
-    const search = useAdvancedSearch(metadata, {
+    const search = useAdvancedSearch({
         isOpen: () => componentProperties.isOpen,
         initialQuery: () => componentProperties.initialQuery
     });
@@ -65,11 +62,7 @@ export const AdvancedSearchModal: Component<
      * Executes the advanced search query.
      */
     const handleSearch = () => {
-        const searchGroup: SearchGroup = {
-            id: createId('group'),
-            logicalOperator: search.matchMode(),
-            items: search.criteria()
-        };
+        const searchGroup: SearchGroup = search.buildQuery();
         filters.setAdvancedSearch(searchGroup);
         componentProperties.onClose();
     };
@@ -82,11 +75,7 @@ export const AdvancedSearchModal: Component<
             return;
         }
 
-        const searchGroup: SearchGroup = {
-            id: createId('group'),
-            logicalOperator: search.matchMode(),
-            items: search.criteria()
-        };
+        const searchGroup: SearchGroup = search.buildQuery();
         await componentProperties.onSave?.(
             smartFolderName().trim(),
             searchGroup,
@@ -111,7 +100,7 @@ export const AdvancedSearchModal: Component<
                     {componentProperties.isSmartFolderMode ? (
                         <Button
                             onClick={handleSaveSmartFolder}
-                            disabled={search.criteria().length === 0 || !smartFolderName().trim()}
+                            disabled={search.criteriaCount() === 0 || !smartFolderName().trim()}
                             leftIcon={<Save />}
                         >
                             Save Smart Folder
@@ -129,7 +118,7 @@ export const AdvancedSearchModal: Component<
                                 <Button
                                     onClick={handleSaveSmartFolder}
                                     disabled={
-                                        search.criteria().length === 0 || !smartFolderName().trim()
+                                        search.criteriaCount() === 0 || !smartFolderName().trim()
                                     }
                                     variant="outline"
                                     leftIcon={<Save />}
@@ -139,7 +128,7 @@ export const AdvancedSearchModal: Component<
                             </div>
                             <Button
                                 onClick={handleSearch}
-                                disabled={search.criteria().length === 0}
+                                disabled={search.criteriaCount() === 0}
                                 leftIcon={<Search />}
                             >
                                 Search
@@ -160,8 +149,6 @@ export const AdvancedSearchModal: Component<
                         />
                     </div>
                 )}
-
-                <CriteriaBuilder search={search} />
 
                 <QueryEditor search={search} />
             </div>
