@@ -15,6 +15,7 @@ import {
     type LayoutItemInput,
     type ItemPosition
 } from '../viewport';
+import { viewportState } from '../store/viewportStore';
 import { useFilters } from './useFilters';
 import { useLibrary } from './useLibrary';
 
@@ -122,9 +123,22 @@ export function useVirtualViewport(
                         .filter(item => !item.thumbnail_path)
                         .map(item => String(item.id))
                 );
+                // visibleItems includes a large buffer around the viewport; rank items so the
+                // ones actually on screen come first, then the closest ones from the buffer.
+                const { scrollTop, viewportHeight } = untrack(() => viewportState.scrollPosition);
+                const viewportBottom = scrollTop + viewportHeight;
+                const distanceToViewport = (position: ItemPosition) => {
+                    if (position.y + position.height < scrollTop) {
+                        return scrollTop - (position.y + position.height);
+                    }
+                    return position.y > viewportBottom ? position.y - viewportBottom : 0;
+                };
+
                 const idsToPrioritize = untrack(() => controller.visibleItems())
-                    .map(v => v.id)
-                    .filter(id => missingThumbnailIds.has(id));
+                    .filter(v => missingThumbnailIds.has(v.id))
+                    .map(v => ({ id: v.id, distance: distanceToViewport(v), y: v.y, x: v.x }))
+                    .sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x)
+                    .map(v => v.id);
 
                 if (idsToPrioritize.length > 0) {
                     lib.setThumbnailPriority(idsToPrioritize);

@@ -81,8 +81,8 @@
 - [x] Adicionar opção de copiar caminho do arquivo.
 - [ ] Adicionar visualização por icones.
 - [ ] Implementar a funcionalidade de clicar e arrastar no vazio para selecionar múltiplos itens na Grid e no mansory.
-- [ ] A listagem de tabelas mostra colunas diferentes da configurada no painel de ordenação na área de busca. Uma idea é remover as opções de exibição quando a visualização de tabela estiver ativa, ou substituir as opções pelas mesmas opções de colunas exibidas ao clicar com o direito sobre o cabeçalho.
-- [ ] Na listagem de tabelas os icones de audio e video não estão aparecendo. Talvez esteja com problemas para todos os assets que não possuem thumbail.
+- [x] A listagem de tabelas mostra colunas diferentes da configurada no painel de ordenação na área de busca. Uma idea é remover as opções de exibição quando a visualização de tabela estiver ativa, ou substituir as opções pelas mesmas opções de colunas exibidas ao clicar com o direito sobre o cabeçalho.
+- [x] Na listagem de tabelas os icones de audio e video não estão aparecendo. Talvez esteja com problemas para todos os assets que não possuem thumbnail.
 
 ## Assets
 

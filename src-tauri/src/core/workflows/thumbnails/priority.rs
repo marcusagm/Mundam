@@ -8,7 +8,7 @@ use std::sync::Mutex;
 /// when requested by the UI.
 pub struct ThumbnailPriorityState {
     /// Internal queue of asset IDs that should be processed with priority.
-    /// Uses a `VecDeque` to support LIFO behavior (push_front/pop_front).
+    /// Holds the IDs of the latest UI viewport, in the order they should be processed.
     priority_ids: Mutex<VecDeque<String>>,
 }
 
@@ -28,35 +28,22 @@ impl Default for ThumbnailPriorityState {
 
 /// Implementation of `ThumbnailPriorityState`.
 impl ThumbnailPriorityState {
-    /// Adds a list of asset IDs to the priority queue.
+    /// Replaces the priority queue with the IDs currently visible in the UI.
     ///
-    /// New IDs are pushed to the front (LIFO) because they usually represent
-    /// items that just scrolled into the user's viewport.
+    /// Each call reflects the latest viewport, so IDs from previous viewports
+    /// (already scrolled away) are discarded instead of competing with the new ones.
+    /// The first ID is served first.
     ///
     /// # Arguments
-    /// * `ids` - Vector of unique asset IDs (UUIDs).
+    /// * `ids` - Vector of unique asset IDs (UUIDs), ordered from the top of the viewport.
     pub fn push_priorities(&self, ids: Vec<String>) {
         if ids.is_empty() {
             return;
         }
 
         if let Ok(mut deque) = self.priority_ids.lock() {
-            // To maintain LIFO for the batch, we push them in reverse order.
-            // If the UI sends [A, B, C] (where A is top of viewport),
-            // pushing reversed (C, then B, then A) puts A at the very front of the queue,
-            // so pop_front will yield A, then B, then C.
-            for id in ids.into_iter().rev() {
-                // If it's already in the queue, we can leave it to be skipped,
-                // but for performance, we just push to the front. 
-                // Deduplication happens at pop_batch time.
-                deque.push_front(id);
-            }
-
-            // Safety limit: if the queue gets too large (e.g., user scrolling fast),
-            // truncate it to avoid excessive memory usage or stale priorities.
-            if deque.len() > 200 {
-                deque.truncate(200);
-            }
+            deque.clear();
+            deque.extend(ids.into_iter().take(200));
         }
     }
 
@@ -111,10 +98,10 @@ mod tests {
         let batch = state.pop_batch(2);
         assert_eq!(batch, vec!["1".to_string(), "2".to_string()]);
 
-        // A newer batch takes precedence over older pending IDs.
+        // A newer batch replaces older pending IDs (viewport moved).
         state.push_priorities(vec!["3".to_string()]);
         state.push_priorities(vec!["4".to_string()]);
-        assert_eq!(state.pop_batch(2), vec!["4".to_string(), "3".to_string()]);
+        assert_eq!(state.pop_batch(2), vec!["4".to_string()]);
     }
 
     /// Tests the batch limit of the priority queue.

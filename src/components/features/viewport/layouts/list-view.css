@@ -26,6 +26,7 @@
 
 .list-view-thumbnail-container {
     border-radius: var(--radius-xs);
+    position: relative;
     overflow: hidden;
     display: flex;
     align-items: center;

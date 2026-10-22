@@ -1,4 +1,4 @@
-import { Component, For, JSX } from 'solid-js';
+import { Component, For, JSX, Show } from 'solid-js';
 import {
     Button,
     PopoverRoot,
@@ -19,6 +19,11 @@ import {
     PanelBottom
 } from 'lucide-solid';
 import { useFilters, useViewportPreferences } from '../../../../core/hooks';
+import {
+    TOGGLEABLE_LIST_COLUMNS,
+    isListColumnHidden,
+    updateListColumnConfig
+} from '../../../../core/store/listColumnsStore';
 import { type MetadataField } from '../../../../core/store/viewportPreferencesStore';
 
 /**
@@ -114,69 +119,109 @@ export const ViewConfiguration: Component = (): JSX.Element => {
                         />
                     </div>
                 </div>
-                <div class="popover-config-group" style={{ 'margin-top': '16px' }}>
-                    <span class="popover-config-label">Metadata Position</span>
-                    <ToggleGroup
-                        type="single"
-                        value={preferences.metadataPosition}
-                        onValueChange={(val: string) =>
-                            val && preferences.setMetadataPosition(val as 'overlay' | 'stacked')
-                        }
-                    >
-                        <Tooltip content="Overlay (On Hover)" placement="top">
-                            <ToggleGroupItem value="overlay" style={{ flex: 1 }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        'align-items': 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <PanelTop size={14} />
-                                    <span>Overlay</span>
-                                </div>
-                            </ToggleGroupItem>
-                        </Tooltip>
-                        <Tooltip content="Stacked (Below Thumbnail)" placement="top">
-                            <ToggleGroupItem value="stacked" style={{ flex: 1 }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        'align-items': 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <PanelBottom size={14} />
-                                    <span>Stacked</span>
-                                </div>
-                            </ToggleGroupItem>
-                        </Tooltip>
-                    </ToggleGroup>
-                </div>
-                <div class="popover-config-group" style={{ 'margin-top': '16px' }}>
-                    <span class="popover-config-label">Visible Metadata Fields</span>
-                    <div
-                        class="popover-config-fields-list"
-                        style={{
-                            display: 'flex',
-                            'flex-direction': 'column',
-                            gap: '8px',
-                            'margin-top': '8px'
-                        }}
-                    >
-                        <For each={AVAILABLE_FIELDS}>
-                            {field => (
-                                <Checkbox
-                                    label={field.label}
-                                    checked={preferences.visibleFields.includes(field.value)}
-                                    onCheckedChange={() =>
-                                        preferences.toggleVisibleField(field.value)
-                                    }
-                                />
-                            )}
-                        </For>
+                <Show
+                    when={filters.layout !== 'list'}
+                    fallback={
+                        <div class="popover-config-group" style={{ 'margin-top': '16px' }}>
+                            <span class="popover-config-label">Visible Columns</span>
+                            <div
+                                class="popover-config-fields-list"
+                                style={{
+                                    display: 'flex',
+                                    'flex-direction': 'column',
+                                    gap: '8px',
+                                    'margin-top': '8px'
+                                }}
+                            >
+                                <For each={TOGGLEABLE_LIST_COLUMNS}>
+                                    {column => (
+                                        <Checkbox
+                                            label={column.label}
+                                            checked={
+                                                !isListColumnHidden(
+                                                    column.key,
+                                                    column.defaultHidden
+                                                )
+                                            }
+                                            onCheckedChange={() =>
+                                                updateListColumnConfig(column.key, {
+                                                    hidden: !isListColumnHidden(
+                                                        column.key,
+                                                        column.defaultHidden
+                                                    )
+                                                })
+                                            }
+                                        />
+                                    )}
+                                </For>
+                            </div>
+                        </div>
+                    }
+                >
+                    <div class="popover-config-group" style={{ 'margin-top': '16px' }}>
+                        <span class="popover-config-label">Metadata Position</span>
+                        <ToggleGroup
+                            type="single"
+                            value={preferences.metadataPosition}
+                            onValueChange={(val: string) =>
+                                val && preferences.setMetadataPosition(val as 'overlay' | 'stacked')
+                            }
+                        >
+                            <Tooltip content="Overlay (On Hover)" placement="top">
+                                <ToggleGroupItem value="overlay" style={{ flex: 1 }}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            'align-items': 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <PanelTop size={14} />
+                                        <span>Overlay</span>
+                                    </div>
+                                </ToggleGroupItem>
+                            </Tooltip>
+                            <Tooltip content="Stacked (Below Thumbnail)" placement="top">
+                                <ToggleGroupItem value="stacked" style={{ flex: 1 }}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            'align-items': 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <PanelBottom size={14} />
+                                        <span>Stacked</span>
+                                    </div>
+                                </ToggleGroupItem>
+                            </Tooltip>
+                        </ToggleGroup>
                     </div>
-                </div>
+                    <div class="popover-config-group" style={{ 'margin-top': '16px' }}>
+                        <span class="popover-config-label">Visible Metadata Fields</span>
+                        <div
+                            class="popover-config-fields-list"
+                            style={{
+                                display: 'flex',
+                                'flex-direction': 'column',
+                                gap: '8px',
+                                'margin-top': '8px'
+                            }}
+                        >
+                            <For each={AVAILABLE_FIELDS}>
+                                {field => (
+                                    <Checkbox
+                                        label={field.label}
+                                        checked={preferences.visibleFields.includes(field.value)}
+                                        onCheckedChange={() =>
+                                            preferences.toggleVisibleField(field.value)
+                                        }
+                                    />
+                                )}
+                            </For>
+                        </div>
+                    </div>
+                </Show>
             </PopoverContent>
         </PopoverRoot>
     );

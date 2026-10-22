@@ -1,4 +1,4 @@
-import { Component, createMemo, Show, createSignal, createEffect, JSX } from 'solid-js';
+import { Component, createMemo, Show, createSignal, JSX } from 'solid-js';
 import { Table, Column } from '../../../ui/Table';
 import {
     useLibrary,
@@ -15,11 +15,13 @@ import { EmptyState } from '../components/EmptyState';
 import { AssetContextMenu } from '../components/AssetContextMenu';
 import { createConditionalScope } from '../../../../core/input';
 import { scheduler } from '../../../../core/utils/scheduler';
-
-/**
- * Storage key for column configurations
- */
-const COLUMN_STORAGE_KEY = 'mundam-viewport-columns-v1';
+import {
+    listColumnConfigs,
+    updateListColumnConfig,
+    isListColumnHidden,
+    type ListColumnConfig
+} from '../../../../core/store/listColumnsStore';
+import { FileIcon } from '../assets/FileIcon';
 
 /**
  * Thumbnail scale factor
@@ -60,12 +62,12 @@ const DEFAULT_COLS = {
 } as const;
 
 /**
- * Column configuration interface
+ * Extracts the lowercase extension (with dot) from a filename.
  */
-interface ColumnConfig {
-    width: number;
-    hidden: boolean;
-}
+const getFileExtension = (filename: string): string => {
+    const lastDot = filename.lastIndexOf('.');
+    return lastDot === -1 ? '' : filename.substring(lastDot).toLowerCase();
+};
 
 /**
  * Virtual list view component
@@ -165,53 +167,14 @@ export const VirtualListView: Component = (): JSX.Element => {
     };
 
     /**
-     * Column configurations
-     *
-     * @returns {Record<string, ColumnConfig>} The column configurations.
-     */
-    const [columnConfigs, setColumnConfigs] = createSignal<Record<string, ColumnConfig>>(
-        (() => {
-            const saved = localStorage.getItem(COLUMN_STORAGE_KEY);
-            try {
-                return saved ? JSON.parse(saved) : {};
-            } catch {
-                return {};
-            }
-        })()
-    );
-
-    /**
-     * Save column configurations to local storage
-     *
-     * @returns {void}
-     */
-    createEffect(() => {
-        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columnConfigs()));
-    });
-
-    /**
      * Update column configuration
      *
      * @param {string} key - The column key.
-     * @param {Partial<ColumnConfig>} updates - The column updates.
+     * @param {ListColumnConfig} updates - The column updates.
      * @returns {void}
      */
-    const updateColumnConfig = (key: string, updates: Partial<ColumnConfig>) => {
-        setColumnConfigs(prev => {
-            const current =
-                prev[key] ||
-                ({
-                    width:
-                        columns().find(col => col.accessorKey === key)?.width ||
-                        DEFAULT_COLS.filename,
-                    hidden: false
-                } as ColumnConfig);
-            return {
-                ...prev,
-                [key]: { ...current, ...updates }
-            };
-        });
-    };
+    const updateColumnConfig = (key: string, updates: ListColumnConfig) =>
+        updateListColumnConfig(key, updates);
 
     /**
      * Get column width
@@ -221,7 +184,7 @@ export const VirtualListView: Component = (): JSX.Element => {
      * @returns {number} The column width.
      */
     const getColumnWidth = (key: string, defaultWidth: number) => {
-        return columnConfigs()[key]?.width ?? defaultWidth;
+        return listColumnConfigs()[key]?.width ?? defaultWidth;
     };
 
     /**
@@ -231,9 +194,8 @@ export const VirtualListView: Component = (): JSX.Element => {
      * @param {boolean} defaultHidden - The default column hidden state.
      * @returns {boolean} The column hidden state.
      */
-    const isColumnHidden = (key: string, defaultHidden: boolean) => {
-        return columnConfigs()[key]?.hidden ?? defaultHidden;
-    };
+    const isColumnHidden = (key: string, defaultHidden: boolean) =>
+        isListColumnHidden(key, defaultHidden);
 
     /**
      * List thumbnail width
@@ -274,14 +236,22 @@ export const VirtualListView: Component = (): JSX.Element => {
                         height: `${listThumbHeight()}px`
                     }}
                 >
-                    {item.thumbnail_path && (
+                    <Show
+                        when={item.thumbnail_path}
+                        fallback={
+                            <FileIcon
+                                extension={getFileExtension(item.filename)}
+                                mediaType={item.media_type || 'Unknown'}
+                            />
+                        }
+                    >
                         <img
                             src={getThumbUrl(item.id, item.thumbnail_path)}
                             alt=""
                             draggable={false}
                             class="list-view-thumbnail"
                         />
-                    )}
+                    </Show>
                 </div>
             )
         },
