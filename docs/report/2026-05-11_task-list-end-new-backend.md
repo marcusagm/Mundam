@@ -25,9 +25,9 @@
 
 ## Acessibilidade e aparencia
 
-- [ ] Adicionar verificações de `prefers-reduced-motion` no CSS para animações de layout.
-- [ ] Permitir que o usuário customize os tokens de cores do aplicativo.
-- [ ] Permitir que o usuário carregue temas personalizados para o aplicativo.
+- [x] Adicionar verificações de `prefers-reduced-motion` no CSS para animações de layout.
+- [x] Permitir que o usuário customize os tokens de cores do aplicativo.
+- [x] Permitir que o usuário carregue temas personalizados para o aplicativo.
 
 ## Home
 

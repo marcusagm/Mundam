@@ -3,6 +3,7 @@ import { Clock, ArrowRight, FolderSearch } from 'lucide-solid';
 import { tagService } from '../../../lib/tags';
 import { AssetItem } from '../../../types';
 import { useSelection, useMetadata } from '../../../core/hooks';
+import { viewportActions } from '../../../core/store/viewportStore';
 import { filterActions } from '../../../core/store/filter';
 import { formatFileSize, formatRelativeTime } from '../../../utils/format';
 import { Thumbnail } from '../viewport/assets/Thumbnail';
@@ -103,7 +104,11 @@ export const HomeRecentStream: Component<HomeRecentStreamProperties> = propertie
      * @returns {void}
      */
     const handleSelectAsset = (selectedAsset: AssetItem): void => {
+        filterActions.clearAll();
+        filterActions.setSortBy('added_at');
+        filterActions.setSortOrder('desc');
         selection.select([selectedAsset.id]);
+        viewportActions.requestScrollToAsset(selectedAsset.id);
         properties.onNavigate('gallery');
     };
 

@@ -14,6 +14,7 @@
  */
 
 import { createSignal, createEffect, on, Accessor } from 'solid-js';
+import { viewportState, viewportActions } from '../store/viewportStore';
 import { useCommands, createConditionalScope } from '../input';
 import type { ShortcutPayload } from '../input/types';
 import type { ItemPosition } from '../viewport';
@@ -169,6 +170,17 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
             { defer: true }
         )
     );
+
+    // Honor external scroll requests (e.g. navigation from Home) once the item is laid out
+    createEffect(() => {
+        const targetId = viewportState.scrollTargetId;
+        if (targetId === null) return;
+        if (options.visibleItems().some(position => position.id === targetId)) {
+            viewportActions.requestScrollToAsset(null);
+            setFocusedId(targetId);
+            scrollToItem(targetId);
+        }
+    });
 
     // --- ACTIONS ---
 

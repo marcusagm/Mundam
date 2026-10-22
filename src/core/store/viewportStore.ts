@@ -27,6 +27,8 @@ interface ViewportState {
     };
     /** Currently focused item ID (e.g., in ItemView) */
     focusedItemId: string | null;
+    /** Asset the list viewport must scroll into view once it is laid out */
+    scrollTargetId: string | null;
     /** Zoom level for the immersive viewer (percentage, default 100) */
     zoom: number;
     /** Fit to screen mapping */
@@ -55,12 +57,18 @@ const [viewportState, setViewportState] = createStore<ViewportState>({
         viewportHeight: 800
     },
     focusedItemId: null,
+    scrollTargetId: null,
     zoom: 100,
     fitToScreen: true,
     pan: { x: 0, y: 0 }
 });
 
 export const viewportActions = {
+    /** Requests the gallery viewport to scroll the given asset into view. */
+    requestScrollToAsset: (id: string | null) => {
+        setViewportState('scrollTargetId', id);
+    },
+
     /**
      * Updates the focused item and synchronizes library selection.
      */

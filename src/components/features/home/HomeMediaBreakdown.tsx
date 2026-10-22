@@ -10,7 +10,6 @@ import {
     FolderArchive,
     Layers
 } from 'lucide-solid';
-import { filterActions } from '../../../core/store/filter';
 import { formatCompactNumber, formatFileSize } from '../../../utils/format';
 import { HomeMediaBreakdownProperties, MediaFamilyDisplayConfiguration } from './types';
 
@@ -173,18 +172,6 @@ export const HomeMediaBreakdown: Component<HomeMediaBreakdownProperties> = prope
         });
     });
 
-    /**
-     * Handles selecting a media family, filtering the gallery, and navigating.
-     *
-     * @param {string} familyKey - The selected media family key.
-     * @returns {void}
-     */
-    const handleFamilyRowClick = (familyKey: string): void => {
-        filterActions.clearAll();
-        filterActions.setFamily(familyKey);
-        properties.onNavigate('gallery');
-    };
-
     return (
         <section class="home-media-breakdown" aria-label="Media Family Composition">
             <div class="home-section-header">
@@ -221,12 +208,7 @@ export const HomeMediaBreakdown: Component<HomeMediaBreakdownProperties> = prope
             <div class="home-media-table" role="table" aria-label="Media types table">
                 <For each={normalizedStatistics()}>
                     {statisticItem => (
-                        <button
-                            type="button"
-                            class="home-media-table-row"
-                            onClick={() => handleFamilyRowClick(statisticItem.family)}
-                            title={`Filter ${statisticItem.configuration.displayLabel} in Gallery`}
-                        >
+                        <div class="home-media-table-row" role="row">
                             <div class="home-media-row-identity">
                                 <div
                                     class="home-media-row-icon"
@@ -265,7 +247,7 @@ export const HomeMediaBreakdown: Component<HomeMediaBreakdownProperties> = prope
                                     {statisticItem.percentageFormatted}
                                 </span>
                             </div>
-                        </button>
+                        </div>
                     )}
                 </For>
             </div>

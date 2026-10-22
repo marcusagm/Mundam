@@ -35,8 +35,6 @@ export interface HomeMediaBreakdownProperties {
     familyStatistics: FamilyStat[];
     /** Total library size in bytes */
     totalSizeBytes: number;
-    /** Callback to switch application view */
-    onNavigate: (view: ApplicationView) => void;
 }
 
 /**

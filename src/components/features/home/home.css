@@ -226,15 +226,9 @@
     border-top: none;
     color: inherit;
     font-family: inherit;
-    cursor: pointer;
     transition: background-color 0.15s ease, padding-left 0.15s ease;
     text-align: left;
     gap: var(--p-space-m);
-}
-
-.home-media-table-row:hover {
-    background: var(--bg-surface-2);
-    padding-left: var(--p-space-s);
 }
 
 .home-media-row-identity {

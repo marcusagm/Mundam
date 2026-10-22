@@ -1,6 +1,7 @@
 import { Component, JSX, onMount } from 'solid-js';
 import { ApplicationView } from '../components/layout/TitleBar/types';
 import { useMetadata } from '../core/hooks';
+import { libraryActions } from '../core/store/library';
 import { HomeQuickAccess, HomeMediaBreakdown, HomeRecentStream } from '../components/features/home';
 import '../components/features/home/home.css';
 
@@ -41,6 +42,10 @@ export const HomeView: Component<HomeViewProperties> = properties => {
      * @returns {void}
      */
     const handleNavigate = (targetView: ApplicationView): void => {
+        if (targetView === 'gallery') {
+            // The gallery is remounted; reload the list with the filters set by the home widgets
+            libraryActions.refreshAssets(true);
+        }
         if (properties.onNavigate) {
             properties.onNavigate(targetView);
         }
@@ -55,7 +60,6 @@ export const HomeView: Component<HomeViewProperties> = properties => {
                     <HomeMediaBreakdown
                         familyStatistics={metadata.stats.family_stats}
                         totalSizeBytes={metadata.stats.total_size_bytes}
-                        onNavigate={handleNavigate}
                     />
                     <HomeRecentStream onNavigate={handleNavigate} />
                 </div>
