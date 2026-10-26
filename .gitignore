@@ -32,11 +32,11 @@ desktop.ini
 #.agent
 
 # Environment Variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+#.env
+#.env.local
+#.env.development.local
+#.env.test.local
+#.env.production.local
 
 # Tauri / Rust Check
 # (Most Tauri ignores are in src-tauri/.gitignore, but avoiding redundancy here)
