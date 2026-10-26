@@ -2736,7 +2736,6 @@ dependencies = [
  "ddsfile",
  "half",
  "image 0.25.9",
- "intel_tex_2",
  "strum",
  "thiserror 1.0.69",
 ]
@@ -2824,15 +2823,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "intel_tex_2"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd699c0e6adcac28c06db24a220c834c8ec811e0d2d80f0261bb14e01737b4dc"
-dependencies = [
- "ispc_rt",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2876,16 +2866,6 @@ checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
 dependencies = [
  "is-docker",
  "once_cell",
-]
-
-[[package]]
-name = "ispc_rt"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a396f76fd253fab9945bb4c6080f515d0c4036bc30219462d199b58886fd37b4"
-dependencies = [
- "libc",
- "num_cpus",
 ]
 
 [[package]]
@@ -3886,16 +3866,6 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
-]
-
-[[package]]
-name = "num_cpus"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
-dependencies = [
- "hermit-abi",
- "libc",
 ]
 
 [[package]]
@@ -5285,9 +5255,9 @@ dependencies = [
 
 [[package]]
 name = "rsraw"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7acdab9c3e6b06df2277acf1b970ef7cc03a9f7c9b48073eb642294addf15af"
+checksum = "30a157a9eba721fbbac42c3a8dcf8b39e63420b17e10390623eb071be59effda"
 dependencies = [
  "chrono",
  "rsraw-sys",
@@ -5297,9 +5267,9 @@ dependencies = [
 
 [[package]]
 name = "rsraw-sys"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a139fcd166bbf7aead0ccd795ba782ab508fddb95fbd6fa62ea794947a649085"
+checksum = "e94485be17b6f6eab181abfcc378d7ccc1efc070c4e87cae3a0e75f110e8b754"
 dependencies = [
  "bindgen",
  "cc",

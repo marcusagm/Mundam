@@ -28,7 +28,8 @@ function Have($c) { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 function Update-SessionPath {
     $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $user = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:Path = "$machine;$user;$env:USERPROFILE\.cargo\bin"
+    # Prioritize MinGW/UCRT over MSYS POSIX /usr/bin to avoid windres escape issues
+    $env:Path = "C:\msys64\ucrt64\bin;C:\msys64\mingw64\bin;$machine;$user;$env:USERPROFILE\.cargo\bin"
 }
 
 function Install-WingetPackage($id, $label, $extraArgs = @()) {
@@ -57,11 +58,19 @@ if (-not $SkipSystem) {
     Install-WingetPackage 'Kitware.CMake' 'CMake'
     Install-WingetPackage 'LLVM.LLVM' 'LLVM (libclang for bindgen / rsraw-sys)'
     Install-WingetPackage 'Gyan.FFmpeg' 'FFmpeg'
-    if (Find-VisualStudioBuildTools) {
-        Ok 'Visual Studio C++ Build Tools already installed'
-    } else {
-        Install-WingetPackage 'Microsoft.VisualStudio.2022.BuildTools' 'Visual Studio 2022 Build Tools (C++)' `
-            @('--override', '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended')
+    Install-WingetPackage 'MSYS2.MSYS2' 'MSYS2 (MinGW-w64 / GCC)'
+    if (Test-Path 'C:\msys64\usr\bin\pacman.exe') {
+        if (-not (Test-Path 'C:\msys64\ucrt64\bin\gcc.exe')) {
+            Log 'Installing MinGW UCRT GCC via MSYS2 pacman'
+            & 'C:\msys64\usr\bin\pacman.exe' -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
+        }
+    }
+    # Ensure C:\msys64\ucrt64\bin is in User PATH
+    $ucrtBin = 'C:\msys64\ucrt64\bin'
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath -notmatch [regex]::Escape($ucrtBin)) {
+        [Environment]::SetEnvironmentVariable('Path', "$ucrtBin;$userPath", 'User')
+        Ok "Added $ucrtBin to User PATH"
     }
     Update-SessionPath
 }
@@ -74,9 +83,10 @@ $nodeMajor = [int](node -p "process.versions.node.split('.')[0]")
 if ($nodeMajor -lt 18) { throw "Node.js >= 18 is required (found $(node --version))." }
 Ok "node $(node --version)"
 
-Log 'Checking Rust toolchain'
+Log 'Checking Rust GNU toolchain (required for rsraw-sys / LibRaw)'
 if (-not (Have rustup)) { throw 'rustup not found. Open a NEW terminal after installation and re-run this script.' }
-rustup default stable-x86_64-pc-windows-msvc | Out-Null
+rustup toolchain install stable-x86_64-pc-windows-gnu | Out-Null
+rustup override set stable-x86_64-pc-windows-gnu | Out-Null
 Ok (rustc --version)
 
 # bindgen (used by rsraw-sys/LibRaw) needs libclang.
@@ -89,6 +99,36 @@ if (Test-Path (Join-Path $llvmBin 'libclang.dll')) {
     $env:LIBCLANG_PATH = $llvmBin
 } else {
     Warn "libclang.dll not found in $llvmBin. Install LLVM and set LIBCLANG_PATH, or the LibRaw build will fail."
+}
+
+Log 'Configuring Cargo target-dir (without spaces) and .cargo/config.toml'
+$targetDirNoSpaces = 'C:/cargo-target/mundam'
+if (-not (Test-Path 'C:\cargo-target\mundam')) {
+    New-Item -ItemType Directory -Force 'C:\cargo-target\mundam' | Out-Null
+    Ok "Created directory C:\cargo-target\mundam"
+}
+$cargoDir = Join-Path $RepoRoot '.cargo'
+$cargoConfigFile = Join-Path $cargoDir 'config.toml'
+if (-not (Test-Path $cargoDir)) {
+    New-Item -ItemType Directory -Force $cargoDir | Out-Null
+}
+if (-not (Test-Path $cargoConfigFile)) {
+    @'
+[build]
+# Use GNU toolchain to support rsraw/rsraw-sys (LibRaw wrapper).
+# rsraw-sys explicitly rejects MSVC in its build script.
+target = "x86_64-pc-windows-gnu"
+
+# MinGW dlltool/windres fails when paths contain spaces.
+# Redirect target directory to a root path without spaces.
+target-dir = "C:/cargo-target/mundam"
+
+[target.x86_64-pc-windows-gnu]
+# Use default GCC linker
+'@ | Set-Content -Path $cargoConfigFile -Encoding utf8
+    Ok "Configured .cargo/config.toml with target-dir = C:/cargo-target/mundam"
+} else {
+    Ok ".cargo/config.toml already present"
 }
 
 Log 'Fetching git submodules (GoPro GPR SDK)'
@@ -160,10 +200,27 @@ if (Test-Path $pdfiumDll) {
 }
 
 Log 'Checking SoundFont (MIDI preview)'
-if (Get-ChildItem (Join-Path $TauriDir 'resources\soundfonts') -Filter *.sf2 -ErrorAction SilentlyContinue) {
+$sfDir = Join-Path $TauriDir 'resources\soundfonts'
+New-Item -ItemType Directory -Force $sfDir | Out-Null
+if (Get-ChildItem $sfDir -Filter *.sf2 -ErrorAction SilentlyContinue) {
     Ok 'SoundFont present'
+} elseif (Have python) {
+    Log 'Downloading SoundFont via download_sf2.py'
+    Push-Location $RepoRoot
+    try {
+        python download_sf2.py
+        if (Get-ChildItem $sfDir -Filter *.sf2 -ErrorAction SilentlyContinue) {
+            Ok 'SoundFont downloaded successfully'
+        } else {
+            Warn 'SoundFont download failed; MIDI preview will be unavailable.'
+        }
+    } catch {
+        Warn "Failed to run download_sf2.py: $_"
+    } finally {
+        Pop-Location
+    }
 } else {
-    Warn 'No .sf2 in src-tauri\resources\soundfonts; MIDI preview will fail (see download_sf2.py).'
+    Warn 'No .sf2 in src-tauri\resources\soundfonts; MIDI preview will fail (install Python and run download_sf2.py).'
 }
 
 if ($Check) {

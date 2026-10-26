@@ -650,6 +650,7 @@ pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
 
     // For Windows/Linux, copying actual files to clipboard natively requires extra crates like `arboard`.
     // We just do MacOS as Mundam is primarily MacOS currently.
+    let _ = &paths;
 
     Ok(())
 }

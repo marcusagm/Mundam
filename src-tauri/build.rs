@@ -1,12 +1,35 @@
 fn main() {
+    // Ensure native MinGW binary directory is prioritized over MSYS POSIX (/usr/bin) in PATH.
+    // MSYS's /usr/bin/windres treats Windows path backslashes as escape characters, breaking resource compilation.
+    #[cfg(target_os = "windows")]
+    if let Ok(current_path) = std::env::var("PATH") {
+        let new_path = format!("C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin;{}", current_path);
+        std::env::set_var("PATH", new_path);
+    }
+
     tauri_build::build();
 
-    // Only build and link the GPR SDK if the vendor directory exists
+    // Only build and link the GPR SDK if the vendor directory exists.
+    // NOTE: Skip on Windows — the DNG SDK bundled inside GPR SDK ships its own
+    // pthread shim (dng_pthread.cpp) intended for MSVC. On MinGW that shim conflicts
+    // with the native pthread.h types (e.g. pthread_rwlockattr_t, dng_pthread_t).
+    // GPR/GoPro RAW support is therefore disabled on Windows builds.
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let vendor_path = std::path::Path::new("vendor/gpr_sdk");
-    if vendor_path.exists() {
-        let dst = cmake::Config::new("vendor/gpr_sdk")
-            .build_target("all")
-            .build();
+    if vendor_path.exists() && target_os != "windows" {
+        let mut cmake_cfg = cmake::Config::new("vendor/gpr_sdk");
+        cmake_cfg.build_target("all");
+
+        // Build scripts are compiled for the HOST, so #[cfg(target_env)] checks
+        // the HOST env, not the TARGET. Use runtime env vars to detect the target.
+        let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+        if target_env == "gnu" {
+            cmake_cfg
+                .define("CMAKE_C_COMPILER", "gcc")
+                .define("CMAKE_CXX_COMPILER", "g++");
+        }
+
+        let dst = cmake_cfg.build();
 
         // Add search paths for all subdirectories containing the static libraries
         println!(
@@ -55,7 +78,7 @@ fn main() {
         // Link C++ standard library
         #[cfg(target_os = "macos")]
         println!("cargo:rustc-link-lib=c++");
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", all(target_os = "windows", target_env = "gnu")))]
         println!("cargo:rustc-link-lib=stdc++");
 
         // Tell cargo to invalidate the built crate whenever the wrapper changes

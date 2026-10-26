@@ -24,6 +24,7 @@
 //! pipeline (quickraw → LibRaw → brute-force JPEG scan → FFmpeg).
 
 use crate::core::error::{AppError, AppResult};
+#[cfg(not(target_os = "windows"))]
 use crate::processing::media::extractors::image;
 use std::path::Path;
 
@@ -125,19 +126,24 @@ fn extract_tiff_ifd0_dimensions(file_bytes: &[u8]) -> Option<(u32, u32)> {
 }
 
 // ─── Native GoPro SDK (C FFI) ──────────────────────────────────────────────
+// The GPR SDK is not compiled on Windows (pthread conflicts with MinGW).
+// All FFI symbols and the native decode path are guarded accordingly.
 
+#[cfg(not(target_os = "windows"))]
 #[repr(C)]
 struct gpr_allocator {
     alloc: Option<extern "C" fn(usize) -> *mut std::ffi::c_void>,
     free: Option<extern "C" fn(*mut std::ffi::c_void)>,
 }
 
+#[cfg(not(target_os = "windows"))]
 #[repr(C)]
 struct gpr_buffer {
     buffer: *mut std::ffi::c_void,
     size: usize,
 }
 
+#[cfg(not(target_os = "windows"))]
 #[repr(C)]
 struct gpr_rgb_buffer {
     buffer: *mut std::ffi::c_void,
@@ -146,6 +152,7 @@ struct gpr_rgb_buffer {
     height: usize,
 }
 
+#[cfg(not(target_os = "windows"))]
 #[allow(dead_code)]
 #[repr(C)]
 enum GPR_RGB_RESOLUTION {
@@ -156,6 +163,7 @@ enum GPR_RGB_RESOLUTION {
     FULL = 5,
 }
 
+#[cfg(not(target_os = "windows"))]
 extern "C" {
     fn gpr_convert_gpr_to_rgb(
         allocator: *const gpr_allocator,
@@ -166,16 +174,19 @@ extern "C" {
     ) -> bool;
 }
 
+#[cfg(not(target_os = "windows"))]
 extern "C" fn gpr_malloc(size: usize) -> *mut std::ffi::c_void {
     unsafe { libc::malloc(size) }
 }
 
+#[cfg(not(target_os = "windows"))]
 extern "C" fn gpr_free_func(ptr: *mut std::ffi::c_void) {
     unsafe { libc::free(ptr) }
 }
 
 /// Decodes VC-5 payload natively using the GoPro GPR SDK.
 /// Returns an RGB8 image buffer.
+#[cfg(not(target_os = "windows"))]
 fn decode_gpr_natively(
     gpr_data: &[u8],
     resolution: GPR_RGB_RESOLUTION,
@@ -303,6 +314,7 @@ pub fn extract_gpr_metadata(path: &Path) -> AppResult<serde_json::Value> {
 /// # Returns
 ///
 /// WebP-encoded thumbnail bytes.
+#[cfg(not(target_os = "windows"))]
 pub fn generate_gpr_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>> {
     tracing::debug!("GPR thumbnail: using native SDK pipeline for {:?}", path);
     let file_bytes = std::fs::read(path).map_err(AppError::Io)?;
@@ -312,6 +324,14 @@ pub fn generate_gpr_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>>
     let dynamic_image = ::image::DynamicImage::ImageRgb8(decoded_image);
 
     image::process_and_encode_webp(dynamic_image, size_hint)
+}
+
+/// Windows stub — GPR SDK not available on Windows (DNG SDK pthread conflict with MinGW).
+#[cfg(target_os = "windows")]
+pub fn generate_gpr_thumbnail(_path: &Path, _size_hint: u32) -> AppResult<Vec<u8>> {
+    Err(AppError::Generic(
+        "GPR/GoPro RAW thumbnail is not supported on Windows builds (GPR SDK requires non-MinGW environment)".to_string()
+    ))
 }
 
 /// Extracts a high-quality JPEG preview from a GoPro RAW (.gpr) file.
@@ -326,6 +346,7 @@ pub fn generate_gpr_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>>
 /// # Returns
 ///
 /// JPEG bytes suitable for display.
+#[cfg(not(target_os = "windows"))]
 pub fn extract_gpr_preview(path: &Path) -> AppResult<Vec<u8>> {
     tracing::debug!("GPR preview: using native SDK pipeline for {:?}", path);
     let file_bytes = std::fs::read(path).map_err(AppError::Io)?;
@@ -340,6 +361,14 @@ pub fn extract_gpr_preview(path: &Path) -> AppResult<Vec<u8>> {
         .map_err(|e| AppError::Generic(format!("Failed to encode GPR preview as JPEG: {}", e)))?;
 
     Ok(jpeg_bytes)
+}
+
+/// Windows stub — GPR SDK not available on Windows.
+#[cfg(target_os = "windows")]
+pub fn extract_gpr_preview(_path: &Path) -> AppResult<Vec<u8>> {
+    Err(AppError::Generic(
+        "GPR/GoPro RAW preview is not supported on Windows builds (GPR SDK requires non-MinGW environment)".to_string()
+    ))
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────

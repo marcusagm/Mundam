@@ -1,0 +1,15 @@
+[build]
+# Use GNU toolchain to support rsraw/rsraw-sys (LibRaw wrapper).
+# rsraw-sys explicitly rejects MSVC in its build script.
+target = "x86_64-pc-windows-gnu"
+
+# MinGW's dlltool fails when the build path contains spaces (splits on space,
+# treats "C:\Users\Marcus" as path and "Maia\..." as an argument flag).
+target-dir = "C:/cargo-target/mundam"
+
+
+[target.x86_64-pc-windows-gnu]
+# Use default GCC linker
+
+
+
