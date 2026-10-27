@@ -12,6 +12,7 @@ import {
     getStreamingToken,
     type VideoProbeResult
 } from './hls-player';
+import { getAssetUrl } from '../core/utils/assetUrl';
 
 export { HLS_SERVER_URL };
 
@@ -144,7 +145,7 @@ export function getAudioUrl(
     }
 
     // Default to asset protocol (direct file access)
-    return `asset://localhost/${assetId}`;
+    return getAssetUrl(assetId);
 }
 
 function requiresLinearHls(path: string, probe?: VideoProbeResult | null): boolean {
@@ -179,7 +180,7 @@ export function getVideoUrl(
     }
 
     // Native format (MP4/MOV) - Direct file access over custom protocol
-    return `asset://localhost/${assetId}`;
+    return getAssetUrl(assetId);
 }
 
 /**

@@ -47,7 +47,10 @@ pub async fn handler_async<R: tauri::Runtime>(
     let uri = request.uri().to_string();
 
     let (asset_id, requested_type) = parse_asset_uri(&uri);
-    let is_thumb = requested_type == Some("thumb".to_string()) || uri.starts_with("thumb://");
+    let is_thumb = requested_type == Some("thumb".to_string())
+        || uri.starts_with("thumb://")
+        || uri.starts_with("http://thumb.localhost")
+        || uri.starts_with("https://thumb.localhost");
     let is_preview = requested_type == Some("preview".to_string());
     let is_glb = requested_type == Some("glb".to_string());
 
@@ -252,20 +255,24 @@ pub fn handler<R: tauri::Runtime>(
 /// assert_eq!(req_type, Some("thumb".to_string()));
 /// ```
 fn parse_asset_uri(uri: &str) -> (String, Option<String>) {
-    let prefix = "asset://localhost/";
-    let fallback = "asset://";
+    let prefixes = [
+        "asset://localhost/",
+        "asset://",
+        "http://asset.localhost/",
+        "https://asset.localhost/",
+        "thumb://localhost/",
+        "thumb://",
+        "http://thumb.localhost/",
+        "https://thumb.localhost/",
+    ];
 
-    let path_with_query = if let Some(rest) = uri.strip_prefix(prefix) {
-        rest
-    } else if let Some(rest) = uri.strip_prefix(fallback) {
-        rest
-    } else if let Some(rest) = uri.strip_prefix("thumb://localhost/") {
-        rest
-    } else if let Some(rest) = uri.strip_prefix("thumb://") {
-        rest
-    } else {
-        uri
-    };
+    let mut path_with_query = uri;
+    for prefix in &prefixes {
+        if let Some(rest) = uri.strip_prefix(prefix) {
+            path_with_query = rest;
+            break;
+        }
+    }
 
     let (path_part, query_part) = if let Some(pos) = path_with_query.find('?') {
         (&path_with_query[..pos], Some(&path_with_query[pos + 1..]))
@@ -342,4 +349,54 @@ async fn serve_file_async(
 
     // Simplistic MIME detection. Use fallback octet setup if unfound.
     serve_file(path, range).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_asset_uri_macos() {
+        let (id, req_type) = parse_asset_uri("asset://localhost/12345?type=thumb");
+        assert_eq!(id, "12345");
+        assert_eq!(req_type, Some("thumb".to_string()));
+
+        let (id2, req_type2) = parse_asset_uri("asset://localhost/abc-def?type=preview");
+        assert_eq!(id2, "abc-def");
+        assert_eq!(req_type2, Some("preview".to_string()));
+
+        let (id3, req_type3) = parse_asset_uri("asset://localhost/model-id?type=glb");
+        assert_eq!(id3, "model-id");
+        assert_eq!(req_type3, Some("glb".to_string()));
+
+        let (id4, req_type4) = parse_asset_uri("asset://localhost/raw-asset-id");
+        assert_eq!(id4, "raw-asset-id");
+        assert_eq!(req_type4, None);
+    }
+
+    #[test]
+    fn test_parse_asset_uri_windows() {
+        let (id, req_type) = parse_asset_uri("http://asset.localhost/12345?type=thumb");
+        assert_eq!(id, "12345");
+        assert_eq!(req_type, Some("thumb".to_string()));
+
+        let (id2, req_type2) = parse_asset_uri("http://asset.localhost/abc-def?type=preview");
+        assert_eq!(id2, "abc-def");
+        assert_eq!(req_type2, Some("preview".to_string()));
+
+        let (id3, req_type3) = parse_asset_uri("https://asset.localhost/model-id?type=glb");
+        assert_eq!(id3, "model-id");
+        assert_eq!(req_type3, Some("glb".to_string()));
+
+        let (id4, req_type4) = parse_asset_uri("http://asset.localhost/raw-asset-id");
+        assert_eq!(id4, "raw-asset-id");
+        assert_eq!(req_type4, None);
+    }
+
+    #[test]
+    fn test_parse_asset_uri_strip_extension() {
+        let (id, req_type) = parse_asset_uri("http://asset.localhost/12345.webp?type=thumb");
+        assert_eq!(id, "12345");
+        assert_eq!(req_type, Some("thumb".to_string()));
+    }
 }

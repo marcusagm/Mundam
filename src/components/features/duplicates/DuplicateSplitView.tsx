@@ -11,6 +11,7 @@ import { DuplicateCandidate } from './types';
 import { ImageViewer } from '../itemview/renderers/image/ImageViewer';
 import { ItemViewProvider } from '../itemview/ItemViewContext';
 import { DuplicateOverlayView } from './DuplicateOverlayView';
+import { getAssetUrl } from '../../../core/utils/assetUrl';
 import './duplicate-split-view.css';
 
 /**
@@ -155,7 +156,10 @@ export const DuplicateSplitView: Component<DuplicateSplitViewProperties> = props
                                                     </div>
                                                     <div class="split-panel-image">
                                                         <ImageViewer
-                                                            src={`asset://localhost/${candidateA().id}?type=preview`}
+                                                            src={getAssetUrl(
+                                                                candidateA().id,
+                                                                'preview'
+                                                            )}
                                                             alt={candidateA().name}
                                                         />
                                                     </div>
@@ -179,7 +183,10 @@ export const DuplicateSplitView: Component<DuplicateSplitViewProperties> = props
                                                     </div>
                                                     <div class="split-panel-image">
                                                         <ImageViewer
-                                                            src={`asset://localhost/${candidateB().id}?type=preview`}
+                                                            src={getAssetUrl(
+                                                                candidateB().id,
+                                                                'preview'
+                                                            )}
                                                             alt={candidateB().name}
                                                         />
                                                     </div>

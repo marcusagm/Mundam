@@ -9,6 +9,7 @@ import {
     clearCompleted,
     subscribeThumbnailReady
 } from '../../../../core/store/thumbnailStore';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 import './thumbnail.css';
 import './file-icon.css';
 
@@ -190,7 +191,7 @@ export function Thumbnail(thumbnailProperties: ThumbnailProperties) {
         const path = effectiveThumbnail();
         if (!path || path === '') return undefined;
 
-        return `asset://localhost/${thumbnailProperties.id}?type=thumb`;
+        return getAssetUrl(thumbnailProperties.id, 'thumb');
     });
 
     /**

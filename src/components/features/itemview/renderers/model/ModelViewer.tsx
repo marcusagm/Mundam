@@ -2,6 +2,7 @@ import { Component, createMemo, Show, createEffect } from 'solid-js';
 import '@google/model-viewer';
 import { Loader } from '../../../../ui/Loader';
 import { useItemViewContext } from '../../ItemViewContext';
+import { getAssetUrl } from '../../../../../core/utils/assetUrl';
 import './model-viewer.css';
 
 declare module 'solid-js' {
@@ -83,13 +84,13 @@ export const ModelViewer: Component<ModelViewerProps> = props => {
     const glbUrl = createMemo(() => {
         if (!props.assetId) return '';
         // Signal that we want the GLB version (either original or cached conversion)
-        return `asset://localhost/${props.assetId}?type=glb`;
+        return getAssetUrl(props.assetId, 'glb');
     });
 
     // Build thumbnail URL
     const thumbUrl = createMemo(() => {
         if (!props.assetId) return '';
-        return `asset://localhost/${props.assetId}?type=thumb`;
+        return getAssetUrl(props.assetId, 'thumb');
     });
 
     return (

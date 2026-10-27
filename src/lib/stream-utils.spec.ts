@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getVideoUrl, getAudioUrl } from './stream-utils';
+import { getAssetUrl } from '../core/utils/assetUrl';
 vi.mock('../core/store/formatStore', () => {
     const strategyMap: Record<string, string> = {
         mp4: 'native',
@@ -28,7 +29,7 @@ describe('stream-utils URL generation', () => {
             const path = '/Movies/test_video.mp4';
             const assetId = '12345';
             const url = getVideoUrl(assetId, path, 'standard');
-            expect(url).toBe(`asset://localhost/${assetId}`);
+            expect(url).toBe(getAssetUrl(assetId));
         });
 
         it('should return HLS URL for standard transcoding videos (MKV)', () => {
@@ -53,7 +54,7 @@ describe('stream-utils URL generation', () => {
             const path = '/Music/test_audio.mp3';
             const assetId = '12345';
             const url = getAudioUrl(assetId, path, 'standard');
-            expect(url).toBe(`asset://localhost/${assetId}`);
+            expect(url).toBe(getAssetUrl(assetId));
         });
 
         it('should return HLS URL for transcoded audio', () => {

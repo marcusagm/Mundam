@@ -4,6 +4,7 @@ import { InspectorTags } from '../base/InspectorTags';
 import { Accordion, AccordionItem, AccordionHeader, AccordionContent } from '../../../ui';
 import { Layers } from 'lucide-solid';
 import { accordionActions, accordionStoreState } from '../../../../core/store/accordionStore';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 import './MultiInspector.css';
 
 interface MultiInspectorProps {
@@ -41,9 +42,7 @@ export const MultiInspector: Component<MultiInspectorProps> = props => {
                                 >
                                     <img
                                         src={
-                                            item.thumbnail_path
-                                                ? `asset://localhost/${item.id}?type=thumb`
-                                                : ''
+                                            item.thumbnail_path ? getAssetUrl(item.id, 'thumb') : ''
                                         }
                                         class="deck-card-image"
                                     />

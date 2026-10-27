@@ -1,5 +1,6 @@
 import { Component, Show, createSignal, createMemo, onMount, onCleanup } from 'solid-js';
 import { DuplicateCandidate } from './types';
+import { getAssetUrl } from '../../../core/utils/assetUrl';
 import './duplicate-split-view.css';
 
 /**
@@ -194,13 +195,13 @@ export const DuplicateOverlayView: Component<DuplicateOverlayViewProperties> = p
                 onMouseDown={handleOverlayMouseDown}
             >
                 <img
-                    src={`asset://localhost/${properties.candidateA.id}?type=preview`}
+                    src={getAssetUrl(properties.candidateA.id, 'preview')}
                     alt={properties.candidateA.name}
                     class="split-overlay-layer base-layer"
                     onLoad={handleImageLoad}
                 />
                 <img
-                    src={`asset://localhost/${properties.candidateB.id}?type=preview`}
+                    src={getAssetUrl(properties.candidateB.id, 'preview')}
                     alt={properties.candidateB.name}
                     class={`split-overlay-layer target-layer ${properties.comparisonMode === 'difference' ? (properties.isDifferenceInverted ? 'is-difference-inverted' : 'is-difference') : ''}`}
                     style={calculateTargetLayerStyle()}

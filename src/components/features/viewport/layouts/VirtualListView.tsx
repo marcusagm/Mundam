@@ -22,6 +22,7 @@ import {
     type ListColumnConfig
 } from '../../../../core/store/listColumnsStore';
 import { FileIcon } from '../assets/FileIcon';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 
 /**
  * Thumbnail scale factor
@@ -163,7 +164,7 @@ export const VirtualListView: Component = (): JSX.Element => {
      */
     const getThumbUrl = (id: string, path: string | null) => {
         if (!path) return undefined;
-        return `asset://localhost/${id}?type=thumb`;
+        return getAssetUrl(id, 'thumb');
     };
 
     /**

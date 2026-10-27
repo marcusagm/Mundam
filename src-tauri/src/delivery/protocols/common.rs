@@ -15,15 +15,33 @@ pub fn error_response(status: StatusCode, body: Vec<u8>) -> Response<Vec<u8>> {
 
 /// Helper to decode URI paths and handle potential issues
 pub fn decode_uri_path(uri: &str, scheme: &str) -> String {
-    let prefix = format!("{}://localhost/", scheme);
-    let path = uri.strip_prefix(&prefix).unwrap_or(uri);
+    let prefixes = [
+        format!("{}://localhost/", scheme),
+        format!("{}://", scheme),
+        format!("http://{}.localhost/", scheme),
+        format!("https://{}.localhost/", scheme),
+    ];
+    let mut path = uri;
+    for prefix in &prefixes {
+        if let Some(rest) = uri.strip_prefix(prefix) {
+            path = rest;
+            break;
+        }
+    }
 
     // Remove query parameters if any
     let path = path.split('?').next().unwrap_or(path);
 
-    percent_encoding::percent_decode_str(path)
+    let decoded = percent_encoding::percent_decode_str(path)
         .decode_utf8_lossy()
-        .into_owned()
+        .into_owned();
+
+    // On Windows, if a path starts with "/C:/" or "/C:\", strip the leading slash
+    if cfg!(windows) && decoded.starts_with('/') && decoded.len() > 2 && decoded.as_bytes()[2] == b':' {
+        decoded[1..].to_string()
+    } else {
+        decoded
+    }
 }
 
 /// Asynchronously serves a file with HTTP 206 Partial Content (Range) support.
@@ -178,4 +196,27 @@ pub async fn serve_file(
         .header(header::CACHE_CONTROL, "public, max-age=3600")
         .body(all_data)
         .unwrap_or_else(|_| Response::default()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_uri_path_macos() {
+        let decoded = decode_uri_path("video://localhost/Movies/sample.mp4", "video");
+        assert_eq!(decoded, "Movies/sample.mp4");
+
+        let decoded_audio = decode_uri_path("audio://localhost/Music/song.mp3?query=1", "audio");
+        assert_eq!(decoded_audio, "Music/song.mp3");
+    }
+
+    #[test]
+    fn test_decode_uri_path_windows() {
+        let decoded = decode_uri_path("http://video.localhost/Movies/sample.mp4", "video");
+        assert_eq!(decoded, "Movies/sample.mp4");
+
+        let decoded_audio = decode_uri_path("http://audio.localhost/Music/song.mp3?query=1", "audio");
+        assert_eq!(decoded_audio, "Music/song.mp3");
+    }
 }

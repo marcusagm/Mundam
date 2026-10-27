@@ -5,6 +5,7 @@ import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
 import { Type } from 'lucide-solid';
 import { accordionActions, accordionStoreState } from '../../../../core/store/accordionStore';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 import './FontInspector.css';
 
 interface FontInspectorProps {
@@ -29,7 +30,7 @@ export const FontInspector: Component<FontInspectorProps> = props => {
                 >
                     <img
                         class="preview-image"
-                        src={`asset://localhost/${props.item.id}?type=thumb`}
+                        src={getAssetUrl(props.item.id, 'thumb')}
                         alt={props.item.filename}
                     />
                 </Show>

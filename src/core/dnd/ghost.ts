@@ -1,4 +1,5 @@
 import { AssetItem } from '../../types';
+import { getAssetUrl } from '../utils/assetUrl';
 
 /**
  * Creates a "ghost" element for drag-and-drop feedback.
@@ -43,7 +44,7 @@ export const createDragGhost = (items: AssetItem[]) => {
 
         if (item.thumbnail_path) {
             const img = document.createElement('img');
-            img.src = `asset://localhost/${item.id}?type=thumb`;
+            img.src = getAssetUrl(item.id, 'thumb');
 
             Object.assign(img.style, {
                 width: '100%',

@@ -26,6 +26,7 @@ import { Loader } from '../../ui/Loader';
 import { Button } from '../../ui/Button';
 import { formatActions } from '../../../core/store/formatStore';
 import { getMediaType } from '../../../lib/stream-utils';
+import { getAssetUrl } from '../../../core/utils/assetUrl';
 import './item-view.css';
 
 export const ItemView: Component = () => {
@@ -209,9 +210,10 @@ const ItemViewContent: Component = () => {
                                         ['nativeExtractor', 'convert', 'ffmpeg', 'raw'].includes(
                                             format.preview_strategy
                                         );
-                                    return `asset://localhost/${item()!.id}${
-                                        needsPreview ? '?type=preview' : ''
-                                    }`;
+                                    return getAssetUrl(
+                                        item()!.id,
+                                        needsPreview ? 'preview' : undefined
+                                    );
                                 })()}
                                 alt={item()!.filename}
                                 onImageLoaded={() => setIsPreviewLoading(false)}
@@ -234,7 +236,7 @@ const ItemViewContent: Component = () => {
                         </Match>
                         <Match when={mediaType() === 'font'}>
                             <FontView
-                                src={`asset://localhost/${item()!.id}`}
+                                src={getAssetUrl(item()!.id)}
                                 fontName={item()!.filename}
                                 onReady={() => setIsPreviewLoading(false)}
                             />

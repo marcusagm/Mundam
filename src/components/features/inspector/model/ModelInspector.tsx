@@ -5,6 +5,7 @@ import { InspectorTags } from '../base/InspectorTags';
 import { CommonMetadata } from '../base/CommonMetadata';
 import { Box, Layers } from 'lucide-solid';
 import { accordionActions, accordionStoreState } from '../../../../core/store/accordionStore';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 import './ModelInspector.css';
 
 interface ModelInspectorProps {
@@ -29,7 +30,7 @@ export const ModelInspector: Component<ModelInspectorProps> = props => {
                 >
                     <img
                         class="preview-image"
-                        src={`asset://localhost/${props.item.id}?type=thumb`}
+                        src={getAssetUrl(props.item.id, 'thumb')}
                         alt={props.item.filename}
                     />
                 </Show>

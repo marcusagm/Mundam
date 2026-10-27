@@ -7,6 +7,7 @@ import { AdvancedMetadata } from './AdvancedMetadata.tsx';
 import { ColorPaletteSection } from './ColorPaletteSection';
 import { Accordion } from '../../../ui';
 import { accordionActions, accordionStoreState } from '../../../../core/store/accordionStore';
+import { getAssetUrl } from '../../../../core/utils/assetUrl';
 import './ImageInspector.css';
 
 interface ImageInspectorProps {
@@ -23,11 +24,7 @@ export const ImageInspector: Component<ImageInspectorProps> = props => {
             <div class="inspector-preview square">
                 <img
                     class="preview-image"
-                    src={
-                        props.item.thumbnail_path
-                            ? `asset://localhost/${props.item.id}?type=thumb`
-                            : ''
-                    }
+                    src={props.item.thumbnail_path ? getAssetUrl(props.item.id, 'thumb') : ''}
                     alt={props.item.filename}
                 />
             </div>
