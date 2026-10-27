@@ -1,5 +1,8 @@
 import { DropStrategy, DragItem, DndActionResult } from '../dnd-core';
 import { ErrorCode } from '../../types/actions';
+import { libraryActions } from '../../store/library';
+import { selectionState } from '../../store/selectionStore';
+import { metadataActions } from '../../store/metadata';
 
 /**
  * Strategy: Dropping items onto a Tag target.
@@ -20,9 +23,6 @@ export const TagDropStrategy: DropStrategy = {
         }
 
         if (item.type === 'ASSET') {
-            const { libraryActions } = await import('../../store/library');
-            const { selectionState } = await import('../../store/selectionStore');
-
             let assetIds: string[] = [String(item.payload.id)];
             if (selectionState.selectedIds.includes(String(item.payload.id))) {
                 assetIds = [...selectionState.selectedIds];
@@ -34,7 +34,6 @@ export const TagDropStrategy: DropStrategy = {
         }
 
         if (item.type === 'TAG') {
-            const { metadataActions } = await import('../../store/metadata');
             const draggedTagId = String(item.payload.id);
             return await metadataActions.moveTag(draggedTagId, targetTagId, position);
         }

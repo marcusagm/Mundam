@@ -15,6 +15,8 @@ import {
 import { Sonner } from './components/ui';
 import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
+import { appearanceActions } from './core/store/appearanceStore';
+import { formatActions } from './core/store/formatStore';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -51,12 +53,8 @@ function App() {
 
     onMount(() => {
         system.initialize();
-        import('./core/store/appearanceStore').then(({ appearanceActions }) => {
-            appearanceActions.initialize();
-        });
-        import('./core/store/formatStore').then(({ formatActions }) => {
-            formatActions.initialize();
-        });
+        appearanceActions.initialize();
+        formatActions.initialize();
 
         // Register Strategies
         dndRegistry.register('TAG', TagDropStrategy);

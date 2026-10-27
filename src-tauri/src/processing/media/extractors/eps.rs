@@ -48,7 +48,13 @@ fn convert_ps_to_pdf(path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>>
             vec!["gs"]
         };
         for cmd in cmds {
-            if let Ok(out) = std::process::Command::new(cmd)
+            let mut gs_cmd = std::process::Command::new(cmd);
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                gs_cmd.creation_flags(0x08000000);
+            }
+            if let Ok(out) = gs_cmd
                 .args(["-sDEVICE=pdfwrite", "-dSAFER", "-dBATCH", "-dNOPAUSE"])
                 .arg(format!("-sOutputFile={}", temp_db.display()))
                 .arg(path)

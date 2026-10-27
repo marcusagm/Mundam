@@ -1,5 +1,6 @@
 import { DropStrategy, DragItem, DndActionResult } from '../dnd-core';
 import { ErrorCode } from '../../types/actions';
+import { libraryActions } from '../../store/library';
 
 /**
  * Strategy: Dropping items onto an Asset target.
@@ -12,7 +13,6 @@ export const AssetDropStrategy: DropStrategy = {
 
     onDrop: async (item: DragItem, targetId: number | string): Promise<DndActionResult> => {
         if (item.type === 'TAG') {
-            const { libraryActions } = await import('../../store/library');
             const targetAssetId = String(targetId);
             const tagId = String(item.payload.id);
 

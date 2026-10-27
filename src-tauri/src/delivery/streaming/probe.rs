@@ -67,7 +67,13 @@ pub async fn get_video_info(
     }
 
     // Run ffprobe with JSON output
-    let output = Command::new(&ffprobe_path)
+    let mut cmd = Command::new(&ffprobe_path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd
         .args([
             "-v",
             "quiet",

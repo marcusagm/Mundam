@@ -118,6 +118,9 @@ impl HlsManager {
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true);
 
+        #[cfg(windows)]
+        cmd.creation_flags(0x08000000);
+
         let child = cmd
             .spawn()
             .map_err(|e| AppError::Generic(format!("Fatal spawn of FFmpeg subprocess: {}", e)))?;

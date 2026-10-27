@@ -160,6 +160,9 @@ async fn transcode_segment(
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+
     let child = cmd.spawn()?;
 
     if let Some(id) = child.id() {

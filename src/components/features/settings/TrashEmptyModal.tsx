@@ -2,6 +2,7 @@ import { ConfirmModal } from '../../ui';
 import { Component, createSignal } from 'solid-js';
 import { useNotification, useMetadata } from '../../../core/hooks';
 import { invokeCommand } from '../../../lib/api';
+import { libraryActions } from '../../../core/store/library';
 import './trash-empty-modal.css';
 
 /**
@@ -42,7 +43,6 @@ export const TrashEmptyModal: Component<TrashEmptyModalProperties> = componentPr
                 'Trash Emptied',
                 `Permanently deleted ${deletedCount} item${deletedCount !== 1 ? 's' : ''}.`
             );
-            const { libraryActions } = await import('../../../core/store/library/libraryActions');
             await libraryActions.refreshAssets(true);
             await metadata.loadStats();
         } catch (error) {

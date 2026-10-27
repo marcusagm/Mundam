@@ -29,4 +29,25 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@google/model-viewer")) {
+            return "vendor-model-viewer";
+          }
+          if (id.includes("hls.js")) {
+            return "vendor-hls";
+          }
+          if (id.includes("lucide-solid")) {
+            return "vendor-icons";
+          }
+          if (id.includes("@tauri-apps")) {
+            return "vendor-tauri";
+          }
+        },
+      },
+    },
+  },
 }));

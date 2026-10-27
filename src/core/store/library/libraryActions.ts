@@ -16,7 +16,12 @@ let currentOffset = 0;
 // Identifies the latest refresh so slower, older responses never overwrite newer data.
 let latestRefreshRequestId = 0;
 
-import { itemActions } from './itemActions';
+import { itemActions, setRefreshAssetsHandler } from './itemActions';
+import { metadataActions, metadataState } from '../metadata';
+import { tauriService } from '../../tauri/services';
+import { addLocation as dbAddLocation } from '../../../lib/db';
+import { open } from '@tauri-apps/plugin-dialog';
+import { eventBus } from '../../utils/eventBus';
 import type { SearchGroup, SearchCriterion } from '../../../types';
 import type { SearchGroup as UISearchGroup } from '../filter/schemas';
 
@@ -142,82 +147,75 @@ export const libraryActions = {
 
         if (payload.updated && payload.updated.length > 0) {
             const updatedItems = payload.updated;
-            import('../metadata').then(({ metadataState }) => {
-                const { selectedFolderIds, recursive, locations, currentItems } = untrack(() => ({
-                    selectedFolderIds: [...filterState.selectedFolderIds],
-                    recursive: filterState.folderRecursiveView,
-                    locations: metadataState.locations,
-                    currentItems: libraryState.items
-                }));
+            const { selectedFolderIds, recursive, locations, currentItems } = untrack(() => ({
+                selectedFolderIds: [...filterState.selectedFolderIds],
+                recursive: filterState.folderRecursiveView,
+                locations: metadataState.locations,
+                currentItems: libraryState.items
+            }));
 
-                const locationMap = new Map(locations.map(location => [location.id, location]));
+            const locationMap = new Map(locations.map(location => [location.id, location]));
 
-                const isChildOf = (childId: string, rootId: string): boolean => {
-                    let current: string | null = childId;
-                    let depth = 0;
-                    while (current && depth < APP_CONFIG.MAX_FOLDER_DEPTH) {
-                        if (current === rootId) return true;
-                        const node = locationMap.get(current);
-                        current = node ? node.parent_id : null;
-                        depth++;
-                    }
-                    return false;
-                };
+            const isChildOf = (childId: string, rootId: string): boolean => {
+                let current: string | null = childId;
+                let depth = 0;
+                while (current && depth < APP_CONFIG.MAX_FOLDER_DEPTH) {
+                    if (current === rootId) return true;
+                    const node = locationMap.get(current);
+                    current = node ? node.parent_id : null;
+                    depth++;
+                }
+                return false;
+            };
 
-                let someMovedIn = false;
-                const toRemoveIDs: string[] = [];
+            let someMovedIn = false;
+            const toRemoveIDs: string[] = [];
 
-                for (const item of updatedItems) {
-                    const isNowInView =
-                        selectedFolderIds.length === 0 ||
-                        selectedFolderIds.some(folderId =>
-                            recursive
-                                ? isChildOf(item.folder_id, folderId)
-                                : item.folder_id === folderId
+            for (const item of updatedItems) {
+                const isNowInView =
+                    selectedFolderIds.length === 0 ||
+                    selectedFolderIds.some(folderId =>
+                        recursive
+                            ? isChildOf(item.folder_id, folderId)
+                            : item.folder_id === folderId
+                    );
+
+                const wasKnown = currentItems.some(i => i.id === item.id);
+
+                if (isNowInView) {
+                    if (wasKnown) {
+                        setLibraryState(
+                            'items',
+                            i => i.id === item.id,
+                            prev => ({
+                                ...prev,
+                                path: item.path,
+                                filename: item.filename,
+                                modified_at: item.modified_at,
+                                folder_id: item.folder_id
+                            })
                         );
-
-                    const wasKnown = currentItems.some(i => i.id === item.id);
-
-                    if (isNowInView) {
-                        if (wasKnown) {
-                            setLibraryState(
-                                'items',
-                                i => i.id === item.id,
-                                prev => ({
-                                    ...prev,
-                                    path: item.path,
-                                    filename: item.filename,
-                                    modified_at: item.modified_at,
-                                    folder_id: item.folder_id
-                                })
-                            );
-                        } else {
-                            someMovedIn = true;
-                        }
-                    } else if (wasKnown) {
-                        toRemoveIDs.push(item.id);
+                    } else {
+                        someMovedIn = true;
                     }
+                } else if (wasKnown) {
+                    toRemoveIDs.push(item.id);
                 }
+            }
 
-                if (toRemoveIDs.length > 0) {
-                    const removeSet = new Set(toRemoveIDs);
-                    setLibraryState('items', items => items.filter(i => !removeSet.has(i.id)));
-                }
+            if (toRemoveIDs.length > 0) {
+                const removeSet = new Set(toRemoveIDs);
+                setLibraryState('items', items => items.filter(i => !removeSet.has(i.id)));
+            }
 
-                if (someMovedIn) {
-                    libraryActions.refreshAssets(false);
-                }
-            });
+            if (someMovedIn) {
+                libraryActions.refreshAssets(false);
+            }
         }
     },
 
     addLocation: async () => {
         try {
-            const { open } = await import('@tauri-apps/plugin-dialog');
-            const { metadataActions } = await import('../metadata');
-            const { tauriService } = await import('../../tauri/services');
-            const { addLocation: dbAddLocation } = await import('../../../lib/db');
-
             const selectedPath = await open({
                 directory: true,
                 multiple: false,
@@ -240,7 +238,6 @@ export const libraryActions = {
 
     removeLocation: async (locationId: number | string) => {
         try {
-            const { metadataActions } = await import('../metadata');
             await invoke('remove_location', { folderId: String(locationId) });
 
             await Promise.all([metadataActions.loadLocations(), metadataActions.loadStats()]);
@@ -266,8 +263,6 @@ export const libraryActions = {
         }
 
         try {
-            const { metadataActions, metadataState } = await import('../metadata');
-
             // Reusing updateAssetsTags which properly triggers notifications and emits events
             await metadataActions.updateAssetsTags(assetIds, [tagId], 'merge');
 
@@ -315,7 +310,6 @@ export const libraryActions = {
         }
 
         try {
-            const { metadataActions } = await import('../metadata');
             // Reusing updateAssetsTags to properly emit events and bump tagUpdateVersion
             await metadataActions.updateAssetsTags(selectedIds, [tagId], 'remove');
             return { success: true, data: undefined };
@@ -328,3 +322,17 @@ export const libraryActions = {
         }
     }
 };
+
+setRefreshAssetsHandler(clear => libraryActions.refreshAssets(clear));
+
+eventBus.on('metadata:changed', e => {
+    if (e.type === 'tag') {
+        const isFilteringByTags =
+            filterState.filterUntagged ||
+            filterState.filterHasTags ||
+            filterState.selectedTags.length > 0;
+        if (isFilteringByTags) {
+            libraryActions.refreshAssets(false);
+        }
+    }
+});

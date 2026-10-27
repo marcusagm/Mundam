@@ -118,7 +118,13 @@ fn find_binary<R: tauri::Runtime>(
     }
 
     // 3. Tenta via PATH global do sistema
-    if Command::new(name)
+    let mut probe_cmd = Command::new(name);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        probe_cmd.creation_flags(0x08000000);
+    }
+    if probe_cmd
         .arg("-version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -143,6 +149,12 @@ pub fn run_command_with_timeout(
     mut command: Command,
     timeout_seconds: u64,
 ) -> AppResult<std::process::Output> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+
     let mut child_process = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

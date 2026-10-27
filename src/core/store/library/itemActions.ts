@@ -1,9 +1,16 @@
 import { reconcile } from 'solid-js/store';
 import { invokeCommand as invoke } from '../../../lib/api';
 import { tagService } from '../../../lib/tags';
+import { filterState } from '../filter';
+import { metadataActions } from '../metadata';
 import { libraryStateInternal } from './libraryState';
 
 const { setLibraryState } = libraryStateInternal;
+
+let refreshAssetsHandler: ((clear?: boolean) => Promise<void>) | null = null;
+export function setRefreshAssetsHandler(handler: (clear?: boolean) => Promise<void>) {
+    refreshAssetsHandler = handler;
+}
 
 export const itemActions = {
     updateItemRating: async (id: string, rating: number) => {
@@ -35,16 +42,10 @@ export const itemActions = {
             );
             await invoke('toggle_favorite', { assetId: id });
 
-            import('../filter').then(({ filterState }) => {
-                if (filterState.filterFavorites) {
-                    import('./libraryActions').then(({ libraryActions }) => {
-                        libraryActions.refreshAssets(false);
-                    });
-                }
-            });
-            import('../metadata').then(({ metadataActions }) => {
-                metadataActions.loadStats();
-            });
+            if (filterState.filterFavorites) {
+                refreshAssetsHandler?.(false);
+            }
+            metadataActions.loadStats();
         } catch (err) {
             console.error(`Failed to toggle favorite for ${id}:`, err);
             // Revert optimistic update
@@ -65,12 +66,8 @@ export const itemActions = {
                 console.error(`Failed to move to trash ${assetId}:`, err);
             }
         }
-        import('./libraryActions').then(({ libraryActions }) => {
-            libraryActions.refreshAssets(false);
-        });
-        import('../metadata').then(({ metadataActions }) => {
-            metadataActions.loadStats();
-        });
+        refreshAssetsHandler?.(false);
+        metadataActions.loadStats();
     },
 
     restoreFromTrashAssets: async (ids: string[]) => {
@@ -81,12 +78,8 @@ export const itemActions = {
                 console.error(`Failed to restore ${assetId}:`, err);
             }
         }
-        import('./libraryActions').then(({ libraryActions }) => {
-            libraryActions.refreshAssets(false);
-        });
-        import('../metadata').then(({ metadataActions }) => {
-            metadataActions.loadStats();
-        });
+        refreshAssetsHandler?.(false);
+        metadataActions.loadStats();
     },
 
     updateThumbnail: (id: string, path: string) => {

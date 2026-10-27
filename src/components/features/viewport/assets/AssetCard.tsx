@@ -7,6 +7,7 @@ import { AssetCardStacked } from './AssetCardStacked';
 import { AssetItem } from '../../../../types';
 import { useViewportPreferences } from '../../../../core/hooks/useViewportPreferences';
 import { filterState } from '../../../../core/store/filter';
+import { itemActions } from '../../../../core/store/library/itemActions';
 import './asset-card.css';
 
 /**
@@ -115,12 +116,7 @@ export const AssetCard: Component<AssetCardProps> = (props: AssetCardProps): JSX
                                     class="asset-card-restore-icon"
                                     onClick={event => {
                                         event.stopPropagation();
-                                        const itemId = props.item.id;
-                                        import('../../../../core/store/library/itemActions').then(
-                                            ({ itemActions }) => {
-                                                itemActions.restoreFromTrashAssets([itemId]);
-                                            }
-                                        );
+                                        itemActions.restoreFromTrashAssets([props.item.id]);
                                     }}
                                     title="Restore from trash"
                                 >
@@ -131,12 +127,7 @@ export const AssetCard: Component<AssetCardProps> = (props: AssetCardProps): JSX
                                 class={`asset-card-favorite-icon ${props.item.is_favorite ? 'is-favorite' : ''}`}
                                 onClick={event => {
                                     event.stopPropagation();
-                                    const itemId = props.item.id;
-                                    import('../../../../core/store/library/itemActions').then(
-                                        ({ itemActions }) => {
-                                            itemActions.toggleItemFavorite(itemId);
-                                        }
-                                    );
+                                    itemActions.toggleItemFavorite(props.item.id);
                                 }}
                             >
                                 <Heart

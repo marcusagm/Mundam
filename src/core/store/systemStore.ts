@@ -3,8 +3,8 @@ import { type FileFormat } from './formatStore';
 import { listen } from '@tauri-apps/api/event';
 import { addLocation, initDb } from '../../lib/db';
 import { tauriService } from '../tauri/services';
-import { metadataActions } from './metadata';
-import { type BatchChangePayload } from './library';
+import { metadataActions, metadataState } from './metadata';
+import { libraryActions, type BatchChangePayload } from './library';
 import { initStreamingToken } from '../../lib/hls-player';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
@@ -39,17 +39,13 @@ export const systemActions = {
             setSupportedFormats(formats);
 
             // Auto-select root path if locations exist
-            import('./metadata').then(({ metadataState }) => {
-                if (metadataState.locations.length > 0) {
-                    const main = metadataState.locations[0];
-                    setRootPath(main.path);
-                    // Trigger initial load
-                    import('./library').then(({ libraryActions }) => {
-                        libraryActions.refreshAssets(true);
-                    });
-                    metadataActions.loadStats();
-                }
-            });
+            if (metadataState.locations.length > 0) {
+                const main = metadataState.locations[0];
+                setRootPath(main.path);
+                // Trigger initial load
+                libraryActions.refreshAssets(true);
+                metadataActions.loadStats();
+            }
 
             // Setup Listeners
             listen<ProgressPayload>('indexer:progress', e => {
@@ -58,32 +54,17 @@ export const systemActions = {
 
             listen<number>('indexer:complete', () => {
                 systemActions.clearProgress();
-                // Refresh library to show new items
-                // We use a small delay or just call it directly
-                // Importing actions inside function to avoid potential circular dependency issues,
-                // though we are importing them at top level.
-                // Circular dependency libraryStore <-> systemStore might exist if not careful.
-                // libraryStore imports systemStore? Previous check showed unused import removed.
-                // libraryStore DOES NOT import systemStore anymore.
-                // systemStore imports metadata.
-                // We need libraryActions here.
-                import('./library').then(({ libraryActions }) => {
-                    libraryActions.refreshAssets(true);
-                });
+                libraryActions.refreshAssets(true);
                 metadataActions.loadStats();
                 metadataActions.loadLocations();
             });
 
             listen<{ id: string; path: string }>('thumbnail:ready', e => {
-                import('./library').then(({ libraryActions }) => {
-                    libraryActions.updateThumbnail(e.payload.id, e.payload.path);
-                });
+                libraryActions.updateThumbnail(e.payload.id, e.payload.path);
             });
 
             listen<{ id: string }>('metadata:ready', e => {
-                import('./library').then(({ libraryActions }) => {
-                    libraryActions.refreshItem(e.payload.id);
-                });
+                libraryActions.refreshItem(e.payload.id);
             });
 
             listen<ProgressPayload>('thumbnail:queue-status', e => {
@@ -92,15 +73,8 @@ export const systemActions = {
 
             listen<BatchChangePayload>('library:batch-change', e => {
                 const payload = e.payload;
-
-                import('./library').then(({ libraryActions }) => {
-                    libraryActions.handleBatchChange(payload);
-                });
-
-                // Also update stats
-                import('./metadata').then(({ metadataActions }) => {
-                    metadataActions.handleBatchChange(payload);
-                });
+                libraryActions.handleBatchChange(payload);
+                metadataActions.handleBatchChange(payload);
             });
 
             setInitialized(true);

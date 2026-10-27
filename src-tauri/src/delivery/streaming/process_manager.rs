@@ -32,7 +32,10 @@ fn kill_process(pid: u32) {
 #[cfg(windows)]
 fn kill_process(pid: u32) {
     use std::process::Command;
-    let _ = Command::new("taskkill")
+    use std::os::windows::process::CommandExt;
+    let mut cmd = Command::new("taskkill");
+    cmd.creation_flags(0x08000000);
+    let _ = cmd
         .arg("/F")
         .arg("/PID")
         .arg(pid.to_string())

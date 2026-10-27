@@ -173,6 +173,9 @@ impl LinearManager {
         cmd.stdout(std::process::Stdio::null());
         cmd.stderr(std::process::Stdio::null());
 
+        #[cfg(windows)]
+        cmd.creation_flags(0x08000000);
+
         let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn FFmpeg: {}", e))?;

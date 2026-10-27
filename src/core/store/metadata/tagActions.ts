@@ -24,17 +24,7 @@ export const tagActions = {
 
         // Check if we need to refresh the library
         if (assets) {
-            import('../filter').then(({ filterState }) => {
-                const isFilteringByTags =
-                    filterState.filterUntagged ||
-                    filterState.filterHasTags ||
-                    filterState.selectedTags.length > 0;
-                if (isFilteringByTags) {
-                    import('../library').then(({ libraryActions }) => {
-                        libraryActions.refreshAssets(false);
-                    });
-                }
-            });
+            eventBus.emit('metadata:changed', { type: 'tag' });
         }
     },
 
