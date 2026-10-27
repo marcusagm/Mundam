@@ -251,6 +251,66 @@ fn forbidden_response(e: AppError) -> StreamError {
     StreamError(e)
 }
 
+/// Strips the Windows verbatim/UNC prefix (e.g. `\\?\` or `\\?\UNC\`) added by `canonicalize()`.
+fn strip_unc_prefix(path: &std::path::Path) -> std::path::PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(stripped) = s.strip_prefix(r"\\?\UNC\") {
+        std::path::PathBuf::from(format!(r"\\{}", stripped))
+    } else if let Some(stripped) = s.strip_prefix(r"\\?\") {
+        std::path::PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+/// Checks whether `child` is inside `parent` directory, accounting for OS path semantics
+/// (e.g. case-insensitivity on Windows and UNC prefix stripping).
+fn is_subpath(child: &std::path::Path, parent: &std::path::Path) -> bool {
+    let clean_child = strip_unc_prefix(child);
+    let clean_parent = strip_unc_prefix(parent);
+
+    #[cfg(windows)]
+    {
+        use std::path::Component;
+        let child_components: Vec<_> = clean_child.components().collect();
+        let parent_components: Vec<_> = clean_parent.components().collect();
+
+        if child_components.len() < parent_components.len() {
+            return false;
+        }
+
+        for (c, p) in child_components.iter().zip(parent_components.iter()) {
+            match (c, p) {
+                (Component::Prefix(c_pref), Component::Prefix(p_pref)) => {
+                    let c_str = c_pref.as_os_str().to_string_lossy().to_lowercase();
+                    let p_str = p_pref.as_os_str().to_string_lossy().to_lowercase();
+                    let c_norm = c_str.strip_prefix(r"\\?\").unwrap_or(&c_str);
+                    let p_norm = p_str.strip_prefix(r"\\?\").unwrap_or(&p_str);
+                    if c_norm != p_norm {
+                        return false;
+                    }
+                }
+                (Component::Normal(c_name), Component::Normal(p_name)) => {
+                    if c_name.to_string_lossy().to_lowercase()
+                        != p_name.to_string_lossy().to_lowercase()
+                    {
+                        return false;
+                    }
+                }
+                (Component::RootDir, Component::RootDir) => {}
+                (Component::CurDir, Component::CurDir) => {}
+                _ => return false,
+            }
+        }
+        true
+    }
+
+    #[cfg(not(windows))]
+    {
+        clean_child.starts_with(&clean_parent)
+    }
+}
+
 /// Validates that the asset path is within authorized roots.
 async fn validate_path_scope(
     asset_query_handler: &Arc<dyn AssetQueryHandler>,
@@ -279,9 +339,10 @@ async fn validate_path_scope(
         AppError::Internal(format!("Failed to list root folders: {:?}", e))
     })?;
 
-    let is_within_scope = roots
-        .iter()
-        .any(|root| canonical_path.starts_with(&root.path));
+    let is_within_scope = roots.iter().any(|root| {
+        let canonical_root = root.path.canonicalize().unwrap_or_else(|_| root.path.clone());
+        is_subpath(&canonical_path, &canonical_root) || is_subpath(&canonical_path, &root.path)
+    });
 
     if !is_within_scope {
         warn!("Access denied: path {:?} is outside authorized roots", path);
@@ -708,3 +769,43 @@ async fn serve_file(
         .body(body)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_strip_unc_prefix() {
+        let unc = Path::new(r"\\?\D:\folder\video.mp4");
+        assert_eq!(strip_unc_prefix(unc), Path::new(r"D:\folder\video.mp4"));
+
+        let normal = Path::new(r"D:\folder\video.mp4");
+        assert_eq!(strip_unc_prefix(normal), Path::new(r"D:\folder\video.mp4"));
+
+        let network = Path::new(r"\\?\UNC\server\share\file.mp4");
+        assert_eq!(strip_unc_prefix(network), Path::new(r"\\server\share\file.mp4"));
+    }
+
+    #[test]
+    fn test_is_subpath() {
+        // Windows UNC canonicalized child vs standard root
+        let child = Path::new(r"\\?\D:\Instagram\Mulheres\video.mp4");
+        let parent = Path::new(r"D:\Instagram\Mulheres");
+        assert!(is_subpath(child, parent));
+
+        // Case insensitivity
+        let child_lower = Path::new(r"d:\instagram\mulheres\video.mp4");
+        let parent_upper = Path::new(r"D:\Instagram\Mulheres");
+        assert!(is_subpath(child_lower, parent_upper));
+
+        // Outside scope
+        let child_outside = Path::new(r"D:\OtherFolder\video.mp4");
+        assert!(!is_subpath(child_outside, parent));
+
+        // Different drive
+        let child_diff_drive = Path::new(r"C:\Instagram\Mulheres\video.mp4");
+        assert!(!is_subpath(child_diff_drive, parent));
+    }
+}
+
