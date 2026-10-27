@@ -15,4 +15,4 @@ Full-screen overlay used to preview an asset.
 
 - **Seleção** (`V`, padrão): cliques têm comportamento normal e a imagem pode ser arrastada para outros programas (reutiliza a diretiva `assetDragSource` da galeria).
 - **Pan** (`H`) e **Rotação** (`R`): com `Shift` pressionado, a rotação trava em múltiplos de 45°.
-- **Reset View** (`Meta+2` ou botão ao lado de Fit/Original): remove rotação e espelhamento e reajusta pan e zoom ao estado inicial (fit), mantendo a ferramenta ativa.
+- **Reset View** (`Mod+2` ou botão ao lado de Fit/Original): remove rotação e espelhamento e reajusta pan e zoom ao estado inicial (fit), mantendo a ferramenta ativa.

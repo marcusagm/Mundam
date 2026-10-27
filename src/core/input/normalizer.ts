@@ -5,18 +5,21 @@
  */
 
 import type { InputToken, ModifierKey, Platform, TokenKind } from './types';
-import { detectPlatform, isMac } from './utils/platform';
+import { detectPlatform, isMac, getPrimaryModifier } from './utils/platform';
 import { MODIFIER_ORDER, MODIFIER_ALIASES, KEY_CODE_MAP } from './utils/keys';
 import { formatKeyForDisplay } from './utils/display';
 
-export { detectPlatform, isMac };
+export { detectPlatform, isMac, getPrimaryModifier };
 
 // =============================================================================
 // Modifier Helpers
 // =============================================================================
 
-export function normalizeModifier(mod: string): ModifierKey | null {
+export function normalizeModifier(mod: string, platform?: Platform): ModifierKey | null {
     const lower = mod.toLowerCase();
+    if (lower === 'mod' || lower === 'cmdorctrl' || lower === 'primary') {
+        return getPrimaryModifier(platform);
+    }
     return MODIFIER_ALIASES[lower] || null;
 }
 
@@ -137,7 +140,10 @@ function applyPatternNormalization(key: string, lower: string): string {
 /**
  * Parse a shortcut string like "Ctrl+Shift+S" into modifiers and key
  */
-export function parseShortcutString(shortcut: string): { modifiers: ModifierKey[]; key: string } {
+export function parseShortcutString(
+    shortcut: string,
+    platform?: Platform
+): { modifiers: ModifierKey[]; key: string } {
     const parts = shortcut
         .split('+')
         .map(p => p.trim())
@@ -152,7 +158,7 @@ export function parseShortcutString(shortcut: string): { modifiers: ModifierKey[
 
     for (let index = 0; index < parts.length; index++) {
         const part = parts[index];
-        const mod = normalizeModifier(part);
+        const mod = normalizeModifier(part, platform);
 
         if (mod && index < parts.length - 1) {
             // It's a modifier and not the last part
@@ -180,8 +186,8 @@ export function buildCanonicalId(modifiers: ModifierKey[], key: string): string 
 /**
  * Canonicalize a shortcut string to standard format
  */
-export function canonicalizeShortcut(shortcut: string): string {
-    const { modifiers, key } = parseShortcutString(shortcut);
+export function canonicalizeShortcut(shortcut: string, platform?: Platform): string {
+    const { modifiers, key } = parseShortcutString(shortcut, platform);
     return buildCanonicalId(modifiers, key);
 }
 
@@ -300,12 +306,12 @@ export function tokenMatchesDefinition(token: InputToken, definitionId: string):
 /**
  * Normalize a keys definition (string or array) to array of canonical tokens
  */
-export function normalizeKeysToTokens(keys: string | string[]): InputToken[] {
+export function normalizeKeysToTokens(keys: string | string[], platform?: Platform): InputToken[] {
     const keyArray = Array.isArray(keys) ? keys : keys.split(/\s+/).filter(Boolean);
 
     return keyArray.map(keyString => {
-        const canonical = canonicalizeShortcut(keyString);
-        const { modifiers, key } = parseShortcutString(keyString);
+        const canonical = canonicalizeShortcut(keyString, platform);
+        const { modifiers, key } = parseShortcutString(keyString, platform);
 
         // Detect kind based on content
         let kind: TokenKind = 'keyboard';
@@ -335,7 +341,7 @@ export function normalizeKeysToTokens(keys: string | string[]): InputToken[] {
  */
 export function formatShortcutForDisplay(shortcut: string, platform?: Platform): string {
     const plat = platform || detectPlatform();
-    const { modifiers, key } = parseShortcutString(shortcut);
+    const { modifiers, key } = parseShortcutString(shortcut, plat);
 
     const parts = [
         ...modifiers.map(m => formatKeyForDisplay(m, plat)),
@@ -356,7 +362,7 @@ export function formatShortcutForDisplay(shortcut: string, platform?: Platform):
  */
 export function getShortcutDisplayParts(shortcut: string, platform?: Platform): string[] {
     const plat = platform || detectPlatform();
-    const { modifiers, key } = parseShortcutString(shortcut);
+    const { modifiers, key } = parseShortcutString(shortcut, plat);
 
     return [
         ...modifiers.map(m => formatKeyForDisplay(m, plat)),

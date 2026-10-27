@@ -1,4 +1,4 @@
-import type { Platform } from '../types';
+import type { ModifierKey, Platform } from '../types';
 
 let cachedPlatform: Platform | null = null;
 
@@ -33,4 +33,26 @@ export function detectPlatform(): Platform {
  */
 export function isMac(): boolean {
     return detectPlatform() === 'mac';
+}
+
+/**
+ * Resolves the primary modifier key for the given or current platform.
+ * macOS uses 'Meta' (Command), while Windows and Linux use 'Ctrl'.
+ *
+ * @param platform - Optional explicit platform to evaluate.
+ * @returns The primary modifier key ('Meta' or 'Ctrl').
+ */
+export function getPrimaryModifier(platform?: Platform): ModifierKey {
+    const plat = platform ?? detectPlatform();
+    return plat === 'mac' ? 'Meta' : 'Ctrl';
+}
+
+/**
+ * Overrides the cached platform detection for testing purposes.
+ * Pass null to restore default detection.
+ *
+ * @param platform - Platform override, or null to reset.
+ */
+export function setPlatformForTesting(platform: Platform | null): void {
+    cachedPlatform = platform;
 }

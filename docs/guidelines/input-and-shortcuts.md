@@ -25,7 +25,7 @@ Escopos são "camadas virtuais" que definem qual região do App está ativamente
 
 ### Padrão de Prioridades (`SCOPE_PRIORITIES`)
 As prioridades (definidas em `types.ts`) variam de 0 a 10000+. Quanto maior o número, mais preferência o escopo tem:
--   `global (0)`: Atalhos de todo o aplicativo (ex: Meta+K para Busca). Sempre os últimos a serem validados.
+-   `global (0)`: Atalhos de todo o aplicativo (ex: Mod+K para Busca). Sempre os últimos a serem validados.
 -   `viewport (10)`: Típicos atalhos de navegação do grid centralização (Setas, Enter, Espaço).
 -   `image-viewer (50)`: Tela cheia, sobrepõe as funções convencionais do grid.
 -   `editing (1000)`: Editores em linha, re-nomeações (evita que atalhos de tela rodem quando está escrevendo).
@@ -58,6 +58,9 @@ const meuMenu = () => {
 ### Regra 1: Macro-Ações vão no `defaults.ts` (Application Macros)
 Ações visíveis ao usuário e que podem ser **remapeadas no futuro** por ele DEVEM ser cadastradas apenas através da Store de Defaults da Aplicação (Configurações).
 
+> **Atenção (Modificador Multiplataforma `Mod`):**
+> Sempre utilize `Mod` para combinações principais (ex: `Mod+KeyK`, `Mod+KeyB`). O sistema normaliza automaticamente `Mod` para `Meta` (`⌘ Command`) no macOS e para `Ctrl` (`Control`) no Windows e Linux, evitando conflitos com a tecla nativa `Win` do Windows.
+
 1. Abra `src/core/input/store/defaults.ts`
 2. Construa a Entidade exportando um "command" com sua Categoria associada.
 
@@ -65,7 +68,7 @@ Ações visíveis ao usuário e que podem ser **remapeadas no futuro** por ele D
     {
         name: 'Abrir Painel XYZ',
         description: 'Abre a ferramenta XYZ do usuário',
-        keys: 'Meta+Shift+Z',
+        keys: 'Mod+Shift+Z',
         scope: 'global',
         command: 'app:tool-xyz',  // O NOME do comando 
         category: 'Workspace'
@@ -112,11 +115,11 @@ Todos os atalhos por padrão (quando declarados globalmente no core ou omitidos 
 
 *O que significa?* Se o atributo `document.activeElement` for um `<input>`, `<textarea>`, `<select>` ou possuir `contenteditable`, **nenhum atalho vai funcionar**.
 
-Se você inventou um atalho global para `Meta+S` para Salvar o sistema, **você ainda quer** que ele funcione mesmo que o usuário esteja digitando numa caixa de busça. Nesse caso você deve explicitamente revogar o ignore:
+Se você inventou um atalho global para `Mod+S` para Salvar o sistema, **você ainda quer** que ele funcione mesmo que o usuário esteja digitando numa caixa de busca. Nesse caso você deve explicitamente revogar o ignore:
 
 ```tsx
    createShortcut({
-       keys: 'Meta+KeyS',
+       keys: 'Mod+KeyS',
        ignoreInputs: false, // Quero salvar mesmo que eu esteja digitando nome do projeto!
        action: () => saveApplication()
    })

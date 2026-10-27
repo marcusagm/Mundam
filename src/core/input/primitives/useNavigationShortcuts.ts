@@ -6,7 +6,6 @@
 import { createEffect, onCleanup, untrack, type Accessor } from 'solid-js';
 import { shortcutStore } from '../store/shortcutStore';
 import { onCommand } from '../dispatcher';
-import { isMac } from '../utils/platform';
 
 export interface NavigationShortcutItem<ViewId extends string = string> {
     /** Identifier handed back to `onNavigate` */
@@ -36,8 +35,6 @@ export function useNavigationShortcuts<ViewId extends string>(
     items: Accessor<NavigationShortcutItem<ViewId>[]>,
     onNavigate: (viewId: ViewId) => void
 ): void {
-    const primaryModifier = isMac() ? 'Meta' : 'Ctrl';
-
     createEffect(() => {
         const navigationItems = items().slice(0, MAX_NAVIGATION_SHORTCUTS);
         const registeredIds: string[] = [];
@@ -51,7 +48,7 @@ export function useNavigationShortcuts<ViewId extends string>(
                     shortcutStore.register({
                         name: `Go to ${item.label}`,
                         description: `Switch to the ${item.label} view`,
-                        keys: `${primaryModifier}+Digit${index + 1}`,
+                        keys: `Mod+Digit${index + 1}`,
                         scope: 'global',
                         command,
                         category: 'Navigation',

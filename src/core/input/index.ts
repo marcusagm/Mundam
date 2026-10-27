@@ -102,6 +102,7 @@ export {
     // Platform detection
     detectPlatform,
     isMac,
+    getPrimaryModifier,
 
     // Normalization
     canonicalizeShortcut,

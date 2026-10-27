@@ -88,6 +88,7 @@ export const KEY_CODE_MAP: Record<string, string> = {
 
 export const MAC_SYMBOLS: Record<string, string> = {
     Meta: '⌘',
+    Mod: '⌘',
     Ctrl: '⌃',
     Alt: '⌥',
     Shift: '⇧',
@@ -105,6 +106,7 @@ export const MAC_SYMBOLS: Record<string, string> = {
 
 export const WINDOWS_SYMBOLS: Record<string, string> = {
     Meta: 'Win',
+    Mod: 'Ctrl',
     Ctrl: 'Ctrl',
     Alt: 'Alt',
     Shift: 'Shift',

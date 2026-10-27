@@ -14,6 +14,7 @@ import type {
     InputToken
 } from '../types';
 import { normalizeKeysToTokens, canonicalizeShortcut } from '../normalizer';
+import { isMac } from '../utils/platform';
 import { DEFAULT_SHORTCUTS } from './defaults';
 
 function createShortcutStore() {
@@ -61,12 +62,12 @@ function createShortcutStore() {
     ): RegisteredShortcut {
         const currentId = definition.id || generateShortcutId();
         const finalHandler = handler || definition.handler;
-        const customKeys = resolveCustomKeys(definition, currentId);
-        const finalKeys = customKeys ?? joinKeys(definition.keys);
-        const tokens = normalizeKeysToTokens(finalKeys);
-
-        const defaultKeys =
+        const rawDefaultKeys =
             (definition as Partial<RegisteredShortcut>).defaultKeys ?? joinKeys(definition.keys);
+        const defaultKeys = canonicalizeShortcut(rawDefaultKeys);
+        const customKeys = resolveCustomKeys(definition, currentId);
+        const finalKeys = customKeys ? canonicalizeShortcut(customKeys) : defaultKeys;
+        const tokens = normalizeKeysToTokens(finalKeys);
 
         return {
             ...definition,
@@ -229,8 +230,12 @@ function createShortcutStore() {
                 key: 'shortcuts'
             });
             if (saved) {
-                for (const [key, keys] of Object.entries(saved)) {
+                for (const [key, rawKeys] of Object.entries(saved)) {
                     const [name, scope] = key.split('::');
+                    const keys =
+                        !isMac() && rawKeys.includes('Meta')
+                            ? rawKeys.replace(/\bMeta\b/g, 'Ctrl')
+                            : rawKeys;
                     savedKeys.set(key, keys);
                     const found = Array.from(shortcuts().values()).find(
                         shortcut =>

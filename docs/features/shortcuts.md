@@ -1,12 +1,12 @@
 # Atalhos de teclado e navegação
 
 Os atalhos abaixo usam as teclas padrão do Mundam. Os atalhos configuráveis podem ser
-remapeados em **Settings → Keyboard Shortcuts**. `Meta` aparece como `⌘` no macOS e como
-`Win` em Windows/Linux. A tela de configurações mostra a representação correspondente ao
+remapeados em **Settings → Keyboard Shortcuts**. O modificador principal (`Mod`) aparece como `⌘` no macOS e como
+`Ctrl` em Windows/Linux. A tela de configurações mostra a representação correspondente ao
 sistema em uso.
 
 `Tab` continua sendo a tecla nativa para avançar o foco. O atalho para recolher ou mostrar
-os painéis é `Meta+B`, evitando interromper a navegação por teclado.
+os painéis é `Mod+B` (`Ctrl+B` no Windows/Linux, `⌘B` no macOS), evitando interromper a navegação por teclado.
 
 ## Atalhos configuráveis por escopo
 
@@ -14,9 +14,9 @@ os painéis é `Meta+B`, evitando interromper a navegação por teclado.
 
 | Tecla    | Ação                                                  | Observação                                              |
 | -------- | ----------------------------------------------------- | ------------------------------------------------------- |
-| `Meta+K` | Focar a busca                                         | Também funciona enquanto um campo de texto está focado. |
-| `Meta+,` | Abrir configurações                                   |                                                         |
-| `Meta+B` | Recolher/mostrar a sidebar da biblioteca e o inspetor | Disponível na galeria.                                  |
+| `Mod+K`  | Focar a busca                                         | Também funciona enquanto um campo de texto está focado. |
+| `Mod+,`  | Abrir configurações                                   |                                                         |
+| `Mod+B`  | Recolher/mostrar a sidebar da biblioteca e o inspetor | Disponível na galeria.                                  |
 
 ### Viewport da galeria
 
@@ -28,7 +28,7 @@ os painéis é `Meta+B`, evitando interromper a navegação por teclado.
 | `Enter`        | Abrir o asset focado                                        |                                             |
 | `Space`        | Alternar seleção do asset focado                            |                                             |
 | `Shift+Space`  | Adicionar/remover o asset focado sem limpar a seleção atual |                                             |
-| `Meta+A`       | Selecionar todos os assets exibidos                         | Respeita a busca e os filtros ativos.       |
+| `Mod+A`       | Selecionar todos os assets exibidos                         | Respeita a busca e os filtros ativos.       |
 | `Escape`       | Limpar a seleção                                            | Só atua quando a viewport está ativa.       |
 | `Delete`       | Mover os assets selecionados para a lixeira                 | Se não houver seleção, move o asset focado. |
 
@@ -38,9 +38,9 @@ os painéis é `Meta+B`, evitando interromper a navegação por teclado.
 | --------------------- | ---------------------------------------------------------- |
 | `Escape`              | Fechar o visualizador                                      |
 | `+` / `-`             | Aumentar/diminuir o zoom                                   |
-| `Meta+0`              | Ajustar à tela                                             |
-| `Meta+1`              | Mostrar em tamanho original (100%)                         |
-| `Meta+2`              | Resetar a visualização (rotação, espelhamento, pan e zoom) |
+| `Mod+0`              | Ajustar à tela                                             |
+| `Mod+1`              | Mostrar em tamanho original (100%)                         |
+| `Mod+2`              | Resetar a visualização (rotação, espelhamento, pan e zoom) |
 | `V` / `H` / `R`       | Ativar ferramenta de seleção/pan/rotação                   |
 | `←` / `→`             | Item anterior/próximo                                      |
 | `Space`               | Iniciar/pausar a apresentação de slides                    |
@@ -66,14 +66,14 @@ As ações “Next Result” e “Previous Result” não são atalhos separados
 | Interação                                      | Ação                                                                                                       |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `Shift+clique` em um asset                     | Selecionar o intervalo entre o último asset selecionado e o clicado                                        |
-| `Ctrl+clique` ou `Meta+clique`                 | Alternar o asset clicado sem limpar a seleção atual                                                        |
+| `Mod+clique` (`Ctrl+clique` / `⌘+clique`)      | Alternar o asset clicado sem limpar a seleção atual                                                        |
 | `Shift` + arrastar com a ferramenta de rotação | Travar a rotação da imagem em múltiplos de 45° (0°, 45°, 90°… 315°)                                        |
 | Arrastar a imagem com a ferramenta de seleção  | Arrastar o arquivo para outro programa, como nos assets da galeria                                         |
 | Botão voltar do mouse                          | Voltar no histórico de filtros                                                                             |
 | Botão avançar do mouse                         | Avançar no histórico de filtros                                                                            |
 | Clique em um filtro rápido                     | Ativar somente esse filtro (Untagged, Has Tags, Favorites e Trash são exclusivos); clicar de novo desativa |
 | Clique em uma tag ou pasta                     | Substituir a seleção por esse item; clicar no único item selecionado limpa o filtro                        |
-| `Ctrl`/`Meta`+clique em tag/pasta              | Adicionar/remover o item sem limpar os demais selecionados                                                 |
+| `Mod+clique` em tag/pasta                      | Adicionar/remover o item sem limpar os demais selecionados                                                 |
 
 As interações com mouse são fixas e aparecem na tela de atalhos para consulta; não são
 remapeáveis como atalhos de teclado.
@@ -140,9 +140,9 @@ na categoria Navigation e podem ser personalizados.
 
 | Tecla                             | Ação       |
 | --------------------------------- | ---------- |
-| `Meta+1` (`Ctrl+1` fora do macOS) | Home       |
-| `Meta+2`                          | Galeria    |
-| `Meta+3`                          | Duplicados |
+| `Mod+1` (`Ctrl+1` fora do macOS)  | Home       |
+| `Mod+2`                           | Galeria    |
+| `Mod+3`                           | Duplicados |
 
-`Meta+1` entra em conflito com “tamanho original” no visualizador de item, que tem prioridade
+`Mod+1` entra em conflito com “tamanho original” no visualizador de item, que tem prioridade
 enquanto aberto. `Backspace` e `Delete` são equivalentes (no macOS a tecla “delete” é `Backspace`).

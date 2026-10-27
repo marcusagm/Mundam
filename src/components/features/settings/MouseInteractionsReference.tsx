@@ -12,12 +12,12 @@ const MOUSE_INTERACTIONS = [
     {
         name: 'Add or remove an asset',
         description: 'Keep the current selection while toggling the clicked asset.',
-        keys: ['Ctrl+Click', 'Meta+Click']
+        keys: ['Mod+Click']
     },
     {
         name: 'Combine quick filters',
         description: 'Add a quick filter without clearing the other active quick filters.',
-        keys: ['Ctrl+Click', 'Meta+Click']
+        keys: ['Mod+Click']
     },
     {
         name: 'Filter history',

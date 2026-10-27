@@ -1,6 +1,20 @@
 import type { Platform } from '../types';
 import { MAC_SYMBOLS, WINDOWS_SYMBOLS } from './keys';
 
+const CODE_DISPLAY_MAP: Record<string, string> = {
+    Equal: '+',
+    Minus: '-',
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+    Semicolon: ';',
+    Quote: "'",
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Backquote: '`'
+};
+
 /**
  * Formats a key name for user-facing display based on the platform.
  *
@@ -15,6 +29,10 @@ export function formatKeyForDisplay(key: string, platform: Platform): string {
         return symbols[key];
     }
 
+    if (CODE_DISPLAY_MAP[key]) {
+        return CODE_DISPLAY_MAP[key];
+    }
+
     // Convert KeyX to X, DigitX to X
     if (/^Key([A-Z])$/.test(key)) {
         return key.slice(3);
@@ -27,10 +45,6 @@ export function formatKeyForDisplay(key: string, platform: Platform): string {
     if (/^F[0-9]+$/.test(key)) {
         return key;
     }
-
-    // Special cases
-    if (key === 'Equal') return '+';
-    if (key === 'Minus') return '-';
 
     return key;
 }

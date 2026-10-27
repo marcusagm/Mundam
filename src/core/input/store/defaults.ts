@@ -26,7 +26,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Focus Search',
         description: 'Focus the search input',
-        keys: 'Meta+KeyK',
+        keys: 'Mod+KeyK',
         scope: 'global',
         command: 'app:focus-search',
         category: 'Navigation',
@@ -36,7 +36,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Settings',
         description: 'Open application settings',
-        keys: 'Meta+Comma',
+        keys: 'Mod+Comma',
         scope: 'global',
         command: 'app:settings',
         category: 'Application'
@@ -44,7 +44,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Toggle Sidebars',
         description: 'Hide or show the library sidebar and inspector',
-        keys: 'Meta+KeyB',
+        keys: 'Mod+KeyB',
         scope: 'global',
         command: 'app:toggle-sidebars',
         category: 'Navigation'
@@ -156,7 +156,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Select All Items',
         description: 'Select all visible items',
-        keys: 'Meta+KeyA',
+        keys: 'Mod+KeyA',
         scope: 'viewport',
         command: 'viewport:select-all',
         category: 'Selection',
@@ -201,7 +201,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Fit to Screen',
         description: 'Fit image to screen',
-        keys: 'Meta+Digit0',
+        keys: 'Mod+Digit0',
         scope: 'image-viewer',
         command: 'viewer:fit-screen',
         category: 'Viewer'
@@ -209,7 +209,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Original Size',
         description: 'Show image at 100% zoom',
-        keys: 'Meta+Digit1',
+        keys: 'Mod+Digit1',
         scope: 'image-viewer',
         command: 'viewer:original-size',
         category: 'Viewer'
@@ -217,7 +217,7 @@ const BASE_SHORTCUTS: ShortcutDefinition[] = [
     {
         name: 'Reset View',
         description: 'Reset rotation, flip, pan and zoom',
-        keys: 'Meta+Digit2',
+        keys: 'Mod+Digit2',
         scope: 'image-viewer',
         command: 'viewer:reset-view',
         category: 'Viewer'
