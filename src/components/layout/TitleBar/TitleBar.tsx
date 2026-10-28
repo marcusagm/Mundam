@@ -1,4 +1,4 @@
-import { Component, For } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { House, GalleryVerticalEnd, FileStack } from 'lucide-solid';
 import { Dynamic } from 'solid-js/web';
 import { Tooltip } from '../../ui';
@@ -84,10 +84,13 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
 
     return (
         <header class="titlebar" classList={{ 'titlebar--macos': platform === 'mac' }}>
-            {/* macOS: space for native traffic lights; Windows/Linux: custom buttons */}
-            <div class="titlebar-platform-area">
-                <WindowControls />
-            </div>
+            {/*
+             * macOS: reserve space on the left for the native traffic lights.
+             * Windows/Linux: no left-side placeholder needed.
+             */}
+            <Show when={platform === 'mac'}>
+                <div class="titlebar-platform-area" />
+            </Show>
 
             {/* Navigation Buttons */}
             <nav class="titlebar-navigation" aria-label="Application views">
@@ -124,8 +127,18 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
                 </For>
             </nav>
 
-            {/* Draggable Region */}
+            {/* Draggable Region – expands to fill remaining space */}
             <div class="titlebar-drag-region" data-tauri-drag-region />
+
+            {/*
+             * Windows/Linux: custom minimize/maximize/close buttons on the far right,
+             * matching the OS convention. Hidden on macOS (native traffic lights are used).
+             */}
+            <Show when={platform !== 'mac'}>
+                <div class="titlebar-platform-area">
+                    <WindowControls />
+                </div>
+            </Show>
         </header>
     );
 };

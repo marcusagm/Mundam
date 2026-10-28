@@ -1,4 +1,4 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { WindowControls } from '../../../layout/TitleBar';
 import { detectPlatform } from '../../../../core/input/utils/platform';
 import '../item-view-header.css';
@@ -25,13 +25,31 @@ export const ItemViewHeader: Component<ItemViewHeaderProperties> = properties =>
             classList={{ 'item-view-header--macos': platform === 'mac' }}
             data-tauri-drag-region
         >
-            <div class="item-view-header-platform-area">
-                <WindowControls />
-            </div>
+            {/*
+             * macOS: left spacer that mirrors the native traffic lights area.
+             * Windows/Linux: no left-side placeholder needed.
+             */}
+            <Show when={platform === 'mac'}>
+                <div class="item-view-header-platform-area" />
+            </Show>
+
             <span class="item-view-header-title" title={properties.filename} data-tauri-drag-region>
                 {properties.filename}
             </span>
-            <div class="item-view-header-balance" />
+
+            {/*
+             * macOS: an invisible balance div keeps the title visually centred
+             *        (mirrors the left traffic-lights spacer).
+             * Windows/Linux: WindowControls on the far right per OS convention.
+             */}
+            <Show when={platform === 'mac'}>
+                <div class="item-view-header-balance" />
+            </Show>
+            <Show when={platform !== 'mac'}>
+                <div class="item-view-header-platform-area">
+                    <WindowControls />
+                </div>
+            </Show>
         </header>
     );
 };

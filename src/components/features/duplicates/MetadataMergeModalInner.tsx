@@ -13,6 +13,7 @@ import {
 import { MetadataMergeModalProperties } from './MetadataMergeModal';
 import { useMetadataMerge } from './hooks/useMetadataMerge';
 import { TechnicalFieldRow } from './TechnicalFieldRow';
+import { detectPlatform } from '../../../core/input/utils/platform';
 import { MetadataMergeSystemFields } from './MetadataMergeSystemFields';
 import './metadata-merge-modal.css';
 
@@ -56,7 +57,7 @@ export const MetadataMergeModalInner: Component<MetadataMergeModalProperties> = 
 
     return (
         <ModalContent size="xl" class="metadata-merge-modal">
-            <ModalHeader>
+            <ModalHeader platform={detectPlatform()}>
                 <ModalTitle>Merge Metadata</ModalTitle>
                 <ModalCloseButton />
             </ModalHeader>

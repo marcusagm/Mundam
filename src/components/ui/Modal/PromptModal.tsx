@@ -11,6 +11,7 @@ import { Button } from '../Button';
 import { Input } from '../Input';
 import { PromptModalProperties } from './types';
 import { createId } from '../../../lib/primitives/createId';
+import { detectPlatform } from '../../../core/input/utils/platform';
 
 /**
  * A specialized Modal component for capturing user input text with validation.
@@ -92,7 +93,7 @@ export const PromptModal: Component<PromptModalProperties> = componentProperties
             <ModalOverlay />
             <ModalContent size="sm">
                 <form onSubmit={handleFormSubmit} novalidate>
-                    <ModalHeader>
+                    <ModalHeader platform={detectPlatform()}>
                         <ModalTitle>{componentProperties.title}</ModalTitle>
                         <ModalCloseButton />
                     </ModalHeader>

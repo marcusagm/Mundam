@@ -1,10 +1,11 @@
 import { Button } from '../../../ui';
-import { ParentComponent } from 'solid-js';
+import { ParentComponent, Show } from 'solid-js';
 import { X, ChevronLeft, ChevronRight } from 'lucide-solid';
 import { useViewport, useLibrary } from '../../../../core/hooks';
 import { ButtonGroup } from '../../../ui/Button/ButtonGroup';
 import { Tooltip } from '../../../ui/Tooltip';
 import { ShortcutHint } from './ToolbarUtils';
+import { isMac } from '../../../../core/input/utils/platform';
 import '../item-view-toolbar.css';
 // import { useItemViewContext } from "../ItemViewContext";
 
@@ -27,13 +28,19 @@ export const BaseToolbar: ParentComponent = props => {
 
     return (
         <div class="item-view-toolbar">
-            <div class="toolbar-group">
-                <Tooltip position="bottom" content={<ShortcutHint name="Close Viewer" />}>
-                    <Button variant="ghost" size="icon" onClick={() => viewport.closeItem()}>
-                        <X size={18} />
-                    </Button>
-                </Tooltip>
-            </div>
+            {/*
+             * macOS convention: close/destructive action on the left.
+             * Windows convention: close action on the right (rendered below).
+             */}
+            <Show when={isMac()}>
+                <div class="toolbar-group">
+                    <Tooltip position="bottom" content={<ShortcutHint name="Close Viewer" />}>
+                        <Button variant="ghost" size="icon" onClick={() => viewport.closeItem()}>
+                            <X size={18} />
+                        </Button>
+                    </Tooltip>
+                </div>
+            </Show>
 
             {/* Renderer Specific Controls */}
             {props.children}
@@ -52,6 +59,17 @@ export const BaseToolbar: ParentComponent = props => {
                     </Tooltip>
                 </ButtonGroup>
             </div>
+
+            {/* Windows/Linux: close action on the far right per OS convention */}
+            <Show when={!isMac()}>
+                <div class="toolbar-group">
+                    <Tooltip position="bottom" content={<ShortcutHint name="Close Viewer" />}>
+                        <Button variant="ghost" size="icon" onClick={() => viewport.closeItem()}>
+                            <X size={18} />
+                        </Button>
+                    </Tooltip>
+                </div>
+            </Show>
         </div>
     );
 };

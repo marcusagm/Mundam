@@ -9,6 +9,7 @@ import { ModalCloseButton } from './ModalCloseButton';
 import { ModalBody } from './ModalBody';
 import { ModalFooter } from './ModalFooter';
 import { ConfirmModalProperties } from './types';
+import { detectPlatform } from '../../../core/input/utils/platform';
 
 /**
  * A specialized Modal for confirmation dialogs.
@@ -41,7 +42,7 @@ export const ConfirmModal: Component<ConfirmModalProperties> = componentProperti
         <ModalRoot isOpen={componentProperties.isOpen} onClose={componentProperties.onClose}>
             <ModalOverlay />
             <ModalContent size={componentProperties.size || 'sm'} role="alertdialog">
-                <ModalHeader>
+                <ModalHeader platform={detectPlatform()}>
                     <ModalTitle>{componentProperties.title}</ModalTitle>
                     <ModalCloseButton />
                 </ModalHeader>

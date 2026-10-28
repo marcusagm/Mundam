@@ -89,6 +89,15 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/*
+ * macOS convention: the close button appears on the LEFT side of the header,
+ * mirroring the native traffic lights. We achieve this by flipping the flex
+ * order of the close button (last in DOM → first visually).
+ */
+.ui-modal-header--macos .ui-modal-close {
+  order: -1;
+}
+
 .ui-modal-title {
   margin: 0;
   font-size: var(--p-font-size-l);

@@ -9,6 +9,12 @@ interface ModalHeaderProperties {
     children: JSX.Element;
     /** Additional CSS classes. */
     class?: string;
+    /**
+     * Platform hint used to apply OS-specific close-button placement.
+     * When 'mac', the close button is placed on the left via CSS flex ordering.
+     * Defaults to Windows/Linux (close on the right).
+     */
+    platform?: 'mac' | 'windows' | 'linux';
 }
 
 /**
@@ -19,7 +25,13 @@ interface ModalHeaderProperties {
  */
 export const ModalHeader: Component<ModalHeaderProperties> = componentProperties => {
     return (
-        <header class={cn('ui-modal-header', componentProperties.class)}>
+        <header
+            class={cn(
+                'ui-modal-header',
+                componentProperties.platform === 'mac' && 'ui-modal-header--macos',
+                componentProperties.class
+            )}
+        >
             {componentProperties.children}
         </header>
     );

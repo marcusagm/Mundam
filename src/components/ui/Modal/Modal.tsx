@@ -8,6 +8,7 @@ import { ModalCloseButton } from './ModalCloseButton';
 import { ModalBody } from './ModalBody';
 import { ModalFooter } from './ModalFooter';
 import { ModalProperties } from './types';
+import { detectPlatform } from '../../../core/input/utils/platform';
 import './modal.css';
 
 /**
@@ -23,6 +24,7 @@ import './modal.css';
  * </Modal>
  */
 export const Modal: Component<ModalProperties> = componentProperties => {
+    const platform = detectPlatform();
     return (
         <ModalRoot isOpen={componentProperties.isOpen} onClose={componentProperties.onClose}>
             <ModalOverlay closeOnClick={componentProperties.closeOnOverlayClick} />
@@ -36,7 +38,7 @@ export const Modal: Component<ModalProperties> = componentProperties => {
                         componentProperties.title || componentProperties.showCloseButton !== false
                     }
                 >
-                    <ModalHeader>
+                    <ModalHeader platform={platform}>
                         <Show when={componentProperties.title}>
                             <ModalTitle>{componentProperties.title}</ModalTitle>
                         </Show>
