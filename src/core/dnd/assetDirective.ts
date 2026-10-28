@@ -125,10 +125,14 @@ export function assetDnD(el: HTMLElement, accessor: () => AssetDnDParams) {
         e.preventDefault();
         dragCounter++;
 
-        if (dragCounter === 1) {
-            const strategy = dndRegistry.get('ASSET');
-            const dragging = currentDragItem();
-            if (strategy && strategy.onDragOver && dragging && strategy.onDragOver(dragging)) {
+        const dragging = currentDragItem();
+        const strategy = dndRegistry.get('ASSET');
+        if (strategy && strategy.onDragOver && dragging && strategy.onDragOver(dragging)) {
+            if (e.dataTransfer) {
+                const allowed = e.dataTransfer.effectAllowed;
+                e.dataTransfer.dropEffect = allowed === 'move' ? 'move' : 'copy';
+            }
+            if (dragCounter === 1) {
                 setDropTargetId(accessor().item.id);
             }
         }
@@ -141,10 +145,13 @@ export function assetDnD(el: HTMLElement, accessor: () => AssetDnDParams) {
 
         const strategy = dndRegistry.get('ASSET');
         if (strategy && strategy.onDragOver && strategy.onDragOver(dragging)) {
-            e.dataTransfer!.dropEffect = 'copy';
+            if (e.dataTransfer) {
+                const allowed = e.dataTransfer.effectAllowed;
+                e.dataTransfer.dropEffect = allowed === 'move' ? 'move' : 'copy';
+            }
             // Ensure target is set if enter was missed or ID changed due to virtualization
             const myId = accessor().item.id;
-            if (dragCounter > 0 && currentDropTargetId() !== myId) {
+            if (currentDropTargetId() !== myId) {
                 setDropTargetId(myId);
             }
         }
@@ -166,14 +173,23 @@ export function assetDnD(el: HTMLElement, accessor: () => AssetDnDParams) {
         setDropTargetId(null);
 
         try {
+            let data: DragItem | null = null;
             const json = e.dataTransfer?.getData('application/json');
             if (json) {
-                const data = JSON.parse(json);
-                const strategy = dndRegistry.get('ASSET');
-                if (strategy && strategy.accepts(data)) {
-                    const { item } = accessor();
-                    await strategy.onDrop(data, item.id);
+                try {
+                    data = JSON.parse(json);
+                } catch {
+                    // ignore JSON parse error
                 }
+            }
+            if (!data) {
+                data = currentDragItem();
+            }
+
+            const strategy = dndRegistry.get('ASSET');
+            if (data && strategy && strategy.accepts(data)) {
+                const { item } = accessor();
+                await strategy.onDrop(data, item.id);
             }
         } catch (err) {
             console.error('Drop failed', err);

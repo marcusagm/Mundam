@@ -146,7 +146,7 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
                       };
 
             setDragItem(currentDragData);
-            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.effectAllowed = 'all';
             event.dataTransfer.setData('application/json', JSON.stringify(currentDragData));
         }
     };
@@ -231,16 +231,25 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
         }
 
         try {
+            let droppedItem: DragItem | null = null;
             const rawJsonData = event.dataTransfer?.getData('application/json');
             if (rawJsonData) {
-                const droppedItem: DragItem = JSON.parse(rawJsonData);
-                if (dragDropOptions.onDrop) {
-                    dragDropOptions.onDrop(
-                        droppedItem,
-                        dragDropOptions.node().id,
-                        finalDropPosition || 'inside'
-                    );
+                try {
+                    droppedItem = JSON.parse(rawJsonData);
+                } catch {
+                    // ignore JSON parse error
                 }
+            }
+            if (!droppedItem) {
+                droppedItem = currentDragItem();
+            }
+
+            if (droppedItem && dragDropOptions.onDrop) {
+                dragDropOptions.onDrop(
+                    droppedItem,
+                    dragDropOptions.node().id,
+                    finalDropPosition || 'inside'
+                );
             }
         } catch (error) {
             console.error('Hierarchical drop operation failed:', error);

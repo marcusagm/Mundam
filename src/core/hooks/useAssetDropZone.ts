@@ -26,10 +26,16 @@ export const useAssetDropZone = (getAssetId: () => string) => {
         const nextCounter = dragCounter() + 1;
         setDragCounter(nextCounter);
 
-        if (nextCounter === 1) {
-            const dragging = currentDragItem();
-            // Assets only accept TAG drops currently for assignment
-            if (dragging?.type === 'TAG') {
+        const dragging = currentDragItem();
+        const isTag =
+            dragging?.type === 'TAG' || event.dataTransfer?.types?.includes('application/json');
+
+        if (isTag) {
+            if (event.dataTransfer) {
+                const allowed = event.dataTransfer.effectAllowed;
+                event.dataTransfer.dropEffect = allowed === 'move' ? 'move' : 'copy';
+            }
+            if (nextCounter === 1) {
                 setDropTargetId(getTargetId());
             }
         }
@@ -38,13 +44,16 @@ export const useAssetDropZone = (getAssetId: () => string) => {
     const onDragOver = (event: DragEvent) => {
         event.preventDefault();
         const dragging = currentDragItem();
-        if (dragging?.type === 'TAG') {
+        const isTag =
+            dragging?.type === 'TAG' || event.dataTransfer?.types?.includes('application/json');
+
+        if (isTag) {
             if (event.dataTransfer) {
-                event.dataTransfer.dropEffect = 'copy';
+                const allowed = event.dataTransfer.effectAllowed;
+                event.dataTransfer.dropEffect = allowed === 'move' ? 'move' : 'copy';
             }
-            // Fallback for missed enter events due to rapid movement or virtualization
             const currentId = getTargetId();
-            if (dragCounter() > 0 && currentDropTargetId() !== currentId) {
+            if (currentDropTargetId() !== currentId) {
                 setDropTargetId(currentId);
             }
         }
@@ -65,13 +74,22 @@ export const useAssetDropZone = (getAssetId: () => string) => {
         setDropTargetId(null);
 
         try {
+            let droppedItem: DragItem | null = null;
             const rawJsonData = event.dataTransfer?.getData('application/json');
             if (rawJsonData) {
-                const droppedItem: DragItem = JSON.parse(rawJsonData);
-                // Asset cards specifically only allow TAG drops for tag assignment
-                if (droppedItem.type === 'TAG') {
-                    await handleDrop(droppedItem, getTargetId(), 'ASSET');
+                try {
+                    droppedItem = JSON.parse(rawJsonData);
+                } catch {
+                    // ignore JSON parse error
                 }
+            }
+            if (!droppedItem) {
+                droppedItem = currentDragItem();
+            }
+
+            // Asset cards specifically only allow TAG drops for tag assignment
+            if (droppedItem?.type === 'TAG') {
+                await handleDrop(droppedItem, getTargetId(), 'ASSET');
             }
         } catch (error) {
             console.error('Asset drop failed:', error);
