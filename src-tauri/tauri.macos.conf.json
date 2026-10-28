@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/ffmpeg/macos/": "resources/ffmpeg/macos/",
+      "resources/assimp/macos/": "resources/assimp/macos/",
+      "resources/pdfium/libpdfium.dylib": "resources/pdfium/libpdfium.dylib"
+    }
+  }
+}

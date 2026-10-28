@@ -25,18 +25,27 @@ pub fn locate_soundfont(app_handle: Option<&tauri::AppHandle>) -> Option<PathBuf
         }
     }
 
-    // Priority 2: Project's src-tauri/resources/soundfonts
-    let local_resources = Path::new("resources/soundfonts");
-    if let Ok(entries) = std::fs::read_dir(local_resources) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().is_some_and(|e| e == "sf2") {
+    // Priority 2: Bundled Tauri resources (the installer places these beside
+    // the executable on Windows, under the app's Resources directory on macOS).
+    if let Some(app) = app_handle {
+        if let Ok(resource_dir) = app.path().resource_dir() {
+            if let Some(path) = find_soundfont(&resource_dir.join("resources/soundfonts")) {
                 return Some(path);
             }
         }
     }
 
-    None
+    // Priority 3: Project resources during local development.
+    let local_resources = Path::new("resources/soundfonts");
+    find_soundfont(local_resources)
+}
+
+fn find_soundfont(directory: &Path) -> Option<PathBuf> {
+    std::fs::read_dir(directory)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_file() && path.extension().is_some_and(|e| e == "sf2"))
 }
 
 /// Parses a MIDI file and returns its length in seconds.

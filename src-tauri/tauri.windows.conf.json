@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/ffmpeg/windows-x64/": "resources/ffmpeg/windows-x64/",
+      "resources/assimp/windows-x64/": "resources/assimp/windows-x64/",
+      "resources/pdfium/pdfium.dll": "resources/pdfium/pdfium.dll",
+      "resources/mingw/*": ""
+    }
+  }
+}

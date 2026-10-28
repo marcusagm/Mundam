@@ -41,13 +41,13 @@ Para construir e executar o Mundam-v2 no Windows de forma limpa, são necessári
 | **LLVM** | `LLVM.LLVM` | Fornece `libclang.dll` para geração de bindings FFI via `bindgen` (usado por `rsraw-sys`). |
 | **CMake** | `Kitware.CMake` | Construção de submódulos C++ (ex.: `gpr_sdk`). |
 | **FFmpeg** | `Gyan.FFmpeg` | Binários `ffmpeg.exe` e `ffprobe.exe` para pipeline de vídeo e fallback de extração de mídia. |
-| **Python 3** | Python 3.10+ | Execução do script utilitário `download_sf2.py` para obtenção da SoundFont de áudio MIDI. |
+| **SoundFont** | Asset versionado em `src-tauri/resources/soundfonts/` | Recurso MIDI empacotado com o app; não exige Python no setup. |
 
 ### 2.3. Binários e Recursos Estagiados em `src-tauri/`
-* `binaries/pdfium/pdfium.dll`: Biblioteca dinâmica de renderização PDF (baixada pelo setup script).
-* `ffmpeg/ffmpeg.exe` e `ffmpeg/ffprobe.exe`: Binários do FFmpeg estagiados localmente para empacotamento do Tauri.
+* `resources/pdfium/pdfium.dll`: Biblioteca dinâmica de renderização PDF (baixada pelo setup script).
+* `resources/ffmpeg/windows-x64/ffmpeg.exe` e `resources/ffmpeg/windows-x64/ffprobe.exe`: Binários do FFmpeg estagiados localmente para empacotamento do Tauri.
 * `resources/soundfonts/*.sf2`: Arquivo SoundFont (ex.: `FluidR3_GM.sf2` ou `GeneralUser GS.sf2`) para o sintetizador `rustysynth`.
-* `assimp/windows-x64/assimp.exe` *(opcional)*: Conversor de malhas 3D para renderização de modelos.
+* `resources/assimp/windows-x64/assimp.exe` *(opcional)*: Conversor de malhas 3D para renderização de modelos.
 
 ---
 
@@ -65,20 +65,8 @@ O Windows frequentemente possui múltiplas versões de utilitários como `gcc`, 
 * **Valor:** `C:\Program Files\LLVM\bin`
 * **Finalidade:** O crate `bindgen` (usado por bibliotecas C/C++ como `rsraw-sys`) precisa carregar dinamicamente a `libclang.dll` para analisar os headers C++ da LibRaw. Sem essa variável, a compilação do `rsraw-sys` aborta com erro de inicialização do Clang.
 
-### 3.3. Configuração do Cargo: `.cargo/config.toml`
-Criado na raiz do projeto para ditar o comportamento do compilador Rust sem exigir flags manuais no terminal:
-
-```toml
-[build]
-# Força o uso do toolchain GNU para permitir a compilação do rsraw-sys (LibRaw)
-target = "x86_64-pc-windows-gnu"
-
-# Redireciona o target-dir para um caminho na raiz sem espaços (evita bugs no dlltool e windres)
-target-dir = "C:/cargo-target/mundam"
-
-[target.x86_64-pc-windows-gnu]
-# Utiliza o driver do GCC padrão do MinGW
-```
+### 3.3. Configuração do Cargo por plataforma
+O repositório não fixa mais `target` nem `target-dir` em `.cargo/config.toml`. O launcher `scripts/tauri.cjs` aplica `CARGO_BUILD_TARGET=x86_64-pc-windows-gnu` e `CARGO_TARGET_DIR=C:/cargo-target/mundam` somente ao executar o Tauri no Windows. macOS e Linux usam o target nativo e o diretório `src-tauri/target` padrão do Cargo.
 
 ---
 
@@ -113,8 +101,8 @@ Abaixo está o registro técnico aprofundado dos 6 principais obstáculos supera
   O usuário possui um espaço no nome de usuário do Windows (`C:\Users\Marcus Maia\...`). Durante a linkagem de bibliotecas dinâmicas ou compilação de recursos, o `dlltool` do MinGW falhava separando `C:\Users\Marcus` como argumento de caminho e `Maia\...` como flag inválida.
 * **Causa Raiz:** 
   Diversas ferramentas de linha de comando históricas do GNU Binutils (`dlltool`, `collect2`) no Windows têm falhas no parsing de argumentos contendo espaços quando passados através de arquivos de resposta (`@response.txt`) ou argumentos CLI sem aspas estritas.
-* **Solução Adotada:** 
-  Redirecionamos o diretório de compilação do Cargo configurando `target-dir = "C:/cargo-target/mundam"` no arquivo `.cargo/config.toml`. Por estar localizado na raiz da unidade `C:\`, o caminho é 100% livre de espaços, eliminando por completo falhas de particionamento de argumentos no compilador.
+* **Solução Adotada:**
+  O launcher Windows `scripts/tauri.cjs` redireciona o target-dir para `C:/cargo-target/mundam` apenas nos processos Tauri do Windows. Essa configuração evita caminhos com espaços sem impor esse diretório aos builds de macOS e Linux.
 
 ---
 
@@ -161,7 +149,7 @@ Abaixo está o registro técnico aprofundado dos 6 principais obstáculos supera
 * **Causa Raiz:** 
   O crate `tauri-winres` (via `embed-resource`) invoca o utilitário `windres.exe` passando o arquivo de recursos gerado em `OUT_DIR`. Por baixo dos panos, o `windres` executa `gcc -E` (que chama `cc1.exe`). Se o utilitário `windres` for o da camada POSIX (`C:\msys64\usr\bin\windres.exe`), ele interpreta as barras invertidas do caminho Windows como sequências de escape do C (ex.: `\c` -> `c`, `\m` -> `m`), apagando as barras do caminho.
 * **Solução Adotada:** 
-  1. No `.cargo/config.toml`, garantimos que o `target-dir` seja formatado com barras normais: `C:/cargo-target/mundam`.
+  1. O launcher Windows `scripts/tauri.cjs` define um `CARGO_TARGET_DIR` sem espaços somente para processos Tauri no Windows.
   2. No arquivo [`src-tauri/build.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/build.rs#L1-L8), inserimos uma diretiva no início da função `main` para prepender os diretórios nativos do MinGW (`C:\msys64\ucrt64\bin;C:\msys64\mingw64\bin`) na variável de ambiente `PATH` do processo. Assim, o `embed-resource` invoca o `windres` nativo da UCRT, que executa o pré-processamento com sucesso.
 
 ---
@@ -181,8 +169,8 @@ Abaixo está o registro técnico aprofundado dos 6 principais obstáculos supera
 
 | Arquivo | Natureza da Alteração | Detalhes Técnicos |
 | :--- | :--- | :--- |
-| [`.cargo/config.toml`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/.cargo/config.toml) | **Criação / Configuração** | Define `target = "x86_64-pc-windows-gnu"` e `target-dir = "C:/cargo-target/mundam"` (sem espaços e com barras normais). |
-| [`scripts/setup-windows.ps1`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/scripts/setup-windows.ps1) | **Atualização de Setup** | Instala MSYS2 via winget; instala gcc ucrt64; prioriza `ucrt64\bin` no PATH; instala toolchain Rust GNU; gera `.cargo/config.toml` automaticamente; baixa SoundFont via Python se ausente. |
+| [`scripts/tauri.cjs`](../../scripts/tauri.cjs) | **Launcher do Tauri** | Define target GNU e target-dir sem espaços somente no Windows. |
+| [`scripts/setup-windows.ps1`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/scripts/setup-windows.ps1) | **Atualização de Setup** | Instala MSYS2 via winget; instala gcc ucrt64; prioriza `ucrt64\bin` no PATH; instala toolchain Rust GNU; prepara os binários do Windows. |
 | [`src-tauri/Cargo.toml`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/Cargo.toml) | **Configuração de Dependências** | Desativa `default-features` do `image_dds`; atualiza `rsraw` para `0.1.1`; insere `[profile.dev] debug = 1` para acelerar o linker. |
 | [`src-tauri/build.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/build.rs) | **Lógica de Build Script** | Prepend no `PATH` para priorizar o `windres` do MinGW nativo; desativa compilação do `gpr_sdk` em plataformas Windows. |
 | [`src-tauri/src/processing/media/extractors/gpr.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/src/processing/media/extractors/gpr.rs) | **Compatibilidade Multiplataforma** | Adiciona stubs `#[cfg(target_os = "windows")]` para geração de thumbnails e previews de GoPro GPR. |
@@ -262,7 +250,7 @@ O script cuidará de:
 * Instalar Git, Node.js LTS, Rustup, LLVM, CMake, FFmpeg e MSYS2/MinGW via `winget`.
 * Configurar o PATH para priorizar as ferramentas nativas MinGW (`C:\msys64\ucrt64\bin`).
 * Instalar e configurar o toolchain `stable-x86_64-pc-windows-gnu`.
-* Gerar a pasta `C:\cargo-target\mundam` e o arquivo `.cargo/config.toml`.
+* Selecionar o target GNU e o diretório `C:\cargo-target\mundam` no launcher do Tauri para Windows.
 * Instalar dependências npm e submódulos git.
 * Baixar e estagiar o `pdfium.dll`, `ffmpeg.exe` e a SoundFont MIDI.
 

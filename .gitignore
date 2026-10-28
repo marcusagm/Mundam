@@ -43,8 +43,8 @@ desktop.ini
 
 /file-samples
 # Local native tools staged by scripts/setup-*
-/src-tauri/ffmpeg/ffprobe
-/src-tauri/ffmpeg/*.exe
-/src-tauri/assimp/windows-x64/assimp.exe
-/src-tauri/binaries/pdfium/*.so
-/src-tauri/binaries/pdfium/*.dll
+/src-tauri/resources/ffmpeg/*/ffprobe
+/src-tauri/resources/ffmpeg/**/*.exe
+/src-tauri/resources/assimp/windows-x64/assimp.exe
+/src-tauri/resources/pdfium/*.so
+/src-tauri/resources/pdfium/*.dll

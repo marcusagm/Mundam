@@ -44,9 +44,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "ffmpeg/*": "ffmpeg/",
-      "assimp/*": "assimp/",
-      "binaries/pdfium/*": "binaries/pdfium/"
+      "resources/soundfonts/": "resources/soundfonts/"
     }
   }
 }

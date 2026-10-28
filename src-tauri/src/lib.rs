@@ -43,6 +43,9 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle();
 
+            let resource_dir = app_handle.path().resource_dir()?;
+            std::env::set_var("MUNDAM_RESOURCE_DIR", resource_dir);
+
             crate::bootstrap::system::init_directories(app_handle);
             crate::bootstrap::system::init_lifecycle(app_handle);
             crate::bootstrap::system::init_settings(app_handle);

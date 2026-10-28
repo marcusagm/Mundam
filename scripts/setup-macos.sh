@@ -35,7 +35,7 @@ ensure_rust
 init_submodules
 install_node_deps
 
-stage_ffmpeg
+stage_ffmpeg macos
 stage_assimp macos
 
 case "$(uname -m)" in

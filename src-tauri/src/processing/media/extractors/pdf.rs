@@ -156,7 +156,7 @@ pub fn extract_pdf_metadata(
     }))
 }
 
-/// Helper function to find libpdfium in macOS app bundle resources, executable path, or current working directory.
+/// Locates PDFium in the Tauri resource bundle or in the development resources tree.
 fn find_pdfium_library_path() -> Option<PathBuf> {
     let library_filename = if cfg!(target_os = "windows") {
         "pdfium.dll"
@@ -166,22 +166,45 @@ fn find_pdfium_library_path() -> Option<PathBuf> {
         "libpdfium.so"
     };
 
+    if let Some(resource_dir) = std::env::var_os("MUNDAM_RESOURCE_DIR") {
+        let path = PathBuf::from(resource_dir)
+            .join("resources")
+            .join("pdfium")
+            .join(library_filename);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        let development_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("pdfium")
+            .join(library_filename);
+        if development_path.exists() {
+            return Some(development_path);
+        }
+    }
+
     if let Ok(executable_path) = std::env::current_exe() {
         let mut current_directory = executable_path.parent();
         while let Some(path) = current_directory {
             let macos_resources_path = path
                 .join("Resources")
-                .join("binaries")
+                .join("resources")
                 .join("pdfium")
                 .join(library_filename);
             if macos_resources_path.exists() {
                 return Some(macos_resources_path);
             }
 
-            let check_path_with_binaries =
-                path.join("binaries").join("pdfium").join(library_filename);
-            if check_path_with_binaries.exists() {
-                return Some(check_path_with_binaries);
+            let bundled_path = path
+                .join("resources")
+                .join("pdfium")
+                .join(library_filename);
+            if bundled_path.exists() {
+                return Some(bundled_path);
             }
 
             let check_path_without_binaries = path.join("pdfium").join(library_filename);
@@ -196,10 +219,12 @@ fn find_pdfium_library_path() -> Option<PathBuf> {
     if let Ok(current_working_directory) = std::env::current_dir() {
         let mut current_directory = Some(current_working_directory.as_path());
         while let Some(path) = current_directory {
-            let check_path_with_binaries =
-                path.join("binaries").join("pdfium").join(library_filename);
-            if check_path_with_binaries.exists() {
-                return Some(check_path_with_binaries);
+            let bundled_path = path
+                .join("resources")
+                .join("pdfium")
+                .join(library_filename);
+            if bundled_path.exists() {
+                return Some(bundled_path);
             }
             let check_path_without_binaries = path.join("pdfium").join(library_filename);
             if check_path_without_binaries.exists() {

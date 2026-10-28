@@ -3,7 +3,7 @@
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TAURI_DIR="$REPO_ROOT/src-tauri"
-PDFIUM_VERSION="7543" # keep in sync with src-tauri/download-pdfium.sh
+PDFIUM_VERSION="7543"
 
 SKIP_SYSTEM=0
 RUN_CHECK=0
@@ -130,17 +130,18 @@ stage_tool() {
 }
 
 stage_ffmpeg() {
+    local platform="$1"
     log "Staging FFmpeg / FFprobe"
-    stage_tool ffmpeg ffmpeg required
-    stage_tool ffprobe ffmpeg optional
+    stage_tool ffmpeg "resources/ffmpeg/$platform" required
+    stage_tool ffprobe "resources/ffmpeg/$platform" optional
 }
 
-# Assimp is optional (3D model conversion). The app looks for src-tauri/assimp/<platform>/bin/assimp.
+# Assimp is optional (3D model conversion). The app looks for resources/assimp/<platform>/bin/assimp.
 stage_assimp() {
     local platform="$1" dest
     log "Staging Assimp"
-    dest="$TAURI_DIR/assimp/$platform/bin/assimp"
-    mkdir -p "$TAURI_DIR/assimp/$platform/bin"
+    dest="$TAURI_DIR/resources/assimp/$platform/bin/assimp"
+    mkdir -p "$TAURI_DIR/resources/assimp/$platform/bin"
     if is_native_binary "$dest"; then
         ok "assimp already staged"
     elif have assimp; then
@@ -156,8 +157,8 @@ stage_assimp() {
 ensure_pdfium() {
     local lib_name="$1" file="$2" lib_subdir="$3" dest tmp
     log "Checking PDFium"
-    dest="$TAURI_DIR/binaries/pdfium/$lib_name"
-    mkdir -p "$TAURI_DIR/binaries/pdfium"
+    dest="$TAURI_DIR/resources/pdfium/$lib_name"
+    mkdir -p "$TAURI_DIR/resources/pdfium"
     if is_native_binary "$dest"; then
         ok "PDFium already present"
         return 0
@@ -169,8 +170,8 @@ ensure_pdfium() {
     tar -xzf "$tmp/$file" -C "$tmp"
     cp -f "$tmp/$lib_subdir/$lib_name" "$dest"
     rm -rf "$tmp"
-    untrack_local_change "src-tauri/binaries/pdfium/$lib_name"
-    ok "PDFium installed at src-tauri/binaries/pdfium/$lib_name"
+    untrack_local_change "src-tauri/resources/pdfium/$lib_name"
+    ok "PDFium installed at src-tauri/resources/pdfium/$lib_name"
 }
 
 ensure_soundfont() {
@@ -178,7 +179,7 @@ ensure_soundfont() {
     if ls "$TAURI_DIR"/resources/soundfonts/*.sf2 >/dev/null 2>&1; then
         ok "SoundFont present"
     else
-        warn "No .sf2 in src-tauri/resources/soundfonts; MIDI preview will fail (see download_sf2.py)."
+        warn "No .sf2 in src-tauri/resources/soundfonts; MIDI preview will be unavailable."
     fi
 }
 

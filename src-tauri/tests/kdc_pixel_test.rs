@@ -1,8 +1,7 @@
-use std::path::Path;
-
 #[test]
 fn check_ffmpeg_kdc() {
-    let img = image::open("ffmpeg_kdc.jpg").unwrap();
+    let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ffmpeg_kdc.jpg");
+    let img = image::open(fixture).unwrap();
     let img_rgb = img.to_rgb8();
 
     let mut black_pixels = 0;

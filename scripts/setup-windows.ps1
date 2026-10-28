@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $TauriDir = Join-Path $RepoRoot 'src-tauri'
-$PdfiumVersion = '7543' # keep in sync with src-tauri/download-pdfium.sh
+$PdfiumVersion = '7543'
 $Warnings = New-Object System.Collections.Generic.List[string]
 
 function Log($m)  { Write-Host "==> $m" -ForegroundColor Blue }
@@ -101,35 +101,7 @@ if (Test-Path (Join-Path $llvmBin 'libclang.dll')) {
     Warn "libclang.dll not found in $llvmBin. Install LLVM and set LIBCLANG_PATH, or the LibRaw build will fail."
 }
 
-Log 'Configuring Cargo target-dir (without spaces) and .cargo/config.toml'
-$targetDirNoSpaces = 'C:/cargo-target/mundam'
-if (-not (Test-Path 'C:\cargo-target\mundam')) {
-    New-Item -ItemType Directory -Force 'C:\cargo-target\mundam' | Out-Null
-    Ok "Created directory C:\cargo-target\mundam"
-}
-$cargoDir = Join-Path $RepoRoot '.cargo'
-$cargoConfigFile = Join-Path $cargoDir 'config.toml'
-if (-not (Test-Path $cargoDir)) {
-    New-Item -ItemType Directory -Force $cargoDir | Out-Null
-}
-if (-not (Test-Path $cargoConfigFile)) {
-    @'
-[build]
-# Use GNU toolchain to support rsraw/rsraw-sys (LibRaw wrapper).
-# rsraw-sys explicitly rejects MSVC in its build script.
-target = "x86_64-pc-windows-gnu"
-
-# MinGW dlltool/windres fails when paths contain spaces.
-# Redirect target directory to a root path without spaces.
-target-dir = "C:/cargo-target/mundam"
-
-[target.x86_64-pc-windows-gnu]
-# Use default GCC linker
-'@ | Set-Content -Path $cargoConfigFile -Encoding utf8
-    Ok "Configured .cargo/config.toml with target-dir = C:/cargo-target/mundam"
-} else {
-    Ok ".cargo/config.toml already present"
-}
+Log 'Cargo build settings are selected by scripts/tauri.cjs on Windows; other platforms use Cargo defaults'
 
 Log 'Fetching git submodules (GoPro GPR SDK)'
 if (Test-Path (Join-Path $RepoRoot '.git')) {
@@ -151,7 +123,7 @@ function Hide-LocalChange($relPath) {
 }
 
 Log 'Staging FFmpeg / FFprobe'
-$ffmpegDir = Join-Path $TauriDir 'ffmpeg'
+$ffmpegDir = Join-Path $TauriDir 'resources\ffmpeg\windows-x64'
 New-Item -ItemType Directory -Force $ffmpegDir | Out-Null
 foreach ($tool in 'ffmpeg', 'ffprobe') {
     $dest = Join-Path $ffmpegDir "$tool.exe"
@@ -162,9 +134,9 @@ foreach ($tool in 'ffmpeg', 'ffprobe') {
     else { Warn 'ffprobe.exe not found; media metadata features will be unavailable.' }
 }
 
-# Assimp is optional (3D model conversion); the app looks for assimp/windows-x64/assimp.exe.
+# Assimp is optional (3D model conversion); the app looks for resources/assimp/windows-x64/assimp.exe.
 Log 'Staging Assimp'
-$assimpDir = Join-Path $TauriDir 'assimp\windows-x64'
+$assimpDir = Join-Path $TauriDir 'resources\assimp\windows-x64'
 New-Item -ItemType Directory -Force $assimpDir | Out-Null
 $assimpExe = Join-Path $assimpDir 'assimp.exe'
 if (Test-Path $assimpExe) {
@@ -176,12 +148,12 @@ if (Test-Path $assimpExe) {
         Get-ChildItem (Split-Path $cmd.Source) -Filter 'assimp*.dll' | Copy-Item -Destination $assimpDir -Force
         Ok "Staged assimp.exe from $($cmd.Source)"
     } else {
-        Warn "assimp.exe not found. Download the Assimp tools (https://github.com/assimp/assimp/releases) and place assimp.exe next to assimp-vc143-mt.dll in src-tauri\assimp\windows-x64\. Without it, 3D model previews are unavailable."
+        Warn "assimp.exe not found. Download the Assimp tools (https://github.com/assimp/assimp/releases) and place assimp.exe next to assimp-vc143-mt.dll in src-tauri\resources\assimp\windows-x64\. Without it, 3D model previews are unavailable."
     }
 }
 
 Log 'Checking PDFium'
-$pdfiumDir = Join-Path $TauriDir 'binaries\pdfium'
+$pdfiumDir = Join-Path $TauriDir 'resources\pdfium'
 New-Item -ItemType Directory -Force $pdfiumDir | Out-Null
 $pdfiumDll = Join-Path $pdfiumDir 'pdfium.dll'
 if (Test-Path $pdfiumDll) {
@@ -195,7 +167,7 @@ if (Test-Path $pdfiumDll) {
         Invoke-WebRequest "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F$PdfiumVersion/pdfium-win-x64.zip" -OutFile $zip
         Expand-Archive $zip -DestinationPath $tmp -Force
         Copy-Item (Join-Path $tmp 'bin\pdfium.dll') $pdfiumDll -Force
-        Ok 'PDFium installed at src-tauri\binaries\pdfium\pdfium.dll'
+        Ok 'PDFium installed at src-tauri\resources\pdfium\pdfium.dll'
     } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
@@ -204,27 +176,14 @@ $sfDir = Join-Path $TauriDir 'resources\soundfonts'
 New-Item -ItemType Directory -Force $sfDir | Out-Null
 if (Get-ChildItem $sfDir -Filter *.sf2 -ErrorAction SilentlyContinue) {
     Ok 'SoundFont present'
-} elseif (Have python) {
-    Log 'Downloading SoundFont via download_sf2.py'
-    Push-Location $RepoRoot
-    try {
-        python download_sf2.py
-        if (Get-ChildItem $sfDir -Filter *.sf2 -ErrorAction SilentlyContinue) {
-            Ok 'SoundFont downloaded successfully'
-        } else {
-            Warn 'SoundFont download failed; MIDI preview will be unavailable.'
-        }
-    } catch {
-        Warn "Failed to run download_sf2.py: $_"
-    } finally {
-        Pop-Location
-    }
 } else {
-    Warn 'No .sf2 in src-tauri\resources\soundfonts; MIDI preview will fail (install Python and run download_sf2.py).'
+    Warn 'No .sf2 in src-tauri\resources\soundfonts; MIDI preview will be unavailable.'
 }
 
 if ($Check) {
     Log 'Running cargo check (first run compiles LibRaw and GPR SDK; may take several minutes)'
+    $env:CARGO_BUILD_TARGET = 'x86_64-pc-windows-gnu'
+    $env:CARGO_TARGET_DIR = 'C:/cargo-target/mundam'
     Push-Location $TauriDir
     try { cargo check; if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' } } finally { Pop-Location }
 }

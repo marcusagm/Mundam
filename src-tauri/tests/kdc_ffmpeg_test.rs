@@ -8,7 +8,6 @@ fn run() {
     match res {
         Ok((data, _)) => {
             println!("FFmpeg extracted {} bytes", data.len());
-            std::fs::write("ffmpeg_kdc.jpg", &data).unwrap();
         }
         Err(e) => println!("FFmpeg failed: {:?}", e),
     }

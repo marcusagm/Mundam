@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/ffmpeg/linux/": "resources/ffmpeg/linux/",
+      "resources/assimp/linux/": "resources/assimp/linux/",
+      "resources/pdfium/libpdfium.so": "resources/pdfium/libpdfium.so"
+    }
+  }
+}

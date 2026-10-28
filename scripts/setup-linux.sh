@@ -49,7 +49,7 @@ ensure_rust
 init_submodules
 install_node_deps
 
-stage_ffmpeg
+stage_ffmpeg linux
 stage_assimp linux
 
 case "$(uname -m)" in

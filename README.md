@@ -66,7 +66,22 @@ After cloning, run the setup script for your platform. It installs the system pr
 powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1   # Windows (winget)
 ```
 
-Options: `--skip-system` / `-SkipSystem` (don't install packages), `--check` / `-Check` (run `cargo check` at the end), `-y` (non-interactive, Unix). On Windows, open a new terminal afterwards so `PATH` and `LIBCLANG_PATH` are refreshed. Assimp is optional on Windows (no package available): without `assimp.exe` in `src-tauri/assimp/windows-x64/`, 3D previews are disabled.
+Options: `--skip-system` / `-SkipSystem` (don't install packages), `--check` / `-Check` (run `cargo check` at the end), `-y` (non-interactive, Unix). On Windows, open a new terminal afterwards so `PATH` and `LIBCLANG_PATH` are refreshed. Assimp is optional on Windows (no package available): without `assimp.exe` in `src-tauri/resources/assimp/windows-x64/`, 3D previews are disabled.
+
+### Native dependencies
+
+Third-party source and runtime assets are kept separate:
+
+| Path | Contents |
+| --- | --- |
+| `src-tauri/vendor/gpr_sdk` | GoPro GPR SDK source submodule, compiled with CMake where supported. |
+| `src-tauri/resources/ffmpeg/<platform>/` | Staged FFmpeg and FFprobe executables (`linux`, `macos`, or `windows-x64`). |
+| `src-tauri/resources/assimp/<platform>/` | Optional Assimp executable and its libraries. |
+| `src-tauri/resources/pdfium/` | PDFium runtime library for the current OS. |
+| `src-tauri/resources/soundfonts/` | SoundFont files, bundled with the app for MIDI previews. |
+| `src-tauri/resources/mingw/` | Windows GNU runtime DLLs shipped beside the app executable. |
+
+Use `scripts/setup.sh` or `scripts/setup-windows.ps1` to prepare these dependencies. The older one-off download scripts have been removed; the platform setup scripts are now the single setup path.
 
 ### Getting Started (manual)
 
@@ -92,7 +107,7 @@ Options: `--skip-system` / `-SkipSystem` (don't install packages), `--check` / `
     ```bash
     npm run tauri build
     ```
-    The binary will be available in `src-tauri/target/release/bundle/`.
+    macOS and Linux use Cargo's normal `src-tauri/target/` directory. On Windows, `scripts/tauri.cjs` selects the GNU toolchain and a no-space Cargo target directory only for that process, so the shared Cargo configuration stays portable.
 
 ---
 

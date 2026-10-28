@@ -56,64 +56,66 @@ fn find_binary<R: tauri::Runtime>(
         "linux"
     };
 
-    // 1. Tenta via Tauri Resource Dir (Bundled)
+    // 1. Tenta via diretório de recursos do Tauri ou configurado no bootstrap.
+    let mut resource_dirs = Vec::new();
     if let Some(handle) = app_handle {
         if let Ok(resource_dir) = handle.path().resource_dir() {
-            // Tenta caminho direto: resource/name/binary
-            let direct_path = resource_dir.join(name).join(&binary_name);
-            if direct_path.exists() {
-                return Some(direct_path);
-            }
+            resource_dirs.push(resource_dir);
+        }
+    }
+    if let Some(resource_dir) = std::env::var_os("MUNDAM_RESOURCE_DIR") {
+        resource_dirs.push(PathBuf::from(resource_dir));
+    }
 
-            // Tenta caminho por plataforma: resource/name/platform/binary
-            let platform_path = resource_dir
-                .join(name)
-                .join(platform_dir)
-                .join(&binary_name);
-            if platform_path.exists() {
-                return Some(platform_path);
-            }
+    for resource_dir in resource_dirs {
+        let resource_dir = resource_dir.join("resources");
+        let direct_path = resource_dir.join(name).join(&binary_name);
+        if direct_path.exists() {
+            return Some(direct_path);
+        }
 
-            // Tenta caminho por plataforma com bin/ (comum em assimp macos): resource/name/platform/bin/binary
-            let bin_path = resource_dir
-                .join(name)
-                .join(platform_dir)
-                .join("bin")
-                .join(&binary_name);
-            if bin_path.exists() {
-                return Some(bin_path);
-            }
+        let platform_path = resource_dir
+            .join(name)
+            .join(platform_dir)
+            .join(&binary_name);
+        if platform_path.exists() {
+            return Some(platform_path);
+        }
+
+        let bin_path = resource_dir
+            .join(name)
+            .join(platform_dir)
+            .join("bin")
+            .join(&binary_name);
+        if bin_path.exists() {
+            return Some(bin_path);
         }
     }
 
-    // 2. Tenta via caminhos relativos de desenvolvimento (src-tauri/...)
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(target_dir) = exe_path.parent() {
-            if let Some(debug_dir) = target_dir.parent() {
-                if let Some(src_tauri) = debug_dir.parent() {
-                    // Tenta caminho direto
-                    let direct_path = src_tauri.join(name).join(&binary_name);
-                    if direct_path.exists() {
-                        return Some(direct_path);
-                    }
+    // 2. Tenta os recursos do projeto em builds de desenvolvimento.
+    #[cfg(debug_assertions)]
+    {
+        let resource_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
+        let direct_path = resource_dir.join(name).join(&binary_name);
+        if direct_path.exists() {
+            return Some(direct_path);
+        }
 
-                    // Tenta caminho por plataforma
-                    let platform_path = src_tauri.join(name).join(platform_dir).join(&binary_name);
-                    if platform_path.exists() {
-                        return Some(platform_path);
-                    }
+        let platform_path = resource_dir
+            .join(name)
+            .join(platform_dir)
+            .join(&binary_name);
+        if platform_path.exists() {
+            return Some(platform_path);
+        }
 
-                    // Tenta caminho por plataforma com bin/
-                    let bin_path = src_tauri
-                        .join(name)
-                        .join(platform_dir)
-                        .join("bin")
-                        .join(&binary_name);
-                    if bin_path.exists() {
-                        return Some(bin_path);
-                    }
-                }
-            }
+        let bin_path = resource_dir
+            .join(name)
+            .join(platform_dir)
+            .join("bin")
+            .join(&binary_name);
+        if bin_path.exists() {
+            return Some(bin_path);
         }
     }
 
