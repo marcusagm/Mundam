@@ -2,7 +2,7 @@
 .SYNOPSIS
     Development environment setup for Windows (10/11, x64).
 .DESCRIPTION
-    Installs prerequisites with winget, fetches submodules, installs npm dependencies and
+    Installs prerequisites with winget, installs npm dependencies and
     stages FFmpeg, Assimp (if available) and PDFium under src-tauri/.
 .PARAMETER SkipSystem
     Do not install system packages (only check, fetch and configure).
@@ -103,15 +103,6 @@ if (Test-Path (Join-Path $llvmBin 'libclang.dll')) {
 
 Log 'Cargo build settings are selected by scripts/tauri.cjs on Windows; other platforms use Cargo defaults'
 
-Log 'Fetching git submodules (GoPro GPR SDK)'
-if (Test-Path (Join-Path $RepoRoot '.git')) {
-    git -C $RepoRoot submodule update --init --recursive
-    if ($LASTEXITCODE -ne 0) { throw 'git submodule update failed.' }
-    Ok 'Submodules ready'
-} else {
-    Warn 'Not a git checkout; make sure src-tauri/vendor/gpr_sdk is populated.'
-}
-
 Log 'Installing frontend dependencies'
 Push-Location $RepoRoot
 try { npm install; if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' } } finally { Pop-Location }
@@ -181,7 +172,7 @@ if (Get-ChildItem $sfDir -Filter *.sf2 -ErrorAction SilentlyContinue) {
 }
 
 if ($Check) {
-    Log 'Running cargo check (first run compiles LibRaw and GPR SDK; may take several minutes)'
+    Log 'Running cargo check (first run compiles LibRaw; may take several minutes)'
     $env:CARGO_BUILD_TARGET = 'x86_64-pc-windows-gnu'
     $env:CARGO_TARGET_DIR = 'C:/cargo-target/mundam'
     Push-Location $TauriDir

@@ -22,7 +22,7 @@ use tracing::instrument;
 /// - **Container**: TIFF/EP with DNG extensions
 /// - **Sensor Compression**: VC-5 (CineForm wavelet), not standard Lossless JPEG
 /// - **Metadata**: Standard TIFF IFD0 dimensions + EXIF via `rexif`
-/// - **Thumbnail/Preview**: macOS `sips` (CoreImage) for VC-5 decoding
+/// - **Thumbnail/Preview**: FlashRaw's Rust VC-5 decoder and RAW development pipeline
 ///
 /// # Examples
 ///
@@ -179,9 +179,7 @@ impl MetadataCapability for GoproRawFormatProvider {
 
 #[async_trait]
 impl ThumbnailCapability for GoproRawFormatProvider {
-    /// Generates a WebP thumbnail using `sips` (macOS) to decode VC-5 sensor data.
-    ///
-    /// Falls back to the generic RAW pipeline if `sips` is unavailable.
+    /// Generates a WebP thumbnail by decoding VC-5 sensor data with FlashRaw.
     ///
     /// # Arguments
     ///
@@ -195,7 +193,7 @@ impl ThumbnailCapability for GoproRawFormatProvider {
     ///
     /// # Errors
     ///
-    /// * `AppError::Generic` - If all extraction tiers fail.
+    /// * `AppError::Generic` - If FlashRaw cannot decode the GPR image.
     /// * `AppError::ExtractionProcessTimeout` - If the blocking task times out.
     #[instrument(skip(self, path))]
     async fn generate(&self, path: &Path, _asset_id: &str, size_hint: u32) -> AppResult<Vec<u8>> {
@@ -213,9 +211,7 @@ impl ThumbnailCapability for GoproRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for GoproRawFormatProvider {
-    /// Generates a JPEG preview using `sips` (macOS) to decode VC-5 sensor data.
-    ///
-    /// Falls back to the generic RAW preview pipeline if `sips` is unavailable.
+    /// Generates a JPEG preview by decoding VC-5 sensor data with FlashRaw.
     ///
     /// # Arguments
     ///
@@ -248,6 +244,16 @@ mod tests {
     use super::*;
     use std::path::Path;
 
+    fn gpr_sample_path() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("file-samples")
+            .join("Arquivo para testes")
+            .join("Image")
+            .join("gpr")
+            .join("GOPR0002.GPR")
+    }
+
     #[tokio::test]
     async fn test_gopro_raw_provider_capabilities() {
         let provider = GoproRawFormatProvider::new();
@@ -260,14 +266,12 @@ mod tests {
     #[tokio::test]
     async fn test_gopro_raw_metadata_extraction() {
         let provider = GoproRawFormatProvider::new();
-        let sample_file_path = Path::new(
-            "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Image/gpr/GOPR0002.GPR",
-        );
+        let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
             return;
         }
 
-        let metadata_result = provider.extract_technical(sample_file_path).await;
+        let metadata_result = provider.extract_technical(&sample_file_path).await;
         assert!(
             metadata_result.is_ok(),
             "Metadata extraction failed: {:?}",
@@ -289,15 +293,13 @@ mod tests {
     #[tokio::test]
     async fn test_gopro_raw_thumbnail_generation() {
         let provider = GoproRawFormatProvider::new();
-        let sample_file_path = Path::new(
-            "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Image/gpr/GOPR0002.GPR",
-        );
+        let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
             return;
         }
 
         let thumbnail_result = provider
-            .generate(sample_file_path, "test_asset_id", 300)
+            .generate(&sample_file_path, "test_asset_id", 300)
             .await;
         assert!(
             thumbnail_result.is_ok(),
@@ -311,15 +313,13 @@ mod tests {
     #[tokio::test]
     async fn test_gopro_raw_preview_generation() {
         let provider = GoproRawFormatProvider::new();
-        let sample_file_path = Path::new(
-            "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Image/gpr/GOPR0002.GPR",
-        );
+        let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
             return;
         }
 
         let preview_result = provider
-            .generate_preview(sample_file_path, "test_asset_id")
+            .generate_preview(&sample_file_path, "test_asset_id")
             .await;
         assert!(
             preview_result.is_ok(),

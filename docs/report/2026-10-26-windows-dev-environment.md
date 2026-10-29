@@ -5,6 +5,8 @@
 **Repositório:** `Mundam-v2`  
 **Escopo:** Estabilização do ambiente Windows (10/11 x64), resolução de falhas de compilação/linking do backend Rust (Tauri v2), automação via scripts e diretrizes para eliminação de dependências nativas problemáticas.
 
+> **Atualização (29 de outubro de 2026):** As seções abaixo registram o estado histórico do ambiente. A dependência `gpr_sdk` descrita na seção 4.6 e no item 6.2 foi removida. O decoder GoPro GPR agora usa FlashRaw (`MIT OR Apache-2.0`) em Rust; não é mais necessário compilar o SDK GoPro nem inicializar o submódulo.
+
 ---
 
 ## 1. Visão Geral Executiva
@@ -201,18 +203,9 @@ Para garantir estabilidade a longo prazo, redução drástica no tempo de compil
 
 ---
 
-### 6.2. Dependência Problemática 2: `gpr_sdk` (GoPro DNG SDK via CMake)
-* **Grau de Criticidade:** 🟠 **Alto**
-* **Dificuldades Causadas:** 
-  * Submódulo git legado em C++ com dependência de CMake.
-  * O arquivo `dng_pthread.cpp` causa colisão direta de símbolos com o header `pthread.h` em ambientes MinGW.
-  * Não compila de forma limpa no Windows sem intervenções manuais.
-* **Como o Mundam utiliza o `gpr_sdk`:**
-  Utilizado exclusivamente para decodificar imagens `.gpr` capturadas por câmeras de ação GoPro (que utilizam compressão CineForm VC-5 dentro de um container TIFF/DNG).
-* **Estratégia Recomendada de Substituição:**
-  1. **Aproveitamento do FFmpeg:** O FFmpeg (já embutido e distribuído com o Mundam) possui suporte nativo completo ao decodificador CineForm VC-5 (`-c:v cfhd`). Em vez de manter um submódulo C++ com CMake e código FFI instável, podemos delegar a extração de `.gpr` para o pipeline do FFmpeg existente.
-  2. **Isolamento em Sidecar se Necessário:** Caso se queira manter o SDK oficial da GoPro, compilá-lo antecipadamente como um executável CLI auxiliar (*sidecar binary*), evitando compilar C++ durante o `cargo build`.
-* **Benefício:** Elimina a necessidade de CMake na compilação do backend e remove conflitos de headers de threading.
+### 6.2. Dependência Problemática 2: `gpr_sdk` (resolvida)
+
+O diagnóstico acima descreve a dependência presente quando este relatório foi escrito. Em 29 de outubro de 2026, o SDK e seu submódulo foram removidos. A aplicação usa FlashRaw `0.1.1` (`MIT OR Apache-2.0`), um decoder Rust com suporte declarado a GoPro GPR/VC-5. O caminho atual está documentado em [`docs/backend/gpr-native-decoder.md`](../backend/gpr-native-decoder.md). O FFmpeg não é usado para decodificar GPR.
 
 ---
 

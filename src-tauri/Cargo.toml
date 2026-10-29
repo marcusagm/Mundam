@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Mundam: A professional image reference manager for artists."
 authors = ["marcusmaia"]
 edition = "2021"
+rust-version = "1.85"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,7 +14,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-cmake = "0.1"
 
 [dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
@@ -66,6 +66,7 @@ uuid = { version = "1.20.0", features = ["v4"] }
 thiserror = "2.0.18"
 memmap2 = "0.9.9"
 rsraw = "0.1.1"
+flashraw = "=0.1.1"
 base64 = "0.22"
 wait-timeout = "0.2"
 byteorder = "1.5"

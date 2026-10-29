@@ -70,16 +70,6 @@ ensure_node() {
     ok "node $(node --version), npm $(npm --version)"
 }
 
-init_submodules() {
-    log "Fetching git submodules (GoPro GPR SDK)"
-    if [ -e "$REPO_ROOT/.git" ]; then
-        git -C "$REPO_ROOT" submodule update --init --recursive
-        ok "Submodules ready"
-    else
-        warn "Not a git checkout; make sure src-tauri/vendor/gpr_sdk is populated."
-    fi
-}
-
 install_node_deps() {
     log "Installing frontend dependencies"
     (cd "$REPO_ROOT" && npm install)
@@ -185,7 +175,7 @@ ensure_soundfont() {
 
 finish() {
     if [ "$RUN_CHECK" = 1 ]; then
-        log "Running cargo check (first run compiles LibRaw and GPR SDK; may take several minutes)"
+        log "Running cargo check (first run compiles LibRaw; may take several minutes)"
         (cd "$TAURI_DIR" && cargo check)
     fi
     echo

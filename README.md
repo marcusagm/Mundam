@@ -51,13 +51,13 @@ Built with **Tauri v2**, **Rust**, and **SolidJS**, Mundam combines the raw powe
 
 ### Prerequisites
 *   **Node.js** (v18+)
-*   **Rust** (v1.70+)
-*   **CMake** (Required for compiling native C/C++ format integrations like GoPro RAW)
+*   **Rust** (v1.85+)
+*   **CMake** (Required by the LibRaw build used for other camera RAW formats)
 *   **macOS / Linux / Windows** (Build tools required)
 
 ### Automated Setup (recommended)
 
-After cloning, run the setup script for your platform. It installs the system prerequisites (compilers, CMake, libclang, WebKitGTK on Linux), **FFmpeg/FFprobe**, **Assimp**, downloads **PDFium**, fetches the submodules and runs `npm install`. LibRaw is compiled from source by the `rsraw` crate, so it only needs CMake/libclang/a C++ compiler.
+After cloning, run the setup script for your platform. It installs the system prerequisites (compilers, CMake, libclang, WebKitGTK on Linux), **FFmpeg/FFprobe**, **Assimp**, downloads **PDFium**, and runs `npm install`. LibRaw is compiled from source by the `rsraw` crate, so it only needs CMake/libclang/a C++ compiler. GoPro GPR decoding uses the Rust-based FlashRaw crate and does not require a source submodule.
 
 ```bash
 ./scripts/setup.sh                 # macOS (Homebrew) and Linux (apt/dnf/pacman/zypper)
@@ -74,7 +74,7 @@ Third-party source and runtime assets are kept separate:
 
 | Path | Contents |
 | --- | --- |
-| `src-tauri/vendor/gpr_sdk` | GoPro GPR SDK source submodule, compiled with CMake where supported. |
+| `flashraw` Rust crate | MIT OR Apache-2.0 GoPro VC-5 decoder and RAW development pipeline. |
 | `src-tauri/resources/ffmpeg/<platform>/` | Staged FFmpeg and FFprobe executables (`linux`, `macos`, or `windows-x64`). |
 | `src-tauri/resources/assimp/<platform>/` | Optional Assimp executable and its libraries. |
 | `src-tauri/resources/pdfium/` | PDFium runtime library for the current OS. |
@@ -87,10 +87,9 @@ Use `scripts/setup.sh` or `scripts/setup-windows.ps1` to prepare these dependenc
 
 1.  **Clone the repository**
     ```bash
-    git clone --recursive https://github.com/marcusagm/Mundam.git
+    git clone https://github.com/marcusagm/Mundam.git
     cd Mundam
     ```
-    > **Note**: The `--recursive` flag is required to fetch the C++ submodules (e.g., GoPro SDK). If you already cloned the repository without it, run `git submodule update --init --recursive` inside the project folder.
 
 2.  **Install Frontend Dependencies**
     ```bash

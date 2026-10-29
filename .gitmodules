@@ -1,3 +1,0 @@
-[submodule "src-tauri/vendor/gpr_sdk"]
-	path = src-tauri/vendor/gpr_sdk
-	url = https://github.com/gopro/gpr

@@ -838,15 +838,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmake"
-version = "0.1.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1693,6 +1684,67 @@ name = "fixedbitset"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
+
+[[package]]
+name = "flashraw"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19b9e98fcbfa0ebbcd891315b00e49ffe1efb338c3ba7a1c2d3e4a145cf6be19"
+dependencies = [
+ "flashraw-camera-db",
+ "flashraw-codecs",
+ "flashraw-core",
+ "flashraw-formats",
+ "memmap2",
+ "moxcms 0.8.1",
+ "rayon",
+]
+
+[[package]]
+name = "flashraw-camera-db"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31e41773f47a27f5ffd91cd54a2a6f165e6d9253f720143a04502cb863bfd1b"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "flashraw-codecs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5003f7d9cb205d4808c6d4744962d5791bd3c0f90a25b3c3cf58f43990160356"
+dependencies = [
+ "flashraw-core",
+ "rayon",
+ "zlib-rs",
+ "zune-inflate",
+ "zune-jpeg 0.4.21",
+]
+
+[[package]]
+name = "flashraw-core"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17e44e91643ffccded486415de5b9c29ca92e8abd04c707b86666a9e92d8a378"
+dependencies = [
+ "libc",
+ "rayon",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "flashraw-formats"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd3a56dffdd7c00b5eb7e664475f27ce04669158c02a4ec736fceff1294a5bdd"
+dependencies = [
+ "flashraw-camera-db",
+ "flashraw-codecs",
+ "flashraw-core",
+ "rayon",
+]
 
 [[package]]
 name = "flate2"
@@ -2693,7 +2745,7 @@ dependencies = [
  "exr",
  "gif 0.14.1",
  "image-webp 0.2.4",
- "moxcms",
+ "moxcms 0.7.11",
  "num-traits",
  "png 0.18.0",
  "qoi",
@@ -3579,6 +3631,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "moxcms"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
+dependencies = [
+ "num-traits",
+ "pxfm",
+]
+
+[[package]]
 name = "muda"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3611,10 +3673,10 @@ dependencies = [
  "blake3",
  "byteorder",
  "chrono",
- "cmake",
  "dashmap",
  "ddsfile",
  "fast_image_resize",
+ "flashraw",
  "flate2",
  "hound",
  "icns",
@@ -4984,9 +5046,9 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "rayon"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368f01d005bf8fd9b1206fb6fa653e6c4a81ceb1466406b81792d87c5677a58f"
+checksum = "fb39b166781f92d482534ef4b4b1b2568f42613b53e5b6c160e24cfbfa30926d"
 dependencies = [
  "either",
  "rayon-core",
@@ -8693,6 +8755,12 @@ dependencies = [
  "zopfli",
  "zstd",
 ]
+
+[[package]]
+name = "zlib-rs"
+version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
 
 [[package]]
 name = "zmij"
