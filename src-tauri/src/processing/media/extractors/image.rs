@@ -619,10 +619,17 @@ pub fn generate_hdr_exr_dds_preview(path: &Path) -> AppResult<(Vec<u8>, String)>
 
 /// Extracts the largest embedded preview using FlashRaw. JPEG previews are returned
 /// byte-for-byte; RGB previews are encoded for the existing image pipeline.
-fn extract_flashraw_preview(path: &Path) -> AppResult<Vec<u8>> {
+pub(crate) fn extract_flashraw_preview(path: &Path) -> AppResult<Vec<u8>> {
+    extract_flashraw_preview_candidates(path)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| AppError::Generic("No supported previews found in RAW file".into()))
+}
+
+pub(crate) fn extract_flashraw_preview_candidates(path: &Path) -> AppResult<Vec<Vec<u8>>> {
     let raw = flashraw::FlashRaw::open_path(path)
         .map_err(|error| AppError::Generic(format!("FlashRaw open error: {error}")))?;
-    let preview = raw
+    let mut previews: Vec<_> = raw
         .previews()
         .iter()
         .filter(|preview| {
@@ -631,41 +638,63 @@ fn extract_flashraw_preview(path: &Path) -> AppResult<Vec<u8>> {
                 flashraw::PreviewEncoding::Jpeg | flashraw::PreviewEncoding::Rgb8
             )
         })
-        .max_by_key(|preview| (preview.width as u64 * preview.height as u64, preview.length))
-        .ok_or_else(|| {
-            AppError::Generic("No supported JPEG or RGB previews found in RAW file".into())
-        })?;
-    let preview_orientation = resolve_leaf_mos_preview_orientation(path, raw.metadata(), preview);
+        .collect();
+    previews.sort_by_key(|preview| {
+        (
+            std::cmp::Reverse(preview.width as u64 * preview.height as u64),
+            std::cmp::Reverse(preview.length),
+        )
+    });
 
-    if matches!(preview.encoding, flashraw::PreviewEncoding::Jpeg) {
-        let preview_bytes = raw
-            .preview_bytes(preview)
-            .map(|bytes| bytes.to_vec())
-            .map_err(|error| AppError::Generic(format!("FlashRaw preview read error: {error}")));
-        let preview_bytes = preview_bytes?;
-        if preview_orientation == flashraw::Orientation::Normal {
-            return Ok(preview_bytes);
+    let mut candidates = Vec::with_capacity(previews.len());
+    for preview in previews {
+        let preview_orientation =
+            resolve_leaf_mos_preview_orientation(path, raw.metadata(), preview);
+
+        let candidate_bytes = if matches!(preview.encoding, flashraw::PreviewEncoding::Jpeg) {
+            let Ok(preview_bytes) = raw.preview_bytes(preview) else {
+                continue;
+            };
+            if preview_orientation == flashraw::Orientation::Normal {
+                preview_bytes.to_vec()
+            } else {
+                let Ok(decoded_image) = image::load_from_memory(preview_bytes) else {
+                    continue;
+                };
+                let oriented_image =
+                    apply_raw_preview_orientation(decoded_image, preview_orientation);
+                let Ok(encoded_image) =
+                    encode_dynamic_image_jpeg(oriented_image, "oriented FlashRaw preview")
+                else {
+                    continue;
+                };
+                encoded_image
+            }
+        } else {
+            let Ok(decoded) = raw.decode_preview_rgb(preview) else {
+                continue;
+            };
+            let Some(rgb) = image::RgbImage::from_raw(decoded.width, decoded.height, decoded.rgb)
+            else {
+                continue;
+            };
+            let oriented_image = apply_raw_preview_orientation(
+                image::DynamicImage::ImageRgb8(rgb),
+                preview_orientation,
+            );
+            let Ok(encoded_image) = encode_dynamic_image_jpeg(oriented_image, "FlashRaw preview")
+            else {
+                continue;
+            };
+            encoded_image
+        };
+
+        if image::load_from_memory(&candidate_bytes).is_ok() {
+            candidates.push(candidate_bytes);
         }
-        let decoded_image = image::load_from_memory(&preview_bytes).map_err(|error| {
-            AppError::Generic(format!(
-                "Failed to decode oriented FlashRaw preview: {error}"
-            ))
-        })?;
-        return encode_dynamic_image_jpeg(
-            apply_raw_preview_orientation(decoded_image, preview_orientation),
-            "oriented FlashRaw preview",
-        );
     }
 
-    let decoded = raw
-        .decode_preview_rgb(preview)
-        .map_err(|error| AppError::Generic(format!("FlashRaw preview decode error: {error}")))?;
-    let rgb = image::RgbImage::from_raw(decoded.width, decoded.height, decoded.rgb)
-        .ok_or_else(|| AppError::Generic("Invalid RGB preview returned by FlashRaw".into()))?;
-    encode_dynamic_image_jpeg(
-        apply_raw_preview_orientation(image::DynamicImage::ImageRgb8(rgb), preview_orientation),
-        "FlashRaw preview",
-    )
+    Ok(candidates)
 }
 
 fn resolve_leaf_mos_preview_orientation(
@@ -750,7 +779,10 @@ fn extract_flashraw_full_decode(path: &Path) -> AppResult<Vec<u8>> {
     encode_dynamic_image_jpeg(image::DynamicImage::ImageRgba8(rgba), "FlashRaw decode")
 }
 
-fn encode_dynamic_image_jpeg(image: image::DynamicImage, context: &str) -> AppResult<Vec<u8>> {
+pub(crate) fn encode_dynamic_image_jpeg(
+    image: image::DynamicImage,
+    context: &str,
+) -> AppResult<Vec<u8>> {
     let mut jpeg_buffer = Vec::new();
     image
         .to_rgb8()
