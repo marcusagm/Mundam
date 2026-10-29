@@ -10,10 +10,10 @@ use tracing::instrument;
 /// A format provider for Kodak RAW files (.kdc).
 ///
 /// KDC is Kodak's RAW format, primarily from older Kodak DSLR cameras (EasyShare,
-/// DCS series). LibRaw support is limited for the oldest variants; the brute-force
+/// DCS series). FlashRaw support is limited for the oldest variants; the brute-force
 /// JPEG scan tier provides a reliable fallback.
 ///
-/// This provider uses the `image` crate with LibRaw support to extract metadata
+/// This provider uses the `image` crate with FlashRaw support to extract metadata
 /// and generate thumbnails for Kodak RAW images.
 ///
 /// # Supported Formats
@@ -22,7 +22,7 @@ use tracing::instrument;
 ///
 /// # Technical Details
 ///
-/// - Uses `image::open` with LibRaw backend for RAW file support
+/// - Uses `image::open` with FlashRaw backend for RAW file support
 /// - Supports both technical and semantic metadata extraction
 /// - Generates WebP thumbnails using optimized resizing
 ///
@@ -131,9 +131,9 @@ impl FormatProvider for KodakRawFormatProvider {
 
 #[async_trait]
 impl MetadataCapability for KodakRawFormatProvider {
-    /// Attempts to extract technical metadata from a Kodak RAW file using LibRaw.
+    /// Attempts to extract technical metadata from a Kodak RAW file using FlashRaw.
     ///
-    /// This method extracts metadata from Kodak RAW (.kdc) files using LibRaw.
+    /// This method extracts metadata from Kodak RAW (.kdc) files using FlashRaw.
     /// The extraction is performed in a blocking thread to avoid blocking the async runtime.
     ///
     /// # Arguments
@@ -178,7 +178,7 @@ impl MetadataCapability for KodakRawFormatProvider {
 impl ThumbnailCapability for KodakRawFormatProvider {
     /// Generates a thumbnail for a Kodak RAW file.
     ///
-    /// This method generates a thumbnail for Kodak RAW (.kdc) files using LibRaw.
+    /// This method generates a thumbnail for Kodak RAW (.kdc) files using FlashRaw.
     /// The generation is performed in a blocking thread to avoid blocking the async runtime.
     ///
     /// # Arguments
@@ -210,7 +210,7 @@ impl ThumbnailCapability for KodakRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for KodakRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

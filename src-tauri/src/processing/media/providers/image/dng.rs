@@ -16,13 +16,13 @@ use tracing::instrument;
 /// # Technical Details
 ///
 /// - **Cameras**: Leica, Ricoh, Pentax, DJI, plus conversion from any RAW
-/// - **Thumbnail Format**: WebP (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: WebP (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Features
 ///
-/// - Extracts dimensions via LibRaw and camera EXIF via rexif.
-/// - Generates WebP thumbnails from embedded LibRaw previews.
+/// - Extracts dimensions via FlashRaw and camera EXIF via rexif.
+/// - Generates WebP thumbnails from embedded FlashRaw previews.
 ///
 /// # Examples
 ///
@@ -196,7 +196,7 @@ impl ThumbnailCapability for DngFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for DngFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

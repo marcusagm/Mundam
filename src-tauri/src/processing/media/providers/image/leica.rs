@@ -18,7 +18,7 @@ use tracing::instrument;
 ///
 /// # Technical Details
 ///
-/// - Uses `image` crate with LibRaw backend for RAW file support
+/// - Uses `image` crate with FlashRaw backend for RAW file support
 /// - Supports both technical and semantic metadata extraction
 /// - Generates WebP thumbnails using optimized resizing
 ///
@@ -200,7 +200,7 @@ impl ThumbnailCapability for LeicaRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for LeicaRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

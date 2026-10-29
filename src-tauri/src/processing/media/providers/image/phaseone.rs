@@ -211,7 +211,7 @@ impl ThumbnailCapability for PhaseOneRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for PhaseOneRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

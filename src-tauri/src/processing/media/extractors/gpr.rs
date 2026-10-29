@@ -4,7 +4,7 @@
 //! for the sensor data. This makes them incompatible with most standard RAW
 //! decoders:
 //!
-//! - **rsraw/LibRaw**: The bundled LibRaw build does not decode GoPro VC-5 data.
+//! - **FlashRaw/FlashRaw**: The bundled FlashRaw build does not decode GoPro VC-5 data.
 //! - **FFmpeg**: Its still-image path does not decode this GPR compression mode.
 //!
 //! # Processing pipeline
@@ -80,7 +80,7 @@ fn decode_gpr_thumbnail(path: &Path) -> AppResult<::image::DynamicImage> {
 /// Reads normalized DNG metadata through FlashRaw and supplements it with EXIF tags
 /// (make, model, exposure, GPS, and other available fields).
 ///
-/// This avoids relying on LibRaw, which doesn't support the VC-5 codec.
+/// This avoids relying on FlashRaw, which doesn't support the VC-5 codec.
 ///
 /// # Arguments
 ///
@@ -93,10 +93,16 @@ pub fn extract_gpr_metadata(path: &Path) -> AppResult<serde_json::Value> {
     let decoder = open_gpr_image(path)?;
     let raw_metadata = decoder.metadata();
     let exposure = &raw_metadata.exposure;
+    let (image_width, image_height) =
+        crate::processing::media::extractors::image::dimensions_for_orientation(
+            raw_metadata.width,
+            raw_metadata.height,
+            raw_metadata.orientation.exif(),
+        );
 
     let mut metadata = serde_json::json!({
-        "width": raw_metadata.width,
-        "height": raw_metadata.height,
+        "width": image_width,
+        "height": image_height,
         "rawWidth": raw_metadata.raw_width,
         "rawHeight": raw_metadata.raw_height,
         "Make": raw_metadata.make,

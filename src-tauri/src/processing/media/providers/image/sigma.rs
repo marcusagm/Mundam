@@ -16,8 +16,8 @@ use tracing::instrument;
 /// # Technical Details
 ///
 /// * **File Format**: Sigma RAW Image (.x3f)
-/// * **Thumbnail Format**: WebP image (via libraw)
-/// * **Metadata**: Dimensions and camera settings via libraw
+/// * **Thumbnail Format**: WebP image (via FlashRaw)
+/// * **Metadata**: Dimensions and camera settings via FlashRaw
 ///
 /// # Examples
 ///
@@ -195,7 +195,7 @@ impl ThumbnailCapability for SigmaRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for SigmaRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

@@ -10,7 +10,7 @@ use tracing::instrument;
 /// Provider for Leaf RAW image files (.mos).
 ///
 /// MOS is Leaf's proprietary medium-format RAW format used in Leaf Aptus and
-/// Credo digital backs (now part of Phase One). LibRaw handles MOS decoding.
+/// Credo digital backs (now part of Phase One). FlashRaw handles MOS decoding.
 ///
 /// # Technical Specification
 ///
@@ -193,7 +193,7 @@ impl ThumbnailCapability for LeafRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for LeafRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

@@ -11,13 +11,13 @@ use tracing::instrument;
 ///
 /// RAF (RAW File Format) is Fujifilm's proprietary RAW format. Later RAF files
 /// from X-Trans sensor cameras have a non-standard CFA pattern that some
-/// decoders handle differently; LibRaw fully supports all RAF variants.
+/// decoders handle differently; FlashRaw fully supports all RAF variants.
 ///
 /// # Technical Details
 ///
 /// - **Cameras**: Fujifilm X-series, GFX medium-format
-/// - **Thumbnail Format**: WebP (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: WebP (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Examples
 ///
@@ -204,7 +204,7 @@ impl ThumbnailCapability for FujifilmRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for FujifilmRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

@@ -14,7 +14,7 @@ use tracing::instrument;
 ///
 /// # Technical Details
 ///
-/// This provider uses `libraw` to extract metadata and generate thumbnails.
+/// This provider uses `FlashRaw` to extract metadata and generate thumbnails.
 /// It uses the `extract_raw_metadata` and `generate_raw_thumbnail` functions
 /// from the `image::extractors::image` module to perform the extraction and
 /// generation.
@@ -128,7 +128,7 @@ impl FormatProvider for EpsonRawFormatProvider {
 
 #[async_trait]
 impl MetadataCapability for EpsonRawFormatProvider {
-    /// Extracts dimensions via LibRaw and camera EXIF via rexif.
+    /// Extracts dimensions via FlashRaw and camera EXIF via rexif.
     ///
     /// # Arguments
     ///
@@ -141,7 +141,7 @@ impl MetadataCapability for EpsonRawFormatProvider {
     /// # Errors
     ///
     /// * `AppError::Io` - If the file cannot be opened.
-    /// * `AppError::Generic` - If LibRaw parsing fails.
+    /// * `AppError::Generic` - If FlashRaw parsing fails.
     /// * `AppError::ExtractionProcessTimeout` - If the blocking task times out.
     #[instrument(skip(self, path))]
     async fn extract_technical(&self, path: &Path) -> AppResult<serde_json::Value> {
@@ -169,7 +169,7 @@ impl MetadataCapability for EpsonRawFormatProvider {
 
 #[async_trait]
 impl ThumbnailCapability for EpsonRawFormatProvider {
-    /// Generates a WebP thumbnail using LibRaw embedded preview extraction.
+    /// Generates a WebP thumbnail using FlashRaw embedded preview extraction.
     ///
     /// # Errors
     ///
@@ -191,7 +191,7 @@ impl ThumbnailCapability for EpsonRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for EpsonRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

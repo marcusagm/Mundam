@@ -11,7 +11,7 @@ use tracing::instrument;
 ///
 /// The `.raw` extension is a non-specific RAW identifier used by several older
 /// cameras that pre-date standardized vendor formats (e.g., Leica Digilux,
-/// some Panasonic compacts). The LibRaw + brute-force JPEG pipeline is applied;
+/// some Panasonic compacts). The FlashRaw + brute-force JPEG pipeline is applied;
 /// success depends on the specific camera's RAW dialect.
 ///
 /// # Note
@@ -134,7 +134,7 @@ impl FormatProvider for GenericRawFormatProvider {
 
 #[async_trait]
 impl MetadataCapability for GenericRawFormatProvider {
-    /// Attempts LibRaw dimension extraction; gracefully returns an empty object
+    /// Attempts FlashRaw dimension extraction; gracefully returns an empty object
     /// for unsupported RAW dialects.
     ///
     /// # Arguments
@@ -175,7 +175,7 @@ impl MetadataCapability for GenericRawFormatProvider {
 
 #[async_trait]
 impl ThumbnailCapability for GenericRawFormatProvider {
-    /// Attempts thumbnail generation via LibRaw and brute-force JPEG scan.
+    /// Attempts thumbnail generation via FlashRaw and brute-force JPEG scan.
     ///
     /// # Arguments
     ///
@@ -207,7 +207,7 @@ impl ThumbnailCapability for GenericRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for GenericRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

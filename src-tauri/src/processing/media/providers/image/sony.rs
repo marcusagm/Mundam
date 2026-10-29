@@ -11,19 +11,19 @@ use tracing::instrument;
 ///
 /// Covers all three Sony RAW generations: ARW (Alpha RAW, current), SRF (Sony
 /// RAW Format, Cyber-shot), and SR2 (older Cyber-shot). All variants use the
-/// same LibRaw → brute-force JPEG → error extraction pipeline and share EXIF
+/// same FlashRaw → brute-force JPEG → error extraction pipeline and share EXIF
 /// data extraction via `rexif`.
 ///
 /// # Technical Details
 ///
 /// - **Cameras**: Sony Alpha, Cyber-shot
-/// - **Thumbnail Format**: WebP (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: WebP (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Features
 ///
-/// - Extracts dimensions via LibRaw and camera EXIF via rexif.
-/// - Generates WebP thumbnails from embedded LibRaw previews.
+/// - Extracts dimensions via FlashRaw and camera EXIF via rexif.
+/// - Generates WebP thumbnails from embedded FlashRaw previews.
 ///
 /// # Examples
 ///
@@ -133,7 +133,7 @@ impl FormatProvider for SonyRawFormatProvider {
 
 #[async_trait]
 impl MetadataCapability for SonyRawFormatProvider {
-    /// Extracts dimensions via LibRaw and camera EXIF via rexif.
+    /// Extracts dimensions via FlashRaw and camera EXIF via rexif.
     ///
     /// # Arguments
     ///
@@ -146,7 +146,7 @@ impl MetadataCapability for SonyRawFormatProvider {
     /// # Errors
     ///
     /// * `AppError::Io` - If the file cannot be opened.
-    /// * `AppError::Generic` - If LibRaw parsing fails.
+    /// * `AppError::Generic` - If FlashRaw parsing fails.
     /// * `AppError::ExtractionProcessTimeout` - If the blocking task times out.
     #[instrument(skip(self, path))]
     async fn extract_technical(&self, path: &Path) -> AppResult<serde_json::Value> {
@@ -174,7 +174,7 @@ impl MetadataCapability for SonyRawFormatProvider {
 
 #[async_trait]
 impl ThumbnailCapability for SonyRawFormatProvider {
-    /// Generates a WebP thumbnail using LibRaw embedded preview extraction.
+    /// Generates a WebP thumbnail using FlashRaw embedded preview extraction.
     ///
     /// # Arguments
     ///
@@ -202,7 +202,7 @@ impl ThumbnailCapability for SonyRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for SonyRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

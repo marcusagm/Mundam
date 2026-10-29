@@ -11,7 +11,7 @@ use tracing::instrument;
 ///
 /// MRW is Minolta's RAW format. Minolta's camera division was absorbed by Sony
 /// in 2006, but many MRW files still exist from legacy Minolta DiMAGE and
-/// α-series cameras. LibRaw retains full support.
+/// α-series cameras. FlashRaw retains full support.
 ///
 /// # Technical Specification
 ///
@@ -203,7 +203,7 @@ impl ThumbnailCapability for MinoltaRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for MinoltaRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

@@ -11,7 +11,7 @@ use tracing::instrument;
 ///
 /// GPR (GoPro RAW) is based on Adobe DNG but uses VC-5 (CineForm wavelet)
 /// compression for the sensor data. This makes it incompatible with standard
-/// RAW decoders (rsraw/LibRaw returns `FileUnsupported`, FFmpeg fails with
+/// RAW decoders (FlashRaw/FlashRaw returns `FileUnsupported`, FFmpeg fails with
 /// "Unknown compression method 9").
 ///
 /// Most GPR files contain **no** embedded JPEG previews, unlike standard DNG.
@@ -138,7 +138,7 @@ impl FormatProvider for GoproRawFormatProvider {
 impl MetadataCapability for GoproRawFormatProvider {
     /// Extracts dimensions from the TIFF IFD0 and camera EXIF data via rexif.
     ///
-    /// Does **not** use LibRaw (which fails on VC-5), instead parses the
+    /// Does **not** use FlashRaw (which fails on VC-5), instead parses the
     /// TIFF/DNG container structure directly for reliable dimension extraction.
     ///
     /// # Arguments

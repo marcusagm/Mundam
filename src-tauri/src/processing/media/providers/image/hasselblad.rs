@@ -11,18 +11,18 @@ use tracing::instrument;
 ///
 /// `3FR` (3-Frame RAW) is Hasselblad's primary medium-format RAW format.
 /// `FFF` is Hasselblad's Flexible File Format used in older H-series backs.
-/// Both use the same LibRaw extraction pipeline.
+/// Both use the same FlashRaw extraction pipeline.
 ///
 /// # Technical Details
 ///
 /// - **Cameras**: Hasselblad H-series, CFV digital backs
-/// - **Thumbnail Format**: JPEG (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: JPEG (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Features
 ///
-/// - Extracts dimensions and codec information from Hasselblad RAW files via LibRaw.
-/// - Generates JPEG thumbnails from Hasselblad RAW files via LibRaw.
+/// - Extracts dimensions and codec information from Hasselblad RAW files via FlashRaw.
+/// - Generates JPEG thumbnails from Hasselblad RAW files via FlashRaw.
 ///
 /// # Examples
 ///
@@ -213,7 +213,7 @@ impl ThumbnailCapability for HasselbladRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for HasselbladRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

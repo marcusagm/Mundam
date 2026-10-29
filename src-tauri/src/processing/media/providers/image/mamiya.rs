@@ -11,13 +11,13 @@ use tracing::instrument;
 ///
 /// MEF is Mamiya's RAW format used in Mamiya medium-format digital backs.
 /// Mamiya (now part of Phase One) produced some of the earliest digital
-/// medium-format systems; LibRaw handles MEF decoding.
+/// medium-format systems; FlashRaw handles MEF decoding.
 ///
 /// # Technical Details
 ///
 /// - **Cameras**: Mamiya Leaf (e.g., Credo, Leaf Digital Backs)
-/// - **Thumbnail Format**: WebP (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: WebP (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Examples
 ///
@@ -193,7 +193,7 @@ impl ThumbnailCapability for MamiyaRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for MamiyaRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

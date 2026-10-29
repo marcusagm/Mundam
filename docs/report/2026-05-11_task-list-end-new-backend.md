@@ -93,7 +93,7 @@
 - [ ] Converter arquivo para outros formatos.
 - [x] Verificar duplicidade de arquivos.
 - [ ] Adicionar asset arrastando para a janela do Mundam.
-- [ ] Adicionar recurso de virar imagem automaticamente de acordo com o metadado EXIF orientation.
+- [x] Adicionar recurso de virar imagem automaticamente de acordo com o metadado EXIF orientation.
 - [-] Copiar Imagem Real para Área de Transferência: Copiar o arquivo diretamente para o clipboard do sistema (para colar em um chat, Photoshop ou Figma, por exemplo).
   - [x] MacOs
   - [ ] Windows

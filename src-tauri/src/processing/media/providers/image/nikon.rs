@@ -16,8 +16,8 @@ use tracing::instrument;
 /// # Technical Details
 ///
 /// - **Cameras**: Nikon DSLR, mirrorless, Coolpix series
-/// - **Thumbnail Format**: WebP (from embedded LibRaw preview)
-/// - **Metadata**: Dimensions (LibRaw) + camera EXIF (rexif)
+/// - **Thumbnail Format**: WebP (from embedded FlashRaw preview)
+/// - **Metadata**: Dimensions (FlashRaw) + camera EXIF (rexif)
 ///
 /// # Examples
 ///
@@ -204,7 +204,7 @@ impl ThumbnailCapability for NikonRawFormatProvider {
 
 #[async_trait]
 impl PreviewCapability for NikonRawFormatProvider {
-    /// Generates a WebP preview using LibRaw embedded preview extraction or brute-force scanning.
+    /// Generates a WebP preview using FlashRaw embedded preview extraction or brute-force scanning.
     ///
     /// # Arguments
     ///

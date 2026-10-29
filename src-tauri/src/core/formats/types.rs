@@ -24,7 +24,7 @@ pub enum ThumbnailStrategy {
     Webview,         // SVG, HTML
     ZipPreview,      // Affinity, OpenOffice etc
     NativeExtractor, // For formats where we extract a preview (Affinity, RAW, PSD)
-    Raw,             // LibRaw based extraction for difficult formats
+    Raw,             // FlashRaw based extraction for difficult formats
     Model3D,         // Uses Assimp to convert to GLB
     Font,            // Resvg with custom font loading
     Icon,            // Fallback for files without preview
@@ -62,7 +62,7 @@ pub enum PlaybackStrategy {
 #[serde(rename_all = "camelCase")]
 pub enum PreviewStrategy {
     BrowserNative,   // Directly renderable by browser (JPEG, PNG, WebP, SVG, etc.)
-    Raw,             // Extraction via rsraw/LibRaw
+    Raw,             // Extraction via FlashRaw/FlashRaw
     Ffmpeg,          // Extraction via FFmpeg (HEIC, HDR, AVIF)
     NativeExtractor, // Specialty extraction (PSD, Affinity, ZIP-based)
     Convert,         // On-the-fly conversion using 'image' crate (DDS, TGA, EXR)

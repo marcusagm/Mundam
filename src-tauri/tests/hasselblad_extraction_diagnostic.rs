@@ -45,168 +45,67 @@ impl TierResult {
     }
 }
 
-/// Tests quickraw thumbnail extraction (Tier 0).
-fn test_quickraw_extraction(file_path: &Path) -> TierResult {
-    let tier_name = "Tier 0: quickraw";
-    let quickraw_result = std::panic::catch_unwind(|| {
-        if let Ok(raw_data) = std::fs::read(file_path) {
-            return quickraw::Export::export_thumbnail_data(&raw_data)
-                .map(|(data, _)| data.to_vec())
-                .ok();
+/// Tests FlashRaw sensor decoding (Tier 0).
+fn test_flashraw_sensor_decode(file_path: &Path) -> TierResult {
+    let tier_name = "Tier 0: FlashRaw sensor decode";
+    let file_bytes = match std::fs::read(file_path) {
+        Ok(bytes) => bytes,
+        Err(error) => return TierResult::failure(tier_name, format!("File read error: {error}")),
+    };
+    let decoder = match flashraw::FlashRaw::open(file_bytes) {
+        Ok(decoder) => decoder,
+        Err(error) => {
+            return TierResult::failure(tier_name, format!("FlashRaw open error: {error}"))
         }
-        None
-    });
-
-    match quickraw_result {
-        Ok(Some(thumbnail_data)) => match image::load_from_memory(&thumbnail_data) {
-            Ok(decoded_image) => TierResult::success(
-                tier_name,
-                decoded_image.width(),
-                decoded_image.height(),
-                thumbnail_data.len(),
-            ),
-            Err(decode_error) => TierResult::failure(
-                tier_name,
-                format!("quickraw returned data but decode failed: {}", decode_error),
-            ),
-        },
-        Ok(None) => TierResult::failure(tier_name, "quickraw returned None".into()),
-        Err(_) => TierResult::failure(tier_name, "quickraw panicked".into()),
+    };
+    match decoder.decode(flashraw::DecodeOptions {
+        output: flashraw::OutputFormat::Rgba8,
+        preview_fallback: true,
+        ..Default::default()
+    }) {
+        Ok(frame) => {
+            TierResult::success(tier_name, frame.width, frame.height, frame.data.byte_len())
+        }
+        Err(error) => TierResult::failure(tier_name, format!("FlashRaw decode error: {error}")),
     }
 }
 
-/// Tests LibRaw/rsraw embedded thumbnail extraction (Tier 1).
-fn test_libraw_extraction(file_path: &Path) -> TierResult {
-    let tier_name = "Tier 1: LibRaw (rsraw)";
-
-    let file_handle = match std::fs::File::open(file_path) {
-        Ok(handle) => handle,
-        Err(error) => return TierResult::failure(tier_name, format!("File open error: {}", error)),
+/// Tests FlashRaw's largest embedded preview extraction (Tier 1).
+fn test_flashraw_extraction(file_path: &Path) -> TierResult {
+    let tier_name = "Tier 1: FlashRaw";
+    let file_bytes = match std::fs::read(file_path) {
+        Ok(bytes) => bytes,
+        Err(error) => return TierResult::failure(tier_name, format!("File read error: {error}")),
     };
-
-    let memory_map = match unsafe { memmap2::MmapOptions::new().map(&file_handle) } {
-        Ok(mapped) => mapped,
-        Err(error) => return TierResult::failure(tier_name, format!("Mmap error: {}", error)),
-    };
-
-    let mut raw_image = match rsraw::RawImage::open(&memory_map) {
-        Ok(raw) => raw,
+    let decoder = match flashraw::FlashRaw::open(file_bytes) {
+        Ok(decoder) => decoder,
         Err(error) => {
-            return TierResult::failure(tier_name, format!("LibRaw open error: {:?}", error))
+            return TierResult::failure(tier_name, format!("FlashRaw open error: {error}"))
         }
     };
-
-    // Report RAW dimensions
-    let raw_width = raw_image.width();
-    let raw_height = raw_image.height();
-    eprintln!("    [LibRaw] RAW dimensions: {}x{}", raw_width, raw_height);
-
-    let embedded_thumbnails = match raw_image.extract_thumbs() {
-        Ok(thumbnails) => thumbnails,
+    let Some(preview) = decoder.preview() else {
+        return TierResult::failure(tier_name, "No embedded preview found".into());
+    };
+    let preview_bytes = match decoder.preview_bytes(preview) {
+        Ok(bytes) => bytes,
         Err(error) => {
-            return TierResult::failure(
-                tier_name,
-                format!("LibRaw extract_thumbs error: {:?}", error),
-            )
+            return TierResult::failure(tier_name, format!("Preview read error: {error}"))
         }
     };
-
-    eprintln!(
-        "    [LibRaw] Found {} embedded thumbnails",
-        embedded_thumbnails.len()
-    );
-
-    for (index, thumbnail) in embedded_thumbnails.iter().enumerate() {
-        eprintln!(
-            "    [LibRaw] Thumbnail #{}: {}x{}, {} bytes",
-            index,
-            thumbnail.width,
-            thumbnail.height,
-            thumbnail.data.len()
-        );
-    }
-
-    if let Some(largest_thumbnail) = embedded_thumbnails
-        .iter()
-        .max_by_key(|thumbnail| thumbnail.width * thumbnail.height)
-    {
-        if largest_thumbnail.data.is_empty() {
-            return TierResult::failure(tier_name, "Largest thumbnail data is empty".into());
-        }
-
-        let data_header = &largest_thumbnail.data[..largest_thumbnail.data.len().min(16)];
-        eprintln!("    [LibRaw] Data header bytes: {:02X?}", data_header);
-
-        // First try to decode as a standard image format (JPEG, PNG, TIFF)
-        if let Ok(decoded_image) = image::load_from_memory(&largest_thumbnail.data) {
-            return TierResult::success(
-                tier_name,
-                decoded_image.width(),
-                decoded_image.height(),
-                largest_thumbnail.data.len(),
-            );
-        }
-
-        // LibRaw often returns raw RGB bitmap data (PPM-like) for Hasselblad files.
-        // The data is width*height*3 bytes of raw RGB pixels.
-        let expected_rgb_size = (largest_thumbnail.width * largest_thumbnail.height * 3) as usize;
-        let expected_rgba_size = (largest_thumbnail.width * largest_thumbnail.height * 4) as usize;
-
-        if largest_thumbnail.data.len() == expected_rgb_size {
-            eprintln!(
-                "    [LibRaw] Data matches RGB bitmap size ({}x{}x3 = {})",
-                largest_thumbnail.width, largest_thumbnail.height, expected_rgb_size
-            );
-            if let Some(rgb_image) = image::RgbImage::from_raw(
-                largest_thumbnail.width,
-                largest_thumbnail.height,
-                largest_thumbnail.data.clone(),
-            ) {
-                return TierResult::success(
-                    tier_name,
-                    largest_thumbnail.width,
-                    largest_thumbnail.height,
-                    largest_thumbnail.data.len(),
-                );
-            }
-        } else if largest_thumbnail.data.len() == expected_rgba_size {
-            eprintln!(
-                "    [LibRaw] Data matches RGBA bitmap size ({}x{}x4 = {})",
-                largest_thumbnail.width, largest_thumbnail.height, expected_rgba_size
-            );
-            if let Some(rgba_image) = image::RgbaImage::from_raw(
-                largest_thumbnail.width,
-                largest_thumbnail.height,
-                largest_thumbnail.data.clone(),
-            ) {
-                return TierResult::success(
-                    tier_name,
-                    largest_thumbnail.width,
-                    largest_thumbnail.height,
-                    largest_thumbnail.data.len(),
-                );
-            }
-        }
-
-        eprintln!(
-            "    [LibRaw] Data size {} doesn't match RGB ({}) or RGBA ({})",
-            largest_thumbnail.data.len(),
-            expected_rgb_size,
-            expected_rgba_size
-        );
-
-        TierResult::failure(
+    match image::load_from_memory(preview_bytes) {
+        Ok(decoded_image) => TierResult::success(
             tier_name,
-            format!(
-                "LibRaw thumbnail: not JPEG and not raw RGB (size={}, expected_rgb={}, expected_rgba={}, header={:02X?})",
-                largest_thumbnail.data.len(),
-                expected_rgb_size,
-                expected_rgba_size,
-                data_header
-            ),
-        )
-    } else {
-        TierResult::failure(tier_name, "No embedded thumbnails found".into())
+            decoded_image.width(),
+            decoded_image.height(),
+            preview_bytes.len(),
+        ),
+        Err(_) if preview.encoding == flashraw::PreviewEncoding::Rgb8 => TierResult::success(
+            tier_name,
+            preview.width,
+            preview.height,
+            preview_bytes.len(),
+        ),
+        Err(error) => TierResult::failure(tier_name, format!("Preview decode error: {error}")),
     }
 }
 
@@ -691,8 +590,8 @@ fn diagnose_file(file_path: &Path) {
 
     let tier_results = vec![
         test_tiff_ifd_extraction(file_path),
-        test_quickraw_extraction(file_path),
-        test_libraw_extraction(file_path),
+        test_flashraw_sensor_decode(file_path),
+        test_flashraw_extraction(file_path),
         test_brute_force_extraction(file_path),
     ];
 

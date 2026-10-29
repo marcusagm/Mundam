@@ -11,7 +11,7 @@ pub fn extract_kdc_metadata(path: &Path) -> AppResult<serde_json::Value> {
 
 /// Extracts a high-quality embedded JPEG preview from a KDC file for previewing.
 pub fn extract_kdc_preview(path: &Path) -> AppResult<Vec<u8>> {
-    // For Kodak KDC files, LibRaw demosaicing often results in different/flat colors
+    // For Kodak KDC files, FlashRaw demosaicing often results in different/flat colors
     // compared to the legendary "Kodak Color Science" applied in camera.
     // The embedded JPEG contains the exact camera rendering.
 
@@ -26,7 +26,7 @@ pub fn extract_kdc_preview(path: &Path) -> AppResult<Vec<u8>> {
 
     // Attempt macOS native extraction (CoreImage / sips) for old proprietary formats like DC120
     // Only accept if it produces a reasonably sized file (> 50KB) so we don't accidentally
-    // use a low-quality sips thumbnail when LibRaw could do a full decode (like for EasyShare)
+    // use a low-quality sips thumbnail when FlashRaw could do a full decode (like for EasyShare)
     #[cfg(target_os = "macos")]
     if let Ok(sips_bytes) = extract_macos_sips_image(path, 2048) {
         if sips_bytes.len() > 50_000 {
@@ -34,16 +34,18 @@ pub fn extract_kdc_preview(path: &Path) -> AppResult<Vec<u8>> {
         }
     }
 
-    // Fallback to LibRaw (which works for newer KDC like EasyShare, but fails on DC120)
+    // Fallback to FlashRaw (which works for newer KDC like EasyShare, but fails on DC120)
     crate::processing::media::extractors::image::extract_raw_preview(path)
 }
 
 /// Generates a WebP thumbnail from a KDC file.
 pub fn generate_kdc_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>> {
     // Use the exact camera rendering (embedded JPEG) for thumbnails
-    if let Ok((jpeg_bytes, _)) = brute_force_extract_jpeg_bytes(path) {
-        if let Ok(decoded_image) = image::load_from_memory(&jpeg_bytes) {
-            return process_and_encode_webp(decoded_image, size_hint);
+    if let Ok((jpeg_bytes, pixel_count)) = brute_force_extract_jpeg_bytes(path) {
+        if pixel_count > 500_000 || jpeg_bytes.len() > 50_000 {
+            if let Ok(decoded_image) = image::load_from_memory(&jpeg_bytes) {
+                return process_and_encode_webp(decoded_image, size_hint);
+            }
         }
     }
 
@@ -55,8 +57,15 @@ pub fn generate_kdc_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>>
         }
     }
 
-    // Fallback
-    crate::processing::media::extractors::image::generate_raw_thumbnail(path, size_hint)
+    // Use the same quality-first path as the full preview. It attempts full sensor
+    // decoding before falling back to a small embedded thumbnail.
+    let preview_bytes = crate::processing::media::extractors::image::extract_raw_preview(path)?;
+    let decoded_image = image::load_from_memory(&preview_bytes).map_err(|error| {
+        crate::core::error::AppError::Generic(format!(
+            "Failed to decode Kodak preview for thumbnail: {error}"
+        ))
+    })?;
+    process_and_encode_webp(decoded_image, size_hint)
 }
 
 #[cfg(target_os = "macos")]

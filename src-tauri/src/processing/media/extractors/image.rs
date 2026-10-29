@@ -6,7 +6,7 @@
 //!
 //! # Extraction Tiers (RAW)
 //!
-//! 1. **LibRaw** (`rsraw`) — extracts the largest embedded preview.
+//! 1. **FlashRaw** — extracts the largest embedded preview.
 //! 2. **Brute-force JPEG scan** — walks the file looking for `FF D8 FF` markers.
 //! 3. **FFmpeg fallback** — last resort for formats that embed no preview.
 
@@ -290,7 +290,7 @@ pub fn generate_raster_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u
 
 /// Extracts technical metadata from a RAW photography file.
 ///
-/// Uses LibRaw (`rsraw`) for canonical image dimensions and then `rexif` to
+/// Uses FlashRaw for canonical image dimensions and then `rexif` to
 /// surface camera-specific EXIF data (make, model, exposure settings, etc.).
 ///
 /// # Arguments
@@ -300,22 +300,24 @@ pub fn generate_raster_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u
 /// # Errors
 ///
 /// * `AppError::Io` - If the file cannot be opened.
-/// * `AppError::Generic` - If LibRaw parsing fails.
+/// * `AppError::Generic` - If RAW parsing fails.
 pub fn extract_raw_metadata(path: &Path) -> AppResult<serde_json::Value> {
     let mut image_width = 0u32;
     let mut image_height = 0u32;
+    let mut flashraw_metadata = None;
 
-    // First try LibRaw
-    if let Ok(file_handle) = std::fs::File::open(path) {
-        if let Ok(memory_map) = unsafe { memmap2::MmapOptions::new().map(&file_handle) } {
-            if let Ok(raw_image) = rsraw::RawImage::open(&memory_map) {
-                image_width = raw_image.width();
-                image_height = raw_image.height();
-            }
-        }
+    // FlashRaw reads metadata without decoding sensor pixels.
+    if let Ok(raw_image) = flashraw::FlashRaw::open_path(path) {
+        let metadata = raw_image.metadata().clone();
+        (image_width, image_height) = dimensions_for_orientation(
+            metadata.width,
+            metadata.height,
+            metadata.orientation.exif(),
+        );
+        flashraw_metadata = Some(metadata);
     }
 
-    // If LibRaw fails, fallback to brute force dimension extraction
+    // If FlashRaw fails, fallback to brute force dimension extraction
     if image_width == 0 || image_height == 0 {
         if let Ok((bytes, _)) = brute_force_extract_jpeg_bytes(path) {
             if let Ok(decoded_image) = image::load_from_memory(&bytes) {
@@ -325,9 +327,56 @@ pub fn extract_raw_metadata(path: &Path) -> AppResult<serde_json::Value> {
         }
     }
 
-    // Supplement LibRaw dimensions with EXIF camera metadata via rexif.
-    // Most RAW formats (ARW, CR2, NEF, DNG, etc.) are TIFF-based and expose EXIF.
-    let exif_map = extract_exif_data(path);
+    // Leaf MOS files can contain large maker notes that make generic EXIF parsing
+    // unacceptably slow. FlashRaw already reads their normalized metadata safely.
+    let is_leaf_mos = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("mos"));
+    let mut exif_map = if is_leaf_mos {
+        serde_json::Map::new()
+    } else {
+        extract_exif_data(path)
+    };
+
+    if let Some(raw_metadata) = &flashraw_metadata {
+        insert_metadata_if_missing(&mut exif_map, "Make", &raw_metadata.make);
+        insert_metadata_if_missing(&mut exif_map, "Model", &raw_metadata.model);
+        exif_map.insert(
+            "Orientation".into(),
+            serde_json::json!(raw_metadata.orientation.exif()),
+        );
+        insert_metadata_if_missing(
+            &mut exif_map,
+            "DateTimeOriginal",
+            raw_metadata.capture_time.as_deref().unwrap_or_default(),
+        );
+        insert_metadata_if_missing(
+            &mut exif_map,
+            "LensModel",
+            raw_metadata.lens.model.as_deref().unwrap_or_default(),
+        );
+        if let Some(iso) = raw_metadata.exposure.iso {
+            exif_map
+                .entry("ISO")
+                .or_insert_with(|| serde_json::json!(iso));
+        }
+        if let Some(exposure_time) = raw_metadata.exposure.exposure_time {
+            exif_map
+                .entry("ExposureTime")
+                .or_insert_with(|| serde_json::json!(exposure_time));
+        }
+        if let Some(f_number) = raw_metadata.exposure.f_number {
+            exif_map
+                .entry("FNumber")
+                .or_insert_with(|| serde_json::json!(f_number));
+        }
+        if let Some(focal_length) = raw_metadata.exposure.focal_length {
+            exif_map
+                .entry("FocalLength")
+                .or_insert_with(|| serde_json::json!(focal_length));
+        }
+    }
 
     let x_resolution = exif_map
         .get("XResolution")
@@ -358,6 +407,31 @@ pub fn extract_raw_metadata(path: &Path) -> AppResult<serde_json::Value> {
     }
 
     Ok(metadata)
+}
+
+fn insert_metadata_if_missing(
+    metadata: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &str,
+) {
+    if !value.is_empty() {
+        metadata
+            .entry(key.to_string())
+            .or_insert_with(|| serde_json::Value::String(value.to_string()));
+    }
+}
+
+/// Returns displayed image dimensions after applying an EXIF orientation value.
+pub fn dimensions_for_orientation(
+    image_width: u32,
+    image_height: u32,
+    exif_orientation: u32,
+) -> (u32, u32) {
+    if matches!(exif_orientation, 5..=8) {
+        (image_height, image_width)
+    } else {
+        (image_width, image_height)
+    }
 }
 
 fn ensure_jpeg_bytes(raw_bytes: Vec<u8>) -> AppResult<Vec<u8>> {
@@ -406,7 +480,7 @@ fn ensure_jpeg_bytes(raw_bytes: Vec<u8>) -> AppResult<Vec<u8>> {
 
 /// Generates a WebP thumbnail from a RAW photography file using a hybrid strategy.
 ///
-/// Uses a multi-tier fallback pipeline (LibRaw → brute-force JPEG scan → FFmpeg).
+/// Uses embedded previews first, then FlashRaw sensor decoding, JPEG scanning, and FFmpeg.
 ///
 /// # Arguments
 ///
@@ -417,8 +491,8 @@ fn ensure_jpeg_bytes(raw_bytes: Vec<u8>) -> AppResult<Vec<u8>> {
 ///
 /// * `AppError::Generic` - If all extraction tiers fail.
 pub fn generate_raw_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>> {
-    // Tier 1: LibRaw embedded preview
-    if let Ok(embedded_preview_bytes) = extract_libraw_preview(path) {
+    // Tier 1: FlashRaw embedded preview
+    if let Ok(embedded_preview_bytes) = extract_flashraw_preview(path) {
         if let Ok(decoded_preview) = image::load_from_memory(&embedded_preview_bytes) {
             return process_and_encode_webp(decoded_preview, size_hint);
         }
@@ -431,7 +505,14 @@ pub fn generate_raw_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>>
         }
     }
 
-    // Tier 3: FFmpeg fallback (handles formats like x3f, gpr, iiq that lack embedded JPEGs)
+    // Tier 3: Develop sensor data when a RAW file has no usable embedded preview.
+    if let Ok(decoded_bytes) = extract_flashraw_full_decode(path) {
+        if let Ok(decoded_image) = image::load_from_memory(&decoded_bytes) {
+            return process_and_encode_webp(decoded_image, size_hint);
+        }
+    }
+
+    // Tier 4: FFmpeg fallback (handles formats like x3f, gpr, iiq that lack embedded JPEGs)
     if let Ok(ffmpeg_bytes) = generate_ffmpeg_image_thumbnail(path, size_hint) {
         return Ok(ffmpeg_bytes);
     }
@@ -445,11 +526,16 @@ pub fn generate_raw_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>>
 /// Extracts a high-quality embedded JPEG preview from a RAW file for previewing.
 /// It returns the raw bytes directly without WebP re-encoding to preserve quality and speed.
 pub fn extract_raw_preview(path: &Path) -> AppResult<Vec<u8>> {
-    // Tier 1: LibRaw embedded preview
-    if let Ok(embedded_preview_bytes) = extract_libraw_preview(path) {
+    let mut small_embedded_preview = None;
+
+    // Tier 1: FlashRaw embedded preview
+    if let Ok(embedded_preview_bytes) = extract_flashraw_preview(path) {
         if let Ok(jpeg_bytes) = ensure_jpeg_bytes(embedded_preview_bytes) {
             if jpeg_bytes.len() > 50_000 {
                 return Ok(jpeg_bytes);
+            }
+            if image::load_from_memory(&jpeg_bytes).is_ok() {
+                small_embedded_preview = Some(jpeg_bytes);
             }
         }
     }
@@ -462,13 +548,20 @@ pub fn extract_raw_preview(path: &Path) -> AppResult<Vec<u8>> {
                 if image::load_from_memory(&jpeg_bytes).is_ok() {
                     return Ok(jpeg_bytes);
                 }
+            } else if image::load_from_memory(&jpeg_bytes).is_ok() {
+                small_embedded_preview = Some(jpeg_bytes);
             }
         }
     }
 
-    // Tier 2.5: Full LibRaw decode (slow but provides maximum quality for files without large embedded previews like Kodak EasyShare)
-    if let Ok(decoded_bytes) = extract_libraw_full_decode(path) {
+    // Tier 2.5: Full FlashRaw decode (slow but useful for files without large embedded previews).
+    if let Ok(decoded_bytes) = extract_flashraw_full_decode(path) {
         return Ok(decoded_bytes);
+    }
+
+    // Keep a small camera-rendered preview if the RAW sensor compression is unsupported.
+    if let Some(preview_bytes) = small_embedded_preview {
+        return Ok(preview_bytes);
     }
 
     // Tier 3: FFmpeg fallback (extracts full size or max 2048px JPEG)
@@ -524,194 +617,150 @@ pub fn generate_hdr_exr_dds_preview(path: &Path) -> AppResult<(Vec<u8>, String)>
     )))
 }
 
-/// Extracts the largest embedded preview from a RAW file using LibRaw.
-///
-/// LibRaw may return thumbnails in two forms:
-/// 1. **Encoded image data** (JPEG, PNG, TIFF) — returned as-is.
-/// 2. **Raw RGB bitmap data** (no format header) — common for Hasselblad 3FR/FFF
-///    files where the embedded thumbnail is stored as uncompressed pixel data.
-///    In this case, the data length equals `width × height × 3` (RGB) or
-///    `width × height × 4` (RGBA). We detect this and encode as JPEG before
-///    returning so downstream callers can use `image::load_from_memory()`.
-fn extract_libraw_preview(path: &Path) -> AppResult<Vec<u8>> {
-    let file_handle = std::fs::File::open(path).map_err(AppError::Io)?;
-    let memory_map = unsafe {
-        memmap2::MmapOptions::new()
-            .map(&file_handle)
-            .map_err(AppError::Io)?
-    };
-
-    let mut raw_image = rsraw::RawImage::open(&memory_map)
-        .map_err(|error| AppError::Generic(format!("LibRaw open error: {:?}", error)))?;
-
-    let embedded_thumbnails = raw_image.extract_thumbs().map_err(|error| {
-        AppError::Generic(format!("LibRaw thumb extraction error: {:?}", error))
-    })?;
-
-    let largest_thumbnail = embedded_thumbnails
+/// Extracts the largest embedded preview using FlashRaw. JPEG previews are returned
+/// byte-for-byte; RGB previews are encoded for the existing image pipeline.
+fn extract_flashraw_preview(path: &Path) -> AppResult<Vec<u8>> {
+    let raw = flashraw::FlashRaw::open_path(path)
+        .map_err(|error| AppError::Generic(format!("FlashRaw open error: {error}")))?;
+    let preview = raw
+        .previews()
         .iter()
-        .max_by_key(|thumbnail| thumbnail.width * thumbnail.height)
-        .ok_or_else(|| AppError::Generic("No embedded thumbnails found in RAW file".into()))?;
+        .filter(|preview| {
+            matches!(
+                preview.encoding,
+                flashraw::PreviewEncoding::Jpeg | flashraw::PreviewEncoding::Rgb8
+            )
+        })
+        .max_by_key(|preview| (preview.width as u64 * preview.height as u64, preview.length))
+        .ok_or_else(|| {
+            AppError::Generic("No supported JPEG or RGB previews found in RAW file".into())
+        })?;
+    let preview_orientation = resolve_leaf_mos_preview_orientation(path, raw.metadata(), preview);
 
-    let thumbnail_data = &largest_thumbnail.data;
-
-    // If data already starts with a known image format header, return as-is.
-    let has_jpeg_header = thumbnail_data.starts_with(&[0xFF, 0xD8]);
-    let has_png_header = thumbnail_data.starts_with(&[0x89, b'P', b'N', b'G']);
-    let has_tiff_le_header = thumbnail_data.starts_with(&[0x49, 0x49, 0x2A, 0x00]);
-    let has_tiff_be_header = thumbnail_data.starts_with(&[0x4D, 0x4D, 0x00, 0x2A]);
-
-    if has_jpeg_header || has_png_header || has_tiff_le_header || has_tiff_be_header {
-        return Ok(thumbnail_data.clone());
-    }
-
-    // LibRaw returned raw bitmap pixel data (common for Hasselblad 3FR/FFF).
-    // Detect by matching data length against expected RGB or RGBA buffer sizes.
-    let thumbnail_width = largest_thumbnail.width;
-    let thumbnail_height = largest_thumbnail.height;
-    let expected_rgb_byte_count = (thumbnail_width * thumbnail_height * 3) as usize;
-    let expected_rgba_byte_count = (thumbnail_width * thumbnail_height * 4) as usize;
-
-    let dynamic_image = if thumbnail_data.len() == expected_rgb_byte_count {
-        image::RgbImage::from_raw(thumbnail_width, thumbnail_height, thumbnail_data.clone())
-            .map(image::DynamicImage::ImageRgb8)
-            .ok_or_else(|| {
-                AppError::Generic(format!(
-                    "Failed to construct RGB image from LibRaw bitmap ({}x{}, {} bytes)",
-                    thumbnail_width,
-                    thumbnail_height,
-                    thumbnail_data.len()
-                ))
-            })?
-    } else if thumbnail_data.len() == expected_rgba_byte_count {
-        image::RgbaImage::from_raw(thumbnail_width, thumbnail_height, thumbnail_data.clone())
-            .map(image::DynamicImage::ImageRgba8)
-            .ok_or_else(|| {
-                AppError::Generic(format!(
-                    "Failed to construct RGBA image from LibRaw bitmap ({}x{}, {} bytes)",
-                    thumbnail_width,
-                    thumbnail_height,
-                    thumbnail_data.len()
-                ))
-            })?
-    } else {
-        // Last resort: try image::load_from_memory in case it's an unknown but valid format
-        return image::load_from_memory(thumbnail_data)
-            .map_err(|decode_error| {
-                AppError::Generic(format!(
-                    "LibRaw thumbnail is neither encoded image nor raw bitmap \
-                     ({}x{}, {} bytes, expected_rgb={}, expected_rgba={}, header={:02X?}): {}",
-                    thumbnail_width,
-                    thumbnail_height,
-                    thumbnail_data.len(),
-                    expected_rgb_byte_count,
-                    expected_rgba_byte_count,
-                    &thumbnail_data[..thumbnail_data.len().min(8)],
-                    decode_error
-                ))
-            })
-            .and_then(|decoded_image| {
-                let mut jpeg_buffer = Vec::new();
-                let mut cursor = std::io::Cursor::new(&mut jpeg_buffer);
-                decoded_image
-                    .to_rgb8()
-                    .write_to(&mut cursor, image::ImageFormat::Jpeg)
-                    .map_err(|encode_error| {
-                        AppError::Generic(format!(
-                            "Failed to encode LibRaw thumbnail to JPEG: {}",
-                            encode_error
-                        ))
-                    })?;
-                Ok(jpeg_buffer)
-            });
-    };
-
-    // Encode the raw bitmap as JPEG for downstream compatibility.
-    let mut jpeg_buffer = Vec::new();
-    let mut cursor = std::io::Cursor::new(&mut jpeg_buffer);
-    dynamic_image
-        .to_rgb8()
-        .write_to(&mut cursor, image::ImageFormat::Jpeg)
-        .map_err(|encode_error| {
+    if matches!(preview.encoding, flashraw::PreviewEncoding::Jpeg) {
+        let preview_bytes = raw
+            .preview_bytes(preview)
+            .map(|bytes| bytes.to_vec())
+            .map_err(|error| AppError::Generic(format!("FlashRaw preview read error: {error}")));
+        let preview_bytes = preview_bytes?;
+        if preview_orientation == flashraw::Orientation::Normal {
+            return Ok(preview_bytes);
+        }
+        let decoded_image = image::load_from_memory(&preview_bytes).map_err(|error| {
             AppError::Generic(format!(
-                "Failed to encode LibRaw bitmap thumbnail to JPEG: {}",
-                encode_error
+                "Failed to decode oriented FlashRaw preview: {error}"
             ))
         })?;
+        return encode_dynamic_image_jpeg(
+            apply_raw_preview_orientation(decoded_image, preview_orientation),
+            "oriented FlashRaw preview",
+        );
+    }
 
-    Ok(jpeg_buffer)
+    let decoded = raw
+        .decode_preview_rgb(preview)
+        .map_err(|error| AppError::Generic(format!("FlashRaw preview decode error: {error}")))?;
+    let rgb = image::RgbImage::from_raw(decoded.width, decoded.height, decoded.rgb)
+        .ok_or_else(|| AppError::Generic("Invalid RGB preview returned by FlashRaw".into()))?;
+    encode_dynamic_image_jpeg(
+        apply_raw_preview_orientation(image::DynamicImage::ImageRgb8(rgb), preview_orientation),
+        "FlashRaw preview",
+    )
 }
 
-/// Performs a full demosaicing and decoding of a RAW file using LibRaw.
-/// This is used as a fallback for files that lack embedded previews.
-fn extract_libraw_full_decode(path: &Path) -> AppResult<Vec<u8>> {
-    let file_handle = std::fs::File::open(path).map_err(AppError::Io)?;
-    let memory_map = unsafe {
-        memmap2::MmapOptions::new()
-            .map(&file_handle)
-            .map_err(AppError::Io)?
-    };
-
-    let mut raw_image = rsraw::RawImage::open(&memory_map)
-        .map_err(|error| AppError::Generic(format!("LibRaw open error: {:?}", error)))?;
-
-    raw_image
-        .unpack()
-        .map_err(|error| AppError::Generic(format!("LibRaw unpack error: {:?}", error)))?;
-
-    let image = raw_image.process::<{ rsraw::BIT_DEPTH_8 }>().map_err(|e| {
-        crate::core::error::AppError::Generic(format!("Failed to process RAW image: {}", e))
-    })?;
-
-    let expected_len = (image.width() * image.height() * image.colors() as u32) as usize;
-    if image.len() != expected_len {
-        return Err(AppError::Generic(format!(
-            "LibRaw decoded size mismatch: expected {} ({}x{}x{}), got {}",
-            expected_len,
-            image.width(),
-            image.height(),
-            image.colors(),
-            image.len()
-        )));
+fn resolve_leaf_mos_preview_orientation(
+    path: &Path,
+    metadata: &flashraw::RawMetadata,
+    preview: &flashraw::PreviewInfo,
+) -> flashraw::Orientation {
+    let is_leaf_mos = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("mos"));
+    if !is_leaf_mos || preview.width == 0 || preview.height == 0 {
+        return preview.orientation;
     }
 
-    let dynamic_image = if image.colors() == 3 {
-        image::RgbImage::from_raw(image.width(), image.height(), image.to_vec())
-            .map(image::DynamicImage::ImageRgb8)
-            .ok_or_else(|| {
-                AppError::Generic("Failed to construct RGB image from LibRaw decode".into())
-            })?
-    } else if image.colors() == 4 {
-        image::RgbaImage::from_raw(image.width(), image.height(), image.to_vec())
-            .map(image::DynamicImage::ImageRgba8)
-            .ok_or_else(|| {
-                AppError::Generic("Failed to construct RGBA image from LibRaw decode".into())
-            })?
-    } else if image.colors() == 1 {
-        image::GrayImage::from_raw(image.width(), image.height(), image.to_vec())
-            .map(image::DynamicImage::ImageLuma8)
-            .ok_or_else(|| {
-                AppError::Generic("Failed to construct Gray image from LibRaw decode".into())
-            })?
+    let file_orientation = metadata.orientation;
+    if !matches!(
+        file_orientation,
+        flashraw::Orientation::Transpose
+            | flashraw::Orientation::Rotate90
+            | flashraw::Orientation::Transverse
+            | flashraw::Orientation::Rotate270
+    ) {
+        return preview.orientation;
+    }
+
+    let preview_ratio = preview.width as f64 / preview.height as f64;
+    let raw_ratio = metadata.width as f64 / metadata.height.max(1) as f64;
+    let display_ratio = metadata.height as f64 / metadata.width.max(1) as f64;
+
+    if ratios_are_close(preview_ratio, display_ratio) {
+        flashraw::Orientation::Normal
+    } else if ratios_are_close(preview_ratio, raw_ratio) {
+        file_orientation
     } else {
-        return Err(AppError::Generic(format!(
-            "Unsupported LibRaw colors: {}",
-            image.colors()
-        )));
-    };
+        preview.orientation
+    }
+}
 
+fn ratios_are_close(first_ratio: f64, second_ratio: f64) -> bool {
+    (first_ratio - second_ratio).abs() <= second_ratio.abs().max(0.01) * 0.03
+}
+
+fn apply_raw_preview_orientation(
+    image: image::DynamicImage,
+    orientation: flashraw::Orientation,
+) -> image::DynamicImage {
+    use flashraw::Orientation;
+
+    match orientation {
+        Orientation::Normal => image,
+        Orientation::FlipH => image.fliph(),
+        Orientation::Rotate180 => image.rotate180(),
+        Orientation::FlipV => image.flipv(),
+        Orientation::Transpose => image.rotate90().fliph(),
+        Orientation::Rotate90 => image.rotate90(),
+        Orientation::Transverse => image.rotate270().fliph(),
+        Orientation::Rotate270 => image.rotate270(),
+    }
+}
+
+/// Demosaics sensor pixels through FlashRaw for files without a usable large preview.
+fn extract_flashraw_full_decode(path: &Path) -> AppResult<Vec<u8>> {
+    let raw = flashraw::FlashRaw::open_path(path)
+        .map_err(|error| AppError::Generic(format!("FlashRaw open error: {error}")))?;
+    let frame = raw
+        .decode(flashraw::DecodeOptions {
+            output: flashraw::OutputFormat::Rgba8,
+            preview_fallback: false,
+            ..Default::default()
+        })
+        .map_err(|error| AppError::Generic(format!("FlashRaw decode error: {error}")))?;
+    let rgba = image::RgbaImage::from_raw(
+        frame.width,
+        frame.height,
+        frame
+            .as_u8()
+            .ok_or_else(|| AppError::Generic("FlashRaw returned a non-RGBA8 frame".into()))?
+            .to_vec(),
+    )
+    .ok_or_else(|| AppError::Generic("Invalid RGBA8 frame returned by FlashRaw".into()))?;
+    encode_dynamic_image_jpeg(image::DynamicImage::ImageRgba8(rgba), "FlashRaw decode")
+}
+
+fn encode_dynamic_image_jpeg(image: image::DynamicImage, context: &str) -> AppResult<Vec<u8>> {
     let mut jpeg_buffer = Vec::new();
-    let mut cursor = std::io::Cursor::new(&mut jpeg_buffer);
-    dynamic_image
+    image
         .to_rgb8()
-        .write_to(&mut cursor, image::ImageFormat::Jpeg)
-        .map_err(|encode_error| {
-            AppError::Generic(format!(
-                "Failed to encode LibRaw full decode to JPEG: {}",
-                encode_error
-            ))
+        .write_to(
+            &mut std::io::Cursor::new(&mut jpeg_buffer),
+            image::ImageFormat::Jpeg,
+        )
+        .map_err(|error| {
+            AppError::Generic(format!("Failed to encode {context} as JPEG: {error}"))
         })?;
-
     Ok(jpeg_buffer)
 }
 
