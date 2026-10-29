@@ -98,10 +98,6 @@ log = "0.4.33"
 # [profile.dev.package."*"]
 # opt-level = 3
 
-[profile.dev]
-# Keep line tables for backtraces while reducing DWARF size for fast MinGW linking
-debug = 1
-
 [profile.dev.package.rustysynth]
 opt-level = 3
 

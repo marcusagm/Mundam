@@ -38,7 +38,11 @@ impl TranscodingProfile {
     ///
     /// # Returns
     /// An instantiated `TranscodingProfile` ready to be fed into a `tokio::process::Command`.
-    pub fn resolve_for_hls(original_path: &Path, mime_type: Option<&str>) -> Self {
+    pub fn resolve_for_hls(
+        original_path: &Path,
+        mime_type: Option<&str>,
+        video_encoder: &str,
+    ) -> Self {
         let ext = original_path
             .extension()
             .and_then(|e| e.to_str())
@@ -88,25 +92,25 @@ impl TranscodingProfile {
             // Video pipeline
             // Transcodes everything to H.264 ultrafast.
             // In a more sophisticated setup, we would read the stream codecs and use `-c:v copy` if already H.264.
-            output_args.extend(vec![
-                "-c:v".to_string(),
-                "libx264".to_string(),
-                "-preset".to_string(),
-                "ultrafast".to_string(),
-                "-crf".to_string(),
-                "23".to_string(), // Good balance for latency/quality
-                // Scaling down to 1080p if larger, keeping aspect ratio
-                "-vf".to_string(),
-                "scale=-2:'min(1080,ih)'".to_string(),
-                "-c:a".to_string(), // Always transcode audio to AAC for wide web support
-                "aac".to_string(),
-                "-b:a".to_string(),
-                "192k".to_string(),
-                "-maxrate".to_string(),
-                "5M".to_string(),
-                "-bufsize".to_string(),
-                "10M".to_string(),
-            ]);
+            output_args.extend(["-c:v", video_encoder, "-b:v", "2500k"].map(str::to_string));
+            if video_encoder == "libx264" {
+                output_args.extend(["-preset", "ultrafast", "-crf", "23"].map(str::to_string));
+            }
+            output_args.extend(
+                [
+                    "-vf",
+                    "scale=-2:'min(1080,ih)'",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "192k",
+                    "-maxrate",
+                    "5M",
+                    "-bufsize",
+                    "10M",
+                ]
+                .map(str::to_string),
+            );
 
             TranscodingProfile {
                 input_args: vec![

@@ -85,6 +85,13 @@ async fn transcode_segment(
     // Detect media kind to adjust FFmpeg flags
     let media_kind = detector::get_media_kind(registry, file_path);
     let is_audio = media_kind == detector::MediaKind::Audio;
+    let h264_encoder = if is_audio {
+        None
+    } else {
+        Some(crate::processing::transcoding::resolve_h264_encoder(
+            &ffmpeg_path,
+        )?)
+    };
 
     let mut cmd = Command::new(&ffmpeg_path);
     cmd.args([
@@ -112,6 +119,7 @@ async fn transcode_segment(
             "-map", "0:a:0?", "-vn", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
         ]);
     } else {
+        let h264_encoder = h264_encoder.ok_or("H.264 encoder was not resolved for video")?;
         // Video configuration
         cmd.args([
             "-map",
@@ -120,37 +128,36 @@ async fn transcode_segment(
             "0:a:0?",
             "-sn",
             "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
+            h264_encoder,
         ]);
 
-        match quality {
-            "preview" => {
-                cmd.args(["-crf", "30", "-vf", "scale=-2:480"]);
-            }
-            "high" => {
-                cmd.args(["-crf", "18", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
-            }
-            _ => {
-                // standard
-                cmd.args(["-crf", "23", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]);
-            }
+        if h264_encoder == "libx264" {
+            cmd.args(["-preset", "ultrafast"]);
+            match quality {
+                "preview" => cmd.args(["-crf", "30"]),
+                "high" => cmd.args(["-crf", "18"]),
+                _ => cmd.args(["-crf", "23"]),
+            };
+        } else {
+            let video_bitrate = match quality {
+                "preview" => "500k",
+                "high" => "4000k",
+                _ => "1800k",
+            };
+            cmd.args(["-b:v", video_bitrate]);
         }
+        let scale = if quality == "preview" {
+            "scale=-2:480"
+        } else {
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        };
+        cmd.args(["-vf", scale]);
 
+        if h264_encoder == "libx264" {
+            cmd.args(["-profile:v", "high", "-level", "4.1"]);
+        }
         cmd.args([
-            "-profile:v",
-            "high",
-            "-level",
-            "4.1",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
-            "-ar",
-            "48000",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
         ]);
     }
 
@@ -171,12 +178,12 @@ async fn transcode_segment(
     }
 
     let output = child.wait_with_output().await?;
-    
+
     {
         let mut pm = process_manager.write().await;
         pm.remove(segment_key);
     }
-    
+
     let status = output.status;
     let output_data = output.stdout;
 

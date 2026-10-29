@@ -97,11 +97,12 @@ impl HlsManager {
             AppError::Generic(format!("Failed to create HLS output directory: {}", e))
         })?;
 
-        let profile = TranscodingProfile::resolve_for_hls(original_path, mime_type);
+        let tools = crate::processing::transcoding::resolve_transcoding_tools::<tauri::Wry>(None)?;
+        let video_encoder = crate::processing::transcoding::resolve_h264_encoder(&tools.ffmpeg)?;
+        let profile = TranscodingProfile::resolve_for_hls(original_path, mime_type, video_encoder);
         let playlist_path = session_dir.join("playlist.m3u8");
         let segment_pattern = session_dir.join("segment_%05d.ts");
 
-        let tools = crate::processing::transcoding::resolve_transcoding_tools::<tauri::Wry>(None)?;
         let mut cmd = Command::new(tools.ffmpeg);
 
         cmd.args(&profile.input_args)
@@ -153,7 +154,11 @@ impl HlsManager {
     /// # Returns
     ///
     /// Ok(()) if the cleanup worker was started successfully.
-    pub fn start_cleanup_worker(&self, token: CancellationToken, timeout_secs: u64) -> tauri::async_runtime::JoinHandle<()> {
+    pub fn start_cleanup_worker(
+        &self,
+        token: CancellationToken,
+        timeout_secs: u64,
+    ) -> tauri::async_runtime::JoinHandle<()> {
         let sessions = self.sessions.clone();
         tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));

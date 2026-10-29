@@ -102,6 +102,8 @@ impl LinearManager {
 
         let tools = resolve_transcoding_tools::<tauri::Wry>(None)
             .map_err(|e| format!("FFmpeg tools not found: {:?}", e))?;
+        let h264_encoder = crate::processing::transcoding::resolve_h264_encoder(&tools.ffmpeg)
+            .map_err(|error| error.to_string())?;
 
         // Determine bitrate based on quality
         let video_bitrate = match quality {
@@ -144,13 +146,9 @@ impl LinearManager {
             "-i",
             &actual_input.to_string_lossy(),
             "-c:v",
-            "libx264",
+            h264_encoder,
             "-pix_fmt",
             "yuv420p",
-            "-preset",
-            "ultrafast",
-            "-tune",
-            "zerolatency",
             "-c:a",
             "aac",
             "-b:a",
@@ -167,6 +165,9 @@ impl LinearManager {
             "segment_%05d.ts",
             "index.m3u8",
         ]);
+        if h264_encoder == "libx264" {
+            cmd.args(["-preset", "ultrafast", "-tune", "zerolatency"]);
+        }
 
         cmd.current_dir(&temp_dir);
         cmd.stdin(std::process::Stdio::null());

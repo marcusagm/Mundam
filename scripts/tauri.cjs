@@ -1,11 +1,7 @@
 const { run, logError } = require('@tauri-apps/cli/main');
 
 if (process.platform === 'win32') {
-  // rsraw-sys needs the GNU toolchain. MinGW binutils also needs a target
-  // directory without spaces; keep that Windows-only choice out of Cargo's
-  // project-wide configuration so macOS and Linux use their native defaults.
-  process.env.CARGO_BUILD_TARGET ||= 'x86_64-pc-windows-gnu';
-  process.env.CARGO_TARGET_DIR ||= 'C:/cargo-target/mundam';
+  process.env.RUSTUP_TOOLCHAIN ||= 'stable-x86_64-pc-windows-msvc';
 }
 
 const args = process.argv.slice(2);

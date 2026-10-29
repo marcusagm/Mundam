@@ -6,7 +6,7 @@ set -euo pipefail
 parse_args "$@"
 
 if [ "$SKIP_SYSTEM" = 0 ]; then
-    log "Checking Xcode Command Line Tools (compiler, libclang for bindgen)"
+    log "Checking Xcode Command Line Tools (native compiler and SDK headers)"
     if ! xcode-select -p >/dev/null 2>&1; then
         xcode-select --install || true
         die "Finish installing the Xcode Command Line Tools, then re-run this script."
@@ -20,8 +20,8 @@ if [ "$SKIP_SYSTEM" = 0 ]; then
     fi
     have brew || die "Homebrew is required: https://brew.sh (then re-run this script)."
 
-    log "Installing system packages with Homebrew (cmake, pkg-config, ffmpeg, assimp)"
-    for pkg in cmake pkg-config ffmpeg assimp; do
+    log "Installing system packages with Homebrew (pkg-config, ffmpeg, assimp)"
+    for pkg in pkg-config ffmpeg assimp; do
         if brew list --formula "$pkg" >/dev/null 2>&1; then
             ok "$pkg already installed"
         else
@@ -32,17 +32,12 @@ fi
 
 ensure_node
 ensure_rust
-init_submodules
 install_node_deps
 
 stage_ffmpeg macos
 stage_assimp macos
 
-case "$(uname -m)" in
-    arm64) pdfium_file="pdfium-mac-arm64.tgz" ;;
-    *)     pdfium_file="pdfium-mac-x64.tgz" ;;
-esac
-ensure_pdfium libpdfium.dylib "$pdfium_file" lib
+ensure_pdfium libpdfium.dylib pdfium-mac-univ.tgz lib
 ensure_soundfont
 
 finish

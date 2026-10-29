@@ -3,7 +3,7 @@
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TAURI_DIR="$REPO_ROOT/src-tauri"
-PDFIUM_VERSION="7543"
+PDFIUM_VERSION="8125"
 
 SKIP_SYSTEM=0
 RUN_CHECK=0
@@ -71,9 +71,9 @@ ensure_node() {
 }
 
 install_node_deps() {
-    log "Installing frontend dependencies"
-    (cd "$REPO_ROOT" && npm install)
-    ok "npm dependencies installed"
+    log "Installing frontend dependencies from package-lock.json"
+    (cd "$REPO_ROOT" && npm ci)
+    ok "npm dependencies installed from the lockfile"
 }
 
 # Succeeds if the file is a binary/library for the current OS (guards against files
@@ -89,41 +89,46 @@ is_native_binary() {
     esac
 }
 
-# Some bundled files are tracked in git for macOS only. When replacing them on another
-# platform, keep git from reporting/committing the local change.
-untrack_local_change() {
-    [ -e "$REPO_ROOT/.git" ] || return 0
-    if git -C "$REPO_ROOT" ls-files --error-unmatch "$1" >/dev/null 2>&1; then
-        git -C "$REPO_ROOT" update-index --skip-worktree "$1"
-    fi
-}
-
 # Copies a system tool into src-tauri/<dir>/<name> (used for dev runs and bundling).
 stage_tool() {
     local name="$1" dest_dir="$2" required="$3" src dest
     dest="$TAURI_DIR/$dest_dir/$name"
     mkdir -p "$TAURI_DIR/$dest_dir"
-    if is_native_binary "$dest" && "$dest" -version >/dev/null 2>&1; then
-        ok "$name already staged in src-tauri/$dest_dir"
-        return 0
-    fi
     src="$(command -v "$name" || true)"
-    if [ -z "$src" ]; then
-        [ "$required" = required ] && die "$name not found in PATH after installation."
-        warn "$name not found; related features will be unavailable."
+    if [ -n "$src" ]; then
+        cp -f "$src" "$dest"
+        chmod +x "$dest"
+        ok "Updated $name from $src"
         return 0
     fi
-    cp -f "$src" "$dest"
-    chmod +x "$dest"
-    untrack_local_change "src-tauri/$dest_dir/$name"
-    ok "Staged $name from $src"
+    if is_native_binary "$dest" && "$dest" -version >/dev/null 2>&1; then
+        ok "$name already staged in src-tauri/$dest_dir (no system copy found)"
+        return 0
+    fi
+    [ "$required" = required ] && die "$name not found in PATH after installation."
+    warn "$name not found; related features will be unavailable."
 }
 
 stage_ffmpeg() {
     local platform="$1"
+    local ffmpeg_path="$TAURI_DIR/resources/ffmpeg/$platform/ffmpeg"
+    local metadata_dir="$TAURI_DIR/resources/build-info"
+    local metadata_path="$metadata_dir/ffmpeg-$platform.txt"
     log "Staging FFmpeg / FFprobe"
     stage_tool ffmpeg "resources/ffmpeg/$platform" required
-    stage_tool ffprobe "resources/ffmpeg/$platform" optional
+    stage_tool ffprobe "resources/ffmpeg/$platform" required
+    mkdir -p "$metadata_dir"
+    {
+        echo "--- ffmpeg -version ---"
+        "$ffmpeg_path" -version 2>&1
+        echo "--- ffprobe -version ---"
+        "$TAURI_DIR/resources/ffmpeg/$platform/ffprobe" -version 2>&1
+        echo "--- ffmpeg -L ---"
+        "$ffmpeg_path" -L 2>&1
+        echo "--- ffmpeg -buildconf ---"
+        "$ffmpeg_path" -buildconf 2>&1
+    } > "$metadata_path"
+    warn "Review src-tauri/resources/build-info/ffmpeg-$platform.txt before redistribution; FFmpeg license and source obligations depend on this exact build."
 }
 
 # Assimp is optional (3D model conversion). The app looks for resources/assimp/<platform>/bin/assimp.
@@ -145,11 +150,12 @@ stage_assimp() {
 
 # PDFium is downloaded from bblanchon/pdfium-binaries (not available in package managers).
 ensure_pdfium() {
-    local lib_name="$1" file="$2" lib_subdir="$3" dest tmp
+    local lib_name="$1" file="$2" lib_subdir="$3" dest version_file tmp
     log "Checking PDFium"
     dest="$TAURI_DIR/resources/pdfium/$lib_name"
+    version_file="$TAURI_DIR/resources/pdfium/PDFIUM_VERSION"
     mkdir -p "$TAURI_DIR/resources/pdfium"
-    if is_native_binary "$dest"; then
+    if is_native_binary "$dest" && [ -f "$version_file" ] && [ "$(tr -d '\r\n' < "$version_file")" = "$PDFIUM_VERSION" ]; then
         ok "PDFium already present"
         return 0
     fi
@@ -159,9 +165,9 @@ ensure_pdfium() {
         || { rm -rf "$tmp"; die "Failed to download PDFium."; }
     tar -xzf "$tmp/$file" -C "$tmp"
     cp -f "$tmp/$lib_subdir/$lib_name" "$dest"
+    printf '%s\n' "$PDFIUM_VERSION" > "$version_file"
     rm -rf "$tmp"
-    untrack_local_change "src-tauri/resources/pdfium/$lib_name"
-    ok "PDFium installed at src-tauri/resources/pdfium/$lib_name"
+    ok "PDFium chromium/$PDFIUM_VERSION installed at src-tauri/resources/pdfium/$lib_name"
 }
 
 ensure_soundfont() {
@@ -175,8 +181,8 @@ ensure_soundfont() {
 
 finish() {
     if [ "$RUN_CHECK" = 1 ]; then
-        log "Running cargo check (first run compiles LibRaw; may take several minutes)"
-        (cd "$TAURI_DIR" && cargo check)
+        log "Running cargo check --locked"
+        (cd "$TAURI_DIR" && cargo check --locked)
     fi
     echo
     if [ "${#WARNINGS[@]}" -gt 0 ]; then

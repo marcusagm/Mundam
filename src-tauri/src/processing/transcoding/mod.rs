@@ -3,12 +3,71 @@
 //! Este módulo garante que comandos de CLI sejam executados de forma segura,
 //! com limites de tempo (timeouts) e limpeza de processos órfãos.
 use crate::core::error::{AppError, AppResult};
+use std::collections::HashMap;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::Manager;
 use wait_timeout::ChildExt;
+
+static H264_ENCODERS: OnceLock<Mutex<HashMap<PathBuf, &'static str>>> = OnceLock::new();
+
+/// Finds a usable H.264 encoder in the selected FFmpeg binary and caches the result.
+pub fn resolve_h264_encoder(ffmpeg: &Path) -> AppResult<&'static str> {
+    let cache = H264_ENCODERS.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(encoder) = cache
+        .lock()
+        .map_err(|_| AppError::Transcoding("H.264 encoder cache is unavailable".into()))?
+        .get(ffmpeg)
+        .copied()
+    {
+        return Ok(encoder);
+    }
+
+    let output = Command::new(ffmpeg)
+        .args(["-hide_banner", "-encoders"])
+        .output()
+        .map_err(|error| {
+            AppError::Transcoding(format!("Failed to list FFmpeg encoders: {error}"))
+        })?;
+    if !output.status.success() {
+        return Err(AppError::Transcoding(
+            "FFmpeg could not list its available encoders".into(),
+        ));
+    }
+
+    let encoder_list = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let available: Vec<&str> = encoder_list
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(1))
+        .collect();
+    let encoder = [
+        "libx264",
+        "libopenh264",
+        "h264_mf",
+        "h264_videotoolbox",
+        "h264_nvenc",
+        "h264_amf",
+        "h264_qsv",
+    ]
+    .into_iter()
+    .find(|candidate| available.contains(candidate))
+    .ok_or_else(|| {
+        AppError::Transcoding("No supported H.264 encoder is available in FFmpeg".into())
+    })?;
+
+    cache
+        .lock()
+        .map_err(|_| AppError::Transcoding("H.264 encoder cache is unavailable".into()))?
+        .insert(ffmpeg.to_path_buf(), encoder);
+    Ok(encoder)
+}
 
 /// Caminhos resolvidos para os binários de vídeo.
 pub struct TranscodingTools {

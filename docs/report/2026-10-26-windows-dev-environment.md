@@ -5,13 +5,25 @@
 **Repositório:** `Mundam-v2`  
 **Escopo:** Estabilização do ambiente Windows (10/11 x64), resolução de falhas de compilação/linking do backend Rust (Tauri v2), automação via scripts e diretrizes para eliminação de dependências nativas problemáticas.
 
-> **Atualização (29 de outubro de 2026):** As seções abaixo registram o estado histórico do ambiente. A dependência `gpr_sdk` descrita na seção 4.6 e no item 6.2 foi removida. O decoder GoPro GPR agora usa FlashRaw (`MIT OR Apache-2.0`) em Rust; não é mais necessário compilar o SDK GoPro nem inicializar o submódulo.
+> **Estado do relatório:** Este documento registra o diagnóstico histórico feito em 26 de outubro. As seções 2–7 descrevem ferramentas e soluções daquela época e não devem ser usadas como instruções atuais. Em 29 de outubro, o setup foi alinhado ao toolchain MSVC oficial do Tauri; `rsraw`/LibRaw e `gpr_sdk` foram removidos do backend, assim como MinGW. O estado atual e os comandos de preparação estão resumidos em “Estado atual” abaixo; detalhes históricos foram mantidos para explicar a origem dos problemas.
+
+## Estado atual (29 de outubro de 2026)
+
+- **Windows:** Rust `stable-x86_64-pc-windows-msvc`, Visual Studio Build Tools com workload “Desktop development with C++” e Windows SDK, Node.js 18 ou superior e `npm ci`. `scripts/tauri.cjs` seleciona MSVC para comandos Tauri em Windows, inclusive quando há um override GNU antigo no checkout. Tauri gera MSI e NSIS (`targets: all`); o recurso opcional VBSCRIPT pode ser necessário para MSI. WebView2 está presente no Windows 10/11 compatível e o instalador Tauri pode instalá-lo em sistemas que precisem. Não são necessários MSYS2, MinGW, LLVM/libclang nem CMake para compilar o backend atual.
+- **FFmpeg Windows que estava staged:** a cópia Gyan full-build 9.0.2 habilitava `--enable-gpl` e `--enable-version3`. Ela foi removida da pasta de recursos, e o setup agora baixa um build LGPL compartilhado com DLLs de suporte. Execute o setup antes de criar o instalador; não distribua um build Gyan antigo.
+- **RAW:** FlashRaw fornece suporte GPR em Rust. O projeto também usa Rawler para outros formatos RAW; não há dependência de LibRaw no setup.
+- **Recursos para instaladores:** FFmpeg e FFprobe são necessários para a pipeline de mídia. O setup Windows baixa o release BtbN `n9.0.2-37-gae19868753` marcado como LGPL shared e recusa builds com `--enable-gpl` ou `--enable-nonfree`; setup macOS/Linux ainda usa o FFmpeg do sistema e grava a configuração em `src-tauri/resources/build-info/` para revisão de licença. Como o build Windows não contém `libx264`, o backend detecta o encoder H.264 disponível e usa `libopenh264` ou um encoder da plataforma. Assimp é opcional para conversão de alguns modelos 3D. PDFium é baixado pelo setup a partir do release `chromium/8125`. A SoundFont versionada continua sendo usada pelo preview MIDI; confira a procedência/licença registrada em `docs/backend/dependences.md` antes de redistribuir.
+- **Preparação:** execute `scripts/setup-windows.ps1` em PowerShell. Use `-SkipSystem` para não instalar ferramentas via winget ou `-Check` para executar `cargo check --locked` após preparar o ambiente. O setup aplica `npm ci`, valida/stageia os recursos e configura o override MSVC.
+- **Gerar instaladores:** use `npm run tauri build`. Se o MSI falhar com erro de `light.exe`, habilite VBSCRIPT em Windows Optional Features. O script de setup verifica o estado e emite um aviso sem tentar alterar recursos opcionais do Windows.
+- **Outras plataformas:** `scripts/setup-macos.sh` e `scripts/setup-linux.sh` instalam os pré-requisitos nativos do Tauri, fazem `npm ci` e preparam os recursos dinâmicos exigidos pelo runtime.
+
+O inventário detalhado dos recursos e suas licenças está em [`docs/backend/dependences.md`](../backend/dependences.md). Os scripts em `scripts/` são a fonte de verdade para a preparação de cada plataforma.
 
 ---
 
 ## 1. Visão Geral Executiva
 
-O Mundam-v2 é uma aplicação desktop de alta performance construída sobre o framework **Tauri v2**, com frontend em Vite/React e backend em Rust. O projeto lida com dezenas de formatos de mídia avançados (imagens raster, arquivos RAW fotográficos, modelos 3D, áudio MIDI com sintetizadores, PDFs e texturas gráficas).
+O Mundam-v2 é uma aplicação desktop de alta performance construída sobre o framework **Tauri v2**, com frontend em Vite/SolidJS e backend em Rust. O projeto lida com dezenas de formatos de mídia avançados (imagens raster, arquivos RAW fotográficos, modelos 3D, áudio MIDI com sintetizadores, PDFs e texturas gráficas).
 
 Originalmente desenvolvido e otimizado com foco no ecossistema macOS/Linux, a compilação no Windows encontrava múltiplos bloqueios estruturais que impediam a execução de `npm run tauri dev`. 
 
@@ -25,7 +37,7 @@ Durante esta sessão de engenharia:
 
 ---
 
-## 2. Requisitos de Sistema e Ferramentas
+## 2. Requisitos de Sistema e Ferramentas (histórico)
 
 Para construir e executar o Mundam-v2 no Windows de forma limpa, são necessários os seguintes componentes:
 
@@ -34,16 +46,16 @@ Para construir e executar o Mundam-v2 no Windows de forma limpa, são necessári
 * **Gerenciador de Pacotes:** `winget` (Windows Package Manager / "Instalador de Aplicativo" da Microsoft Store).
 
 ### 2.2. Ferramentas do Sistema e Compiladores
-| Ferramenta | Identificador / Pacote | Finalidade no Projeto |
-| :--- | :--- | :--- |
-| **Git** | `Git.Git` | Controle de versão e atualização de submódulos (`gpr_sdk`). |
-| **Node.js LTS** | `OpenJS.NodeJS.LTS` (>= 18, testado v24) | Execução do bundler Vite e gerenciamento de dependências npm. |
-| **Rustup & Rust** | `Rustlang.Rustup` (Toolchain: `stable-x86_64-pc-windows-gnu`) | Compilador Rust com suporte a toolchain MinGW/GCC. |
-| **MSYS2 / UCRT64** | `MSYS2.MSYS2` (`mingw-w64-ucrt-x86_64-gcc`) | GCC 15.x, Binutils (`windres`, `ld`, `ar`) e CRT moderna do Windows (`ucrtbase.dll`). |
-| **LLVM** | `LLVM.LLVM` | Fornece `libclang.dll` para geração de bindings FFI via `bindgen` (usado por `rsraw-sys`). |
-| **CMake** | `Kitware.CMake` | Construção de submódulos C++ (ex.: `gpr_sdk`). |
-| **FFmpeg** | `Gyan.FFmpeg` | Binários `ffmpeg.exe` e `ffprobe.exe` para pipeline de vídeo e fallback de extração de mídia. |
-| **SoundFont** | Asset versionado em `src-tauri/resources/soundfonts/` | Recurso MIDI empacotado com o app; não exige Python no setup. |
+| Ferramenta         | Identificador / Pacote                                        | Finalidade no Projeto                                                                         |
+| :----------------- | :------------------------------------------------------------ | :-------------------------------------------------------------------------------------------- |
+| **Git**            | `Git.Git`                                                     | Controle de versão e atualização de submódulos (`gpr_sdk`).                                   |
+| **Node.js LTS**    | `OpenJS.NodeJS.LTS` (>= 18, testado v24)                      | Execução do bundler Vite e gerenciamento de dependências npm.                                 |
+| **Rustup & Rust**  | `Rustlang.Rustup` (Toolchain: `stable-x86_64-pc-windows-gnu`) | Compilador Rust com suporte a toolchain MinGW/GCC.                                            |
+| **MSYS2 / UCRT64** | `MSYS2.MSYS2` (`mingw-w64-ucrt-x86_64-gcc`)                   | GCC 15.x, Binutils (`windres`, `ld`, `ar`) e CRT moderna do Windows (`ucrtbase.dll`).         |
+| **LLVM**           | `LLVM.LLVM`                                                   | Fornece `libclang.dll` para geração de bindings FFI via `bindgen` (usado por `rsraw-sys`).    |
+| **CMake**          | `Kitware.CMake`                                               | Construção de submódulos C++ (ex.: `gpr_sdk`).                                                |
+| **FFmpeg**         | `Gyan.FFmpeg`                                                 | Binários `ffmpeg.exe` e `ffprobe.exe` para pipeline de vídeo e fallback de extração de mídia. |
+| **SoundFont**      | Asset versionado em `src-tauri/resources/soundfonts/`         | Recurso MIDI empacotado com o app; não exige Python no setup.                                 |
 
 ### 2.3. Binários e Recursos Estagiados em `src-tauri/`
 * `resources/pdfium/pdfium.dll`: Biblioteca dinâmica de renderização PDF (baixada pelo setup script).
@@ -53,7 +65,7 @@ Para construir e executar o Mundam-v2 no Windows de forma limpa, são necessári
 
 ---
 
-## 3. Variáveis de Sistema e Configurações de Ambiente
+## 3. Variáveis de Sistema e Configurações de Ambiente (histórico)
 
 A correta configuração das variáveis de ambiente é mandatória para evitar conflitos entre diferentes compiladores no Windows:
 
@@ -72,7 +84,7 @@ O repositório não fixa mais `target` nem `target-dir` em `.cargo/config.toml`.
 
 ---
 
-## 4. Diagnóstico Técnico dos Problemas e Soluções (Causa Raiz)
+## 4. Diagnóstico Técnico dos Problemas e Soluções (Causa Raiz; histórico)
 
 Abaixo está o registro técnico aprofundado dos 6 principais obstáculos superados durante a estabilização do ambiente Windows:
 
@@ -167,20 +179,20 @@ Abaixo está o registro técnico aprofundado dos 6 principais obstáculos supera
 
 ---
 
-## 5. Inventário Completo dos Arquivos Modificados
+## 5. Inventário dos Arquivos Modificados naquela implementação (histórico)
 
-| Arquivo | Natureza da Alteração | Detalhes Técnicos |
-| :--- | :--- | :--- |
-| [`scripts/tauri.cjs`](../../scripts/tauri.cjs) | **Launcher do Tauri** | Define target GNU e target-dir sem espaços somente no Windows. |
-| [`scripts/setup-windows.ps1`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/scripts/setup-windows.ps1) | **Atualização de Setup** | Instala MSYS2 via winget; instala gcc ucrt64; prioriza `ucrt64\bin` no PATH; instala toolchain Rust GNU; prepara os binários do Windows. |
-| [`src-tauri/Cargo.toml`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/Cargo.toml) | **Configuração de Dependências** | Desativa `default-features` do `image_dds`; atualiza `rsraw` para `0.1.1`; insere `[profile.dev] debug = 1` para acelerar o linker. |
-| [`src-tauri/build.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/build.rs) | **Lógica de Build Script** | Prepend no `PATH` para priorizar o `windres` do MinGW nativo; desativa compilação do `gpr_sdk` em plataformas Windows. |
-| [`src-tauri/src/processing/media/extractors/gpr.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/src/processing/media/extractors/gpr.rs) | **Compatibilidade Multiplataforma** | Adiciona stubs `#[cfg(target_os = "windows")]` para geração de thumbnails e previews de GoPro GPR. |
-| [`src-tauri/src/delivery/tauri/commands/mutations.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/src/delivery/tauri/commands/mutations.rs) | **Correção de Warning** | Adiciona `let _ = &paths;` no comando `copy_files_to_clipboard` para evitar warning de parâmetro não utilizado fora do macOS. |
+| Arquivo                                                                                                                                                                 | Natureza da Alteração               | Detalhes Técnicos                                                                                                                        |
+| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| [`scripts/tauri.cjs`](../../scripts/tauri.cjs)                                                                                                                          | **Launcher do Tauri**               | Define target GNU e target-dir sem espaços somente no Windows.                                                                           |
+| [`scripts/setup-windows.ps1`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/scripts/setup-windows.ps1)                                                   | **Atualização de Setup**            | Instala MSYS2 via winget; instala gcc ucrt64; prioriza `ucrt64\bin` no PATH; instala toolchain Rust GNU; prepara os binários do Windows. |
+| [`src-tauri/Cargo.toml`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/Cargo.toml)                                                             | **Configuração de Dependências**    | Desativa `default-features` do `image_dds`; atualiza `rsraw` para `0.1.1`; insere `[profile.dev] debug = 1` para acelerar o linker.      |
+| [`src-tauri/build.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/build.rs)                                                                 | **Lógica de Build Script**          | Prepend no `PATH` para priorizar o `windres` do MinGW nativo; desativa compilação do `gpr_sdk` em plataformas Windows.                   |
+| [`src-tauri/src/processing/media/extractors/gpr.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/src/processing/media/extractors/gpr.rs)     | **Compatibilidade Multiplataforma** | Adiciona stubs `#[cfg(target_os = "windows")]` para geração de thumbnails e previews de GoPro GPR.                                       |
+| [`src-tauri/src/delivery/tauri/commands/mutations.rs`](file:///c:/Users/Marcus%20Maia/Desktop/Aplicativos/Mundam-v2/src-tauri/src/delivery/tauri/commands/mutations.rs) | **Correção de Warning**             | Adiciona `let _ = &paths;` no comando `copy_files_to_clipboard` para evitar warning de parâmetro não utilizado fora do macOS.            |
 
 ---
 
-## 6. Mapeamento de Dependências Problemáticas e Plano de Migração
+## 6. Mapeamento de Dependências Problemáticas e Plano de Migração (histórico)
 
 Para garantir estabilidade a longo prazo, redução drástica no tempo de compilação em CI/CD e portabilidade 100% nativa sem dependência de toolchains C++ externos complexos, recomendamos a substituição das seguintes dependências:
 
@@ -228,9 +240,9 @@ O diagnóstico acima descreve a dependência presente quando este relatório foi
 
 ---
 
-## 7. Instruções Passo a Passo para Novos Desenvolvedores no Windows
+## 7. Instruções de setup originais (histórico; veja “Estado atual” acima)
 
-Qualquer novo integrante da equipe ou máquina recém-formatada pode ser preparada com apenas dois comandos no PowerShell:
+As instruções abaixo foram válidas para o toolchain GNU/MinGW e foram substituídas. Não as use para preparar um ambiente atual; consulte “Estado atual” no início deste relatório.
 
 ### Passo 1: Executar o Script de Preparação Automatizado
 Abra o **PowerShell como Administrador** e execute:
@@ -239,13 +251,7 @@ Set-ExecutionPolicy RemoteSigned -Scope Process -Force
 .\scripts\setup-windows.ps1
 ```
 
-O script cuidará de:
-* Instalar Git, Node.js LTS, Rustup, LLVM, CMake, FFmpeg e MSYS2/MinGW via `winget`.
-* Configurar o PATH para priorizar as ferramentas nativas MinGW (`C:\msys64\ucrt64\bin`).
-* Instalar e configurar o toolchain `stable-x86_64-pc-windows-gnu`.
-* Selecionar o target GNU e o diretório `C:\cargo-target\mundam` no launcher do Tauri para Windows.
-* Instalar dependências npm e submódulos git.
-* Baixar e estagiar o `pdfium.dll`, `ffmpeg.exe` e a SoundFont MIDI.
+O script antigo instalava LLVM, CMake e MSYS2/MinGW, configurava o target GNU e inicializava submódulos. Essas etapas foram removidas por não corresponderem às dependências atuais.
 
 ### Passo 2: Iniciar a Aplicação
 Abra um novo terminal (para carregar o novo `PATH`) na raiz do projeto e execute:
@@ -253,8 +259,4 @@ Abra um novo terminal (para carregar o novo `PATH`) na raiz do projeto e execute
 npm run tauri dev
 ```
 
-O backend e o frontend inicializarão de imediato, prontos para desenvolvimento e testes de interface.
-
----
-
-*Fim do Relatório.*
+Para o procedimento atual, execute `scripts/setup-windows.ps1` antes de iniciar a aplicação.
