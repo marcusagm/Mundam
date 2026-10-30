@@ -5,7 +5,7 @@
 - [ ] Criar sistema de atualização automática.
 - [x] Criar splashscreen.
 - [ ] O sistema deve solicitar corretamente as permissões para o Sistema Operacional de acesso necessários para o funcionamento do aplicativo, principlamente no MacOS.
-- [ ] Criar script para automatizar a configuração de ambiente de desenvolvimento inicial para cada plataforma (Windows, MacOS, Linux), incluindo a instalação de dependências e configuração de variáveis de ambiente.
+- [x] Criar script para automatizar a configuração de ambiente de desenvolvimento inicial para cada plataforma (Windows, MacOS, Linux), incluindo a instalação de dependências e configuração de variáveis de ambiente.
 - [ ] Sistema de exportação e importação de configurações do aplicativo.
 - [ ] Atualizar README com instruções atualizadas para o novo backend com link para a documentação completa para usuário e desenvolvedor.
 - [ ] Atualizar tela de about com as informações das atuais dependências, links corretos para repositórios e licenças.
@@ -233,7 +233,7 @@
 # Pendências de diferenças entre v1 e v2
 
 - [ ] Verificar operações atômicas do banco de dados durante a movimentação de pastas em larga escala.
-- [ ] Verificar implementação da lógica de "adoção" de pastas antigas do V1 no scanner V2.
+- [x] Verificar implementação da lógica de "adoção" de pastas antigas do V1 no scanner V2.
 
 ## Suporte a formatos de arquivos
 

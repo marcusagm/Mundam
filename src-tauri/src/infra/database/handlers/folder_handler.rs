@@ -40,23 +40,8 @@ pub async fn handle_create_folder(
 
     let actual_id = result.id;
 
-    // After creating or updating a folder, check if it should adopt any existing roots
-    // that are physically its children.
-    let pattern = format!("{}/%", path_str.trim_end_matches('/'));
-    sqlx::query!(
-        r#"
-        UPDATE folders 
-        SET parent_id = ? 
-        WHERE parent_id IS NULL 
-          AND id != ?
-          AND path LIKE ?
-        "#,
-        actual_id,
-        actual_id,
-        pattern
-    )
-    .execute(&mut **tx)
-    .await?;
+    super::super::folder_hierarchy::adopt_orphaned_children(&mut **tx, &actual_id, &path_str)
+        .await?;
 
     let op_payload = serde_json::to_value(&payload)
         .map_err(|e| AppError::Internal(format!("Failed to serialize payload: {}", e)))?;

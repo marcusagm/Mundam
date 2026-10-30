@@ -152,28 +152,11 @@ pub async fn find_folder_by_path(pool: &SqlitePool, _registry: &crate::core::for
     Ok(row.map(|r| r.id))
 }
 
+/// Keeps legacy repository callers consistent with transactional folder creation.
+///
+/// # Errors
+/// Returns a database error if the hierarchy update cannot be persisted.
 pub async fn adopt_orphaned_children(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, parent_id: &str, parent_path: &str) -> AppResult<()> {
-    let pattern = format!("{}/%", parent_path.trim_end_matches('/'));
-
-    // Update all folders that:
-    // 1. Are currently roots (parent_id IS NULL)
-    // 2. Are not the parent itself
-    // 3. Are physically inside the parent folder path
-    sqlx::query!(
-        r#"
-        UPDATE folders 
-        SET parent_id = ? 
-        WHERE parent_id IS NULL 
-          AND id != ?
-          AND path LIKE ?
-        "#,
-        parent_id,
-        parent_id,
-        pattern
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    super::super::folder_hierarchy::adopt_orphaned_children(pool, parent_id, parent_path).await
 }
 

@@ -1,4 +1,5 @@
 pub mod handlers;
+mod folder_hierarchy;
 /// Module for database operations.
 ///
 /// This module contains the implementation of the database operations.

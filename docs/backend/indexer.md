@@ -138,6 +138,27 @@ Quando um arquivo é deletado e, dentro de 5 segundos, um arquivo com o mesmo `s
 
 ---
 
+## Reestruturação de raízes monitoradas
+
+Ao cadastrar uma pasta, o Ledger vincula as raízes existentes cujo pai físico é
+essa pasta, dentro da mesma transação de criação. Por exemplo, cadastrar
+`C:\Library\Photos` antes de `C:\Library` mantém o ID de `Photos`, mas atualiza
+seu `parent_id` para a nova pasta. A recarga de locations reflete essa relação
+no `FolderTreeSidebarPanel`, sem reconstruir a hierarquia no frontend.
+
+Se houver níveis intermediários (`C:\Library\Projects\Photos`), a adoção de
+`Photos` acontece quando o scan, ordenado por profundidade, cadastra `Projects`.
+Assim, os níveis físicos são preservados, sem ligar todos os descendentes
+diretamente à nova raiz.
+
+A comparação em `infra/database/folder_hierarchy.rs` aceita `/` e `\` no Windows,
+incluindo raízes de unidade e caminhos UNC, sem alterar os caminhos armazenados.
+Em Unix, `\` continua sendo um caractere literal de nome. Os nomes são comparados
+por prefixo literal: `%` e `_` não atuam como curingas SQL.
+
+Os testes de regressão do handler podem ser executados com
+`cargo test --locked --lib folder_hierarchy` em `src-tauri`.
+
 ## Detalhes por Sistema Operacional
 
 ### macOS (FSEvents) — ✅ Testado
@@ -296,6 +317,8 @@ Esta checklist deve ser executada após qualquer alteração no Indexer, Debounc
 | P.7.1| Verificar que assets internos ficam na subpasta (não na raiz)                    | —     |
 | P.8  | Excluir subpasta aninhada (subpasta dentro de subpasta)                          | —     |
 | P.9  | Mover subpasta para outra subpasta monitorada                                    | —     |
+| P.10 | Monitorar uma pasta e depois cadastrar seu pai; conferir a árvore sem reiniciar | —     |
+| P.10.1 | Cadastrar um ancestral vários níveis acima e conferir os níveis intermediários | —     |
 
 ---
 
