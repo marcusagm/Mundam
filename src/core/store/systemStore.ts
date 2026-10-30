@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { type FileFormat } from './formatStore';
+import { type FileFormat, formatState } from './formatStore';
 import { listen } from '@tauri-apps/api/event';
 import { addLocation, initDb } from '../../lib/db';
 import { tauriService } from '../tauri/services';
@@ -31,57 +31,56 @@ export const systemActions = {
             setLoading(true);
             await initDb();
             await initStreamingToken();
-            await metadataActions.loadLocations();
-            await metadataActions.loadTags();
-            await metadataActions.loadSmartFolders();
+            await metadataActions.loadLocations(true);
+            await metadataActions.loadTags(true);
+            await metadataActions.loadSmartFolders(true);
 
-            const formats = await tauriService.getLibrarySupportedFormats();
-            setSupportedFormats(formats);
+            setSupportedFormats(formatState.formats);
 
             // Auto-select root path if locations exist
             if (metadataState.locations.length > 0) {
                 const main = metadataState.locations[0];
                 setRootPath(main.path);
                 // Trigger initial load
-                libraryActions.refreshAssets(true);
+                await libraryActions.refreshAssets(true);
                 metadataActions.loadStats();
             }
 
             // Setup Listeners
-            listen<ProgressPayload>('indexer:progress', e => {
+            await listen<ProgressPayload>('indexer:progress', e => {
                 systemActions.updateProgress(e.payload);
             });
 
-            listen<number>('indexer:complete', () => {
+            await listen<number>('indexer:complete', () => {
                 systemActions.clearProgress();
                 libraryActions.refreshAssets(true);
                 metadataActions.loadStats();
                 metadataActions.loadLocations();
             });
 
-            listen<{ id: string; path: string }>('thumbnail:ready', e => {
+            await listen<{ id: string; path: string }>('thumbnail:ready', e => {
                 libraryActions.updateThumbnail(e.payload.id, e.payload.path);
             });
 
-            listen<{ id: string }>('metadata:ready', e => {
+            await listen<{ id: string }>('metadata:ready', e => {
                 libraryActions.refreshItem(e.payload.id);
             });
 
-            listen<ProgressPayload>('thumbnail:queue-status', e => {
+            await listen<ProgressPayload>('thumbnail:queue-status', e => {
                 systemActions.updateThumbnailProgress(e.payload);
             });
 
-            listen<BatchChangePayload>('library:batch-change', e => {
+            await listen<BatchChangePayload>('library:batch-change', e => {
                 const payload = e.payload;
                 libraryActions.handleBatchChange(payload);
                 metadataActions.handleBatchChange(payload);
             });
 
             setInitialized(true);
+            setLoading(false);
         } catch (err) {
             console.error('Initialization failed:', err);
-        } finally {
-            setLoading(false);
+            throw err;
         }
     },
 

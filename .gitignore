@@ -51,3 +51,5 @@ desktop.ini
 /src-tauri/resources/pdfium/*.dll
 /src-tauri/resources/pdfium/PDFIUM_VERSION
 /src-tauri/resources/build-info/
+
+/System Volume Information

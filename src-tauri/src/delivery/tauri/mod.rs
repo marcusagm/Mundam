@@ -2,3 +2,4 @@
 
 pub mod commands;
 pub mod thumbnails;
+pub mod startup;

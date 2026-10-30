@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-read-startup"
+description = "Read retained application startup progress"
+commands.allow = ["get_startup_state"]
+
+[[permission]]
+identifier = "allow-main-startup"
+description = "Allow the main window to acknowledge initialization"
+commands.allow = ["get_startup_state", "report_startup_stage", "complete_startup", "fail_frontend_startup"]

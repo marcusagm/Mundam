@@ -13,7 +13,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "node scripts/tauri.cjs",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky"

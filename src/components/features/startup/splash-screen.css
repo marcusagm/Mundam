@@ -1,0 +1,160 @@
+@import '../../../styles/tokens.css';
+
+@font-face {
+    font-family: 'Poppins';
+    src: url('/Poppins/Poppins-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-display: swap;
+}
+
+:root {
+    --startup-logo-width: 15rem;
+    --startup-track-width: 13rem;
+    --startup-track-height: 0.125rem;
+    --startup-animation-duration: 1.8s;
+    --startup-close-size: 2rem;
+}
+
+body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: var(--font-size-base);
+}
+
+.startup-screen {
+    box-sizing: border-box;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--p-space-xl);
+    gap: var(--p-space-l);
+    text-align: center;
+    background: radial-gradient(ellipse at top, var(--bg-surface-2), var(--bg-page));
+}
+
+.startup-screen__close {
+    position: absolute;
+    inset-block-start: var(--p-space-s);
+    inset-inline-end: var(--p-space-s);
+    width: var(--startup-close-size);
+    height: var(--startup-close-size);
+    border: none;
+    border-radius: var(--radius-s);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xl);
+    cursor: pointer;
+}
+
+.startup-screen__close:hover {
+    background: var(--bg-surface-2);
+}
+.startup-screen button:focus-visible {
+    outline: var(--p-space-xxs) solid var(--border-active);
+    outline-offset: var(--p-space-xs);
+}
+.startup-screen__brand {
+    width: 100%;
+}
+.startup-screen__logo {
+    width: var(--startup-logo-width);
+    max-width: 100%;
+    height: auto;
+}
+.startup-screen__logo--light {
+    display: none;
+}
+.startup-screen__tagline {
+    color: var(--text-secondary);
+    margin: var(--p-space-m) 0 0;
+    font-size: var(--p-font-size-xs);
+}
+.startup-screen__status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--p-space-s);
+    width: 100%;
+}
+.startup-screen__track {
+    width: var(--startup-track-width);
+    max-width: 100%;
+    height: var(--startup-track-height);
+    background: var(--border-default);
+    overflow: hidden;
+    border-radius: var(--radius-full);
+}
+.startup-screen__indicator {
+    display: block;
+    width: 40%;
+    height: 100%;
+    background: var(--p-info-400);
+    border-radius: inherit;
+    animation: startup-travel var(--startup-animation-duration) ease-in-out infinite;
+}
+.startup-screen__indicator--paused {
+    animation-play-state: paused;
+}
+.startup-screen__message {
+    margin: var(--p-space-s) 0 0;
+    font-size: var(--p-font-size-xs);
+}
+.startup-screen__detail,
+.startup-screen__diagnostic {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+}
+.startup-screen__quit {
+    margin-top: var(--p-space-s);
+    padding: var(--p-space-s) var(--p-space-m);
+    background: var(--action-secondary-bg);
+    color: var(--action-secondary-text);
+    border: var(--p-space-1) solid var(--border-default);
+    border-radius: var(--radius-m);
+    font: inherit;
+    cursor: pointer;
+}
+.startup-screen__quit:hover {
+    background: var(--bg-surface-3);
+}
+
+@keyframes startup-travel {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(350%);
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-page: var(--p-neutral-100);
+        --bg-surface-2: var(--p-neutral-0);
+        --bg-surface-3: var(--p-neutral-200);
+        --text-primary: var(--p-neutral-900);
+        --text-secondary: var(--p-neutral-600);
+        --border-default: var(--p-neutral-300);
+        --action-secondary-bg: var(--p-neutral-0);
+        --action-secondary-text: var(--p-neutral-900);
+    }
+    .startup-screen__logo--dark {
+        display: none;
+    }
+    .startup-screen__logo--light {
+        display: inline;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .startup-screen__indicator {
+        animation: none;
+        width: 100%;
+        opacity: 0.6;
+    }
+}

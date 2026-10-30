@@ -24,7 +24,7 @@ export function initLocationRefs(
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const locationActions = {
-    loadLocations: async () => {
+    loadLocations: async (failOnError = false) => {
         try {
             const locations = await getLocations();
             setMetadataState(
@@ -33,6 +33,7 @@ export const locationActions = {
             );
         } catch (error) {
             console.error('Failed to load locations:', error);
+            if (failOnError) throw error;
         }
     },
 

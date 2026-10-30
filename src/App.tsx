@@ -15,8 +15,6 @@ import {
 import { Sonner } from './components/ui';
 import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
-import { appearanceActions } from './core/store/appearanceStore';
-import { formatActions } from './core/store/formatStore';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -52,10 +50,6 @@ function App() {
     });
 
     onMount(() => {
-        system.initialize();
-        appearanceActions.initialize();
-        formatActions.initialize();
-
         // Register Strategies
         dndRegistry.register('TAG', TagDropStrategy);
         dndRegistry.register('ASSET', AssetDropStrategy);
@@ -71,9 +65,6 @@ function App() {
         onCleanup(() => {
             if (unlistenIndexerComplete) unlistenIndexerComplete();
         });
-
-        // Notify Splash Screen
-        window.dispatchEvent(new CustomEvent('app-ready'));
     });
 
     const renderTitleBar = () => (

@@ -18,3 +18,5 @@ pub mod transcoding;
 pub mod duplicates;
 /// Module for trash management.
 pub mod trash;
+/// Application startup readiness and retained progress.
+pub mod startup;

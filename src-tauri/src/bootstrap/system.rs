@@ -20,19 +20,21 @@ use tauri::{AppHandle, Emitter, Manager};
 ///
 /// # Returns
 /// Populated `AppDirectories` instance, which is also injected into the application State.
-pub fn init_directories(app: &AppHandle) -> crate::bootstrap::AppDirectories {
-    let app_data = app
-        .path()
-        .app_local_data_dir()
-        .expect("Failed to get app data dir");
-    std::fs::create_dir_all(&app_data).ok();
+///
+/// # Errors
+/// Propagates unavailable application paths and directory creation failures.
+pub fn init_directories(
+    app: &AppHandle,
+) -> crate::core::error::AppResult<crate::bootstrap::AppDirectories> {
+    let app_data = app.path().app_local_data_dir()?;
+    std::fs::create_dir_all(&app_data)?;
 
     let db_path = app_data.join("mundam.db");
     let settings_path = app_data.join("settings.json");
     let thumbnails_dir = app_data.join("thumbnails");
-    std::fs::create_dir_all(&thumbnails_dir).ok();
+    std::fs::create_dir_all(&thumbnails_dir)?;
     let previews_dir = app_data.join("previews");
-    std::fs::create_dir_all(&previews_dir).ok();
+    std::fs::create_dir_all(&previews_dir)?;
 
     let dirs = crate::bootstrap::AppDirectories {
         app_data,
@@ -43,7 +45,7 @@ pub fn init_directories(app: &AppHandle) -> crate::bootstrap::AppDirectories {
     };
 
     app.manage(dirs.clone());
-    dirs
+    Ok(dirs)
 }
 
 /// Initializes the settings service and manages it in the application state.

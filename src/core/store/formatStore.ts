@@ -75,6 +75,7 @@ export const formatActions = {
             });
         } catch (err) {
             console.error('Failed to load formats from backend:', err);
+            throw err;
         }
     },
 

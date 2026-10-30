@@ -33,7 +33,7 @@ export const tagActions = {
      *
      * @returns {Promise<void>}
      */
-    loadTags: async () => {
+    loadTags: async (failOnError = false) => {
         try {
             const tags = await tagService.getAllTags();
             // Sort by order_index primarily
@@ -43,6 +43,7 @@ export const tagActions = {
             );
         } catch (error) {
             console.error('Failed to load tags:', error);
+            if (failOnError) throw error;
         }
     },
 

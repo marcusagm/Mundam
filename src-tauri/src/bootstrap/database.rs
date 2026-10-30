@@ -13,8 +13,8 @@ use tauri::{AppHandle, Manager};
 /// * `app` - Reference to the Tauri AppHandle.
 ///
 /// # Errors
-/// Returns `Err(String)` propagating critical SQLx connection pool assembly failures.
-pub async fn init(app: &AppHandle) -> Result<(), String> {
+/// Propagates database connection and migration failures through `AppError`.
+pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     let dirs = app.state::<crate::bootstrap::AppDirectories>();
     let format_registry = app
         .state::<Arc<crate::core::formats::FormatRegistry>>()
@@ -30,7 +30,7 @@ pub async fn init(app: &AppHandle) -> Result<(), String> {
         Ok(manager) => Arc::new(manager),
         Err(err) => {
             tracing::error!("Failed to initialize database manager: {}", err);
-            return Err(err.to_string());
+            return Err(err);
         }
     };
     app.manage(db_manager.clone());

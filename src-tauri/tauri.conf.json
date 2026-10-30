@@ -13,6 +13,8 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
+        "visible": false,
         "title": "Mundam",
         "width": 1200,
         "height": 800,
@@ -27,6 +29,19 @@
           "x": 16,
           "y": 16
         }
+      },
+      {
+        "label": "splashscreen",
+        "url": "splashscreen.html",
+        "title": "Mundam — Starting",
+        "width": 480,
+        "height": 360,
+        "center": true,
+        "resizable": false,
+        "maximizable": false,
+        "decorations": false,
+        "dragDropEnabled": false,
+        "backgroundColor": "#212121"
       }
     ],
     "security": {

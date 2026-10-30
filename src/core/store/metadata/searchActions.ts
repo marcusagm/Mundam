@@ -4,12 +4,13 @@ import { ActionResult, ErrorCode } from '../../types/actions';
 import { invokeCommand as invoke } from '../../../lib/api';
 
 export const searchActions = {
-    loadSmartFolders: async () => {
+    loadSmartFolders: async (failOnError = false) => {
         try {
             const folders = (await invoke('get_smart_folders')) as SmartFolder[];
             setMetadataState('smartFolders', folders);
         } catch (error) {
             console.error('Failed to load smart folders:', error);
+            if (failOnError) throw error;
         }
     },
 

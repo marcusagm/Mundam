@@ -46,23 +46,8 @@ pub fn run() {
             let resource_dir = app_handle.path().resource_dir()?;
             std::env::set_var("MUNDAM_RESOURCE_DIR", resource_dir);
 
-            crate::bootstrap::system::init_directories(app_handle);
             crate::bootstrap::system::init_lifecycle(app_handle);
-            crate::bootstrap::system::init_settings(app_handle);
-            crate::bootstrap::system::init_events(app_handle);
-            crate::bootstrap::system::init_formats(app_handle);
-
-            let handle = app_handle.clone();
-            tauri::async_runtime::block_on(async move {
-                if let Err(e) = crate::bootstrap::database::init(&handle).await {
-                    tracing::error!("Failed to initialize database: {}", e);
-                    return;
-                }
-
-                crate::bootstrap::streaming::init(&handle).await;
-                crate::bootstrap::workers::init(&handle);
-                crate::bootstrap::library::init(&handle).await;
-            });
+            crate::bootstrap::startup::start(app_handle);
 
             Ok(())
         })
@@ -72,6 +57,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
+            delivery::tauri::startup::get_startup_state,
+            delivery::tauri::startup::report_startup_stage,
+            delivery::tauri::startup::complete_startup,
+            delivery::tauri::startup::fail_frontend_startup,
             // IPC Commands
             delivery::tauri::commands::queries::get_assets,
             delivery::tauri::commands::queries::get_asset,
@@ -156,9 +145,13 @@ pub fn run() {
         .run(|app_handle, event| {
             if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { api, .. },
+                label,
                 ..
             } = event
             {
+                if !crate::bootstrap::startup::should_shutdown_on_close(app_handle, &label) {
+                    return;
+                }
                 tracing::info!("Close requested. Orchestrating graceful shutdown.");
                 api.prevent_close();
 
