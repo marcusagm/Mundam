@@ -20,3 +20,5 @@ pub mod duplicates;
 pub mod trash;
 /// Application startup readiness and retained progress.
 pub mod startup;
+/// Bounded processing status queries.
+pub mod processing;

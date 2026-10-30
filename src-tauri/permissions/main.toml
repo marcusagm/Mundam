@@ -243,6 +243,11 @@ identifier = "allow-set-thumbnail-priority"
 description = "Enables set_thumbnail_priority for prioritization"
 commands.allow = ["set_thumbnail_priority"]
 
+[[permission]]
+identifier = "allow-get-thumbnail-processing-status"
+description = "Enables bounded thumbnail processing status queries"
+commands.allow = ["get_thumbnail_processing_status"]
+
 # Streaming Security
 [[permission]]
 identifier = "allow-get-streaming-token"

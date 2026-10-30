@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { listen } from '@tauri-apps/api/event';
+import { invalidateThumbnailProcessing } from './thumbnailProcessing';
 
 // Centralized store to track thumbnail regeneration state
 // This persists across component mount/unmount cycles (virtualization)
@@ -30,24 +31,34 @@ async function initGlobalListener() {
     if (listenerInitialized) return;
     listenerInitialized = true;
 
-    await listen<ThumbnailReadyPayload>('thumbnail:ready', event => {
-        const { id, path } = event.payload;
+    try {
+        await listen<ThumbnailReadyPayload>('thumbnail:ready', event => {
+            const { id, path } = event.payload;
 
-        // Update store
-        markRegenerationComplete(id, path);
+            // Update store
+            markRegenerationComplete(id, path);
 
-        // Notify subscribers
-        const callbacks = subscribers.get(id);
-        if (callbacks) {
-            callbacks.forEach(cb => cb(id, path));
-        }
-    });
+            // Notify subscribers
+            const callbacks = subscribers.get(id);
+            if (callbacks) {
+                callbacks.forEach(cb => cb(id, path));
+            }
+            invalidateThumbnailProcessing(id);
+        });
+    } catch (error) {
+        listenerInitialized = false;
+        console.warn(
+            'Thumbnail ready listener is unavailable; status snapshots remain recoverable:',
+            error
+        );
+    }
 }
 
 // Initialize listener immediately
 initGlobalListener();
 
 export function subscribeThumbnailReady(assetId: string, callback: ThumbnailCallback): () => void {
+    void initGlobalListener();
     if (!subscribers.has(assetId)) {
         subscribers.set(assetId, new Set());
     }
@@ -69,7 +80,9 @@ export function markPendingRegeneration(assetId: string) {
     setState(s => {
         const newPending = new Set(s.pending);
         newPending.add(assetId);
-        return { ...s, pending: newPending };
+        const completed = new Map(s.completed);
+        completed.delete(assetId);
+        return { completed, pending: newPending };
     });
 }
 
@@ -79,7 +92,21 @@ export function markRegenerationComplete(assetId: string, thumbnailPath: string)
         newPending.delete(assetId);
         const newCompleted = new Map(s.completed);
         newCompleted.set(assetId, thumbnailPath);
+        while (newCompleted.size > 1000) {
+            const oldest = newCompleted.keys().next().value;
+            if (oldest !== undefined) newCompleted.delete(oldest);
+        }
         return { pending: newPending, completed: newCompleted };
+    });
+}
+
+/** Clears waiting state after a terminal extraction outcome or rejected regeneration request. */
+export function clearPendingRegeneration(assetId: string): void {
+    if (!state().pending.has(assetId)) return;
+    setState(previous => {
+        const pending = new Set(previous.pending);
+        pending.delete(assetId);
+        return { ...previous, pending };
     });
 }
 

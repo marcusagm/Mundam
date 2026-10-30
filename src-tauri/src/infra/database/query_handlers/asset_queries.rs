@@ -713,15 +713,11 @@ pub async fn get_assets_needing_repair(pool: &SqlitePool, _registry: &crate::cor
 /// * `Ok(Vec<String>)` if the asset IDs were found successfully.
 /// * `Err(sqlx::Error)` if the asset IDs could not be found.
 pub async fn get_assets_needing_thumbnails(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, limit: u32) -> AppResult<Vec<String>> {
-    let limit_i64 = limit as i64;
-    let rows = sqlx::query!(
-        r#"SELECT id as "id!" FROM assets WHERE thumbnail_path IS NULL AND state != 'Thumbnailed' LIMIT ?"#,
-        limit_i64
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(rows.into_iter().map(|r| r.id).collect::<Vec<String>>())
+    crate::core::processing::ProcessingRepository::pending(
+        &crate::infra::processing::SqliteProcessingRepository::new(pool.clone()),
+        crate::core::processing::ProcessingKind::Thumbnail,
+        limit,
+    ).await
 }
 
 /// Retrieves a map of path -> (file_size, updated_at) for all assets under a root path.

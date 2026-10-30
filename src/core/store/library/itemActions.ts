@@ -99,9 +99,7 @@ export const itemActions = {
 
     setThumbnailPriority: async (ids: string[]) => {
         try {
-            if (ids.length > 0) {
-                await invoke('set_thumbnail_priority', { ids });
-            }
+            await invoke('set_thumbnail_priority', { ids });
         } catch (err) {
             console.error('Failed to set thumbnail priority:', err);
         }

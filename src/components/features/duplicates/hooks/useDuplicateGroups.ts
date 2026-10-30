@@ -167,6 +167,18 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         payload: unknown;
     }>('mundam://domain-event', payload => {
         const domainEvent = payload as { type: string; payload: Record<string, number> };
+        if (domainEvent.type === 'DuplicateScanStopped') {
+            setIsScanning(false);
+            setScanProgress(null);
+            refetch();
+            void metadata.loadStats();
+            return;
+        }
+        if (domainEvent.type === 'DuplicateGroupsChanged') {
+            refetch();
+            void metadata.loadStats();
+            return;
+        }
         if (domainEvent.type === 'LibraryFoldersRemoved') {
             refetch();
             return;
@@ -375,6 +387,9 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             console.error('[Duplicates] Failed to start scan:', error);
             setIsScanning(false);
             throw error;
+        } finally {
+            setIsScanning(false);
+            setScanProgress(null);
         }
     };
 
@@ -387,8 +402,6 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         try {
             console.info('[Duplicates] Cancelling duplicate scan');
             await duplicatesApi.cancelDuplicateScan();
-            setIsScanning(false);
-            setScanProgress(null);
         } catch (error: unknown) {
             console.error('[Duplicates] Failed to cancel scan:', error);
         }

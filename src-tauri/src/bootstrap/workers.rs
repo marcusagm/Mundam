@@ -40,6 +40,7 @@ pub fn init(app: &AppHandle) {
         crate::core::workflows::thumbnails::priority::ThumbnailPriorityState::default(),
     );
     app.manage(priority_state.clone());
+    let processing = app.state::<Arc<dyn crate::core::processing::ProcessingRepository>>().inner().clone();
 
     // Start Thumbnail Worker (Hybrid Queue)
     let thumbnail_token = lifecycle.child_token();
@@ -49,6 +50,7 @@ pub fn init(app: &AppHandle) {
         asset_query_handler.clone(),
         priority_state,
         dirs.thumbnails_dir.clone(),
+        processing.clone(),
     );
     let thumbnail_handle = thumbnail_worker.start(thumbnail_token.clone(), app.clone());
     lifecycle.register(
@@ -62,7 +64,8 @@ pub fn init(app: &AppHandle) {
     let color_worker = crate::processing::workers::color_worker::ColorWorker::new(
         asset_ledger.clone(),
         event_bus.clone(),
-        format_registry.clone(),
+        asset_query_handler.clone(),
+        processing.clone(),
         dirs.thumbnails_dir.to_path_buf(),
     );
     let color_handle = color_worker.start(color_worker_token.clone());
@@ -107,6 +110,9 @@ pub fn init(app: &AppHandle) {
         event_bus.clone(),
         settings_service,
         format_registry.clone(),
+        processing,
+        asset_query_handler,
+        app.state::<Arc<crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator>>().inner().clone(),
     );
     let duplicate_handle = std::sync::Arc::new(duplicate_worker).start(duplicate_worker_token.clone());
     lifecycle.register(

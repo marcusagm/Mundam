@@ -123,6 +123,7 @@ pub fn run() {
             delivery::tauri::commands::queries::get_library_supported_formats,
             delivery::tauri::commands::queries::get_audio_waveform_data,
             delivery::tauri::thumbnails::set_thumbnail_priority,
+            delivery::tauri::thumbnails::get_thumbnail_processing_status,
             // Settings Commands
             delivery::tauri::commands::settings::get_app_settings,
             delivery::tauri::commands::settings::update_app_settings,

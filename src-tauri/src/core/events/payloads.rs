@@ -181,6 +181,11 @@ pub enum DomainEvent {
         status: String,
         candidate_count: i32,
     },
+    /// Automatic comparison committed a coalesced set of group changes.
+    DuplicateGroupsChanged {
+        /// Groups processed by the comparison; this is not a count of newly created groups.
+        groups_processed: usize,
+    },
     /// A duplicate group was resolved by the user.
     DuplicateGroupResolved {
         group_id: String,
@@ -202,5 +207,10 @@ pub enum DomainEvent {
     /// A duplicate scan finished.
     DuplicateScanFinished {
         groups_created: usize,
+    },
+    /// A manual scan exited without its normal successful-completion event.
+    DuplicateScanStopped {
+        run_id: String,
+        canceled: bool,
     },
 }

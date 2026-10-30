@@ -31,6 +31,12 @@ pub async fn handle_update_asset_colors(
 ) -> AppResult<Asset> {
     let now = Utc::now();
     let asset_id_reference = &payload.asset_id;
+    let eligible: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM assets WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline'))",
+    ).bind(asset_id_reference).fetch_one(&mut **tx).await?;
+    if !eligible {
+        return Err(AppError::NotFound("Asset is no longer available for color processing".into()));
+    }
 
     // 1. Delete existing colors for this asset
     sqlx::query!(
@@ -310,10 +316,10 @@ pub async fn handle_update_technical_metadata(
     shared::fetch_asset_by_id(tx, &payload.asset_id).await
 }
 
-/// Clears existing colors for an asset and records the intent to re-extract.
+/// Records re-extraction intent while preserving the last successful palette.
 ///
-/// The actual color re-extraction is triggered by the `ReextractAssetColors`
-/// domain event emitted by the Ledger after this handler's transaction commits.
+/// The worker recovers this durable request even if the `ReextractAssetColors`
+/// wake-up event emitted after commit is missed.
 /// This handler is deliberately stateless (no access to EventBus) to maintain
 /// the pure-function contract of all handlers.
 ///
@@ -329,9 +335,7 @@ pub async fn handle_reextract_colors(
     transaction: &mut Transaction<'_, Sqlite>,
     asset_id: &str,
 ) -> AppResult<Asset> {
-    sqlx::query!("DELETE FROM asset_colors WHERE asset_id = ?", asset_id)
-        .execute(&mut **transaction)
-        .await?;
+    crate::infra::processing::enqueue(transaction, crate::core::processing::ProcessingKind::Colors, asset_id).await?;
 
     shared::log_operation(
         transaction,

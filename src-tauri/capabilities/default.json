@@ -92,6 +92,7 @@
     "allow-cleanup-cache",
     "allow-clear-cache",
     "allow-set-thumbnail-priority",
+    "allow-get-thumbnail-processing-status",
     "allow-get-streaming-token",
     "allow-get-asset-colors",
     "allow-reextract-asset-colors",

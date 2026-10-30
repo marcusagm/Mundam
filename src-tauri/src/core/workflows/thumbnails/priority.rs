@@ -37,10 +37,6 @@ impl ThumbnailPriorityState {
     /// # Arguments
     /// * `ids` - Vector of unique asset IDs (UUIDs), ordered from the top of the viewport.
     pub fn push_priorities(&self, ids: Vec<String>) {
-        if ids.is_empty() {
-            return;
-        }
-
         if let Ok(mut deque) = self.priority_ids.lock() {
             deque.clear();
             deque.extend(ids.into_iter().take(200));
@@ -88,7 +84,7 @@ impl ThumbnailPriorityState {
 mod tests {
     use super::*;
 
-    /// Tests the LIFO behavior of the priority queue.
+    /// Tests stable viewport order and replacement of older pending windows.
     #[test]
     fn test_lifo_behavior() {
         let state = ThumbnailPriorityState::default();
@@ -124,5 +120,13 @@ mod tests {
 
         let batch = state.pop_batch(10);
         assert_eq!(batch, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn test_empty_viewport_clears_stale_priorities() {
+        let state = ThumbnailPriorityState::default();
+        state.push_priorities(vec!["old".into()]);
+        state.push_priorities(Vec::new());
+        assert!(state.is_empty());
     }
 }

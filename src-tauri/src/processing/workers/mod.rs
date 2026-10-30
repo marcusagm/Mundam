@@ -2,3 +2,5 @@
 
 pub mod color_worker;
 pub mod thumbnail_worker;
+#[cfg(test)]
+pub(crate) mod test_support;

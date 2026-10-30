@@ -1,187 +1,132 @@
-//! Color Worker - Automated background extraction of color palettes.
-//!
-//! Listens for `DomainEvent::ThumbnailGenerated`, analyzes the thumbnail file,
-//! and dispatches a `LedgerCommand::UpdateAssetColors` to persist the result.
+//! Palette extraction reconciles durable work; events only reduce wake-up latency.
 
+use crate::core::error::{AppError, AppResult};
 use crate::core::events::{AppEventBus, DomainEvent};
-use crate::core::formats::FormatRegistry;
 use crate::core::ledger::command::{LedgerCommand, UpdateAssetColorsPayload};
 use crate::core::ledger::port::TransactionalAssetLedger;
+use crate::core::processing::{
+    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
+};
+use crate::core::repository::AssetQueryHandler;
 use crate::feature::analysis::colors::extract_color_palette;
-use crate::processing::media::image_utils;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::broadcast;
-use tracing::{debug, error, info};
+use tokio_util::sync::CancellationToken;
+use tracing::{error, warn};
 
-/// Background worker that monitors thumbnail generation and extracts colors.
+/// Serial palette executor backed by recoverable, generation-aware pending work.
 pub struct ColorWorker {
     ledger: Arc<dyn TransactionalAssetLedger>,
     event_bus: Arc<dyn AppEventBus>,
-    format_registry: Arc<FormatRegistry>,
+    queries: Arc<dyn AssetQueryHandler>,
+    processing: Arc<dyn ProcessingRepository>,
     thumbnails_dir: PathBuf,
 }
 
-/// Implementation of ColorWorker.
 impl ColorWorker {
-    /// Creates a new ColorWorker.
-    ///
-    /// # Arguments
-    ///
-    /// * `ledger` - The transactional asset ledger.
-    /// * `event_bus` - The application event bus.
-    /// * `thumbnails_dir` - The directory containing thumbnails.
+    /// Injects persistence and queries without coupling extraction to the desktop handle.
     pub fn new(
         ledger: Arc<dyn TransactionalAssetLedger>,
         event_bus: Arc<dyn AppEventBus>,
-        format_registry: Arc<FormatRegistry>,
+        queries: Arc<dyn AssetQueryHandler>,
+        processing: Arc<dyn ProcessingRepository>,
         thumbnails_dir: PathBuf,
     ) -> Self {
         Self {
             ledger,
             event_bus,
-            format_registry,
+            queries,
+            processing,
             thumbnails_dir,
         }
     }
 
-    /// Starts the color worker loop.
-    ///
-    /// This method subscribes to the event bus and listens for `ThumbnailGenerated` events.
-    /// When an event is received, it extracts the color palette from the thumbnail and
-    /// persists it to the ledger.
-    ///
-    /// # Arguments
-    ///
-    /// * `self` - The ColorWorker instance.
-    ///
-    /// # Returns
-    ///
-    /// None
-    pub fn start(
-        self,
-        token: tokio_util::sync::CancellationToken,
-    ) -> tauri::async_runtime::JoinHandle<()> {
+    /// Reconciles on startup, periodically and after relevant domain notifications.
+    pub fn start(self, token: CancellationToken) -> tauri::async_runtime::JoinHandle<()> {
         let mut subscriber = self.event_bus.subscribe();
-        let ledger = self.ledger.clone();
-        let thumb_dir = self.thumbnails_dir.clone();
-        let _format_registry = self.format_registry.clone();
-
         tauri::async_runtime::spawn(async move {
-            info!("WORKER: ColorWorker started and listening for ThumbnailGenerated");
-
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 tokio::select! {
-                    recv_result = subscriber.recv() => {
-                        match recv_result {
-                            Ok(event) => {
-                                if let DomainEvent::ThumbnailGenerated {
-                                    asset_id,
-                                    path,
-                                    format: _,
-                                } = event
-                                {
-                                    let asset_id_clone = asset_id.clone();
-                                    if path.is_empty() {
-                                        debug!(
-                                            "WORKER: Skipping color extraction for asset {} - No thumbnail generated",
-                                            asset_id_clone
-                                        );
-                                        continue;
-                                    }
-
-                                    // STARK: Reliability Check - Thumbnails are always generated as valid WebP if successful.
-                                    // We extract from the thumbnail directly to ensure compatibility across all formats.
-                                    let thumb_path = thumb_dir.join(&path);
-                                    let ledger_clone = ledger.clone();
-
-                                    if !thumb_path.exists() || !thumb_path.is_file() {
-                                        error!(
-                                            "WORKER: Color extraction failed - Thumbnail not found or invalid at {:?}",
-                                            thumb_path
-                                        );
-                                        continue;
-                                    }
-
-                                    // VALIDATION: Check if the thumbnail has a valid header before processing
-                                    if let Ok(bytes) = std::fs::read(&thumb_path) {
-                                        if !image_utils::is_valid_image(&bytes) {
-                                            error!(
-                                                "WORKER: Color extraction aborted - Thumbnail {:?} has invalid magic bytes/header",
-                                                thumb_path
-                                            );
-                                            continue;
-                                        }
-                                    }
-
-                                    info!(
-                                        "WORKER: Starting color extraction for asset {}",
-                                        asset_id_clone
-                                    );
-
-                                    // Perform heavy k-means in a blocking thread to avoid choking the async reactor
-                                    let result = tokio::task::spawn_blocking(move || {
-                                        extract_color_palette(&thumb_path, None)
-                                    })
-                                    .await;
-
-                                    match result {
-                                        Ok(Ok(colors)) => {
-                                            info!(
-                                                "WORKER: Color extraction successful for asset {} (found {} colors)",
-                                                asset_id_clone,
-                                                colors.len()
-                                            );
-
-                                            let command = LedgerCommand::UpdateAssetColors(
-                                                UpdateAssetColorsPayload {
-                                                    asset_id: asset_id_clone.clone(),
-                                                    colors,
-                                                },
-                                            );
-
-                                            if let Err(e) = ledger_clone.execute(command).await {
-                                                error!(
-                                                    "WORKER: Failed to persist colors for asset {}: {}",
-                                                    asset_id_clone, e
-                                                );
-                                            } else {
-                                                info!(
-                                                    "WORKER: Successfully persisted colors for asset {}",
-                                                    asset_id_clone
-                                                );
-                                            }
-                                        }
-                                        Ok(Err(e)) => {
-                                            error!(
-                                                "WORKER: Color analysis failed for asset {}: {}",
-                                                asset_id_clone, e
-                                            );
-                                        }
-                                        Err(e) => {
-                                            error!(
-                                                "WORKER: ColorWorker task panicked for asset {}: {}",
-                                                asset_id_clone, e
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                            Err(broadcast::error::RecvError::Lagged(n)) => {
-                                error!("WORKER: ColorWorker lagged behind {} events", n);
-                            }
-                            Err(broadcast::error::RecvError::Closed) => {
-                                error!("WORKER: ColorWorker subscriber channel closed. Exiting.");
-                                break;
-                            }
+                    _ = token.cancelled() => break,
+                    _ = interval.tick() => {},
+                    event = subscriber.recv() => match event {
+                        Ok(DomainEvent::ThumbnailGenerated { .. } | DomainEvent::ReextractAssetColors { .. }) => {},
+                        Ok(_) => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
+                            warn!(count, "Color events lagged; reconciling durable work");
                         }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
-                    _ = token.cancelled() => {
-                        info!("WORKER: ColorWorker cancelled. Exiting.");
-                        break;
-                    }
+                }
+                if let Err(error) = self.process_pending(&token).await {
+                    error!(%error, "Color processing failed");
                 }
             }
         })
     }
+
+    async fn process_pending(&self, token: &CancellationToken) -> AppResult<()> {
+        if token.is_cancelled() {
+            return Ok(());
+        }
+        for asset_id in self.processing.pending(ProcessingKind::Colors, 1).await? {
+            let Some(ticket) = self
+                .processing
+                .begin(ProcessingKind::Colors, &asset_id)
+                .await?
+            else {
+                continue;
+            };
+            let result = self.extract(&ticket, token).await;
+            if token.is_cancelled() {
+                return Ok(());
+            }
+            let outcome = match result {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
+                    ProcessingOutcome::Failed(error.to_string())
+                }
+            };
+            self.processing.finish(&ticket, outcome).await?;
+        }
+        Ok(())
+    }
+
+    async fn extract(
+        &self,
+        ticket: &ProcessingTicket,
+        token: &CancellationToken,
+    ) -> AppResult<ProcessingOutcome> {
+        let asset = self.queries.get_asset_by_id(&ticket.asset_id).await?;
+        let Some(thumbnail) = asset.thumbnail_path.filter(|path| !path.is_empty()) else {
+            return Ok(ProcessingOutcome::Skipped(
+                "A valid thumbnail is required".into(),
+            ));
+        };
+        let path = self.thumbnails_dir.join(thumbnail);
+        let colors = tokio::task::spawn_blocking(move || extract_color_palette(&path, None))
+            .await
+            .map_err(|error| {
+                AppError::Internal(format!("Color extraction task failed: {error}"))
+            })??;
+        if token.is_cancelled() || !self.processing.is_current(ticket).await? {
+            return Ok(ProcessingOutcome::Skipped(
+                "Attempt was superseded or canceled".into(),
+            ));
+        }
+        self.ledger
+            .execute(LedgerCommand::UpdateAssetColors(UpdateAssetColorsPayload {
+                asset_id: ticket.asset_id.clone(),
+                colors,
+            }))
+            .await?;
+        Ok(ProcessingOutcome::Completed)
+    }
 }
+
+#[cfg(test)]
+#[path = "color_worker_tests.rs"]
+mod tests;

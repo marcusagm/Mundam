@@ -1,14 +1,17 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, instrument};
-use tauri::Manager;
+use tracing::{error, info, instrument};
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::formats::FormatRegistry;
 use crate::core::ledger::command::LedgerCommand;
 use crate::core::ledger::port::TransactionalAssetLedger;
+use crate::core::processing::{
+    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
+};
 use crate::core::repository::AssetQueryHandler;
 use crate::core::workflows::thumbnails::priority::ThumbnailPriorityState;
 use crate::processing::media::image_utils;
@@ -18,8 +21,8 @@ use crate::processing::media::image_utils;
 /// Under Hexagonal Architecture, this is a "Processing Worker" (Infrastructure/Application layer)
 /// that implements the workflow of consuming assets and producing thumbnails.
 /// It uses a Hybrid Queue:
-/// 1. LIFO: High-priority items from `ThumbnailPriorityState` (UI-driven).
-/// 2. FIFO: Background items from the Database (Indexing-driven).
+/// 1. Ordered priorities from the latest viewport window (UI-driven).
+/// 2. Recoverable pending work from the processing repository.
 pub struct ThumbnailWorker {
     /// Registry for resolving format-specific thumbnail capabilities.
     format_registry: Arc<FormatRegistry>,
@@ -31,6 +34,7 @@ pub struct ThumbnailWorker {
     priority_state: Arc<ThumbnailPriorityState>,
     /// Output directory for thumbnails.
     thumbnails_dir: PathBuf,
+    processing: Arc<dyn ProcessingRepository>,
 }
 
 /// Implementation of the ThumbnailWorker struct.
@@ -54,6 +58,7 @@ impl ThumbnailWorker {
         query_handler: Arc<dyn AssetQueryHandler>,
         priority_state: Arc<ThumbnailPriorityState>,
         thumbnails_dir: PathBuf,
+        processing: Arc<dyn ProcessingRepository>,
     ) -> Self {
         Self {
             format_registry,
@@ -61,6 +66,7 @@ impl ThumbnailWorker {
             query_handler,
             priority_state,
             thumbnails_dir,
+            processing,
         }
     }
 
@@ -73,45 +79,60 @@ impl ThumbnailWorker {
     /// # Returns
     ///
     /// A `JoinHandle` for the background task.
-    pub fn start(self, token: CancellationToken, app_handle: tauri::AppHandle) -> tauri::async_runtime::JoinHandle<()> {
+    pub fn start(
+        self,
+        token: CancellationToken,
+        app_handle: tauri::AppHandle,
+    ) -> tauri::async_runtime::JoinHandle<()> {
         tauri::async_runtime::spawn(async move {
             info!("ThumbnailWorker: Orchestrator loop started");
             let worker_arc = Arc::new(self);
-            
+
             // Resolve maximum concurrency via user settings
             let settings_service = app_handle.state::<crate::feature::settings::SettingsService>();
             let max_concurrent = match settings_service.get_settings().await {
                 Ok(settings) if settings.thumbnail_threads > 0 => settings.thumbnail_threads,
                 _ => std::thread::available_parallelism()
-                        .map(|n| n.get())
-                        .unwrap_or(4)
-                        .clamp(2, 8),
+                    .map(|n| n.get())
+                    .unwrap_or(4)
+                    .clamp(2, 8),
             };
-                
+
             let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrent));
             // IDs currently being processed; prevents several slots from picking the same asset.
             let in_flight: Arc<std::sync::Mutex<std::collections::HashSet<String>>> =
                 Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
+            let mut tasks = tokio::task::JoinSet::new();
 
             loop {
+                while let Some(result) = tasks.try_join_next() {
+                    if let Err(error) = result {
+                        error!(%error, "Thumbnail task failed");
+                    }
+                }
                 if token.is_cancelled() {
                     info!("ThumbnailWorker: Shutdown requested");
                     break;
                 }
-                
-                // 1. Acquire permit FIRST. 
+
+                // 1. Acquire permit FIRST.
                 // This ensures we only pull from the queue when a slot is free,
                 // fetching the absolutely freshest priority items from the UI.
-                let permit = match semaphore.clone().acquire_owned().await {
-                    Ok(p) => p,
-                    Err(_) => break, // Semaphore closed
+                let permit = tokio::select! {
+                    _ = token.cancelled() => break,
+                    result = semaphore.clone().acquire_owned() => match result {
+                        Ok(permit) => permit,
+                        Err(_) => break,
+                    }
                 };
 
                 // 2. Poll for work (UI priorities first, skipping assets already in flight)
                 let mut next_id = None;
                 let mut is_priority = true;
 
-                while let Some(candidate) = worker_arc.priority_state.pop_batch(1).into_iter().next() {
+                while let Some(candidate) =
+                    worker_arc.priority_state.pop_batch(1).into_iter().next()
+                {
                     let already_running = in_flight
                         .lock()
                         .map(|set| set.contains(&candidate))
@@ -142,12 +163,14 @@ impl ThumbnailWorker {
                         set.insert(id.clone());
                     }
                     let in_flight_clone = in_flight.clone();
-                    tokio::spawn(async move {
+                    let reservation = ThumbnailReservation {
+                        asset_id: id.clone(),
+                        in_flight: in_flight_clone,
+                    };
+                    tasks.spawn(async move {
+                        let _reservation = reservation;
                         if let Err(e) = worker_clone.process_single(id.clone(), is_priority).await {
                             error!("ThumbnailWorker: Process error: {}", e);
-                        }
-                        if let Ok(mut set) = in_flight_clone.lock() {
-                            set.remove(&id);
                         }
                         // Permit is returned when dropped here
                         drop(permit);
@@ -161,6 +184,11 @@ impl ThumbnailWorker {
                     }
                 }
             }
+            while let Some(result) = tasks.join_next().await {
+                if let Err(error) = result {
+                    error!(%error, "Thumbnail task failed while draining");
+                }
+            }
         })
     }
 
@@ -171,28 +199,53 @@ impl ThumbnailWorker {
     /// * `is_priority` - Whether this item came from the priority queue.
     #[instrument(skip_all, fields(asset_id = %id, priority = %is_priority))]
     async fn process_single(&self, id: String, is_priority: bool) -> AppResult<()> {
+        let Some(ticket) = self
+            .processing
+            .begin(ProcessingKind::Thumbnail, &id)
+            .await?
+        else {
+            return Ok(());
+        };
+        let result = self.generate_single(&ticket).await;
+        if self.query_handler.get_by_id(&id).await?.is_none() {
+            if let Some(app_data_directory) = self.thumbnails_dir.parent() {
+                crate::infra::asset_cache::remove_asset_artifacts(
+                    app_data_directory,
+                    &std::collections::HashSet::from([id]),
+                )
+                .await?;
+            }
+        }
+        match result {
+            Ok(outcome) => self.processing.finish(&ticket, outcome).await,
+            Err(error) => {
+                self.processing
+                    .finish(&ticket, ProcessingOutcome::Failed(error.to_string()))
+                    .await?;
+                Err(error)
+            }
+        }
+    }
+
+    /// Produces output only for an admitted attempt; failures remain retryable work.
+    async fn generate_single(&self, ticket: &ProcessingTicket) -> AppResult<ProcessingOutcome> {
+        let id = ticket.asset_id.clone();
         let asset = match self.query_handler.get_asset_by_id(&id).await {
             Ok(a) => a,
-            Err(_) => return Ok(()),
+            Err(error) => return Err(error),
         };
-
-        // Skip if already has thumbnail
-        if asset.thumbnail_path.is_some() {
-            debug!("WORKER: Skipping thumbnail for asset {} (already exists)", id);
-            return Ok(());
+        if !self.processing.is_current(ticket).await? {
+            return Ok(ProcessingOutcome::Skipped(
+                "Attempt is no longer current".into(),
+            ));
         }
 
         let provider = match self.format_registry.resolve(&asset.path, &[]) {
             Some(p) => p,
             None => {
-                debug!("WORKER: No provider found for asset {}. Marking as processed.", id);
-                self.ledger
-                    .execute(LedgerCommand::UpdateThumbnail {
-                        asset_id: id.clone(),
-                        thumbnail_path: "".to_string(),
-                    })
-                    .await?;
-                return Ok(());
+                return Ok(ProcessingOutcome::Skipped(
+                    "No format provider is available".into(),
+                ));
             }
         };
 
@@ -225,10 +278,8 @@ impl ThumbnailWorker {
         // asset:// protocol handler (`type=preview`) with lazy disk caching in `previews/`.
         // This avoids writing large JPG/PNG files to `thumbnails/` that would never be read.
         if let Some(preview_capability) = provider.preview() {
-            let is_three_dimensional_model = provider
-                .supported_formats()
-                .iter()
-                .any(|supported_format| {
+            let is_three_dimensional_model =
+                provider.supported_formats().iter().any(|supported_format| {
                     let name_lower = supported_format.name.to_lowercase();
                     name_lower.contains("3d")
                         || name_lower.contains("model")
@@ -252,7 +303,9 @@ impl ThumbnailWorker {
                     if let Some(extension) = glb_extension {
                         let preview_filename = format!("{}.{}", id, extension);
                         let preview_path = self.thumbnails_dir.join(&preview_filename);
-                        if let Err(write_error) = std::fs::write(&preview_path, preview_bytes) {
+                        if let Err(write_error) =
+                            tokio::fs::write(&preview_path, preview_bytes).await
+                        {
                             error!(
                                 "ThumbnailWorker: Failed to write 3D preview for {}: {}",
                                 id, write_error
@@ -264,90 +317,76 @@ impl ThumbnailWorker {
         }
 
         // 3. Generate Thumbnail
-        let mut final_thumb_path = "".to_string();
-
-        if let Some(thumb_cap) = provider.thumbnail() {
-            match thumb_cap.generate(&path, &id, 300).await {
-                Ok(bytes) if !bytes.is_empty() => {
-                    let detected_format = image_utils::detect_image_format(&bytes);
-                    if detected_format.is_none() {
-                        error!("ThumbnailWorker: Provider for {} returned invalid image bytes", id);
-                    } else {
-                        let id_for_io = id.clone();
-                        let should_transcode = if detected_format == Some(image_utils::ImageFormat::Webp) {
-                            if let Some((w, h)) = image_utils::get_image_dimensions(&bytes) {
-                                !(270..=330).contains(&w) || !(w == h || (270..=330).contains(&h))
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        };
-
-                        let final_bytes_result = if should_transcode {
-                            tokio::task::spawn_blocking(move || {
-                                let img = image::load_from_memory(&bytes).map_err(|e| {
-                                    AppError::Internal(format!("Failed to load thumbnail for {}: {}", id_for_io, e))
-                                })?;
-                                let encoder = webp::Encoder::from_image(&img).map_err(|e| {
-                                    AppError::Internal(format!("Failed to create WebP encoder: {}", e))
-                                })?;
-                                Ok::<Vec<u8>, AppError>(encoder.encode(75.0).to_vec())
-                            })
-                            .await
-                        } else {
-                            Ok(Ok(bytes))
-                        };
-
-                        match final_bytes_result {
-                            Ok(Ok(final_bytes)) => {
-                                let filename = format!("{}.webp", id);
-                                let output_path = self.thumbnails_dir.join(&filename);
-                                if let Err(e) = std::fs::write(&output_path, final_bytes) {
-                                    error!("ThumbnailWorker: Failed to write thumbnail for {}: {}", id, e);
-                                } else {
-                                    final_thumb_path = filename;
-                                }
-                            }
-                            Ok(Err(e)) => {
-                                error!("ThumbnailWorker: Transcoding failed for {}: {}", id, e);
-                            }
-                            Err(e) => {
-                                error!("ThumbnailWorker: Transcoding task joined with error for {}: {}", id, e);
-                            }
-                        }
-                    }
-                }
-                Ok(_) => {
-                    debug!("ThumbnailWorker: Provider for {} generated empty thumbnail (skip).", id);
-                }
-                Err(e) => {
-                    error!("ThumbnailWorker: Generation failed for {}: {}", id, e);
-                }
+        let Some(thumbnail_capability) = provider.thumbnail() else {
+            if !commands.is_empty() {
+                self.ledger.execute(LedgerCommand::Batch(commands)).await?;
             }
+            return Ok(ProcessingOutcome::Skipped(
+                "Provider has no thumbnail capability".into(),
+            ));
+        };
+        let bytes = thumbnail_capability.generate(&path, &id, 300).await?;
+        let final_bytes = tokio::task::spawn_blocking(move || prepare_thumbnail(bytes))
+            .await
+            .map_err(|error| {
+                AppError::Internal(format!("Thumbnail encoding task failed: {error}"))
+            })??;
+        if !self.processing.is_current(ticket).await? {
+            return Ok(ProcessingOutcome::Skipped("Attempt was superseded".into()));
         }
-
-        // Add the thumbnail update command
+        let filename = format!("{}.webp", id);
+        tokio::fs::write(self.thumbnails_dir.join(&filename), final_bytes).await?;
         commands.push(LedgerCommand::UpdateThumbnail {
-            asset_id: id.clone(),
-            thumbnail_path: final_thumb_path,
+            asset_id: id,
+            thumbnail_path: filename,
         });
-
-        // 4. Commit Results Individually
-        if let Err(e) = self.ledger.execute(LedgerCommand::Batch(commands)).await {
-            error!("ThumbnailWorker: Ledger commit failed for {}: {}", id, e);
+        if self.processing.is_current(ticket).await? {
+            self.ledger.execute(LedgerCommand::Batch(commands)).await?;
+            Ok(ProcessingOutcome::Completed)
+        } else {
+            Ok(ProcessingOutcome::Skipped(
+                "Attempt was superseded before commit".into(),
+            ))
         }
-
-        if self.query_handler.get_by_id(&id).await?.is_none() {
-            if let Some(app_data_directory) = self.thumbnails_dir.parent() {
-                crate::infra::asset_cache::remove_asset_artifacts(
-                    app_data_directory,
-                    &std::collections::HashSet::from([id]),
-                )
-                .await?;
-            }
-        }
-
-        Ok(())
     }
 }
+
+/// Releases admission state even if a child future panics or is aborted during shutdown.
+struct ThumbnailReservation {
+    asset_id: String,
+    in_flight: Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
+}
+
+impl Drop for ThumbnailReservation {
+    fn drop(&mut self) {
+        self.in_flight
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(&self.asset_id);
+    }
+}
+
+fn prepare_thumbnail(bytes: Vec<u8>) -> AppResult<Vec<u8>> {
+    if bytes.is_empty() || !image_utils::is_valid_image(&bytes) {
+        return Err(AppError::Internal(
+            "Thumbnail provider returned empty or invalid image data".into(),
+        ));
+    }
+    if image_utils::detect_image_format(&bytes) == Some(image_utils::ImageFormat::Webp) {
+        if let Some((width, height)) = image_utils::get_image_dimensions(&bytes) {
+            if width > 0 && height > 0 && width.max(height) <= 330 {
+                return Ok(bytes);
+            }
+        }
+    }
+    let image = image::load_from_memory(&bytes)
+        .map_err(|error| AppError::Internal(format!("Failed to decode thumbnail: {error}")))?;
+    let image = image.thumbnail(300, 300);
+    let encoder = webp::Encoder::from_image(&image)
+        .map_err(|error| AppError::Internal(format!("Failed to encode thumbnail: {error}")))?;
+    Ok(encoder.encode(75.0).to_vec())
+}
+
+#[cfg(test)]
+#[path = "thumbnail_worker_tests.rs"]
+mod tests;

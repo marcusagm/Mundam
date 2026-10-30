@@ -2,7 +2,8 @@
 //!
 //! Encapsulates SQL mutations for persisting and invalidating asset thumbnail paths,
 //! decoupled from the actual image generation workers.
-use crate::core::error::AppResult;
+use crate::core::error::{AppError, AppResult};
+use crate::core::processing::ProcessingKind;
 use crate::core::models::asset::{Asset, AssetState};
 use super::shared;
 use chrono::Utc;
@@ -24,19 +25,24 @@ pub async fn handle_update_thumbnail(
     asset_id: &str,
     thumbnail_path: &str,
 ) -> AppResult<Asset> {
+    if thumbnail_path.is_empty() {
+        return Err(AppError::ValidationFailed("A successful thumbnail requires a generated file".into()));
+    }
     let now = Utc::now();
     let state_thumb = AssetState::Thumbnailed.to_string();
 
     // 1. Update Asset
-    sqlx::query!(
-        "UPDATE assets SET thumbnail_path = ?, state = ?, updated_at = ? WHERE id = ?",
-        thumbnail_path,
-        state_thumb,
-        now,
-        asset_id
+    let updated = sqlx::query(
+        "UPDATE assets SET thumbnail_path = ?, state = ?, updated_at = ?
+         WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline')",
     )
+    .bind(thumbnail_path).bind(state_thumb).bind(now).bind(asset_id)
     .execute(&mut **tx)
     .await?;
+    if updated.rows_affected() == 0 {
+        return Err(AppError::NotFound("Asset is no longer available for thumbnail processing".into()));
+    }
+    crate::infra::processing::enqueue(tx, ProcessingKind::Colors, asset_id).await?;
 
     // 2. Audit Log
     shared::log_operation(
@@ -54,8 +60,8 @@ pub async fn handle_update_thumbnail(
 
 /// Clears an asset's cached thumbnail path, signalling that regeneration is required.
 ///
-/// The actual thumbnail generation is triggered by the `ThumbnailInvalidated` domain event
-/// emitted by the Ledger after this handler commits.
+/// A new pending generation is stored in this transaction and recovered by polling,
+/// independently of viewport priority or delivery of `ThumbnailInvalidated`.
 ///
 /// # Arguments
 ///
@@ -72,13 +78,14 @@ pub async fn handle_regenerate_thumbnail(
     let now = Utc::now();
 
     // 1. Clear thumbnail_path in assets table
-    sqlx::query!(
-        "UPDATE assets SET thumbnail_path = NULL, updated_at = ? WHERE id = ?",
-        now,
-        asset_id
+    sqlx::query(
+        "UPDATE assets SET thumbnail_path = NULL, state = 'Indexed', updated_at = ?
+         WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline')",
     )
+    .bind(now).bind(asset_id)
     .execute(&mut **tx)
     .await?;
+    crate::infra::processing::enqueue(tx, ProcessingKind::Thumbnail, asset_id).await?;
 
     // 2. Audit Log
     shared::log_operation(

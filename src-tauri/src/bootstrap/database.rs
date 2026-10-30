@@ -42,6 +42,10 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
             format_registry.clone(),
         ));
     app.manage(asset_query_handler.clone());
+    let processing_repository: Arc<dyn crate::core::processing::ProcessingRepository> = Arc::new(
+        crate::infra::processing::SqliteProcessingRepository::new(db_manager.pool().clone()),
+    );
+    app.manage(processing_repository);
 
     let path_guard = Arc::new(crate::core::path_guard::LedgerPathGuard::new());
     app.manage(path_guard.clone());
@@ -92,6 +96,8 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         crate::feature::duplicates::queries::DuplicateQueryService::new(duplicates_repo.clone());
     app.manage(duplicates_query_service);
 
+    let duplicate_coordinator = Arc::new(crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator::default());
+    app.manage(duplicate_coordinator.clone());
     let duplicates_command_service =
         crate::feature::duplicates::commands::DuplicateCommandService::new(
             duplicates_repo.clone(),
@@ -99,7 +105,7 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
             event_bus.clone(),
             asset_query_handler.clone(),
             format_registry.clone(),
-        );
+        ).with_processing_coordinator(duplicate_coordinator);
     app.manage(duplicates_command_service);
 
     Ok(())

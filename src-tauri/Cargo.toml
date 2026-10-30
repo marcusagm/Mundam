@@ -103,3 +103,4 @@ opt-level = 3
 
 [dev-dependencies]
 tempfile = "3.10"
+tauri = { version = "2", features = ["test"] }
