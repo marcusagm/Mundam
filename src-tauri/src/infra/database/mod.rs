@@ -1,5 +1,7 @@
 pub mod handlers;
 mod folder_hierarchy;
+#[cfg(test)]
+mod folder_removal_tests;
 /// Module for database operations.
 ///
 /// This module contains the implementation of the database operations.

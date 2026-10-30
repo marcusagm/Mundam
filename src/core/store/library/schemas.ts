@@ -12,6 +12,8 @@ export interface BatchChangeRemovedItem {
 }
 
 export interface BatchChangePayload {
+    /** Consolidated operations use a single authoritative refresh and their own feedback. */
+    operation?: 'folder_removal';
     added?: BatchChangeAddedItem[];
     removed?: BatchChangeRemovedItem[];
     updated?: BatchChangeAddedItem[];

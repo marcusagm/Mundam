@@ -167,6 +167,10 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         payload: unknown;
     }>('mundam://domain-event', payload => {
         const domainEvent = payload as { type: string; payload: Record<string, number> };
+        if (domainEvent.type === 'LibraryFoldersRemoved') {
+            refetch();
+            return;
+        }
         if (domainEvent.type === 'DuplicateScanProgressed') {
             handleScanProgressEvent(domainEvent.payload);
             return;

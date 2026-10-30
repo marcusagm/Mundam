@@ -254,34 +254,16 @@ pub async fn replace_tags_for_assets_batch(
 pub async fn remove_location(
     folder_id: String,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
-    queries: State<'_, AssetQueryService>,
+    queries: State<'_, Arc<dyn crate::core::repository::AssetQueryHandler>>,
     watcher: State<'_, Arc<WatcherService>>,
 ) -> AppResult<()> {
-    // 1. Get thumbnails before delete
-    let thumbnails: Vec<String> = queries
-        .get_folder_thumbnails(&folder_id)
-        .await
-        .unwrap_or_default();
-
-    // 2. Ledger operation
-    let result = ledger
-        .execute(LedgerCommand::RemoveFolder(
-            crate::core::ledger::command::RemoveFolderPayload {
-                folder_id: folder_id.clone(),
-            },
-        ))
-        .await?;
-
-    // 3. Cleanup Watcher
-    let path = result.path;
-    let _ = watcher.unwatch(path).await;
-
-    // 4. Cleanup thumbnails
-    for thumb in thumbnails {
-        let _ = tokio::fs::remove_file(&thumb).await;
-    }
-
-    Ok(())
+    crate::feature::library::remove_location::execute(
+        &folder_id,
+        ledger.inner().as_ref(),
+        queries.inner().as_ref(),
+        watcher.inner().as_ref(),
+    )
+    .await
 }
 
 /// RPC Command to manually start indexing a location.

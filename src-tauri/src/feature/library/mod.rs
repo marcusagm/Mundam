@@ -11,3 +11,4 @@
 pub mod classifier;
 pub mod event_handler;
 pub mod indexer;
+pub mod remove_location;

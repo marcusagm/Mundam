@@ -214,6 +214,15 @@ export const libraryActions = {
         }
     },
 
+    /** Reloads the viewport once after an atomic folder-tree removal. */
+    refreshAfterFolderRemoval: async (): Promise<void> => {
+        if (refreshDebounceTimer) {
+            clearTimeout(refreshDebounceTimer);
+            refreshDebounceTimer = null;
+        }
+        await libraryActions.refreshAssets(false);
+    },
+
     addLocation: async () => {
         try {
             const selectedPath = await open({
@@ -239,10 +248,6 @@ export const libraryActions = {
     removeLocation: async (locationId: number | string) => {
         try {
             await invoke('remove_location', { folderId: String(locationId) });
-
-            await Promise.all([metadataActions.loadLocations(), metadataActions.loadStats()]);
-
-            await libraryActions.refreshAssets(true);
 
             return { success: true };
         } catch (err) {

@@ -5,6 +5,7 @@ import { addLocation, initDb } from '../../lib/db';
 import { tauriService } from '../tauri/services';
 import { metadataActions, metadataState } from './metadata';
 import { libraryActions, type BatchChangePayload } from './library';
+import { handleLibraryBatchChange } from './library/libraryEvents';
 import { initStreamingToken } from '../../lib/hls-player';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
@@ -71,9 +72,9 @@ export const systemActions = {
             });
 
             await listen<BatchChangePayload>('library:batch-change', e => {
-                const payload = e.payload;
-                libraryActions.handleBatchChange(payload);
-                metadataActions.handleBatchChange(payload);
+                void handleLibraryBatchChange(e.payload).catch(error => {
+                    console.error('Failed to apply library changes:', error);
+                });
             });
 
             setInitialized(true);

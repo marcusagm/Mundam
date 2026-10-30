@@ -159,6 +159,53 @@ por prefixo literal: `%` e `_` não atuam como curingas SQL.
 Os testes de regressão do handler podem ser executados com
 `cargo test --locked --lib folder_hierarchy` em `src-tauri`.
 
+## Remoção de uma pasta monitorada
+
+O comando `remove_location` delega a operação ao handler em
+`feature/library/remove_location.rs`. O watcher deixa de observar a pasta e
+quaisquer raízes anteriormente cadastradas dentro dela. Eventos ainda no
+debouncer são filtrados pelas inscrições ativas, evitando reindexação após a remoção.
+
+O Ledger captura os IDs dos assets da árvore na mesma transação de remoção.
+Todos esses assets são excluídos **antes** de qualquer pasta: apagar a raiz
+primeiro acionaria o cascade das subpastas e o `ON DELETE SET NULL` dos assets,
+deixando registros sem pasta no catálogo. Os vínculos dependentes, como tags e
+cores dos assets, são removidos pelas chaves estrangeiras.
+
+Assets sem `folder_id` deixados por versões anteriores também são incluídos
+quando seu caminho físico está dentro da raiz removida. A comparação respeita
+o limite de componente do caminho e não interpreta `%` ou `_` como curingas.
+
+Depois do commit, o Ledger remove as variantes desses IDs nas pastas gerenciadas
+`thumbnails/` e `previews/`, incluindo previews 3D em GLB/GLTF, e publica um único
+`LibraryFoldersRemoved` por transação, com as raízes removidas e o total de assets.
+O volume de eventos independe da quantidade de arquivos. Caminhos de mídia original não são alvos de
+exclusão. Uma geração de thumbnail ou preview em andamento verifica se o asset
+ainda existe ao concluir e remove o cache que tenha criado após a exclusão.
+
+Exemplo: remover `C:\Library` desvincula seus assets e os de
+`C:\Library\Photos`, limpa os respectivos caches e preserva os arquivos físicos
+das duas pastas. Bibliotecas fora dessa árvore mantêm seus registros e caches.
+Se a transação falhar, os registros e caches são preservados e o monitoramento
+da pasta é restabelecido. Falhas de limpeza de cache são retornadas ao chamador.
+
+Os testes de regressão usam as migrations reais e podem ser executados com
+`cargo test --locked --lib folder_` em `src-tauri`.
+
+O bridge traduz o resumo em um `library:batch-change` com
+`operation: 'folder_removal'`. O frontend recarrega viewport, árvore e contagens
+uma vez, cancela recargas pendentes do debounce e mantém o feedback da operação
+no modal, sem toasts por asset. A lista de duplicados também é recarregada uma vez.
+O retorno do RPC não repete essas recargas.
+
+Os IDs dos grupos de duplicados afetados são capturados **antes** do cascade dos
+candidatos. Na mesma transação da exclusão dos assets, grupos afetados com menos
+de dois membros são excluídos; os demais recebem contagem real e um membro
+canônico válido. Não há dependência do worker de eventos para manter essa
+integridade. A migration `20261030000000_reconcile_duplicate_membership.sql`
+repara grupos vazios, contagens e referências canônicas de versões anteriores,
+preservando o histórico de grupos não vazios.
+
 ## Detalhes por Sistema Operacional
 
 ### macOS (FSEvents) — ✅ Testado
@@ -319,6 +366,9 @@ Esta checklist deve ser executada após qualquer alteração no Indexer, Debounc
 | P.9  | Mover subpasta para outra subpasta monitorada                                    | —     |
 | P.10 | Monitorar uma pasta e depois cadastrar seu pai; conferir a árvore sem reiniciar | —     |
 | P.10.1 | Cadastrar um ancestral vários níveis acima e conferir os níveis intermediários | —     |
+| P.11 | Remover uma raiz com subpastas; conferir a exclusão dos assets, thumbnails e previews | — |
+| P.11.1 | Conferir que arquivos originais e outras bibliotecas continuam intactos | — |
+| P.11.2 | Remover enquanto thumbnails/previews são gerados; conferir que o cache não reaparece | — |
 
 ---
 

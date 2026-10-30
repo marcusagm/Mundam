@@ -1,8 +1,9 @@
 use super::debouncer::EventDebouncer;
 use crate::core::error::AppResult;
-use crate::core::events::bus::AppEventBus;
+use crate::core::events::{bus::AppEventBus, DomainEvent};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::Duration;
@@ -20,6 +21,8 @@ pub struct WatcherService {
     event_bus: Arc<dyn AppEventBus>,
     /// Handle to the native watcher (kept alive).
     native_watcher: Mutex<Option<RecommendedWatcher>>,
+    /// Explicit registrations, including roots subsequently adopted by another root.
+    watched_paths: Arc<Mutex<HashSet<PathBuf>>>,
 }
 
 /// Implementation of the WatcherService.
@@ -37,6 +40,7 @@ impl WatcherService {
         Self {
             event_bus,
             native_watcher: Mutex::new(None),
+            watched_paths: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -52,11 +56,13 @@ impl WatcherService {
     /// * `AppResult<()>` - Result of the watch operation.
     #[instrument(skip_all)]
     pub async fn watch(&self, path: PathBuf, _token: CancellationToken) -> AppResult<()> {
+        let path = normalized_watch_path(&path);
         let mut guard = self.native_watcher.lock().await;
 
         if guard.is_none() {
             let (tx, mut rx) = mpsc::channel::<Event>(1000);
             let event_bus = self.event_bus.clone();
+            let watched_paths = self.watched_paths.clone();
 
             let watcher = RecommendedWatcher::new(
                 move |res: notify::Result<Event>| {
@@ -87,7 +93,10 @@ impl WatcherService {
                             debouncer.tick(Duration::from_millis(600)).await;
                         }
                         Some(domain_event) = out_rx.recv() => {
-                            let _ = event_bus.publish(domain_event);
+                            let registrations = watched_paths.lock().await;
+                            if is_event_monitored(&domain_event, &registrations) {
+                                let _ = event_bus.publish(domain_event);
+                            }
                         }
                     }
                 }
@@ -99,6 +108,7 @@ impl WatcherService {
 
         if let Some(watcher) = guard.as_mut() {
             watcher.watch(&path, RecursiveMode::Recursive)?;
+            self.watched_paths.lock().await.insert(path.clone());
             info!("Watcher service started for: {:?}", path);
         }
 
@@ -116,14 +126,64 @@ impl WatcherService {
     /// * `AppResult<()>` - Result of the unwatch operation.
     #[instrument(skip(self))]
     pub async fn unwatch(&self, path: PathBuf) -> AppResult<()> {
+        let path = normalized_watch_path(&path);
         let mut guard = self.native_watcher.lock().await;
+        let mut registrations = self.watched_paths.lock().await;
+        let removed_paths: Vec<PathBuf> = registrations
+            .iter()
+            .filter(|registered| is_within_watch(registered, &path))
+            .cloned()
+            .collect();
+        registrations.retain(|registered| !is_within_watch(registered, &path));
+        drop(registrations);
         if let Some(watcher) = guard.as_mut() {
-            if let Err(e) = watcher.unwatch(&path) {
-                tracing::error!("Failed to unwatch path {:?}: {}", path, e);
-            } else {
-                info!("Watcher stopped for: {:?}", path);
+            for removed_path in removed_paths {
+                if let Err(error) = watcher.unwatch(&removed_path) {
+                    tracing::warn!(path = %removed_path.display(), %error, "Failed to unwatch path");
+                } else {
+                    info!("Watcher stopped for: {:?}", removed_path);
+                }
             }
         }
         Ok(())
     }
 }
+
+/// Drops debounced events belonging exclusively to locations already unlinked.
+fn is_event_monitored(event: &DomainEvent, registrations: &HashSet<PathBuf>) -> bool {
+    let contains_path = |path: &str| {
+        registrations
+            .iter()
+            .any(|root| is_within_watch(Path::new(path), root))
+    };
+    match event {
+        DomainEvent::FsFileDiscovered { path, .. }
+        | DomainEvent::FsDirectoryDiscovered { path }
+        | DomainEvent::FsPathDeleted { path }
+        | DomainEvent::FsDirectoryDeleted { path } => contains_path(path),
+        DomainEvent::FsPathRenamed { from, to } => contains_path(from) || contains_path(to),
+        _ => false,
+    }
+}
+
+/// Aligns watcher registrations with the NFC paths emitted by the native callback.
+fn normalized_watch_path(path: &Path) -> PathBuf {
+    PathBuf::from(path.to_string_lossy().nfc().collect::<String>())
+}
+
+/// Applies component boundaries while accepting Windows separator and case variants.
+fn is_within_watch(path: &Path, root: &Path) -> bool {
+    let path = normalized_watch_path(path);
+    let root = normalized_watch_path(root);
+    if cfg!(windows) {
+        let comparable_path = PathBuf::from(path.to_string_lossy().replace('/', "\\").to_lowercase());
+        let comparable_root = PathBuf::from(root.to_string_lossy().replace('/', "\\").to_lowercase());
+        comparable_path.starts_with(comparable_root)
+    } else {
+        path.starts_with(root)
+    }
+}
+
+#[cfg(test)]
+#[path = "sensor_tests.rs"]
+mod tests;

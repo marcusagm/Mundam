@@ -100,32 +100,10 @@ pub async fn handle_remove_folder(
     .map(|r| r.path)
     .ok_or_else(|| AppError::NotFound(format!("Folder ID not found: {}", folder_id_ref)))?;
 
-    // 2. Perform Cascade Delete
-    // To be safe with tags and colors, we use the recursive CTE to find all subfolders
-    let all_folder_ids = sqlx::query!(
-        r#"
-        WITH RECURSIVE family AS (
-            SELECT id FROM folders WHERE id = ?
-            UNION ALL
-            SELECT f.id FROM folders f JOIN family ON f.parent_id = family.id
-        )
-        SELECT id as "id!" FROM family
-        "#,
-        folder_id_ref
-    )
-    .fetch_all(&mut **tx)
-    .await?;
-
-    for record in all_folder_ids {
-        // Manual cascade: delete assets for this specific subfolder first
-        sqlx::query!("DELETE FROM assets WHERE folder_id = ?", record.id)
-            .execute(&mut **tx)
-            .await?;
-
-        sqlx::query!("DELETE FROM folders WHERE id = ?", record.id)
-            .execute(&mut **tx)
-            .await?;
-    }
+    super::folder_removal::delete_assets(tx, folder_id_ref).await?;
+    sqlx::query!("DELETE FROM folders WHERE id = ?", folder_id_ref)
+        .execute(&mut **tx)
+        .await?;
 
     // 3. Audit Log
     let op_payload = serde_json::to_value(&payload)

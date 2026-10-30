@@ -338,6 +338,16 @@ impl ThumbnailWorker {
             error!("ThumbnailWorker: Ledger commit failed for {}: {}", id, e);
         }
 
+        if self.query_handler.get_by_id(&id).await?.is_none() {
+            if let Some(app_data_directory) = self.thumbnails_dir.parent() {
+                crate::infra::asset_cache::remove_asset_artifacts(
+                    app_data_directory,
+                    &std::collections::HashSet::from([id]),
+                )
+                .await?;
+            }
+        }
+
         Ok(())
     }
 }

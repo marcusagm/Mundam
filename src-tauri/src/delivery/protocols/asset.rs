@@ -196,6 +196,14 @@ pub async fn handler_async<R: tauri::Runtime>(
                             );
                         }
 
+                        if matches!(query_handler.get_by_id(&asset.id).await, Ok(None)) {
+                            let _ = tokio::fs::remove_file(&cached_output_path).await;
+                            return error_response(
+                                StatusCode::NOT_FOUND,
+                                b"Asset removed during preview generation".to_vec(),
+                            );
+                        }
+
                         return Response::builder()
                             .status(StatusCode::OK)
                             .header(header::CONTENT_TYPE, mime)

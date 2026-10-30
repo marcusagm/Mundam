@@ -65,8 +65,9 @@ export const FolderDeleteModal: Component<FolderDeleteModalProperties> = compone
                     <strong>"{componentProperties.folderName}"</strong> from the library?
                 </p>
                 <p class="folder-delete-warning">
-                    This will remove all assets from this folder from the library and delete their
-                    thumbnails. The original files will <strong>not</strong> be deleted.
+                    This will remove this folder, its subfolders, and all their assets from the
+                    library, including generated thumbnails and previews. The original files will{' '}
+                    <strong>not</strong> be deleted.
                 </p>
             </div>
         </ConfirmModal>

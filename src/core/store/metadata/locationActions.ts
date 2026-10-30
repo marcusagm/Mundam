@@ -85,6 +85,15 @@ export const locationActions = {
         ]);
     },
 
+    /** Reloads folder structure and authoritative counts once after tree removal. */
+    refreshAfterFolderRemoval: async (): Promise<void> => {
+        if (refreshDebounceTimer) {
+            clearTimeout(refreshDebounceTimer);
+            refreshDebounceTimer = null;
+        }
+        await Promise.all([locationActions.loadLocations(), locationActions.loadStats()]);
+    },
+
     handleBatchChange: (payload: BatchChangePayload) => {
         const knownIds = new Set(metadataState.locations.map(location => location.id));
         let needsRefresh = payload.needs_refresh ?? false;

@@ -86,12 +86,34 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
 
         // 2. Execute commands and collect results
         let mut results = Vec::new();
+        let mut removed_folder_assets = Vec::new();
+        let mut removed_folder_ids = Vec::new();
         for command_item in commands_to_process {
+            if let LedgerCommand::RemoveFolder(payload) = &command_item {
+                removed_folder_ids.push(payload.folder_id.clone());
+                removed_folder_assets.extend(
+                    crate::infra::database::handlers::folder_removal::collect_assets(
+                        &mut tx,
+                        &payload.folder_id,
+                    )
+                    .await?,
+                );
+            }
             let asset = self.execute_single(&mut tx, command_item.clone()).await?;
             results.push((asset, command_item));
         }
 
         tx.commit().await?;
+
+        let removed_asset_ids = removed_folder_assets
+            .iter()
+            .map(|asset| asset.id.clone())
+            .collect();
+        let cache_cleanup_result = crate::infra::asset_cache::remove_asset_artifacts(
+            &self.app_data_directory,
+            &removed_asset_ids,
+        )
+        .await;
 
         // 2.5 Post-commit Saga Execution (Filesystem Operations)
         for (asset, command_item) in &results {
@@ -134,11 +156,19 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
             }
         }
 
+        if !removed_folder_ids.is_empty() {
+            self.event_bus.publish(DomainEvent::LibraryFoldersRemoved {
+                folder_ids: removed_folder_ids,
+                removed_asset_count: removed_folder_assets.len(),
+            })?;
+        }
+
         // Return the last asset in the batch (or the only asset if not a batch)
         let last_asset = results.into_iter().last().map(|(a, _)| a).ok_or_else(|| {
             AppError::Internal("Transaction succeeded but no results were returned".to_string())
         })?;
 
+        cache_cleanup_result?;
         Ok(last_asset)
     }
 }

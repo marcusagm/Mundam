@@ -58,6 +58,14 @@ pub enum DomainEvent {
         folder_id: String,
         path: String,
     },
+    /// A transaction removed entire folder trees and reconciled their dependents.
+    /// One summary replaces per-asset deletion events for this operation.
+    LibraryFoldersRemoved {
+        /// Roots of the removed trees, independent of their former depth.
+        folder_ids: Vec<String>,
+        /// Number of assets removed across all trees in the transaction.
+        removed_asset_count: usize,
+    },
     /// An asset was moved to a different logical folder.
     AssetFolderChanged {
         asset_id: String,

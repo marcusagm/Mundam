@@ -92,6 +92,15 @@ pub fn init_events(app: &AppHandle) {
                             }
 
                             match event {
+                                DomainEvent::LibraryFoldersRemoved { .. } => {
+                                    let _ = app_handle.emit(
+                                        "library:batch-change",
+                                        serde_json::json!({
+                                            "operation": "folder_removal",
+                                            "needs_refresh": true
+                                        }),
+                                    );
+                                }
                                 // ── Targeted Asset Deletion (instant UI removal) ──────
                                 DomainEvent::AssetDeleted {
                                     asset_id,

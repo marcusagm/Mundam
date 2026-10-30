@@ -381,9 +381,12 @@ pub async fn handle_delete_asset(
         "Ledger: DeleteAsset executing DELETE for ID {}",
         resolved_id
     );
+    let affected_groups = super::duplicate_removal::collect_asset_groups(transaction, &resolved_id).await?;
     sqlx::query!("DELETE FROM assets WHERE id = ?", resolved_id)
         .execute(&mut **transaction)
         .await?;
+
+    super::duplicate_removal::reconcile_groups(transaction, &affected_groups).await?;
 
     let status = if physical_delete {
         "PENDING"

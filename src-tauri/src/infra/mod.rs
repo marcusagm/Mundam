@@ -1,3 +1,4 @@
+pub mod asset_cache;
 pub mod config;
 pub mod database;
 pub mod events;
