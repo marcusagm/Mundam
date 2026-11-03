@@ -1,12 +1,12 @@
 //! Automatic fingerprint processing uses one durable queue and shared scan admission.
 
-use super::coordinator::DuplicateProcessingCoordinator;
 use crate::core::events::{AppEventBus, DomainEvent};
 use crate::core::formats::FormatRegistry;
 use crate::core::models::DuplicateFingerprint;
 use crate::core::processing::{ProcessingKind, ProcessingOutcome, ProcessingRepository};
 use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::{AssetQueryHandler, DuplicatesRepository};
+use crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator;
 use crate::feature::settings::SettingsService;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
@@ -25,8 +25,8 @@ pub struct DuplicateWorker {
 }
 
 #[cfg(test)]
-#[path = "worker_control_tests.rs"]
-mod control_tests;
+#[path = "duplicate_worker_tests.rs"]
+mod tests;
 
 impl DuplicateWorker {
     /// Injects durable attempt bookkeeping and the coordinator used by manual scans.

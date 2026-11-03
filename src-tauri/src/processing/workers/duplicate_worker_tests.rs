@@ -1,5 +1,5 @@
+use super::super::test_support::{ProcessingFixture, TestResult};
 use super::*;
-use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 #[tokio::test]
 async fn processing_scheduled_comparison_survives_pause_and_finishes_after_resume() -> TestResult {

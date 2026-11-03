@@ -3,6 +3,9 @@
 //! Allocates the fleets of reactive workers that handle heavy CPU-bound processing loads,
 //! isolating these computations from Tauri IPC routes to prevent frontend bottlenecks.
 
+use crate::processing::workers::{
+    AutoEmptyTrashWorker, ColorWorker, DuplicateWorker, ThumbnailWorker,
+};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
@@ -51,7 +54,7 @@ pub fn init(app: &AppHandle) {
 
     // Start Thumbnail Worker (Hybrid Queue)
     let thumbnail_token = lifecycle.child_token();
-    let thumbnail_worker = crate::processing::workers::thumbnail_worker::ThumbnailWorker::new(
+    let thumbnail_worker = ThumbnailWorker::new(
         format_registry.clone(),
         asset_ledger.clone(),
         asset_query_handler.clone(),
@@ -70,7 +73,7 @@ pub fn init(app: &AppHandle) {
 
     // Start Color Worker (Reactive to Thumbnails)
     let color_worker_token = lifecycle.child_token();
-    let color_worker = crate::processing::workers::color_worker::ColorWorker::new(
+    let color_worker = ColorWorker::new(
         asset_ledger.clone(),
         event_bus.clone(),
         asset_query_handler.clone(),
@@ -88,7 +91,7 @@ pub fn init(app: &AppHandle) {
         crate::infra::config::json_adapter::JsonSettingsAdapter::new(dirs.settings_path.clone()),
     );
     let trash_settings_service = crate::feature::settings::SettingsService::new(settings_adapter);
-    let trash_worker = crate::feature::trash::auto_empty_worker::AutoEmptyTrashWorker::new(
+    let trash_worker = AutoEmptyTrashWorker::new(
         asset_ledger.clone(),
         app.state::<Arc<crate::infra::database::manager::DbManager>>()
             .inner()
@@ -115,7 +118,7 @@ pub fn init(app: &AppHandle) {
         .clone();
 
     let duplicate_worker_token = lifecycle.child_token();
-    let duplicate_worker = crate::feature::duplicates::events::DuplicateWorker::new(
+    let duplicate_worker = DuplicateWorker::new(
         duplicates_repo.clone(),
         event_bus.clone(),
         settings_service,

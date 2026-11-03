@@ -1,7 +1,7 @@
 # Workers: diagnóstico e proposta de controle do processamento
 
 **Data:** 30 de outubro de 2026.  
-**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–14 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
+**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–15 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
 **Escopo:** thumbnails/metadados, cores, fingerprints e comparação de duplicados, lifecycle e integração com a interface.
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` foi consultado como contexto e permanece inalterado. Esta análise usa a implementação atual como fonte de verdade.
@@ -26,7 +26,7 @@ O indexer oferece uma referência para exibição de progresso, não uma impleme
 | Estado consultável | Não há snapshot do worker | Não há snapshot do worker | Snapshot do scan manual; não representa todo o trabalho automático |
 | Controle existente | Prioridade do viewport; configuração de concorrência lida ao iniciar | Token de encerramento da aplicação | Preferência de detecção automática; cancelamento do scan manual; tokens de lifecycle |
 
-Fontes principais: [`bootstrap/workers.rs`](../../src-tauri/src/bootstrap/workers.rs), [`ThumbnailWorker`](../../src-tauri/src/processing/workers/thumbnail_worker.rs), [`ColorWorker`](../../src-tauri/src/processing/workers/color_worker.rs), [`DuplicateWorker`](../../src-tauri/src/feature/duplicates/events.rs) e [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs).
+Fontes principais: [`bootstrap/workers.rs`](../../src-tauri/src/bootstrap/workers.rs), [`ThumbnailWorker`](../../src-tauri/src/processing/workers/thumbnail_worker.rs), [`ColorWorker`](../../src-tauri/src/processing/workers/color_worker.rs), [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicate_worker.rs) e [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs).
 
 Há bases úteis a preservar: prioridade do viewport com limite de 200 IDs, deduplicação de thumbnails em execução, uso do Ledger nos resultados de assets, isolamento de várias operações pesadas, registro dos serviços no lifecycle, recuperação de fingerprints pelo banco e status consultável do scan manual.
 
@@ -62,13 +62,13 @@ O consumidor executa a extração inteira antes de receber o próximo evento. Em
 
 **A05. Duplicados possui várias entradas sem coordenação comum.**
 
-O [`start`](../../src-tauri/src/feature/duplicates/events.rs) ativa evento e polling em paralelo. Ambos podem selecionar/calcular o mesmo fingerprint antes da persistência. O [scan manual](../../src-tauri/src/feature/duplicates/commands.rs) usa outra coordenação. Sua leitura de `is_running` e a escrita seguinte ocorrem em locks separados; o cancelamento marca `is_running = false` antes de a execução confirmar sua saída. Isso permite sobreposição e atualizações tardias de status por uma execução anterior.
+O [`start`](../../src-tauri/src/processing/workers/duplicate_worker.rs) ativa evento e polling em paralelo. Ambos podem selecionar/calcular o mesmo fingerprint antes da persistência. O [scan manual](../../src-tauri/src/feature/duplicates/commands.rs) usa outra coordenação. Sua leitura de `is_running` e a escrita seguinte ocorrem em locks separados; o cancelamento marca `is_running = false` antes de a execução confirmar sua saída. Isso permite sobreposição e atualizações tardias de status por uma execução anterior.
 
 **Recomendação:** reserva única por `(asset_id, job_kind, source_revision)` e admissão atômica de scans. Todos os caminhos devem usar a mesma coordenação, com `run_id` e proteção contra resultados de execuções antigas.
 
 **A06. Falhas permanentes de fingerprints não têm backoff.**
 
-O [polling](../../src-tauri/src/feature/duplicates/events.rs) consulta dez itens e, após processar um lote não vazio, volta ao início sem atraso obrigatório. A [consulta](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs) não possui ordenação explícita nem controle de tentativas. Arquivos que sempre falham podem ser selecionados repetidamente, gerar logs e ocupar o início dos lotes, prejudicando outros itens.
+O [polling](../../src-tauri/src/processing/workers/duplicate_worker.rs) consulta dez itens e, após processar um lote não vazio, volta ao início sem atraso obrigatório. A [consulta](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs) não possui ordenação explícita nem controle de tentativas. Arquivos que sempre falham podem ser selecionados repetidamente, gerar logs e ocupar o início dos lotes, prejudicando outros itens.
 
 **Recomendação:** tentativas limitadas, erro persistido, `next_attempt_at`, backoff e ordenação estável. Separar erro transitório, arquivo indisponível, formato sem suporte e falha definitiva.
 
@@ -76,7 +76,7 @@ O [polling](../../src-tauri/src/feature/duplicates/events.rs) consulta dez itens
 
 Thumbnails aguarda um [permit](../../src-tauri/src/processing/workers/thumbnail_worker.rs) sem selecionar simultaneamente o token de cancelamento e cria [tarefas filhas](../../src-tauri/src/processing/workers/thumbnail_worker.rs) sem guardá-las em um `JoinSet`. O lifecycle acompanha o orquestrador, não cada tarefa filha. O cleanup manual de `in_flight` também não cobre um panic antes da remoção do ID.
 
-Cores e o consumidor de duplicados aguardam operações dentro de um ramo do `select!`; seus tokens não são verificados dentro dessas operações. O hashing de arquivo de [`generate_fingerprint`](../../src-tauri/src/feature/duplicates/events.rs) não recebe token. Existe ainda um [`run_exact_match_scan(None)`](../../src-tauri/src/feature/duplicates/events.rs) no caminho por evento.
+Cores e o consumidor de duplicados aguardam operações dentro de um ramo do `select!`; seus tokens não são verificados dentro dessas operações. O hashing de arquivo de [`generate_fingerprint`](../../src-tauri/src/processing/workers/duplicate_worker.rs) não recebe token. Existe ainda um [`run_exact_match_scan(None)`](../../src-tauri/src/processing/workers/duplicate_worker.rs) no caminho por evento.
 
 **Recomendação:** acompanhar tarefas filhas, cleanup por RAII, cancelamento cooperativo e drenagem explícita. Não prometer interrupção imediata de uma operação nativa que não oferece esse recurso.
 
@@ -100,7 +100,7 @@ A consulta usa apenas caminho nulo e estado diferente de `Thumbnailed`, sem `del
 
 **A11. Progresso e invalidação de dados precisam ser separados.**
 
-O worker pode iniciar matching exato por asset recebido e por lote de dez; matching visual ocorre ao atingir ociosidade. Alguns resumos são publicados como `DuplicateGroupCreated` com [`group_id` vazio e valores fixos](../../src-tauri/src/feature/duplicates/events.rs). O frontend interpreta esses eventos como criação e [recarrega grupos e estatísticas](../../src/components/features/duplicates/hooks/useDuplicateGroups.ts).
+O worker pode iniciar matching exato por asset recebido e por lote de dez; matching visual ocorre ao atingir ociosidade. Alguns resumos são publicados como `DuplicateGroupCreated` com [`group_id` vazio e valores fixos](../../src-tauri/src/processing/workers/duplicate_worker.rs). O frontend interpreta esses eventos como criação e [recarrega grupos e estatísticas](../../src/components/features/duplicates/hooks/useDuplicateGroups.ts).
 
 Metadados também geram `metadata:ready`; o [listener](../../src/core/store/systemStore.ts) chama [`refreshItem`](../../src/core/store/library/itemActions.ts), que consulta o asset mesmo quando ele não está entre os itens carregados. Repetir esse padrão para telemetria de jobs recriaria o excesso de IPC e recargas observado na remoção de pastas.
 
@@ -108,7 +108,7 @@ Metadados também geram `metadata:ready`; o [listener](../../src/core/store/syst
 
 **A12. Há duplicação de processamento e contratos históricos imprecisos.**
 
-Hashing/decodificação existe em [`DuplicateWorker`](../../src-tauri/src/feature/duplicates/events.rs) e em [`rehash_pending_fingerprints`](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs), dentro do adaptador de banco. O trabalho automático e o manual devem reutilizar o mesmo serviço de fingerprint, deixando SQL no adaptador.
+Hashing/decodificação existe em [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicate_worker.rs) e em [`rehash_pending_fingerprints`](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs), dentro do adaptador de banco. O trabalho automático e o manual devem reutilizar o mesmo serviço de fingerprint, deixando SQL no adaptador.
 
 O documento histórico descreve um scheduler central, `BinaryHeap` e circuit breaker que não correspondem aos workers atuais. A prioridade real de thumbnails é uma janela substituível do viewport, atendida na ordem recebida, não uma pilha LIFO. Uma [lista vazia é ignorada](../../src-tauri/src/core/workflows/thumbnails/priority.rs), assim como no [frontend](../../src/core/store/library/itemActions.ts), impedindo limpar explicitamente prioridades antigas. O `FormatRegistry` de cores é clonado para uma variável não utilizada; convém remover dependências sem função real.
 
@@ -390,3 +390,13 @@ Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` conclui
 ## 14. Estado global e controles na statusbar
 
 A etapa de snapshots globais e pausa/retomada foi implementada em 3 de novembro de 2026. A especificação do comportamento, os contratos, a integração com scans manuais e os limites da entrega estão em [Estado global e pausa dos workers](worker-statusbar-controls.md). O documento histórico do scheduler permanece inalterado.
+
+## 15. Centralização dos executores
+
+Os executores independentes agora ficam em `src-tauri/src/processing/workers`: `thumbnail_worker.rs`, `color_worker.rs`, `duplicate_worker.rs` e `auto_empty_trash_worker.rs`. Os testes de duplicados acompanham o executor em `duplicate_worker_tests.rs`, usando as fixtures compartilhadas. O bootstrap importa os quatro tipos pela fachada `processing::workers`.
+
+A feature de duplicados conserva comandos, consultas, coordenação e algoritmos de domínio. O módulo `feature/duplicates/events.rs` e o módulo de feature da lixeira, que continha apenas o worker movido, foram removidos. A reorganização preserva contratos IPC, políticas de pausa/retomada, filas, retenção da lixeira e lifecycle. A limpeza da lixeira continua seguindo suas configurações existentes.
+
+A convenção e os limites de responsabilidade estão no [README dos workers](../../src-tauri/src/processing/workers/README.md). Esta entrega centraliza a organização; unificação do cálculo de fingerprints entre scan manual e automático e reservas persistentes continuam pendentes no plano.
+
+Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` concluiu com **28 testes aprovados**, incluindo os testes do worker de duplicados já no novo módulo. Os testes cobrem pausa/retomada, comparação agendada, retries, contagens, admissão de scans manuais e contratos IPC. `git diff --check` e a formatação dos módulos reorganizados passaram. O documento histórico `05-job-scheduler-workers.md` permaneceu inalterado.

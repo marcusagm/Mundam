@@ -16,8 +16,6 @@ pub mod settings;
 pub mod transcoding;
 /// Module for duplicates management.
 pub mod duplicates;
-/// Module for trash management.
-pub mod trash;
 /// Application startup readiness and retained progress.
 pub mod startup;
 /// Bounded processing status queries.
