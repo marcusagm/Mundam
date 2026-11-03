@@ -3,6 +3,71 @@ use crate::core::ledger::{command::LedgerCommand, port::TransactionalAssetLedger
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 #[tokio::test]
+async fn processing_global_counts_distinguish_running_deferred_failed_and_inactive_assets(
+) -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    for identifier in [
+        "queued", "running", "retry", "failed", "skipped", "offline", "trashed",
+    ] {
+        fixture.asset(identifier, None).await?;
+    }
+    for identifier in ["retry", "failed", "skipped"] {
+        let ticket = fixture
+            .processing
+            .begin(ProcessingKind::Thumbnail, identifier)
+            .await?
+            .ok_or("Missing attempt")?;
+        let outcome = if identifier == "skipped" {
+            ProcessingOutcome::Skipped("No extractor".into())
+        } else {
+            ProcessingOutcome::Failed("decoder failure".into())
+        };
+        fixture.processing.finish(&ticket, outcome).await?;
+    }
+    sqlx::query(
+        "UPDATE processing_tasks SET state = 'failed', attempts = 3 WHERE asset_id = 'failed'",
+    )
+    .execute(&fixture.pool)
+    .await?;
+    sqlx::query("UPDATE assets SET state = 'Offline' WHERE id = 'offline'")
+        .execute(&fixture.pool)
+        .await?;
+    sqlx::query("UPDATE assets SET deleted_at = CURRENT_TIMESTAMP WHERE id = 'trashed'")
+        .execute(&fixture.pool)
+        .await?;
+    let counts = fixture
+        .processing
+        .queue_counts(ProcessingKind::Thumbnail, &["running".into()])
+        .await?;
+    assert_eq!(
+        (
+            counts.pending,
+            counts.retry_wait,
+            counts.failed,
+            counts.skipped
+        ),
+        (1, 1, 1, 1)
+    );
+    assert_eq!(
+        fixture
+            .processing
+            .queue_counts(ProcessingKind::Colors, &[])
+            .await?
+            .pending,
+        0
+    );
+    sqlx::query("UPDATE assets SET file_size = 42 WHERE id = 'failed'")
+        .execute(&fixture.pool)
+        .await?;
+    let counts = fixture
+        .processing
+        .queue_counts(ProcessingKind::Thumbnail, &["running".into()])
+        .await?;
+    assert_eq!((counts.pending, counts.failed), (2, 0));
+    Ok(())
+}
+
+#[tokio::test]
 async fn processing_regeneration_is_recovered_without_viewport_or_event_delivery() -> TestResult {
     let fixture = ProcessingFixture::new().await?;
     fixture.asset("asset", Some("old.webp")).await?;

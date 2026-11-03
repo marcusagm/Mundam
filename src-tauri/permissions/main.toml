@@ -248,6 +248,16 @@ identifier = "allow-get-thumbnail-processing-status"
 description = "Enables bounded thumbnail processing status queries"
 commands.allow = ["get_thumbnail_processing_status"]
 
+[[permission]]
+identifier = "allow-get-processing-snapshot"
+description = "Enables global worker activity queries"
+commands.allow = ["get_processing_snapshot"]
+
+[[permission]]
+identifier = "allow-set-processing-worker-paused"
+description = "Enables session pause and resume of processing admissions"
+commands.allow = ["set_processing_worker_paused"]
+
 # Streaming Security
 [[permission]]
 identifier = "allow-get-streaming-token"

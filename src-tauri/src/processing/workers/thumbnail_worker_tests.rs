@@ -2,6 +2,43 @@ use super::*;
 use crate::core::formats::{capabilities::ThumbnailCapability, provider::FormatProvider};
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
+#[tokio::test]
+async fn processing_thumbnail_pause_retains_durable_work_until_resume() -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    fixture.asset("asset", None).await?;
+    let control = Arc::new(ProcessingControl::default());
+    let worker = ThumbnailWorker::new(
+        fixture.registry.clone(),
+        fixture.ledger.clone(),
+        fixture.queries.clone(),
+        Arc::new(ThumbnailPriorityState::default()),
+        fixture.data.path().join("thumbnails"),
+        fixture.processing.clone(),
+    )
+    .with_control(control.clone());
+    control.set_paused(WorkerKind::Thumbnails, true);
+    worker.process_single("asset".into(), true).await?;
+    assert_eq!(
+        fixture
+            .processing
+            .pending(ProcessingKind::Thumbnail, 1)
+            .await?,
+        ["asset"]
+    );
+    let attempts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM processing_tasks")
+        .fetch_one(&fixture.pool)
+        .await?;
+    assert_eq!(attempts, 0);
+    control.set_paused(WorkerKind::Thumbnails, false);
+    worker.process_single("asset".into(), false).await?;
+    assert!(fixture
+        .processing
+        .pending(ProcessingKind::Thumbnail, 1)
+        .await?
+        .is_empty());
+    Ok(())
+}
+
 struct FailingThumbnailProvider;
 
 impl FormatProvider for FailingThumbnailProvider {

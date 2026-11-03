@@ -1,20 +1,20 @@
 use crate::core::error::AppResult;
+use crate::core::events::bus::AppEventBus;
+use crate::core::events::payloads::DomainEvent;
 use crate::core::formats::FormatRegistry;
+use crate::core::ledger::command::{
+    LedgerCommand, ToggleFavoritePayload, UpdateAssetNotesPayload, UpdateAssetRatingPayload,
+    UpdateTagsPayload, UpdateTechnicalMetadataPayload,
+};
+use crate::core::models::{DuplicateResolution, DuplicateResolutionAction, MetadataMergePayload};
+use crate::core::repository::AssetQueryHandler;
 use crate::core::repository::DuplicatesRepository;
 use crate::core::TransactionalAssetLedger;
-use crate::core::models::{DuplicateResolution, DuplicateResolutionAction, MetadataMergePayload};
-use crate::core::ledger::command::{
-    LedgerCommand, UpdateAssetRatingPayload, UpdateAssetNotesPayload,
-    UpdateTagsPayload, UpdateTechnicalMetadataPayload, ToggleFavoritePayload,
-};
-use crate::core::events::payloads::DomainEvent;
-use crate::core::events::bus::AppEventBus;
-use crate::core::repository::AssetQueryHandler;
 use std::sync::Arc;
 
-use tokio_util::sync::CancellationToken;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 
 /// Represents the current runtime status of a manual duplicate scan.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -61,7 +61,8 @@ impl Drop for ScanRunningGuard {
         }
         if owns_status && !self.completed {
             let _ = self.event_bus.publish(DomainEvent::DuplicateScanStopped {
-                run_id: self.run_id.clone(), canceled: self.token.is_cancelled(),
+                run_id: self.run_id.clone(),
+                canceled: self.token.is_cancelled(),
             });
         }
     }
@@ -82,6 +83,22 @@ pub struct DuplicateCommandService {
     scan_cancel_token: Arc<Mutex<Option<CancellationToken>>>,
     scan_status: Arc<RwLock<DuplicateScanStatus>>,
     processing_coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>,
+    processing_control: Arc<crate::core::processing_control::ProcessingControl>,
+}
+
+impl crate::core::processing_control::ManualScanActivity for DuplicateCommandService {
+    fn snapshot(&self) -> crate::core::processing_control::ManualScanProgress {
+        let status = self
+            .scan_status
+            .read()
+            .unwrap_or_else(|error| error.into_inner());
+        crate::core::processing_control::ManualScanProgress {
+            is_running: status.is_running,
+            phase: status.phase.clone(),
+            processed: status.processed,
+            total: status.total,
+        }
+    }
 }
 
 impl DuplicateCommandService {
@@ -108,13 +125,30 @@ impl DuplicateCommandService {
             format_registry,
             scan_cancel_token: Arc::new(Mutex::new(None)),
             scan_status: Arc::new(RwLock::new(DuplicateScanStatus::default())),
-            processing_coordinator: Arc::new(super::coordinator::DuplicateProcessingCoordinator::default()),
+            processing_coordinator: Arc::new(
+                super::coordinator::DuplicateProcessingCoordinator::default(),
+            ),
+            processing_control: Arc::new(
+                crate::core::processing_control::ProcessingControl::default(),
+            ),
         }
     }
 
     /// Shares scan admission with automatic hashing and matching.
-    pub fn with_processing_coordinator(mut self, coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>) -> Self {
+    pub fn with_processing_coordinator(
+        mut self,
+        coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>,
+    ) -> Self {
         self.processing_coordinator = coordinator;
+        self
+    }
+
+    /// Shares session pause intent with automatic duplicate processing.
+    pub fn with_processing_control(
+        mut self,
+        control: Arc<crate::core::processing_control::ProcessingControl>,
+    ) -> Self {
+        self.processing_control = control;
         self
     }
 
@@ -151,11 +185,14 @@ impl DuplicateCommandService {
                 let candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
                 for candidate in candidates {
                     if !kept_ids.contains(&candidate.asset_id) {
-                        let _ = self.ledger.execute(LedgerCommand::MoveToTrash(
-                            crate::core::ledger::command::MoveToTrashPayload {
-                                asset_id: candidate.asset_id.clone(),
-                            }
-                        )).await;
+                        let _ = self
+                            .ledger
+                            .execute(LedgerCommand::MoveToTrash(
+                                crate::core::ledger::command::MoveToTrashPayload {
+                                    asset_id: candidate.asset_id.clone(),
+                                },
+                            ))
+                            .await;
                         trashed_asset_identifiers.push(candidate.asset_id.clone());
                     }
                 }
@@ -171,7 +208,8 @@ impl DuplicateCommandService {
                 serde_json::json!({
                     "kept_ids": ids,
                     "trashed_ids": trashed_asset_identifiers
-                }).to_string()
+                })
+                .to_string()
             }),
             resolved_by: Some("user".to_string()),
             resolved_at: chrono::Utc::now(),
@@ -184,7 +222,9 @@ impl DuplicateCommandService {
             _ => "resolved",
         };
 
-        self.duplicates_repo.update_group_status(group_id, final_status).await?;
+        self.duplicates_repo
+            .update_group_status(group_id, final_status)
+            .await?;
 
         let _ = self.event_bus.publish(DomainEvent::DuplicateGroupResolved {
             group_id: group_id.to_string(),
@@ -214,27 +254,44 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::Database` if reading or mutating the database fails.
     pub async fn undo_duplicate_resolution(&self, group_id: &str) -> AppResult<()> {
-        tracing::info!("DuplicateCommandService: undoing duplicate resolution for group {}", group_id);
-        let optional_latest_resolution = self.duplicates_repo.get_latest_resolution(group_id).await?;
+        tracing::info!(
+            "DuplicateCommandService: undoing duplicate resolution for group {}",
+            group_id
+        );
+        let optional_latest_resolution =
+            self.duplicates_repo.get_latest_resolution(group_id).await?;
 
         if let Some(latest_resolution) = optional_latest_resolution {
             let mut asset_identifiers_to_restore: Vec<String> = Vec::new();
 
             if let Some(payload_string) = &latest_resolution.payload {
-                if let Ok(parsed_payload) = serde_json::from_str::<serde_json::Value>(payload_string) {
-                    if let Some(trashed_identifiers_array) = parsed_payload.get("trashed_ids").and_then(|array_value| array_value.as_array()) {
+                if let Ok(parsed_payload) =
+                    serde_json::from_str::<serde_json::Value>(payload_string)
+                {
+                    if let Some(trashed_identifiers_array) = parsed_payload
+                        .get("trashed_ids")
+                        .and_then(|array_value| array_value.as_array())
+                    {
                         for item in trashed_identifiers_array {
                             if let Some(asset_identifier_string) = item.as_str() {
-                                asset_identifiers_to_restore.push(asset_identifier_string.to_string());
+                                asset_identifiers_to_restore
+                                    .push(asset_identifier_string.to_string());
                             }
                         }
-                    } else if let Some(kept_identifiers_array) = parsed_payload.get("kept_ids").and_then(|array_value| array_value.as_array()) {
-                        let kept_identifiers_set: std::collections::HashSet<String> = kept_identifiers_array
-                            .iter()
-                            .filter_map(|item| item.as_str().map(|identifier| identifier.to_string()))
-                            .collect();
+                    } else if let Some(kept_identifiers_array) = parsed_payload
+                        .get("kept_ids")
+                        .and_then(|array_value| array_value.as_array())
+                    {
+                        let kept_identifiers_set: std::collections::HashSet<String> =
+                            kept_identifiers_array
+                                .iter()
+                                .filter_map(|item| {
+                                    item.as_str().map(|identifier| identifier.to_string())
+                                })
+                                .collect();
 
-                        let group_candidates = self.duplicates_repo.get_group_candidates(group_id).await?;
+                        let group_candidates =
+                            self.duplicates_repo.get_group_candidates(group_id).await?;
                         for candidate in group_candidates {
                             if !kept_identifiers_set.contains(&candidate.asset_id) {
                                 asset_identifiers_to_restore.push(candidate.asset_id);
@@ -245,11 +302,14 @@ impl DuplicateCommandService {
             }
 
             for asset_identifier in &asset_identifiers_to_restore {
-                let restore_result = self.ledger.execute(LedgerCommand::RestoreFromTrash(
-                    crate::core::ledger::command::RestoreFromTrashPayload {
-                        asset_id: asset_identifier.clone(),
-                    }
-                )).await;
+                let restore_result = self
+                    .ledger
+                    .execute(LedgerCommand::RestoreFromTrash(
+                        crate::core::ledger::command::RestoreFromTrashPayload {
+                            asset_id: asset_identifier.clone(),
+                        },
+                    ))
+                    .await;
 
                 if let Err(ledger_error) = restore_result {
                     tracing::warn!(
@@ -260,7 +320,9 @@ impl DuplicateCommandService {
                 }
             }
 
-            self.duplicates_repo.delete_resolution(&latest_resolution.id).await?;
+            self.duplicates_repo
+                .delete_resolution(&latest_resolution.id)
+                .await?;
             tracing::info!(
                 "DuplicateCommandService: restored {} asset(s) from trash for group {}",
                 asset_identifiers_to_restore.len(),
@@ -268,13 +330,20 @@ impl DuplicateCommandService {
             );
         }
 
-        self.duplicates_repo.update_group_status(group_id, "open").await?;
+        self.duplicates_repo
+            .update_group_status(group_id, "open")
+            .await?;
 
-        let _ = self.event_bus.publish(DomainEvent::DuplicateResolutionUndone {
-            group_id: group_id.to_string(),
-        });
+        let _ = self
+            .event_bus
+            .publish(DomainEvent::DuplicateResolutionUndone {
+                group_id: group_id.to_string(),
+            });
 
-        tracing::info!("DuplicateCommandService: successfully reverted group {} to 'open'", group_id);
+        tracing::info!(
+            "DuplicateCommandService: successfully reverted group {} to 'open'",
+            group_id
+        );
 
         Ok(())
     }
@@ -344,7 +413,9 @@ impl DuplicateCommandService {
             }
 
             if !ledger_commands.is_empty() {
-                self.ledger.execute(LedgerCommand::Batch(ledger_commands)).await?;
+                self.ledger
+                    .execute(LedgerCommand::Batch(ledger_commands))
+                    .await?;
             }
 
             // Toggle favorite only if the desired state differs from current state.
@@ -353,9 +424,11 @@ impl DuplicateCommandService {
                 let current_asset = self.asset_query_handler.get_by_id(kept_id).await?;
                 if let Some(asset) = current_asset {
                     if asset.is_favorite != desired_favorite {
-                        self.ledger.execute(LedgerCommand::ToggleFavorite(ToggleFavoritePayload {
-                            asset_id: kept_id.clone(),
-                        })).await?;
+                        self.ledger
+                            .execute(LedgerCommand::ToggleFavorite(ToggleFavoritePayload {
+                                asset_id: kept_id.clone(),
+                            }))
+                            .await?;
                     }
                 }
             }
@@ -378,13 +451,24 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
     pub async fn start_duplicate_scan(&self) -> AppResult<()> {
+        self.run_duplicate_scan(false).await
+    }
+
+    async fn run_duplicate_scan(&self, rebuild: bool) -> AppResult<()> {
+        self.ensure_processing_resumed()?;
         tracing::info!("DuplicateCommandService: start_duplicate_scan requested");
 
         let cancellation_token = CancellationToken::new();
         let run_id = uuid::Uuid::new_v4().to_string();
         {
-            let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
-            let mut status_guard = self.scan_status.write().unwrap_or_else(|poison_error| poison_error.into_inner());
+            let mut cancellation_guard = self
+                .scan_cancel_token
+                .lock()
+                .unwrap_or_else(|poison_error| poison_error.into_inner());
+            let mut status_guard = self
+                .scan_status
+                .write()
+                .unwrap_or_else(|poison_error| poison_error.into_inner());
             if status_guard.is_running {
                 tracing::warn!("DuplicateCommandService: scan already in progress, ignoring duplicate start request");
                 return Ok(());
@@ -409,6 +493,22 @@ impl DuplicateCommandService {
             _ = cancellation_token.cancelled() => return Ok(()),
             admission = self.processing_coordinator.acquire() => admission,
         };
+        let activity = self
+            .processing_control
+            .try_admit(
+                crate::core::processing_control::WorkerKind::Duplicates,
+                "manual_scan",
+                None,
+            )
+            .ok_or_else(|| {
+                crate::core::AppError::ValidationFailed(
+                    "Resume duplicate processing before starting a scan".into(),
+                )
+            })?;
+
+        if rebuild {
+            self.duplicates_repo.reset_duplicate_index().await?;
+        }
 
         let (progress_sender, mut progress_receiver) =
             tokio::sync::mpsc::unbounded_channel::<(usize, usize)>();
@@ -467,7 +567,11 @@ impl DuplicateCommandService {
             }
         }
         tracing::info!("DuplicateCommandService: [3/4] running exact match scan");
-        let exact_groups_count = self.duplicates_repo.run_exact_match_scan(Some(cancellation_token.clone())).await?;
+        activity.set_phase("exact_matching");
+        let exact_groups_count = self
+            .duplicates_repo
+            .run_exact_match_scan(Some(cancellation_token.clone()))
+            .await?;
 
         if cancellation_token.is_cancelled() {
             tracing::info!("DuplicateCommandService: scan cancelled after exact matching");
@@ -480,7 +584,11 @@ impl DuplicateCommandService {
             }
         }
         tracing::info!("DuplicateCommandService: [4/4] running visual match scan");
-        let visual_groups_count = self.duplicates_repo.run_visual_match_scan(Some(cancellation_token.clone())).await?;
+        activity.set_phase("visual_matching");
+        let visual_groups_count = self
+            .duplicates_repo
+            .run_visual_match_scan(Some(cancellation_token.clone()))
+            .await?;
 
         if cancellation_token.is_cancelled() {
             return Ok(());
@@ -493,7 +601,10 @@ impl DuplicateCommandService {
 
         tracing::info!("DuplicateCommandService: full duplicate scan completed successfully");
 
-        let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
+        let mut cancellation_guard = self
+            .scan_cancel_token
+            .lock()
+            .unwrap_or_else(|poison_error| poison_error.into_inner());
         if let Some(current_token) = cancellation_guard.as_ref() {
             if current_token.is_cancelled() {
                 *cancellation_guard = None;
@@ -513,7 +624,10 @@ impl DuplicateCommandService {
 
     pub fn cancel_duplicate_scan(&self) {
         tracing::info!("DuplicateCommandService: cancel_duplicate_scan requested");
-        let mut cancellation_guard = self.scan_cancel_token.lock().unwrap_or_else(|poison_error| poison_error.into_inner());
+        let mut cancellation_guard = self
+            .scan_cancel_token
+            .lock()
+            .unwrap_or_else(|poison_error| poison_error.into_inner());
         if let Some(token) = cancellation_guard.take() {
             token.cancel();
             tracing::info!("DuplicateCommandService: cancelled ongoing scan via CancellationToken");
@@ -526,8 +640,15 @@ impl DuplicateCommandService {
     }
 
     /// Updates a rule set in the database.
-    pub async fn update_rule_set(&self, rule_set: crate::core::models::DuplicateRuleSet) -> AppResult<()> {
-        tracing::info!("DuplicateCommandService: updating duplicate rule set id='{}', name='{}'", rule_set.id, rule_set.name);
+    pub async fn update_rule_set(
+        &self,
+        rule_set: crate::core::models::DuplicateRuleSet,
+    ) -> AppResult<()> {
+        tracing::info!(
+            "DuplicateCommandService: updating duplicate rule set id='{}', name='{}'",
+            rule_set.id,
+            rule_set.name
+        );
         self.duplicates_repo.save_rule_set(rule_set).await
     }
 
@@ -537,9 +658,18 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::Database` if resetting or scanning fails.
     pub async fn rebuild_duplicate_index(&self) -> AppResult<()> {
-        tracing::info!("DuplicateCommandService: rebuilding duplicate index (resetting tables and starting scan)");
-        self.duplicates_repo.reset_duplicate_index().await?;
-        self.start_duplicate_scan().await?;
+        self.run_duplicate_scan(true).await
+    }
+
+    fn ensure_processing_resumed(&self) -> AppResult<()> {
+        if self
+            .processing_control
+            .is_paused(crate::core::processing_control::WorkerKind::Duplicates)
+        {
+            return Err(crate::core::AppError::ValidationFailed(
+                "Resume duplicate processing before starting a scan".into(),
+            ));
+        }
         Ok(())
     }
 }

@@ -5,6 +5,7 @@ use crate::core::events::{AppEventBus, DomainEvent};
 use crate::core::formats::FormatRegistry;
 use crate::core::models::DuplicateFingerprint;
 use crate::core::processing::{ProcessingKind, ProcessingOutcome, ProcessingRepository};
+use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::{AssetQueryHandler, DuplicatesRepository};
 use crate::feature::settings::SettingsService;
 use std::sync::Arc;
@@ -20,7 +21,12 @@ pub struct DuplicateWorker {
     processing: Arc<dyn ProcessingRepository>,
     queries: Arc<dyn AssetQueryHandler>,
     coordinator: Arc<DuplicateProcessingCoordinator>,
+    control: Arc<ProcessingControl>,
 }
+
+#[cfg(test)]
+#[path = "worker_control_tests.rs"]
+mod control_tests;
 
 impl DuplicateWorker {
     /// Injects durable attempt bookkeeping and the coordinator used by manual scans.
@@ -41,7 +47,14 @@ impl DuplicateWorker {
             processing,
             queries,
             coordinator,
+            control: Arc::new(ProcessingControl::default()),
         }
+    }
+
+    /// Shares automatic and manual scan admission with statusbar controls.
+    pub fn with_control(mut self, control: Arc<ProcessingControl>) -> Self {
+        self.control = control;
+        self
     }
 
     /// Processes recoverable work and coalesces comparisons after batches or idle transitions.
@@ -51,6 +64,7 @@ impl DuplicateWorker {
     ) -> tauri::async_runtime::JoinHandle<()> {
         let mut subscriber = self.event_bus.subscribe();
         tauri::async_runtime::spawn(async move {
+            let _lifetime = self.control.start(WorkerKind::Duplicates);
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(1500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut dirty_count = 0;
@@ -81,14 +95,21 @@ impl DuplicateWorker {
                     Ok((processed, idle)) => {
                         dirty_count += processed;
                         visual_dirty |= processed > 0;
+                        self.control
+                            .set_scheduled(WorkerKind::Duplicates, visual_dirty || dirty_count > 0);
                         if ((idle && visual_dirty) || dirty_count >= 100) && !token.is_cancelled() {
                             match self.compare(&token, idle).await {
-                                Ok(()) => {
+                                Ok(true) => {
                                     dirty_count = 0;
                                     if idle {
                                         visual_dirty = false;
                                     }
+                                    self.control.set_scheduled(
+                                        WorkerKind::Duplicates,
+                                        visual_dirty || dirty_count > 0,
+                                    );
                                 }
+                                Ok(false) => {}
                                 Err(error) => {
                                     warn!(%error, "Automatic duplicate comparison failed")
                                 }
@@ -105,6 +126,9 @@ impl DuplicateWorker {
         &self,
         token: &CancellationToken,
     ) -> crate::core::error::AppResult<(usize, bool)> {
+        if self.control.is_paused(WorkerKind::Duplicates) {
+            return Ok((0, false));
+        }
         let pending = self
             .processing
             .pending(ProcessingKind::Fingerprint, 10)
@@ -115,6 +139,12 @@ impl DuplicateWorker {
             let _admission = tokio::select! {
                 _ = token.cancelled() => break,
                 admission = self.coordinator.acquire() => admission,
+            };
+            let Some(_activity) =
+                self.control
+                    .try_admit(WorkerKind::Duplicates, "fingerprinting", Some(&asset_id))
+            else {
+                break;
             };
             let Some(ticket) = self
                 .processing
@@ -177,16 +207,23 @@ impl DuplicateWorker {
         &self,
         token: &CancellationToken,
         include_visual: bool,
-    ) -> crate::core::error::AppResult<()> {
+    ) -> crate::core::error::AppResult<bool> {
         let _admission = tokio::select! {
-            _ = token.cancelled() => return Ok(()),
+            _ = token.cancelled() => return Ok(false),
             admission = self.coordinator.acquire() => admission,
+        };
+        let Some(activity) = self
+            .control
+            .try_admit(WorkerKind::Duplicates, "exact_matching", None)
+        else {
+            return Ok(false);
         };
         let mut groups_processed = self
             .duplicates_repo
             .run_exact_match_scan(Some(token.clone()))
             .await?;
         if include_visual && !token.is_cancelled() {
+            activity.set_phase("visual_matching");
             groups_processed += self
                 .duplicates_repo
                 .run_visual_match_scan(Some(token.clone()))
@@ -196,7 +233,7 @@ impl DuplicateWorker {
             self.event_bus
                 .publish(DomainEvent::DuplicateGroupsChanged { groups_processed })?;
         }
-        Ok(())
+        Ok(true)
     }
 
     /// Synchronous function to read the file and compute a Blake3 content hash

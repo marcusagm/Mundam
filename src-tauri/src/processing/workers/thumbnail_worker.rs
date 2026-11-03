@@ -12,6 +12,7 @@ use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::processing::{
     ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
 };
+use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::AssetQueryHandler;
 use crate::core::workflows::thumbnails::priority::ThumbnailPriorityState;
 use crate::processing::media::image_utils;
@@ -35,6 +36,7 @@ pub struct ThumbnailWorker {
     /// Output directory for thumbnails.
     thumbnails_dir: PathBuf,
     processing: Arc<dyn ProcessingRepository>,
+    control: Arc<ProcessingControl>,
 }
 
 /// Implementation of the ThumbnailWorker struct.
@@ -67,7 +69,14 @@ impl ThumbnailWorker {
             priority_state,
             thumbnails_dir,
             processing,
+            control: Arc::new(ProcessingControl::default()),
         }
+    }
+
+    /// Uses the session admission gate shared with desktop controls.
+    pub fn with_control(mut self, control: Arc<ProcessingControl>) -> Self {
+        self.control = control;
+        self
     }
 
     /// Starts the orchestration loop in a background task.
@@ -85,6 +94,7 @@ impl ThumbnailWorker {
         app_handle: tauri::AppHandle,
     ) -> tauri::async_runtime::JoinHandle<()> {
         tauri::async_runtime::spawn(async move {
+            let _lifetime = self.control.start(WorkerKind::Thumbnails);
             info!("ThumbnailWorker: Orchestrator loop started");
             let worker_arc = Arc::new(self);
 
@@ -127,6 +137,13 @@ impl ThumbnailWorker {
                 };
 
                 // 2. Poll for work (UI priorities first, skipping assets already in flight)
+                if worker_arc.control.is_paused(WorkerKind::Thumbnails) {
+                    drop(permit);
+                    tokio::select! {
+                        _ = token.cancelled() => break,
+                        _ = sleep(Duration::from_millis(500)) => continue,
+                    }
+                }
                 let mut next_id = None;
                 let mut is_priority = true;
 
@@ -199,6 +216,12 @@ impl ThumbnailWorker {
     /// * `is_priority` - Whether this item came from the priority queue.
     #[instrument(skip_all, fields(asset_id = %id, priority = %is_priority))]
     async fn process_single(&self, id: String, is_priority: bool) -> AppResult<()> {
+        let Some(_activity) =
+            self.control
+                .try_admit(WorkerKind::Thumbnails, "thumbnail", Some(&id))
+        else {
+            return Ok(());
+        };
         let Some(ticket) = self
             .processing
             .begin(ProcessingKind::Thumbnail, &id)

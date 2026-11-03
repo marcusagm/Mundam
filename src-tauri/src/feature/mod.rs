@@ -22,3 +22,5 @@ pub mod trash;
 pub mod startup;
 /// Bounded processing status queries.
 pub mod processing;
+/// Session admission controls and global processing read models.
+pub mod processing_control;

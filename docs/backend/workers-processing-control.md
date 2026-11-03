@@ -1,7 +1,7 @@
 # Workers: diagnóstico e proposta de controle do processamento
 
 **Data:** 30 de outubro de 2026.  
-**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; a seção 10 descreve o código implementado e os limites atuais.  
+**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–14 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
 **Escopo:** thumbnails/metadados, cores, fingerprints e comparação de duplicados, lifecycle e integração com a interface.
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` foi consultado como contexto e permanece inalterado. Esta análise usa a implementação atual como fonte de verdade.
@@ -386,3 +386,7 @@ No Windows, testes que instanciam o runtime desktop exigem o manifesto de Common
 ```
 
 Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` concluiu com 19 testes aprovados, incluindo a chamada IPC autorizada com as capabilities reais. Não houve validação visual na janela da aplicação nesta etapa.
+
+## 14. Estado global e controles na statusbar
+
+A etapa de snapshots globais e pausa/retomada foi implementada em 3 de novembro de 2026. A especificação do comportamento, os contratos, a integração com scans manuais e os limites da entrega estão em [Estado global e pausa dos workers](worker-statusbar-controls.md). O documento histórico do scheduler permanece inalterado.

@@ -86,6 +86,15 @@ pub enum ProcessingOutcome {
 /// checks, not cross-process execution leases.
 #[async_trait]
 pub trait ProcessingRepository: Send + Sync {
+    /// Counts durable outcomes, excluding the supplied running asset identities.
+    ///
+    /// # Errors
+    /// Returns a storage error when the queue read model is unavailable.
+    async fn queue_counts(
+        &self,
+        kind: ProcessingKind,
+        active_assets: &[String],
+    ) -> AppResult<crate::core::processing_control::ProcessingQueueCounts>;
     /// Reads thumbnail outcomes for a bounded set of visible assets.
     ///
     /// # Errors

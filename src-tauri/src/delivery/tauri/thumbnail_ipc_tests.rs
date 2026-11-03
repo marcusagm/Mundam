@@ -2,9 +2,34 @@
 
 use super::get_thumbnail_processing_status;
 use crate::core::processing::{ProcessingKind, ProcessingOutcome, ProcessingRepository};
+use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 use serde_json::{json, Value};
 use std::sync::Arc;
+
+fn invoke_processing(
+    window: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+    command: &str,
+    body: Value,
+) -> Result<Value, String> {
+    tauri::test::get_ipc_response(
+        window,
+        tauri::webview::InvokeRequest {
+            cmd: command.into(),
+            callback: tauri::ipc::CallbackFn(0),
+            error: tauri::ipc::CallbackFn(1),
+            url: "http://tauri.localhost"
+                .parse()
+                .map_err(|error| format!("{error}"))?,
+            body: tauri::ipc::InvokeBody::Json(body),
+            headers: Default::default(),
+            invoke_key: tauri::test::INVOKE_KEY.into(),
+        },
+    )
+    .map_err(|error| format!("{error:?}"))?
+    .deserialize::<Value>()
+    .map_err(|error| error.to_string())
+}
 
 #[test]
 fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splashscreen(
@@ -35,9 +60,40 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
         Ok::<_, Box<dyn std::error::Error>>(fixture)
     })?;
     let repository: Arc<dyn ProcessingRepository> = fixture.processing.clone();
+    let control = Arc::new(ProcessingControl::default());
+    let duplicates = crate::feature::duplicates::commands::DuplicateCommandService::new(
+        Arc::new(
+            crate::infra::database::duplicates::SqliteDuplicatesRepository::new(
+                fixture.pool.clone(),
+            ),
+        ),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.queries.clone(),
+        fixture.registry.clone(),
+    )
+    .with_processing_control(control.clone());
+    let settings = Arc::new(
+        crate::infra::config::json_adapter::JsonSettingsAdapter::new(
+            fixture.data.path().join("settings.json"),
+        ),
+    );
+    let service = Arc::new(
+        crate::feature::processing_control::ProcessingControlService::new(
+            control.clone(),
+            repository.clone(),
+            settings,
+            Arc::new(duplicates),
+        ),
+    );
     let app = tauri::test::mock_builder()
         .manage(repository)
-        .invoke_handler(tauri::generate_handler![get_thumbnail_processing_status])
+        .manage(service)
+        .invoke_handler(tauri::generate_handler![
+            get_thumbnail_processing_status,
+            crate::delivery::tauri::processing::get_processing_snapshot,
+            crate::delivery::tauri::processing::set_processing_worker_paused
+        ])
         .build(tauri::generate_context!())?;
     for label in ["main", "design-system", "splashscreen"] {
         let window = tauri::WebviewWindowBuilder::new(&app, label, Default::default()).build()?;
@@ -56,6 +112,13 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             },
         );
         if label == "splashscreen" {
+            assert!(invoke_processing(&window, "get_processing_snapshot", json!({})).is_err());
+            assert!(invoke_processing(
+                &window,
+                "set_processing_worker_paused",
+                json!({"worker":"thumbnails", "paused":true})
+            )
+            .is_err());
             assert!(
                 response.is_err(),
                 "Thumbnail statuses must not be exposed to the splashscreen"
@@ -74,6 +137,46 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             assert_eq!(status["state"], state);
             assert!(status["thumbnail_path"].is_null());
         }
+        let initial = invoke_processing(&window, "get_processing_snapshot", json!({}))?;
+        assert_eq!(
+            initial["workers"]
+                .as_array()
+                .ok_or("Missing workers")?
+                .len(),
+            3
+        );
+        for kind in WorkerKind::ALL {
+            let worker = serde_json::to_value(kind)?;
+            let activity = control.try_admit(kind, "test_operation", None);
+            let paused = invoke_processing(
+                &window,
+                "set_processing_worker_paused",
+                json!({"worker":worker,"paused":true}),
+            )?;
+            let row = paused["workers"]
+                .as_array()
+                .ok_or("Missing workers")?
+                .iter()
+                .find(|row| row["worker"] == worker)
+                .ok_or("Missing row")?;
+            assert_eq!(row["paused"], true);
+            assert_eq!(row["active"], 1);
+            assert!(control.try_admit(kind, "blocked", None).is_none());
+            drop(activity);
+            let resumed = invoke_processing(
+                &window,
+                "set_processing_worker_paused",
+                json!({"worker":worker,"paused":false}),
+            )?;
+            assert!(resumed["sequence"].as_u64() > paused["sequence"].as_u64());
+            assert!(control.try_admit(kind, "resumed", None).is_some());
+        }
+        assert!(invoke_processing(
+            &window,
+            "set_processing_worker_paused",
+            json!({"worker":"unknown", "paused":true})
+        )
+        .is_err());
     }
     Ok(())
 }

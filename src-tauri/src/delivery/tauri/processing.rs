@@ -1,0 +1,30 @@
+//! Passive desktop adapter for global worker activity and session pause intent.
+
+use crate::core::{processing_control::WorkerKind, AppResult};
+use crate::feature::processing_control::{ProcessingControlService, ProcessingSnapshot};
+use std::sync::Arc;
+use tauri::State;
+
+/// Reads activity independently of viewport subscriptions and result events.
+///
+/// # Errors
+/// Propagates persistence and settings read errors from the application service.
+#[tauri::command]
+pub async fn get_processing_snapshot(
+    service: State<'_, Arc<ProcessingControlService>>,
+) -> AppResult<ProcessingSnapshot> {
+    service.snapshot().await
+}
+
+/// Changes future admissions while allowing existing operations to drain.
+///
+/// # Errors
+/// Propagates failures to assemble the acknowledged snapshot.
+#[tauri::command]
+pub async fn set_processing_worker_paused(
+    worker: WorkerKind,
+    paused: bool,
+    service: State<'_, Arc<ProcessingControlService>>,
+) -> AppResult<ProcessingSnapshot> {
+    service.set_paused(worker, paused).await
+}

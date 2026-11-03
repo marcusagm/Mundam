@@ -40,7 +40,14 @@ pub fn init(app: &AppHandle) {
         crate::core::workflows::thumbnails::priority::ThumbnailPriorityState::default(),
     );
     app.manage(priority_state.clone());
-    let processing = app.state::<Arc<dyn crate::core::processing::ProcessingRepository>>().inner().clone();
+    let processing = app
+        .state::<Arc<dyn crate::core::processing::ProcessingRepository>>()
+        .inner()
+        .clone();
+    let control = app
+        .state::<Arc<crate::core::processing_control::ProcessingControl>>()
+        .inner()
+        .clone();
 
     // Start Thumbnail Worker (Hybrid Queue)
     let thumbnail_token = lifecycle.child_token();
@@ -52,7 +59,9 @@ pub fn init(app: &AppHandle) {
         dirs.thumbnails_dir.clone(),
         processing.clone(),
     );
-    let thumbnail_handle = thumbnail_worker.start(thumbnail_token.clone(), app.clone());
+    let thumbnail_handle = thumbnail_worker
+        .with_control(control.clone())
+        .start(thumbnail_token.clone(), app.clone());
     lifecycle.register(
         "thumbnail_worker".to_string(),
         thumbnail_token,
@@ -68,7 +77,9 @@ pub fn init(app: &AppHandle) {
         processing.clone(),
         dirs.thumbnails_dir.to_path_buf(),
     );
-    let color_handle = color_worker.start(color_worker_token.clone());
+    let color_handle = color_worker
+        .with_control(control.clone())
+        .start(color_worker_token.clone());
     lifecycle.register("color_worker".to_string(), color_worker_token, color_handle);
 
     // Start Auto-Empty Trash Worker (Periodic Cleanup)
@@ -76,8 +87,7 @@ pub fn init(app: &AppHandle) {
     let settings_adapter = std::sync::Arc::new(
         crate::infra::config::json_adapter::JsonSettingsAdapter::new(dirs.settings_path.clone()),
     );
-    let trash_settings_service =
-        crate::feature::settings::SettingsService::new(settings_adapter);
+    let trash_settings_service = crate::feature::settings::SettingsService::new(settings_adapter);
     let trash_worker = crate::feature::trash::auto_empty_worker::AutoEmptyTrashWorker::new(
         asset_ledger.clone(),
         app.state::<Arc<crate::infra::database::manager::DbManager>>()
@@ -112,9 +122,12 @@ pub fn init(app: &AppHandle) {
         format_registry.clone(),
         processing,
         asset_query_handler,
-        app.state::<Arc<crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator>>().inner().clone(),
+        app.state::<Arc<crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator>>()
+            .inner()
+            .clone(),
     );
-    let duplicate_handle = std::sync::Arc::new(duplicate_worker).start(duplicate_worker_token.clone());
+    let duplicate_handle = std::sync::Arc::new(duplicate_worker.with_control(control))
+        .start(duplicate_worker_token.clone());
     lifecycle.register(
         "duplicate_worker".to_string(),
         duplicate_worker_token,

@@ -45,7 +45,10 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     let processing_repository: Arc<dyn crate::core::processing::ProcessingRepository> = Arc::new(
         crate::infra::processing::SqliteProcessingRepository::new(db_manager.pool().clone()),
     );
-    app.manage(processing_repository);
+    app.manage(processing_repository.clone());
+    let processing_control =
+        Arc::new(crate::core::processing_control::ProcessingControl::default());
+    app.manage(processing_control.clone());
 
     let path_guard = Arc::new(crate::core::path_guard::LedgerPathGuard::new());
     app.manage(path_guard.clone());
@@ -60,7 +63,10 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     // Run database path normalization cleanup (one-time logic)
     let normalization_pool = db_manager.pool().clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(error) = crate::infra::database::handlers::shared::normalize_database_paths(&normalization_pool).await {
+        if let Err(error) =
+            crate::infra::database::handlers::shared::normalize_database_paths(&normalization_pool)
+                .await
+        {
             tracing::error!("Failed to normalize database paths: {}", error);
         }
     });
@@ -88,15 +94,20 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     app.manage(search_query_handler);
 
     // Initialize Duplicates Services
-    let duplicates_repo: Arc<dyn crate::core::repository::DuplicatesRepository> = 
-        Arc::new(crate::infra::database::duplicates::SqliteDuplicatesRepository::new(db_manager.pool().clone()));
+    let duplicates_repo: Arc<dyn crate::core::repository::DuplicatesRepository> = Arc::new(
+        crate::infra::database::duplicates::SqliteDuplicatesRepository::new(
+            db_manager.pool().clone(),
+        ),
+    );
     app.manage(duplicates_repo.clone());
 
     let duplicates_query_service =
         crate::feature::duplicates::queries::DuplicateQueryService::new(duplicates_repo.clone());
     app.manage(duplicates_query_service);
 
-    let duplicate_coordinator = Arc::new(crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator::default());
+    let duplicate_coordinator = Arc::new(
+        crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator::default(),
+    );
     app.manage(duplicate_coordinator.clone());
     let duplicates_command_service =
         crate::feature::duplicates::commands::DuplicateCommandService::new(
@@ -105,7 +116,19 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
             event_bus.clone(),
             asset_query_handler.clone(),
             format_registry.clone(),
-        ).with_processing_coordinator(duplicate_coordinator);
+        )
+        .with_processing_coordinator(duplicate_coordinator)
+        .with_processing_control(processing_control.clone());
+    app.manage(Arc::new(
+        crate::feature::processing_control::ProcessingControlService::new(
+            processing_control,
+            processing_repository,
+            app.state::<Arc<dyn crate::core::settings::SettingsRepository>>()
+                .inner()
+                .clone(),
+            Arc::new(duplicates_command_service.clone()),
+        ),
+    ));
     app.manage(duplicates_command_service);
 
     Ok(())

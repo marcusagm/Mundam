@@ -124,6 +124,8 @@ pub fn run() {
             delivery::tauri::commands::queries::get_audio_waveform_data,
             delivery::tauri::thumbnails::set_thumbnail_priority,
             delivery::tauri::thumbnails::get_thumbnail_processing_status,
+            delivery::tauri::processing::get_processing_snapshot,
+            delivery::tauri::processing::set_processing_worker_paused,
             // Settings Commands
             delivery::tauri::commands::settings::get_app_settings,
             delivery::tauri::commands::settings::update_app_settings,

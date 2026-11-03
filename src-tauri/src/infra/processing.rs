@@ -24,16 +24,8 @@ impl SqliteProcessingRepository {
 }
 
 fn pending_selection(kind: ProcessingKind) -> String {
-    let missing_result = match kind {
-        ProcessingKind::Thumbnail => "(a.thumbnail_path IS NULL OR a.thumbnail_path = '')",
-        ProcessingKind::Colors => "NOT EXISTS (SELECT 1 FROM asset_colors WHERE asset_id = a.id)",
-        ProcessingKind::Fingerprint => "(df.asset_id IS NULL OR df.content_hash LIKE 'pending_%' OR df.content_hash LIKE 'hash_%' OR df.fingerprint_version < 5)",
-    };
-    let dependency = if kind == ProcessingKind::Colors {
-        "AND a.thumbnail_path IS NOT NULL AND a.thumbnail_path != ''"
-    } else {
-        ""
-    };
+    let missing_result = missing_result(kind);
+    let dependency = dependency(kind);
     format!(
         "FROM assets a
          LEFT JOIN processing_tasks task ON task.asset_id = a.id AND task.kind = ?1
@@ -45,6 +37,22 @@ fn pending_selection(kind: ProcessingKind) -> String {
               OR (task.state = 'succeeded' AND {missing_result})
               OR (task.state = 'retry_wait' AND task.next_attempt_at <= unixepoch()))"
     )
+}
+
+fn missing_result(kind: ProcessingKind) -> &'static str {
+    match kind {
+        ProcessingKind::Thumbnail => "(a.thumbnail_path IS NULL OR a.thumbnail_path = '')",
+        ProcessingKind::Colors => "NOT EXISTS (SELECT 1 FROM asset_colors WHERE asset_id = a.id)",
+        ProcessingKind::Fingerprint => "(df.asset_id IS NULL OR df.content_hash LIKE 'pending_%' OR df.content_hash LIKE 'hash_%' OR df.fingerprint_version < 5)",
+    }
+}
+
+fn dependency(kind: ProcessingKind) -> &'static str {
+    if kind == ProcessingKind::Colors {
+        "AND a.thumbnail_path IS NOT NULL AND a.thumbnail_path != ''"
+    } else {
+        ""
+    }
 }
 
 /// Records explicit intent in the same transaction as the requesting Ledger command.
@@ -73,6 +81,13 @@ pub(crate) async fn enqueue(
 
 #[async_trait]
 impl ProcessingRepository for SqliteProcessingRepository {
+    async fn queue_counts(
+        &self,
+        kind: ProcessingKind,
+        active_assets: &[String],
+    ) -> AppResult<crate::core::processing_control::ProcessingQueueCounts> {
+        counts::queue_counts(&self.pool, kind, active_assets).await
+    }
     async fn thumbnail_statuses(
         &self,
         asset_ids: &[String],
@@ -210,6 +225,9 @@ impl ProcessingRepository for SqliteProcessingRepository {
         Ok(())
     }
 }
+
+#[path = "processing_counts.rs"]
+mod counts;
 
 #[cfg(test)]
 #[path = "processing_tests.rs"]

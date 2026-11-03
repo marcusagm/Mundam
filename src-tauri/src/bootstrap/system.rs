@@ -54,10 +54,11 @@ pub fn init_directories(
 /// * `app` - Reference to the Tauri AppHandle.
 pub fn init_settings(app: &AppHandle) {
     let dirs = app.state::<crate::bootstrap::AppDirectories>();
-    let settings_adapter = Arc::new(
+    let settings_adapter: Arc<dyn crate::core::settings::SettingsRepository> = Arc::new(
         crate::infra::config::json_adapter::JsonSettingsAdapter::new(dirs.settings_path.clone()),
     );
-    let settings_service = crate::feature::settings::SettingsService::new(settings_adapter);
+    let settings_service = crate::feature::settings::SettingsService::new(settings_adapter.clone());
+    app.manage(settings_adapter);
     app.manage(settings_service);
 }
 
@@ -200,7 +201,11 @@ pub fn init_events(app: &AppHandle) {
         }
     });
 
-    lifecycle.register("event_bridge_frontend".to_string(), bridge_token, bridge_handle);
+    lifecycle.register(
+        "event_bridge_frontend".to_string(),
+        bridge_token,
+        bridge_handle,
+    );
 }
 
 /// Initializes the lifecycle registry and manages it in the application state.

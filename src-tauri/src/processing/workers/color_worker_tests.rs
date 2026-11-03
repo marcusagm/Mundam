@@ -12,6 +12,41 @@ fn worker(fixture: &ProcessingFixture) -> ColorWorker {
 }
 
 #[tokio::test]
+async fn processing_colors_pause_defers_attempts_and_resume_recovers_work() -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    fixture.asset("asset", Some("asset.png")).await?;
+    image::RgbImage::from_pixel(8, 8, image::Rgb([30, 120, 200]))
+        .save(fixture.data.path().join("thumbnails/asset.png"))?;
+    let control = Arc::new(ProcessingControl::default());
+    let executor = worker(&fixture).with_control(control.clone());
+    control.set_paused(WorkerKind::Colors, true);
+    executor.process_pending(&CancellationToken::new()).await?;
+    assert_eq!(
+        fixture
+            .processing
+            .queue_counts(ProcessingKind::Colors, &[])
+            .await?
+            .pending,
+        1
+    );
+    let attempts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM processing_tasks")
+        .fetch_one(&fixture.pool)
+        .await?;
+    assert_eq!(attempts, 0);
+    control.set_paused(WorkerKind::Colors, false);
+    executor.process_pending(&CancellationToken::new()).await?;
+    assert_eq!(
+        fixture
+            .processing
+            .queue_counts(ProcessingKind::Colors, &[])
+            .await?
+            .pending,
+        0
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn processing_colors_recovers_without_thumbnail_event_delivery() -> TestResult {
     let fixture = ProcessingFixture::new().await?;
     fixture.asset("asset", Some("asset.png")).await?;

@@ -1,83 +1,60 @@
-import { Button } from '../../ui';
-import { Component, Show, createSignal, Switch, Match } from 'solid-js';
-import { useSystem } from '../../../core/hooks';
+import { createMemo, createSignal, Match, Switch, type Component } from 'solid-js';
+import { CircleCheck, CircleHelp, PaintRoller, Pause, Settings, TriangleAlert } from 'lucide-solid';
+import { Button } from '../../ui/Button';
+import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { Loader } from '../../ui/Loader';
-import { CircleCheck, PaintRoller, Settings } from 'lucide-solid';
+import { useSystem } from '../../../core/hooks';
+import { useProcessing } from '../../../core/hooks/useProcessing';
+import { ProcessingActivityPanel } from './ProcessingActivityPanel';
+import { processingIndicator, processingLabels } from './processingPresentation';
 
+/** Displays authoritative activity and acknowledged session pause controls. */
 export const StatusSystem: Component = () => {
     const system = useSystem();
-    // Thumbnail queue represents real backend state from systemStore
-    const thumbnailQueue = () => system.thumbnailProgress();
-    const [isPopoverOpen, setIsPopoverOpen] = createSignal(false);
-
+    const processing = useProcessing();
+    const [isOpen, setIsOpen] = createSignal(false);
+    const indicator = createMemo(() =>
+        processingIndicator(processing.state(), Boolean(system.progress()))
+    );
     return (
         <div class="statusbar-section statusbar-system">
-            {/* Background Processes Indicator */}
-            <div class="system-indicator">
-                <Switch
-                    fallback={
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            class="status-btn success-text"
-                            title="All Systems Operational"
-                            onClick={() => setIsPopoverOpen(!isPopoverOpen())}
-                        >
-                            <CircleCheck size={12} />
-                        </Button>
-                    }
-                >
-                    <Match when={system.progress() || thumbnailQueue()}>
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            class="status-btn"
-                            onClick={() => setIsPopoverOpen(!isPopoverOpen())}
-                        >
-                            <Loader size="sm" />
-                        </Button>
-                    </Match>
-                </Switch>
-            </div>
-
-            {/* Popover Logic (Simplistic Inline for now, ideal to be a real Popover) */}
-            <Show when={isPopoverOpen()}>
-                <div class="system-popover ui-popover-content">
-                    <div class="popover-header">System Activity</div>
-                    <div class="popover-content">
-                        <Show when={!system.progress() && !thumbnailQueue()}>
-                            <div class="empty-state">No background tasks running.</div>
-                        </Show>
-
-                        <Show when={system.progress()}>
-                            <div class="task-row">
+            <PopoverRoot placement="top-end" isOpen={isOpen()} onOpenChange={setIsOpen}>
+                <PopoverTrigger>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="status-btn"
+                        classList={{ 'success-text': indicator() === 'idle' }}
+                        aria-label={'System activity: ' + processingLabels[indicator()]}
+                        aria-haspopup="dialog"
+                        aria-expanded={isOpen()}
+                        title={processingLabels[indicator()]}
+                    >
+                        <Switch fallback={<CircleCheck size={12} />}>
+                            <Match when={indicator() === 'unknown'}>
+                                <CircleHelp size={12} />
+                            </Match>
+                            <Match when={indicator() === 'busy'}>
                                 <Loader size="sm" />
-                                <div>
-                                    <div class="task-name">Indexing Library</div>
-                                    <div class="task-status">
-                                        {system.progress()?.processed} / {system.progress()?.total}
-                                    </div>
-                                </div>
-                            </div>
-                        </Show>
-
-                        <Show when={thumbnailQueue()}>
-                            <div class="task-row">
-                                <Loader size="sm" />
-                                <div>
-                                    <div class="task-name">Generating Thumbnails</div>
-                                    <div class="task-status">
-                                        {thumbnailQueue()?.processed} / {thumbnailQueue()?.total}
-                                    </div>
-                                </div>
-                            </div>
-                        </Show>
-                    </div>
-                </div>
-            </Show>
-
+                            </Match>
+                            <Match when={indicator() === 'paused'}>
+                                <Pause size={12} />
+                            </Match>
+                            <Match when={indicator() === 'warning'}>
+                                <TriangleAlert size={12} />
+                            </Match>
+                        </Switch>
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                    <ProcessingActivityPanel
+                        state={processing.state()}
+                        indexing={system.progress()}
+                        onPause={processing.setPaused}
+                    />
+                </PopoverContent>
+            </PopoverRoot>
             <div class="statusbar-divider" />
-
             <Button
                 variant="ghost"
                 size="icon-sm"
@@ -86,7 +63,6 @@ export const StatusSystem: Component = () => {
             >
                 <Settings size={12} />
             </Button>
-
             <Button
                 variant="ghost"
                 size="icon-sm"

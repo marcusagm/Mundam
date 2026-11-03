@@ -7,6 +7,7 @@ use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::processing::{
     ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
 };
+use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::AssetQueryHandler;
 use crate::feature::analysis::colors::extract_color_palette;
 use std::path::PathBuf;
@@ -21,6 +22,7 @@ pub struct ColorWorker {
     queries: Arc<dyn AssetQueryHandler>,
     processing: Arc<dyn ProcessingRepository>,
     thumbnails_dir: PathBuf,
+    control: Arc<ProcessingControl>,
 }
 
 impl ColorWorker {
@@ -38,13 +40,21 @@ impl ColorWorker {
             queries,
             processing,
             thumbnails_dir,
+            control: Arc::new(ProcessingControl::default()),
         }
+    }
+
+    /// Shares session pause admission with the other executors.
+    pub fn with_control(mut self, control: Arc<ProcessingControl>) -> Self {
+        self.control = control;
+        self
     }
 
     /// Reconciles on startup, periodically and after relevant domain notifications.
     pub fn start(self, token: CancellationToken) -> tauri::async_runtime::JoinHandle<()> {
         let mut subscriber = self.event_bus.subscribe();
         tauri::async_runtime::spawn(async move {
+            let _lifetime = self.control.start(WorkerKind::Colors);
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
@@ -68,10 +78,16 @@ impl ColorWorker {
     }
 
     async fn process_pending(&self, token: &CancellationToken) -> AppResult<()> {
-        if token.is_cancelled() {
+        if token.is_cancelled() || self.control.is_paused(WorkerKind::Colors) {
             return Ok(());
         }
         for asset_id in self.processing.pending(ProcessingKind::Colors, 1).await? {
+            let Some(_activity) =
+                self.control
+                    .try_admit(WorkerKind::Colors, "colors", Some(&asset_id))
+            else {
+                break;
+            };
             let Some(ticket) = self
                 .processing
                 .begin(ProcessingKind::Colors, &asset_id)
