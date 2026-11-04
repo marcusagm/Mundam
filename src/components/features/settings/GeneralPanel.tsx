@@ -7,6 +7,7 @@ import { filterState, filterActions } from '../../../core/store/filter';
 import { transcodeState, transcodeActions } from '../../../core/store/transcodeStore';
 import { type TranscodeQuality } from '../../../lib/stream-utils';
 import { TrashSettingsSection } from './TrashSettingsSection';
+import { PerformanceSettings } from './PerformanceSettings';
 import './general-panel.css';
 
 import { formatFileSize } from '../../../utils/format';
@@ -35,18 +36,6 @@ export const GeneralPanel: Component = () => {
             console.error(error);
         } finally {
             setOptimizing(false);
-        }
-    };
-
-    const handleThreadChange = async (value: string) => {
-        const result = await settings.updateSettings({ thumbnailThreads: Number(value) });
-        if (result.success) {
-            notification.success(
-                'Settings saved.',
-                'Please restart the app for changes to take effect.'
-            );
-        } else {
-            notification.error('Failed to save settings.', result.error.message);
         }
     };
 
@@ -85,14 +74,6 @@ export const GeneralPanel: Component = () => {
         }
     };
 
-    const threadOptions = [
-        { value: '0', label: 'Auto-Detect (Recommended)' },
-        { value: '1', label: '1 (Low CPU)' },
-        { value: '2', label: '2 (Balanced)' },
-        { value: '4', label: '4 (High Performance)' },
-        { value: '8', label: '8 (Extreme)' }
-    ];
-
     const retentionOptions = [
         { value: '7', label: '7 days' },
         { value: '14', label: '14 days' },
@@ -100,26 +81,6 @@ export const GeneralPanel: Component = () => {
         { value: '60', label: '60 days' },
         { value: '90', label: '90 days' }
     ];
-
-    const concurrencyOptions = [
-        { value: '50', label: '50 (Safe — HDD/SD)' },
-        { value: '100', label: '100 (Balanced)' },
-        { value: '200', label: '200 (Fast — SSD, Recommended)' },
-        { value: '300', label: '300 (Aggressive)' },
-        { value: '400', label: '400 (Extreme — NVMe only)' }
-    ];
-
-    const handleConcurrencyChange = async (value: string) => {
-        const result = await settings.updateSettings({ indexerConcurrencyLimit: Number(value) });
-        if (result.success) {
-            notification.success(
-                'Settings saved.',
-                'Please restart the app for changes to take effect.'
-            );
-        } else {
-            notification.error('Failed to save settings.', result.error.message);
-        }
-    };
 
     const qualityOptions = [
         { value: 'preview', label: 'Preview (Faster, smaller files)' },
@@ -136,34 +97,7 @@ export const GeneralPanel: Component = () => {
         <div class="settings-panel-content general-panel">
             <h2 class="settings-panel-title">General</h2>
 
-            <SectionGroup
-                title="Performance"
-                description="Higher values use more CPU but generate thumbnails faster. Concurrency changes apply after restarting the app. Pause or resume workers in System Activity."
-            >
-                <div class="general-setting-row">
-                    <span class="setting-label">Thumbnail Threads:</span>
-                    <div style={{ width: '200px' }}>
-                        <Select
-                            options={threadOptions}
-                            value={String(settings.thumbnailThreads())}
-                            onValueChange={handleThreadChange}
-                            placeholder="Select threads"
-                        />
-                    </div>
-                </div>
-                <div class="general-setting-row">
-                    <span class="setting-label">Indexer Concurrency:</span>
-                    <div style={{ width: '200px' }}>
-                        <Select
-                            options={concurrencyOptions}
-                            value={String(settings.indexerConcurrencyLimit())}
-                            onValueChange={handleConcurrencyChange}
-                            placeholder="Select limit"
-                        />
-                    </div>
-                </div>
-                <p class="setting-note">* Requires restart to apply.</p>
-            </SectionGroup>
+            <PerformanceSettings />
 
             <SectionGroup
                 title="Transcoding Cache"

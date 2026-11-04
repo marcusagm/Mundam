@@ -19,6 +19,16 @@ pub async fn process(
     if token.is_cancelled() {
         return Ok(None);
     }
+    let Some(_resources) = coordinator
+        .budget
+        .acquire(
+            crate::core::processing_control::WorkerKind::Duplicates,
+            token,
+        )
+        .await
+    else {
+        return Ok(None);
+    };
     let Some(input) = repository.claim_matching(kind, automatic_enabled).await? else {
         return Ok(None);
     };

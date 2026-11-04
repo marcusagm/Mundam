@@ -448,3 +448,9 @@ O snapshot acrescenta causas tipadas e agrupadas por estágio. Logs antigos ou c
 Contratos, regras de seleção e limites estão em [Retry por worker e diagnóstico](worker-retries-diagnostics.md). A próxima entrega planejada é concorrência efetiva em tempo de execução e orçamento compartilhado, com otimização orientada por medição.
 
 Validação: **62 testes de processamento** e **45 testes frontend** aprovados, incluindo o novo IPC com permissões reais, rollback e privacidade. O documento histórico do scheduler foi preservado.
+
+## 21. Orçamento compartilhado e limites dinâmicos
+
+Thumbnails, cores, fingerprints e comparações compartilham capacidade de operações com admissão justa entre solicitações elegíveis. Os limites compartilhado e de thumbnails aplicam após salvar, sem reiniciar, preservando a drenagem das operações atuais. Esperas por capacidade não mantêm leases nem consomem tentativas. A configuração do indexer conserva o requisito de reinício.
+
+A statusbar mostra capacidade efetiva, ocupação e solicitações em espera. Configurações de mídia só mudam no store após confirmação da gravação. Contratos, limites e validação estão em [Orçamento compartilhado dos workers](worker-resource-budget.md). Medição de carga nas plataformas e otimização orientada por resultados são os próximos itens. O documento histórico do scheduler permanece inalterado.

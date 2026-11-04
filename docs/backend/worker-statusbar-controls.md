@@ -77,7 +77,7 @@ Atualizações periódicas preservam os elementos das linhas e o foco dos contro
 
 ## Limites desta etapa
 
-O retry de falhas e a reavaliação explícita de resultados sem suporte foram acrescentados em [Retry por worker e diagnóstico](worker-retries-diagnostics.md), com causas agrupadas e feedback de enfileiramento. Os limites descritos abaixo registram o alcance original dos controles da sessão.
+O retry de falhas e a reavaliação explícita de resultados sem suporte foram acrescentados em [Retry por worker e diagnóstico](worker-retries-diagnostics.md), com causas agrupadas e feedback de enfileiramento. A etapa de [Orçamento dos workers](worker-resource-budget.md) acrescenta limites dinâmicos de operações e capacidade efetiva na statusbar. Os limites descritos abaixo registram o alcance original dos controles da sessão.
 
 A revisão posterior das configurações e do finder está em [Integração dos workers com a interface](workers-frontend-integration.md). Ela compartilha admissão e progresso manual com a statusbar, corrige as fases exibidas e relaciona as pendências atuais do plano.
 

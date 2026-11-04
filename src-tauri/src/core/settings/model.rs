@@ -43,6 +43,10 @@ pub struct AppSettings {
     /// Number of threads used for thumbnail generation.
     pub thumbnail_threads: usize,
 
+    /// Shared media-operation budget; zero selects a bounded automatic capacity.
+    #[serde(default)]
+    pub processing_concurrency: usize,
+
     /// Number of days to retain cached transcoded files and thumbnails.
     pub cache_retention_days: u32,
 
@@ -79,6 +83,7 @@ impl Default for AppSettings {
             auto_scan_enabled: true,
             indexer_concurrency_limit: 200,
             thumbnail_threads: std::cmp::max(1, available_parallelism / 2),
+            processing_concurrency: 0,
             cache_retention_days: 30,
             auto_detect_duplicates: true,
             extra: std::collections::HashMap::new(),

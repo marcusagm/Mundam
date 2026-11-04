@@ -8,12 +8,13 @@ pub use error::{AppError, AppResult, Context};
 pub use events::{AppEventBus, DomainEvent};
 
 pub mod ledger;
+pub mod matching;
 pub mod models;
 pub mod path_guard;
 pub mod processing;
-pub mod processing_diagnostics;
-pub mod matching;
+pub mod processing_budget;
 pub mod processing_control;
+pub mod processing_diagnostics;
 pub mod repository;
 pub mod settings;
 pub mod trash;

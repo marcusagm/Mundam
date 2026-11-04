@@ -37,7 +37,10 @@ export const Select: Component<SelectProperties> = properties => {
         'id',
         'leftIcon',
         'rightIcon',
-        'size'
+        'size',
+        'aria-label',
+        'aria-labelledby',
+        'aria-describedby'
     ]);
 
     /**
@@ -71,6 +74,9 @@ export const Select: Component<SelectProperties> = properties => {
                     {...remainingProperties}
                 >
                     <SelectTrigger
+                        aria-label={localProperties['aria-label']}
+                        aria-labelledby={localProperties['aria-labelledby']}
+                        aria-describedby={localProperties['aria-describedby']}
                         error={localProperties.error}
                         size={activeSize()}
                         class={concatenateClasses(

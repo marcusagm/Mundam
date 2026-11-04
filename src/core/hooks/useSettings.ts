@@ -1,4 +1,5 @@
 import {
+    processingConcurrency,
     thumbnailThreads,
     cacheRetentionDays,
     indexerConcurrencyLimit,
@@ -15,6 +16,8 @@ import {
  */
 export const useSettings = () => {
     return {
+        /** Shared media operations; zero selects automatic capacity. */
+        processingConcurrency,
         /** Number of worker threads for thumbnail generation */
         thumbnailThreads,
         /** Number of days to keep transcoded files in cache */

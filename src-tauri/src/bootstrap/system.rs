@@ -57,7 +57,10 @@ pub fn init_settings(app: &AppHandle) {
     let settings_adapter: Arc<dyn crate::core::settings::SettingsRepository> = Arc::new(
         crate::infra::config::json_adapter::JsonSettingsAdapter::new(dirs.settings_path.clone()),
     );
-    let settings_service = crate::feature::settings::SettingsService::new(settings_adapter.clone());
+    let control = Arc::new(crate::core::processing_control::ProcessingControl::default());
+    let settings_service = crate::feature::settings::SettingsService::new(settings_adapter.clone())
+        .with_control(control.clone());
+    app.manage(control);
     app.manage(settings_adapter);
     app.manage(settings_service);
 }

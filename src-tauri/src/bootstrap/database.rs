@@ -46,9 +46,17 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         crate::infra::processing::SqliteProcessingRepository::new(db_manager.pool().clone()),
     );
     app.manage(processing_repository.clone());
-    let processing_control =
-        Arc::new(crate::core::processing_control::ProcessingControl::default());
-    app.manage(processing_control.clone());
+    let processing_control = app
+        .state::<Arc<crate::core::processing_control::ProcessingControl>>()
+        .inner()
+        .clone();
+    let settings = app
+        .state::<crate::feature::settings::SettingsService>()
+        .get_settings()
+        .await?;
+    processing_control
+        .budget
+        .configure(settings.processing_concurrency, settings.thumbnail_threads);
 
     let path_guard = Arc::new(crate::core::path_guard::LedgerPathGuard::new());
     app.manage(path_guard.clone());
@@ -106,7 +114,8 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     app.manage(duplicates_query_service);
 
     let duplicate_coordinator = Arc::new(
-        crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator::default(),
+        crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator::default()
+            .with_budget(processing_control.budget.clone()),
     );
     app.manage(duplicate_coordinator.clone());
     let duplicates_command_service =

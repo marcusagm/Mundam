@@ -6,10 +6,21 @@ use tokio::sync::{Mutex, MutexGuard};
 #[derive(Default)]
 pub struct DuplicateProcessingCoordinator {
     gate: Mutex<()>,
+    /// Shared media-operation capacity, also used by manual scans.
+    pub budget: std::sync::Arc<crate::core::processing_budget::ProcessingBudget>,
     matching: std::sync::Mutex<Option<(String, bool, tokio_util::sync::CancellationToken)>>,
 }
 
 impl DuplicateProcessingCoordinator {
+    /// Injects the same resource policy used by the other media workers.
+    pub fn with_budget(
+        mut self,
+        budget: std::sync::Arc<crate::core::processing_budget::ProcessingBudget>,
+    ) -> Self {
+        self.budget = budget;
+        self
+    }
+
     /// Acquires an execution slot; callers select cancellation while waiting.
     pub async fn acquire(&self) -> MutexGuard<'_, ()> {
         self.gate.lock().await

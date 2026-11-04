@@ -32,7 +32,8 @@ export type AppearancePayload = z.infer<typeof AppearancePayloadSchema>;
  * Schema for general application settings.
  */
 export const SettingsPayloadSchema = z.object({
-    thumbnailThreads: z.number().min(0).max(32).optional(),
+    thumbnailThreads: z.number().int().min(0).max(32).optional(),
+    processingConcurrency: z.number().int().min(0).max(8).optional(),
     cacheRetentionDays: z.number().min(1).max(365).optional(),
     historyLimit: z.number().min(1).max(1000).optional(),
     indexerConcurrencyLimit: z.number().min(10).max(500).optional(),

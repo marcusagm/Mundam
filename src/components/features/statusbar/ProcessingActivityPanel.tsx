@@ -25,6 +25,20 @@ interface ProcessingActivityPanelProperties {
 export const ProcessingActivityPanel: Component<ProcessingActivityPanelProperties> = properties => (
     <section class="processing-activity" aria-label="System activity">
         <h3>System Activity</h3>
+        <Show when={properties.state.snapshot?.capacity}>
+            {capacity => (
+                <div class="processing-help" aria-label="Processing capacity">
+                    <p>
+                        {capacity().active} / {capacity().limit} media operations active;{' '}
+                        {capacity().waiting} waiting for capacity.
+                    </p>
+                    <p>
+                        Thumbnail limit: {capacity().thumbnail_limit}. Lower limits apply as current
+                        operations finish.
+                    </p>
+                </div>
+            )}
+        </Show>
         <Show when={properties.state.error}>
             <p class="processing-error" role="status">
                 {properties.state.error}

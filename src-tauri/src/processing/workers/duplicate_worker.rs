@@ -38,7 +38,8 @@ impl DuplicateWorker {
         queries: Arc<dyn AssetQueryHandler>,
         coordinator: Arc<DuplicateProcessingCoordinator>,
     ) -> Self {
-        let processor = FingerprintProcessor::new(ledger, processing, queries, format_registry);
+        let processor = FingerprintProcessor::new(ledger, processing, queries, format_registry)
+            .with_budget(coordinator.budget.clone());
         Self {
             duplicates_repo,
             event_bus,

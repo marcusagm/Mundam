@@ -8,6 +8,7 @@ export interface CacheStats {
     file_count: number;
 }
 
+const [processingConcurrency, setProcessingConcurrency] = createSignal<number>(0);
 const [thumbnailThreads, setThumbnailThreads] = createSignal<number>(2);
 const [cacheRetentionDays, setCacheRetentionDays] = createSignal<number>(30);
 const [indexerConcurrencyLimit, setIndexerConcurrencyLimit] = createSignal<number>(200);
@@ -19,14 +20,16 @@ const [cacheStats, setCacheStats] = createSignal<CacheStats>({
 
 export const settingsActions = {
     initialize: async () => {
-        const [threads, retention, concurrency, autoDetect, stats] = await Promise.all([
+        const [threads, retention, concurrency, autoDetect, stats, budget] = await Promise.all([
             tauriService.getSetting('thumbnail_threads'),
             tauriService.getSetting('cache_retention_days'),
             tauriService.getSetting('indexer_concurrency_limit'),
             tauriService.getSetting('auto_detect_duplicates'),
-            tauriService.getCacheStats()
+            tauriService.getCacheStats(),
+            tauriService.getSetting('processing_concurrency')
         ]);
 
+        if (budget !== null) setProcessingConcurrency(Number(budget));
         if (threads !== null) setThumbnailThreads(Number(threads));
         if (retention !== null) setCacheRetentionDays(Number(retention));
         if (concurrency !== null) setIndexerConcurrencyLimit(Number(concurrency));
@@ -47,34 +50,44 @@ export const settingsActions = {
         }
 
         const promises: Promise<void>[] = [];
-        if (payload.thumbnailThreads !== undefined) {
-            setThumbnailThreads(payload.thumbnailThreads);
+        if (payload.processingConcurrency !== undefined) {
+            const value = payload.processingConcurrency;
             promises.push(
-                tauriService.setSetting('thumbnail_threads', String(payload.thumbnailThreads))
+                tauriService.setSetting('processing_concurrency', String(value)).then(() => {
+                    setProcessingConcurrency(value);
+                })
+            );
+        }
+        if (payload.thumbnailThreads !== undefined) {
+            const value = payload.thumbnailThreads;
+            promises.push(
+                tauriService.setSetting('thumbnail_threads', String(value)).then(() => {
+                    setThumbnailThreads(value);
+                })
             );
         }
         if (payload.cacheRetentionDays !== undefined) {
-            setCacheRetentionDays(payload.cacheRetentionDays);
+            const value = payload.cacheRetentionDays;
             promises.push(
-                tauriService.setSetting('cache_retention_days', String(payload.cacheRetentionDays))
+                tauriService.setSetting('cache_retention_days', String(value)).then(() => {
+                    setCacheRetentionDays(value);
+                })
             );
         }
         if (payload.indexerConcurrencyLimit !== undefined) {
-            setIndexerConcurrencyLimit(payload.indexerConcurrencyLimit);
+            const value = payload.indexerConcurrencyLimit;
             promises.push(
-                tauriService.setSetting(
-                    'indexer_concurrency_limit',
-                    String(payload.indexerConcurrencyLimit)
-                )
+                tauriService.setSetting('indexer_concurrency_limit', String(value)).then(() => {
+                    setIndexerConcurrencyLimit(value);
+                })
             );
         }
         if (payload.autoDetectDuplicates !== undefined) {
-            setAutoDetectDuplicates(payload.autoDetectDuplicates);
+            const value = payload.autoDetectDuplicates;
             promises.push(
-                tauriService.setSetting(
-                    'auto_detect_duplicates',
-                    String(payload.autoDetectDuplicates)
-                )
+                tauriService.setSetting('auto_detect_duplicates', String(value)).then(() => {
+                    setAutoDetectDuplicates(value);
+                })
             );
         }
 
@@ -100,6 +113,7 @@ export const settingsActions = {
 };
 
 export {
+    processingConcurrency,
     thumbnailThreads,
     cacheRetentionDays,
     indexerConcurrencyLimit,

@@ -60,7 +60,7 @@ Enquanto uma ação está pendente, os controles daquele worker ficam desabilita
 
 Não há instalação de extratores pela interface, lista de caminhos dos arquivos afetados ou inferência retroativa de erros antigos. Indexação e limpeza automática da lixeira conservam seus controles próprios. Esta etapa não muda concorrência ou interrompe tarefas nativas em andamento.
 
-A próxima entrega planejada é aplicar limites efetivos em tempo de execução e orçamento compartilhado de recursos, seguida de otimização e testes de carga. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
+A entrega posterior [Orçamento compartilhado dos workers](worker-resource-budget.md) aplica limites de operações em tempo de execução. Otimização orientada por medição e testes de carga permanecem como próxima etapa. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
 
 ## Validação
 

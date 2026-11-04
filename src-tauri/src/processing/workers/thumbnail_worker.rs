@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::Manager;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument};
@@ -90,24 +89,13 @@ impl ThumbnailWorker {
     pub fn start(
         self,
         token: CancellationToken,
-        app_handle: tauri::AppHandle,
+        _app_handle: tauri::AppHandle,
     ) -> tauri::async_runtime::JoinHandle<()> {
         tauri::async_runtime::spawn(async move {
             let _lifetime = self.control.start(WorkerKind::Thumbnails);
             info!("ThumbnailWorker: Orchestrator loop started");
             let worker_arc = Arc::new(self);
 
-            // Resolve maximum concurrency via user settings
-            let settings_service = app_handle.state::<crate::feature::settings::SettingsService>();
-            let max_concurrent = match settings_service.get_settings().await {
-                Ok(settings) if settings.thumbnail_threads > 0 => settings.thumbnail_threads,
-                _ => std::thread::available_parallelism()
-                    .map(|n| n.get())
-                    .unwrap_or(4)
-                    .clamp(2, 8),
-            };
-
-            let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrent));
             // IDs currently being processed; prevents several slots from picking the same asset.
             let in_flight: Arc<std::sync::Mutex<std::collections::HashSet<String>>> =
                 Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
@@ -138,9 +126,9 @@ impl ThumbnailWorker {
                 // fetching the absolutely freshest priority items from the UI.
                 let permit = tokio::select! {
                     _ = token.cancelled() => break,
-                    result = semaphore.clone().acquire_owned() => match result {
-                        Ok(permit) => permit,
-                        Err(_) => break,
+                    result = worker_arc.control.budget.acquire(WorkerKind::Thumbnails, &token) => match result {
+                        Some(permit) => permit,
+                        None => break,
                     }
                 };
 

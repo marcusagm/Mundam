@@ -82,6 +82,8 @@ struct WorkerState {
 /// A single lock linearizes pause acknowledgments and new execution admissions.
 #[derive(Default)]
 pub struct ProcessingControl {
+    /// Shared capacity for thumbnail, palette, fingerprint and matching operations.
+    pub budget: Arc<super::processing_budget::ProcessingBudget>,
     states: Mutex<BTreeMap<WorkerKind, WorkerState>>,
 }
 

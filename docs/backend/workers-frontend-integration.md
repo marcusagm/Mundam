@@ -8,7 +8,7 @@ Esta etapa revisa configurações, duplicados e statusbar após a unificação d
 
 | Área | Integração e comportamento |
 | --- | --- |
-| Configurações gerais | Concorrência de thumbnails continua exigindo reinício. O texto explica esse limite e indica os controles de pausa na atividade do sistema. O cache de transcodificação conserva seu fluxo próprio. |
+| Configurações gerais | Limites compartilhado e de thumbnails aplicam sem reinício; concorrência do indexer permanece separada e exige reinício. O painel informa a capacidade efetiva. O cache de transcodificação conserva seu fluxo próprio. |
 | Configurações de duplicados | Automação persistida é diferente de pausa da sessão. A preferência descreve análise em segundo plano pelas regras ativas, sem prometer agrupamento instantâneo. |
 | Scan e manutenção | Scan, cancelamento e rebuild usam o mesmo controlador compartilhado da tela de duplicados. Rebuild exige confirmação sobre fingerprints, grupos e histórico de resoluções; preserva arquivos, thumbnails e cores. |
 | Duplicate Finder | Estado e fases vêm do snapshot compartilhado. Progresso de hashing não permanece em 100% enquanto compara arquivos; cancelamento permanece como parada solicitada até a saída. |
@@ -45,7 +45,7 @@ As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-co
 | --- | --- | --- |
 | Entregue | Jobs persistidos de comparação de duplicados, com política de regras e recuperação após crash | Implementação posterior descrita em [Comparações persistentes](duplicate-matching-jobs.md), incluindo retomada e publicação por revisão. |
 | Entregue | Repetir falhas por estágio e diagnóstico agrupado de capacidades/extratores | [Retry por worker e diagnóstico](worker-retries-diagnostics.md) adiciona ações explícitas e causas seguras no painel. |
-| 3 | Concorrência efetiva em tempo de execução e orçamento comum de CPU/I/O | Os limites configurados ainda exigem reinício; workers mantêm concorrências próprias. |
+| Entregue | Concorrência efetiva em tempo de execução e orçamento compartilhado de operações | [Orçamento dos workers](worker-resource-budget.md) limita operações de mídia; threads nativas e percentuais de CPU/I/O não são quotas. |
 | 4 | Coalescência de progresso manual e matching incremental, orientados por benchmarks | Snapshot global é compartilhado, mas o backend ainda conserva o canal legado de progresso manual e comparações globais. |
 | Validação | Uso visual e testes de carga nas duas plataformas | Testes automatizados desta etapa não substituem uso real de modais, foco, statusbar e carga de biblioteca em Windows/macOS. |
 

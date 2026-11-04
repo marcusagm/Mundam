@@ -36,6 +36,8 @@ pub struct WorkerSnapshot {
 pub struct ProcessingSnapshot {
     /// Durable comparison work is distinct from per-asset fingerprint queues.
     pub matching: crate::core::matching::MatchingStatus,
+    /// Effective shared operation capacity, including resource waiters.
+    pub capacity: crate::core::processing_budget::ProcessingCapacity,
     /// Changes when this application service restarts.
     pub instance_id: String,
     /// Increases for each emitted response within this instance.
@@ -166,6 +168,7 @@ impl ProcessingControlService {
         }
         cache.sequence += 1;
         Ok(ProcessingSnapshot {
+            capacity: self.control.budget.snapshot(),
             matching,
             instance_id: self.instance_id.clone(),
             sequence: cache.sequence,

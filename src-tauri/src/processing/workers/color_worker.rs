@@ -81,6 +81,10 @@ impl ColorWorker {
             return Ok(());
         }
         for asset_id in self.processing.pending(ProcessingKind::Colors, 1).await? {
+            let Some(_resources) = self.control.budget.acquire(WorkerKind::Colors, token).await
+            else {
+                break;
+            };
             let Some(_activity) =
                 self.control
                     .try_admit(WorkerKind::Colors, "colors", Some(&asset_id))

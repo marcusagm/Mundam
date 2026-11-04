@@ -84,7 +84,7 @@ Configurações, finder e statusbar distinguem recuperação, pausa, espera por 
 
 O snapshot dos inputs e a publicação ainda abrangem a fase inteira. A comparação visual continua global e quadrática; matching incremental, orçamento comum e medições de carga continuam planejados. Não há nova configuração de concorrência dinâmica nesta etapa. A identificação da origem continua baseada no catálogo.
 
-Retry por worker e diagnóstico agrupado foram implementados na etapa posterior de [retries e diagnóstico](worker-retries-diagnostics.md). Repetir falhas de duplicados enfileira fingerprints e comparações que falharam na mesma transação, sem exigir rebuild. Limites dinâmicos e orçamento de recursos continuam planejados.
+Retry por worker e diagnóstico agrupado foram implementados na etapa posterior de [retries e diagnóstico](worker-retries-diagnostics.md). Repetir falhas de duplicados enfileira fingerprints e comparações que falharam na mesma transação, sem exigir rebuild. Limites dinâmicos e orçamento compartilhado de operações foram entregues em [Orçamento dos workers](worker-resource-budget.md). Medição de carga e otimização orientada por resultados continuam planejadas.
 
 ## Validação
 

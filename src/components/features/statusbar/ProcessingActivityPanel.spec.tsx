@@ -32,6 +32,27 @@ const state = (): ProcessingClientState => ({
 afterEach(cleanup);
 
 describe('processing statusbar controls', () => {
+    it('reactively reports effective capacity while a reduced limit drains active operations', () => {
+        const initial = state();
+        initial.snapshot!.capacity = { limit: 1, active: 3, waiting: 2, thumbnail_limit: 1 };
+        const [current, setCurrent] = createSignal(initial);
+        const view = render(() => (
+            <ProcessingActivityPanel state={current()} indexing={null} onPause={vi.fn()} />
+        ));
+        expect(view.getByLabelText('Processing capacity').textContent).toContain('3 / 1');
+        expect(view.getByLabelText('Processing capacity').textContent).toContain('2 waiting');
+        setCurrent(previous => ({
+            ...previous,
+            snapshot: {
+                ...previous.snapshot!,
+                capacity: { limit: 4, active: 2, waiting: 0, thumbnail_limit: 2 }
+            }
+        }));
+        expect(view.getByLabelText('Processing capacity').textContent).toContain('2 / 4');
+        expect(view.getByLabelText('Processing capacity').textContent).toContain(
+            'Thumbnail limit: 2'
+        );
+    });
     it('queues explicit retries and shows safe grouped causes without exposing arbitrary backend text', () => {
         const [current, setCurrent] = createSignal(state());
         const initial = state();

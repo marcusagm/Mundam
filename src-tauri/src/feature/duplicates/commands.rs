@@ -147,6 +147,9 @@ impl DuplicateCommandService {
         mut self,
         coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>,
     ) -> Self {
+        self.fingerprint_processor = self
+            .fingerprint_processor
+            .with_budget(coordinator.budget.clone());
         self.processing_coordinator = coordinator;
         self
     }

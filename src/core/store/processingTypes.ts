@@ -48,6 +48,8 @@ export interface WorkerSnapshot {
 
 /** Full replacement read model; no library invalidation is implied. */
 export interface ProcessingSnapshot {
+    /** Operation limits, distinct from native extractor thread counts. */
+    capacity?: { limit: number; active: number; waiting: number; thumbnail_limit: number };
     /** Persisted comparison outcomes, separate from the per-asset queue. */
     matching?: {
         publication_sequence: number;
