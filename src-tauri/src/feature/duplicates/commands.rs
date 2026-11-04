@@ -79,7 +79,7 @@ pub struct DuplicateCommandService {
     ledger: Arc<dyn TransactionalAssetLedger>,
     event_bus: Arc<dyn AppEventBus>,
     asset_query_handler: Arc<dyn AssetQueryHandler>,
-    format_registry: Arc<FormatRegistry>,
+    fingerprint_processor: super::fingerprint_processor::FingerprintProcessor,
     scan_cancel_token: Arc<Mutex<Option<CancellationToken>>>,
     scan_status: Arc<RwLock<DuplicateScanStatus>>,
     processing_coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>,
@@ -110,19 +110,27 @@ impl DuplicateCommandService {
     /// * `event_bus` - The application event bus.
     /// * `asset_query_handler` - The asset query handler for reading current asset state.
     /// * `format_registry` - The format registry for resolving exotic format providers.
+    /// * `processing` - Shared durable eligibility and retry outcomes for fingerprints.
     pub fn new(
         duplicates_repo: Arc<dyn DuplicatesRepository>,
         ledger: Arc<dyn TransactionalAssetLedger>,
         event_bus: Arc<dyn AppEventBus>,
         asset_query_handler: Arc<dyn AssetQueryHandler>,
         format_registry: Arc<FormatRegistry>,
+        processing: Arc<dyn crate::core::processing::ProcessingRepository>,
     ) -> Self {
+        let fingerprint_processor = super::fingerprint_processor::FingerprintProcessor::new(
+            ledger.clone(),
+            processing,
+            asset_query_handler.clone(),
+            format_registry,
+        );
         Self {
             duplicates_repo,
             ledger,
             event_bus,
             asset_query_handler,
-            format_registry,
+            fingerprint_processor,
             scan_cancel_token: Arc::new(Mutex::new(None)),
             scan_status: Arc::new(RwLock::new(DuplicateScanStatus::default())),
             processing_coordinator: Arc::new(
@@ -510,6 +518,9 @@ impl DuplicateCommandService {
             self.duplicates_repo.reset_duplicate_index().await?;
         }
 
+        tracing::info!("DuplicateCommandService: [1/4] backfilling missing fingerprints");
+        self.duplicates_repo.backfill_missing_fingerprints().await?;
+
         let (progress_sender, mut progress_receiver) =
             tokio::sync::mpsc::unbounded_channel::<(usize, usize)>();
 
@@ -536,17 +547,10 @@ impl DuplicateCommandService {
             }
         });
 
-        tracing::info!("DuplicateCommandService: [1/4] backfilling missing fingerprints");
-        self.duplicates_repo.backfill_missing_fingerprints().await?;
-
         tracing::info!("DuplicateCommandService: [2/4] rehashing pending fingerprints");
         let rehash_result = self
-            .duplicates_repo
-            .rehash_pending_fingerprints(
-                Some(cancellation_token.clone()),
-                Some(progress_sender),
-                Some(self.format_registry.clone()),
-            )
+            .fingerprint_processor
+            .rehash_pending(&cancellation_token, Some(progress_sender))
             .await;
         let _ = progress_handle.await;
         let rehashed_count = rehash_result?;

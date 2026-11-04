@@ -1,0 +1,5 @@
+.duplicate-scan-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--p-space-s);
+}

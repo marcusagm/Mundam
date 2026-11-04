@@ -2,6 +2,7 @@ import { createSignal, onMount } from 'solid-js';
 import { duplicatesApi, BackendDuplicateRuleSet } from '../../../../lib/duplicates';
 import { DuplicateRuleProfile } from '../types';
 import { deriveProfileFromRuleSet, checkRuleSetEquality } from './useDuplicateRulesHelpers';
+import { useDuplicateScan } from './useDuplicateScan';
 
 export interface UseDuplicateRulesResult {
     selectedProfile: () => DuplicateRuleProfile;
@@ -31,7 +32,7 @@ export interface UseDuplicateRulesResult {
     hasUnsavedChanges: () => boolean;
     loadActiveRules: () => Promise<void>;
     saveRules: () => Promise<void>;
-    saveAndRescan: () => Promise<void>;
+    saveAndRescan: () => Promise<boolean>;
 }
 
 /**
@@ -41,6 +42,7 @@ export interface UseDuplicateRulesResult {
  * @returns {UseDuplicateRulesResult} Reactive signals and persistence actions for duplicate rules.
  */
 export function useDuplicateRules(): UseDuplicateRulesResult {
+    const scan = useDuplicateScan();
     const [selectedProfile, setSelectedProfile] =
         createSignal<DuplicateRuleProfile>('visual-match');
     const [savedRuleSet, setSavedRuleSet] = createSignal<BackendDuplicateRuleSet | null>(null);
@@ -193,9 +195,10 @@ export function useDuplicateRules(): UseDuplicateRulesResult {
     /**
      * Saves the current rule set and triggers a full library rescan.
      */
-    const saveAndRescan = async (): Promise<void> => {
+    const saveAndRescan = async (): Promise<boolean> => {
+        if (!scan.canStart()) return false;
         await saveRules();
-        await duplicatesApi.startDuplicateScan();
+        return scan.startScan();
     };
 
     onMount(() => {

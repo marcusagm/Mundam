@@ -120,6 +120,7 @@ pub fn init(app: &AppHandle) {
     let duplicate_worker_token = lifecycle.child_token();
     let duplicate_worker = DuplicateWorker::new(
         duplicates_repo.clone(),
+        asset_ledger.clone(),
         event_bus.clone(),
         settings_service,
         format_registry.clone(),

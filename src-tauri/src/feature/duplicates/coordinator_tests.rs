@@ -17,6 +17,7 @@ async fn processing_paused_duplicates_reject_manual_scans_without_changing_scan_
         fixture.event_bus.clone(),
         fixture.queries.clone(),
         fixture.registry.clone(),
+        fixture.processing.clone(),
     )
     .with_processing_control(control);
     assert!(service.start_duplicate_scan().await.is_err());
@@ -41,6 +42,7 @@ async fn processing_rebuild_does_not_reset_the_index_while_queued_or_paused() ->
         fixture.event_bus.clone(),
         fixture.queries.clone(),
         fixture.registry.clone(),
+        fixture.processing.clone(),
     )
     .with_processing_coordinator(coordinator.clone())
     .with_processing_control(control.clone());
@@ -82,6 +84,7 @@ async fn processing_duplicate_cancel_waits_for_exit_and_prevents_a_second_scan()
         fixture.event_bus.clone(),
         fixture.queries.clone(),
         fixture.registry.clone(),
+        fixture.processing.clone(),
     )
     .with_processing_coordinator(coordinator.clone());
     let running_service = service.clone();

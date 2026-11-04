@@ -68,6 +68,23 @@ pub struct ProcessingTicket {
     pub generation: i64,
     /// Source identity used to discard outdated attempt bookkeeping.
     pub source_stamp: String,
+    /// Unique reservation identity; reclaimed attempts cannot reuse an older ticket.
+    pub lease_id: String,
+}
+
+/// Derived results accepted only together with the owning attempt's completion.
+pub enum ProcessingResult {
+    /// Optional metadata and model preview remain useful without thumbnail support.
+    Thumbnail {
+        thumbnail_path: Option<String>,
+        preview_path: Option<String>,
+        metadata: Option<crate::core::ledger::command::UpdateTechnicalMetadataPayload>,
+        unsupported_reason: Option<String>,
+    },
+    /// Complete replacement palette for the ticket's asset.
+    Colors(Vec<crate::core::models::asset::AssetColor>),
+    /// Exact and optional visual representation of the ticket's asset.
+    Fingerprint(crate::core::models::DuplicateFingerprint),
 }
 
 /// Distinguishes valid results, unsupported work and retryable processing failures.
@@ -82,8 +99,8 @@ pub enum ProcessingOutcome {
 
 /// Durable pending work and attempt outcomes shared by specialized executors.
 ///
-/// Runtime concurrency remains owned by each worker; tickets are generation
-/// checks, not cross-process execution leases.
+/// Runtime concurrency remains owned by each worker. Durable reservations fence
+/// concurrent executors and expire after crashes; renewal never revives an expired lease.
 #[async_trait]
 pub trait ProcessingRepository: Send + Sync {
     /// Counts durable outcomes, excluding the supplied running asset identities.
@@ -126,6 +143,24 @@ pub trait ProcessingRepository: Send + Sync {
     /// # Errors
     /// Returns a storage error if the generation cannot be checked.
     async fn is_current(&self, ticket: &ProcessingTicket) -> AppResult<bool>;
+
+    /// Renews an unexpired reservation without reviving superseded ownership.
+    ///
+    /// # Errors
+    /// Returns a storage error when renewal cannot be recorded.
+    async fn renew(&self, ticket: &ProcessingTicket) -> AppResult<bool>;
+
+    /// Releases ownership without consuming a retry; stale releases are harmless.
+    ///
+    /// # Errors
+    /// Returns a storage error when the reservation cannot be released.
+    async fn release(&self, ticket: &ProcessingTicket) -> AppResult<()>;
+
+    /// Resolves only the committed model preview, independently of an active attempt.
+    ///
+    /// # Errors
+    /// Returns a storage error when the artifact pointer cannot be read.
+    async fn preview_path(&self, asset_id: &str) -> AppResult<Option<String>>;
 
     /// Records an outcome without overwriting a newer request or recreating removed work.
     ///

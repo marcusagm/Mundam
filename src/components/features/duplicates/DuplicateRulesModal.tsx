@@ -1,9 +1,11 @@
-import { Component } from 'solid-js';
+import { Component, createSignal, Show } from 'solid-js';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
 import { DuplicateRulesForm } from './DuplicateRulesForm';
 import { useDuplicateRules } from './hooks/useDuplicateRules';
 import './duplicate-rules-modal.css';
+import { useDuplicateScan } from './hooks/useDuplicateScan';
+import { useNotification } from '../../../core/hooks';
 
 export interface DuplicateRulesModalProperties {
     /** Whether the duplicate rules configuration modal is open */
@@ -23,14 +25,20 @@ export const DuplicateRulesModal: Component<
     DuplicateRulesModalProperties
 > = componentProperties => {
     const duplicateRules = useDuplicateRules();
+    const scan = useDuplicateScan();
+    const notification = useNotification();
+    const [isSubmitting, setIsSubmitting] = createSignal(false);
 
     const handleSaveAndRescan = async (): Promise<void> => {
+        if (isSubmitting() || !scan.canStart()) return;
+        setIsSubmitting(true);
         try {
-            await duplicateRules.saveAndRescan();
+            if (await duplicateRules.saveAndRescan()) componentProperties.onClose();
         } catch (error) {
             console.error('Failed to save rules and trigger scan:', error);
+            notification.error('Rules Not Saved', 'Could not save the detection rules. Try again.');
         } finally {
-            componentProperties.onClose();
+            setIsSubmitting(false);
         }
     };
 
@@ -52,13 +60,17 @@ export const DuplicateRulesModal: Component<
                     <Button
                         variant="primary"
                         onClick={handleSaveAndRescan}
-                        loading={duplicateRules.isSaving()}
+                        loading={duplicateRules.isSaving() || isSubmitting()}
+                        disabled={!scan.canStart()}
                     >
                         Save and Rescan
                     </Button>
                 </div>
             }
         >
+            <Show when={scan.unavailableReason()}>
+                <p role="status">{scan.unavailableReason()}</p>
+            </Show>
             <DuplicateRulesForm
                 selectedProfile={duplicateRules.selectedProfile()}
                 considerExactMatch={duplicateRules.considerExactMatch()}

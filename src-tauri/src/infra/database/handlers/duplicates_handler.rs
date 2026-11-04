@@ -6,7 +6,7 @@
 //! delegates here for all write operations.
 //!
 //! This module covers: CRUD mutations, scan algorithms (exact + visual),
-//! fingerprint rehashing, and group lifecycle management.
+//! fingerprint persistence, and group lifecycle management.
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::models::{
@@ -23,6 +23,24 @@ use sqlx::SqlitePool;
 /// Returns `AppError::Database` if the insert/update fails.
 pub async fn save_fingerprint(
     pool: &SqlitePool,
+    fingerprint: DuplicateFingerprint,
+) -> AppResult<()> {
+    save_fingerprint_with_executor(pool, fingerprint).await
+}
+
+/// Persists a fingerprint within the ownership-checked result transaction.
+///
+/// # Errors
+/// Propagates database constraint and write failures to the enclosing transaction.
+pub(crate) async fn save_fingerprint_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    fingerprint: DuplicateFingerprint,
+) -> AppResult<()> {
+    save_fingerprint_with_executor(&mut **transaction, fingerprint).await
+}
+
+async fn save_fingerprint_with_executor<'connection>(
+    executor: impl sqlx::Executor<'connection, Database = sqlx::Sqlite>,
     fingerprint: DuplicateFingerprint,
 ) -> AppResult<()> {
     sqlx::query!(
@@ -63,7 +81,7 @@ pub async fn save_fingerprint(
         fingerprint.fingerprint_version,
         fingerprint.updated_at,
     )
-    .execute(pool)
+    .execute(executor)
     .await
     .map_err(|database_error| {
         tracing::error!("Failed to save fingerprint: {:?}", database_error);
@@ -315,7 +333,7 @@ pub async fn update_group_status(
 /// # Errors
 /// Returns `AppError::Database` if the query or insert fails.
 pub async fn backfill_missing_fingerprints(pool: &SqlitePool) -> AppResult<()> {
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT OR IGNORE INTO duplicate_fingerprints (
             asset_id, content_hash, file_size, format_family, fingerprint_version, updated_at
@@ -328,7 +346,8 @@ pub async fn backfill_missing_fingerprints(pool: &SqlitePool) -> AppResult<()> {
             0, 
             CURRENT_TIMESTAMP
         FROM assets a
-        WHERE NOT EXISTS (
+        WHERE a.deleted_at IS NULL AND LOWER(a.state) NOT IN ('trashed', 'offline')
+          AND NOT EXISTS (
             SELECT 1 FROM duplicate_fingerprints df WHERE df.asset_id = a.id
         )
         "#
@@ -918,202 +937,6 @@ pub async fn run_visual_match_scan(
     Ok(total_visual_groups_count)
 }
 
-/// Rehashes all fingerprints that have a pending or outdated hash.
-///
-/// Computes BLAKE3 content hashes and, for image assets, perceptual hashes
-/// (dHash-64, spatial block hash, multiscale dHash-256). Reports progress
-/// via an optional `UnboundedSender` so the frontend can display a real
-/// progress bar.
-///
-/// # Errors
-/// Returns `AppError::Database` if the query or update fails.
-pub async fn rehash_pending_fingerprints(
-    pool: &SqlitePool,
-    cancellation_token: Option<tokio_util::sync::CancellationToken>,
-    progress_sender: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
-    format_registry: Option<std::sync::Arc<crate::core::formats::FormatRegistry>>,
-) -> AppResult<usize> {
-    let pending_assets = sqlx::query!(
-        r#"
-        SELECT df.asset_id as "asset_id!", a.path as "path!", a.family as "format_family!", a.format_type as "format_type!"
-        FROM duplicate_fingerprints df
-        JOIN assets a ON df.asset_id = a.id
-        WHERE df.content_hash LIKE 'pending_%' 
-           OR df.content_hash LIKE 'hash_%'
-           OR df.fingerprint_version < 5
-           OR (df.perceptual_hash IS NULL AND (a.family LIKE '%image%' OR a.format_type LIKE '%image%' OR a.format_type LIKE '%png%' OR a.format_type LIKE '%jpg%' OR a.format_type LIKE '%jpeg%'))
-        "#
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|database_error| {
-        tracing::error!("Failed to query pending fingerprints: {:?}", database_error);
-        AppError::Database(database_error)
-    })?;
-
-    let total_pending_count = pending_assets.len();
-    if total_pending_count == 0 {
-        tracing::info!("rehash_pending_fingerprints: no pending fingerprints found");
-        return Ok(0);
-    }
-
-    tracing::info!("rehash_pending_fingerprints: found {} fingerprints to rehash", total_pending_count);
-
-    let mut rehashed_count: usize = 0;
-
-    for (processed_index, asset_record) in pending_assets.into_iter().enumerate() {
-        if let Some(token) = &cancellation_token {
-            if token.is_cancelled() {
-                tracing::info!("rehash_pending_fingerprints cancelled");
-                break;
-            }
-        }
-
-        let asset_id = asset_record.asset_id.clone();
-        let asset_id_for_hashing = asset_id.clone();
-        let file_path = asset_record.path.clone();
-        let format_family = asset_record.format_family.clone();
-        let format_type = asset_record.format_type.clone();
-        let format_registry_clone = format_registry.clone();
-
-        let hash_computation_result = tokio::task::spawn_blocking(move || {
-            use std::io::Read;
-            let mut target_file = match std::fs::File::open(&file_path) {
-                Ok(opened_file) => opened_file,
-                Err(file_error) => return Err(format!("Cannot open {}: {}", file_path, file_error)),
-            };
-            let file_metadata = match target_file.metadata() {
-                Ok(retrieved_metadata) => retrieved_metadata,
-                Err(metadata_error) => return Err(format!("Cannot read metadata for {}: {}", file_path, metadata_error)),
-            };
-
-            let mut blake_hasher = blake3::Hasher::new();
-            let mut read_buffer = [0u8; 8192];
-            loop {
-                let bytes_read = match target_file.read(&mut read_buffer) {
-                    Ok(bytes_count) => bytes_count,
-                    Err(read_error) => return Err(format!("Read error for {}: {}", file_path, read_error)),
-                };
-                if bytes_read == 0 {
-                    break;
-                }
-                blake_hasher.update(&read_buffer[..bytes_read]);
-            }
-
-            let format_is_image = crate::feature::duplicates::fingerprints::is_image_media(&format_family, &format_type);
-
-            let (perceptual_hash, block_hash, thumb_hash, image_width, image_height) = {
-                if format_is_image {
-                    let file_path_reference = std::path::Path::new(&file_path);
-
-                    // Stage 1: Try direct image::open() for standard formats
-                    let direct_open_result = image::open(file_path_reference);
-
-                    // Stage 2: FormatProvider fallback for exotic formats (RAW, PSD, HDR, EXR, etc.)
-                    let resolved_image = match direct_open_result {
-                        Ok(loaded_image) => Some(loaded_image),
-                        Err(_) => {
-                            if let Some(ref registry) = format_registry_clone {
-                                crate::feature::duplicates::fingerprints::resolve_image_via_format_provider(registry, file_path_reference, &asset_id_for_hashing)
-                            } else {
-                                None
-                            }
-                        }
-                    };
-
-                    if let Some(dynamic_image) = resolved_image {
-                        use image::GenericImageView;
-                        let (width, height) = dynamic_image.dimensions();
-                        let dhash_value = crate::feature::duplicates::fingerprints::compute_perceptual_dhash_64(&dynamic_image);
-                        let multiscale_hash = crate::feature::duplicates::fingerprints::compute_multiscale_dhash_256(&dynamic_image);
-                        let spatial_block_hash = crate::feature::duplicates::fingerprints::compute_spatial_block_hash(&dynamic_image);
-
-                        (
-                            Some(format!("{:016x}", dhash_value)),
-                            Some(spatial_block_hash),
-                            Some(multiscale_hash),
-                            Some(width as i32),
-                            Some(height as i32),
-                        )
-                    } else {
-                        (None, None, None, None, None)
-                    }
-                } else {
-                    (None, None, None, None, None)
-                }
-            };
-
-            Ok((
-                blake_hasher.finalize().to_hex().to_string(),
-                file_metadata.len() as i64,
-                perceptual_hash,
-                block_hash,
-                thumb_hash,
-                image_width,
-                image_height,
-            ))
-        })
-        .await;
-
-        match hash_computation_result {
-            Ok(Ok((content_hash, file_size, perceptual_hash, block_hash, thumb_hash, image_width, image_height))) => {
-                if let Err(database_error) = sqlx::query!(
-                    r#"
-                    UPDATE duplicate_fingerprints 
-                    SET content_hash = ?,
-                        file_size = ?,
-                        perceptual_hash = ?,
-                        block_hash = ?,
-                        thumb_hash = ?,
-                        width = COALESCE(?, width),
-                        height = COALESCE(?, height),
-                        fingerprint_version = 5,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE asset_id = ?
-                    "#,
-                    content_hash,
-                    file_size,
-                    perceptual_hash,
-                    block_hash,
-                    thumb_hash,
-                    image_width,
-                    image_height,
-                    asset_id
-                )
-                .execute(pool)
-                .await
-                {
-                    tracing::error!("Failed to update fingerprint for {}: {:?}", asset_id, database_error);
-                } else {
-                    rehashed_count += 1;
-                }
-            }
-            Ok(Err(task_error)) => {
-                tracing::warn!("rehash_pending_fingerprints: skipping {}: {}", asset_id, task_error);
-            }
-            Err(join_error) => {
-                tracing::error!("rehash_pending_fingerprints: blocking task failed for {}: {}", asset_id, join_error);
-            }
-        }
-
-        if let Some(sender) = &progress_sender {
-            let _ = sender.send((processed_index + 1, total_pending_count));
-        }
-
-        if (processed_index + 1) % 50 == 0 || (processed_index + 1) == total_pending_count {
-            tracing::info!(
-                "rehash_pending_fingerprints: progress {}/{} ({} successfully rehashed)",
-                processed_index + 1,
-                total_pending_count,
-                rehashed_count
-            );
-        }
-    }
-
-    tracing::info!("rehash_pending_fingerprints: successfully rehashed {}/{}", rehashed_count, total_pending_count);
-    Ok(rehashed_count)
-}
-
 /// Erases all existing duplicate candidates, groups, resolutions, and fingerprints,
 /// allowing a clean index rebuild from scratch.
 ///
@@ -1124,6 +947,10 @@ pub async fn rehash_pending_fingerprints(
 /// Returns `AppError::Database` if any delete statement fails.
 pub async fn reset_duplicate_index(pool: &SqlitePool) -> AppResult<()> {
     let mut database_transaction = pool.begin().await.map_err(AppError::Database)?;
+
+    sqlx::query("DELETE FROM processing_tasks WHERE kind = 'fingerprint'")
+        .execute(&mut *database_transaction)
+        .await?;
 
     sqlx::query!("DELETE FROM duplicate_resolutions")
         .execute(&mut *database_transaction)

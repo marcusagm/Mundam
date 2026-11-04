@@ -7,6 +7,6 @@ pub mod extractors;
 pub mod providers;
 
 pub mod fallback_format;
+/// Shared content and visual fingerprint extraction.
+pub mod fingerprint;
 pub mod image_utils;
-
-

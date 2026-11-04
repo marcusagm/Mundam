@@ -7,10 +7,9 @@ use tracing::{error, info, instrument};
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::formats::FormatRegistry;
-use crate::core::ledger::command::LedgerCommand;
 use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::processing::{
-    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
+    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingResult, ProcessingTicket,
 };
 use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::AssetQueryHandler;
@@ -113,6 +112,7 @@ impl ThumbnailWorker {
             let in_flight: Arc<std::sync::Mutex<std::collections::HashSet<String>>> =
                 Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
             let mut tasks = tokio::task::JoinSet::new();
+            let mut next_cache_cleanup = tokio::time::Instant::now();
 
             loop {
                 while let Some(result) = tasks.try_join_next() {
@@ -123,6 +123,14 @@ impl ThumbnailWorker {
                 if token.is_cancelled() {
                     info!("ThumbnailWorker: Shutdown requested");
                     break;
+                }
+
+                if tokio::time::Instant::now() >= next_cache_cleanup {
+                    if let Err(error) = worker_arc.ledger.reconcile_processing_artifacts(None).await
+                    {
+                        tracing::warn!(%error, "Could not reconcile expired thumbnail artifacts");
+                    }
+                    next_cache_cleanup = tokio::time::Instant::now() + Duration::from_secs(60);
                 }
 
                 // 1. Acquire permit FIRST.
@@ -229,6 +237,10 @@ impl ThumbnailWorker {
         else {
             return Ok(());
         };
+        let _lease = crate::processing::lease::ProcessingLease::start(
+            self.processing.clone(),
+            ticket.clone(),
+        );
         let result = self.generate_single(&ticket).await;
         if self.query_handler.get_by_id(&id).await?.is_none() {
             if let Some(app_data_directory) = self.thumbnails_dir.parent() {
@@ -239,7 +251,7 @@ impl ThumbnailWorker {
                 .await?;
             }
         }
-        match result {
+        let outcome = match result {
             Ok(outcome) => self.processing.finish(&ticket, outcome).await,
             Err(error) => {
                 self.processing
@@ -247,7 +259,16 @@ impl ThumbnailWorker {
                     .await?;
                 Err(error)
             }
+        };
+        self.processing.release(&ticket).await?;
+        if let Err(error) = self
+            .ledger
+            .reconcile_processing_artifacts(Some(&ticket))
+            .await
+        {
+            tracing::warn!(%error, "Could not prune unpublished thumbnail artifacts");
         }
+        outcome
     }
 
     /// Produces output only for an admitted attempt; failures remain retryable work.
@@ -272,7 +293,8 @@ impl ThumbnailWorker {
             }
         };
 
-        let mut commands = Vec::new();
+        let mut metadata = None;
+        let mut preview_path = None;
         let path = asset.path.clone();
 
         // 1. Technical Metadata Extraction
@@ -282,7 +304,7 @@ impl ThumbnailWorker {
                 let height = tech_meta.get("height").and_then(|v| v.as_i64());
                 let duration_secs = tech_meta.get("duration_secs").and_then(|v| v.as_f64());
 
-                commands.push(LedgerCommand::UpdateTechnicalMetadata(
+                metadata = Some(
                     crate::core::ledger::command::UpdateTechnicalMetadataPayload {
                         asset_id: id.clone(),
                         width,
@@ -291,7 +313,7 @@ impl ThumbnailWorker {
                         technical_payload: Some(tech_meta),
                         semantic_payload: None,
                     },
-                ));
+                );
             }
         }
 
@@ -324,15 +346,17 @@ impl ThumbnailWorker {
                     };
 
                     if let Some(extension) = glb_extension {
-                        let preview_filename = format!("{}.{}", id, extension);
-                        let preview_path = self.thumbnails_dir.join(&preview_filename);
+                        let preview_filename = format!("{}.{}.{}", id, ticket.lease_id, extension);
+                        let output_path = self.thumbnails_dir.join(&preview_filename);
                         if let Err(write_error) =
-                            tokio::fs::write(&preview_path, preview_bytes).await
+                            tokio::fs::write(&output_path, preview_bytes).await
                         {
                             error!(
                                 "ThumbnailWorker: Failed to write 3D preview for {}: {}",
                                 id, write_error
                             );
+                        } else {
+                            preview_path = Some(preview_filename);
                         }
                     }
                 }
@@ -341,9 +365,17 @@ impl ThumbnailWorker {
 
         // 3. Generate Thumbnail
         let Some(thumbnail_capability) = provider.thumbnail() else {
-            if !commands.is_empty() {
-                self.ledger.execute(LedgerCommand::Batch(commands)).await?;
-            }
+            self.ledger
+                .commit_processing(
+                    ticket,
+                    ProcessingResult::Thumbnail {
+                        thumbnail_path: None,
+                        preview_path,
+                        metadata,
+                        unsupported_reason: Some("Provider has no thumbnail capability".into()),
+                    },
+                )
+                .await?;
             return Ok(ProcessingOutcome::Skipped(
                 "Provider has no thumbnail capability".into(),
             ));
@@ -357,20 +389,20 @@ impl ThumbnailWorker {
         if !self.processing.is_current(ticket).await? {
             return Ok(ProcessingOutcome::Skipped("Attempt was superseded".into()));
         }
-        let filename = format!("{}.webp", id);
+        let filename = format!("{}.{}.webp", id, ticket.lease_id);
         tokio::fs::write(self.thumbnails_dir.join(&filename), final_bytes).await?;
-        commands.push(LedgerCommand::UpdateThumbnail {
-            asset_id: id,
-            thumbnail_path: filename,
-        });
-        if self.processing.is_current(ticket).await? {
-            self.ledger.execute(LedgerCommand::Batch(commands)).await?;
-            Ok(ProcessingOutcome::Completed)
-        } else {
-            Ok(ProcessingOutcome::Skipped(
-                "Attempt was superseded before commit".into(),
-            ))
-        }
+        self.ledger
+            .commit_processing(
+                ticket,
+                ProcessingResult::Thumbnail {
+                    thumbnail_path: Some(filename),
+                    preview_path,
+                    metadata,
+                    unsupported_reason: None,
+                },
+            )
+            .await?;
+        Ok(ProcessingOutcome::Completed)
     }
 }
 

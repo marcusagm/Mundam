@@ -35,7 +35,9 @@ fn pending_selection(kind: ProcessingKind) -> String {
          AND (task.asset_id IS NULL OR task.source_stamp != ({SOURCE_STAMP})
               OR task.state = 'pending'
               OR (task.state = 'succeeded' AND {missing_result})
-              OR (task.state = 'retry_wait' AND task.next_attempt_at <= unixepoch()))"
+              OR (task.state = 'retry_wait' AND task.next_attempt_at <= unixepoch()))
+         AND (task.lease_id IS NULL OR task.lease_expires_at <= unixepoch()
+              OR task.source_stamp != ({SOURCE_STAMP}))"
     )
 }
 
@@ -69,7 +71,8 @@ pub(crate) async fn enqueue(
          SELECT a.id, ?1, 'pending', {SOURCE_STAMP} FROM assets a WHERE a.id = ?2
          ON CONFLICT(asset_id, kind) DO UPDATE SET state = 'pending',
             generation = processing_tasks.generation + 1, source_stamp = excluded.source_stamp,
-            attempts = 0, next_attempt_at = NULL, last_error = NULL, updated_at = CURRENT_TIMESTAMP"
+            attempts = 0, next_attempt_at = NULL, last_error = NULL,
+            lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP"
     );
     sqlx::query(&statement)
         .bind(kind.as_str())
@@ -163,15 +166,17 @@ impl ProcessingRepository for SqliteProcessingRepository {
         let Some((asset_id, source_stamp)) = selected else {
             return Ok(None);
         };
+        let lease_id = uuid::Uuid::new_v4().to_string();
         let generation: i64 = sqlx::query_scalar(
-            "INSERT INTO processing_tasks (asset_id, kind, state, source_stamp)
-             VALUES (?, ?, 'pending', ?)
+            "INSERT INTO processing_tasks (asset_id, kind, state, source_stamp, lease_id, lease_expires_at)
+             VALUES (?, ?, 'pending', ?, ?, unixepoch() + 120)
              ON CONFLICT(asset_id, kind) DO UPDATE SET state = 'pending',
                 generation = processing_tasks.generation + (processing_tasks.source_stamp != excluded.source_stamp),
                 attempts = CASE WHEN processing_tasks.source_stamp != excluded.source_stamp THEN 0 ELSE processing_tasks.attempts END,
-                source_stamp = excluded.source_stamp, updated_at = CURRENT_TIMESTAMP
+                source_stamp = excluded.source_stamp, lease_id = excluded.lease_id,
+                lease_expires_at = excluded.lease_expires_at, updated_at = CURRENT_TIMESTAMP
              RETURNING generation",
-        ).bind(&asset_id).bind(kind.as_str()).bind(&source_stamp)
+        ).bind(&asset_id).bind(kind.as_str()).bind(&source_stamp).bind(&lease_id)
             .fetch_one(&mut *transaction).await?;
         transaction.commit().await?;
         Ok(Some(ProcessingTicket {
@@ -179,49 +184,37 @@ impl ProcessingRepository for SqliteProcessingRepository {
             kind,
             generation,
             source_stamp,
+            lease_id,
         }))
     }
 
     async fn is_current(&self, ticket: &ProcessingTicket) -> AppResult<bool> {
-        let statement = format!(
-            "SELECT EXISTS (SELECT 1 FROM assets a JOIN processing_tasks task ON task.asset_id = a.id
-             WHERE a.id = ? AND task.kind = ? AND task.generation = ?
-               AND task.source_stamp = ? AND ({SOURCE_STAMP}) = ? AND {ACTIVE_ASSET})"
-        );
-        Ok(sqlx::query_scalar(&statement)
-            .bind(&ticket.asset_id)
-            .bind(ticket.kind.as_str())
-            .bind(ticket.generation)
-            .bind(&ticket.source_stamp)
-            .bind(&ticket.source_stamp)
-            .fetch_one(&self.pool)
-            .await?)
+        let mut transaction = self.pool.begin().await?;
+        attempts::is_current(&mut transaction, ticket).await
+    }
+
+    async fn renew(&self, ticket: &ProcessingTicket) -> AppResult<bool> {
+        attempts::renew(&self.pool, ticket).await
+    }
+
+    async fn release(&self, ticket: &ProcessingTicket) -> AppResult<()> {
+        attempts::release(&self.pool, ticket).await
+    }
+
+    async fn preview_path(&self, asset_id: &str) -> AppResult<Option<String>> {
+        Ok(sqlx::query_scalar(
+            "SELECT preview_path FROM processing_tasks WHERE asset_id = ? AND kind = 'thumbnail'",
+        )
+        .bind(asset_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .flatten())
     }
 
     async fn finish(&self, ticket: &ProcessingTicket, outcome: ProcessingOutcome) -> AppResult<()> {
-        let (state, error) = match outcome {
-            ProcessingOutcome::Completed => ("succeeded", None),
-            ProcessingOutcome::Skipped(reason) => ("skipped", Some(reason)),
-            ProcessingOutcome::Failed(error) => ("retry_wait", Some(error)),
-        };
-        let statement = format!(
-            "UPDATE processing_tasks SET
-                state = CASE WHEN ?1 = 'retry_wait' AND attempts + 1 >= 3 THEN 'failed' ELSE ?1 END,
-                attempts = attempts + (?1 = 'retry_wait'),
-                next_attempt_at = CASE WHEN ?1 = 'retry_wait' THEN unixepoch() + CASE attempts WHEN 0 THEN 5 WHEN 1 THEN 30 ELSE 120 END ELSE NULL END,
-                last_error = ?2, updated_at = CURRENT_TIMESTAMP
-             WHERE asset_id = ?3 AND kind = ?4 AND generation = ?5 AND source_stamp = ?6
-               AND EXISTS (SELECT 1 FROM assets a WHERE a.id = ?3 AND ({SOURCE_STAMP}) = ?6 AND {ACTIVE_ASSET})"
-        );
-        sqlx::query(&statement)
-            .bind(state)
-            .bind(error.map(|message| message.chars().take(1000).collect::<String>()))
-            .bind(&ticket.asset_id)
-            .bind(ticket.kind.as_str())
-            .bind(ticket.generation)
-            .bind(&ticket.source_stamp)
-            .execute(&self.pool)
-            .await?;
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        attempts::finish(&mut transaction, ticket, outcome).await?;
+        transaction.commit().await?;
         Ok(())
     }
 }
@@ -236,3 +229,10 @@ mod tests;
 #[cfg(test)]
 #[path = "thumbnail_status_tests.rs"]
 mod thumbnail_status_tests;
+
+#[path = "processing_attempts.rs"]
+pub(crate) mod attempts;
+
+#[cfg(test)]
+#[path = "processing_lease_tests.rs"]
+mod lease_tests;

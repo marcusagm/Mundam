@@ -138,7 +138,7 @@ export const GeneralPanel: Component = () => {
 
             <SectionGroup
                 title="Performance"
-                description="Configure background processing power. Higher values use more CPU but generate thumbnails faster."
+                description="Higher values use more CPU but generate thumbnails faster. Concurrency changes apply after restarting the app. Pause or resume workers in System Activity."
             >
                 <div class="general-setting-row">
                     <span class="setting-label">Thumbnail Threads:</span>

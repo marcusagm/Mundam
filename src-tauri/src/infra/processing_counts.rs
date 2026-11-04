@@ -15,6 +15,7 @@ pub(super) async fn queue_counts(
         "SELECT outcome, COUNT(*) FROM (
             SELECT CASE
                 WHEN task.source_stamp IS NOT NULL AND task.source_stamp != ({SOURCE_STAMP}) THEN 'pending'
+                WHEN task.lease_id IS NOT NULL AND task.lease_expires_at > unixepoch() THEN NULL
                 WHEN task.state IN ('failed', 'skipped') THEN task.state
                 WHEN task.state = 'retry_wait' AND task.next_attempt_at > unixepoch() THEN 'retry_wait'
                 WHEN task.state IN ('pending', 'retry_wait') OR {missing} THEN 'pending'

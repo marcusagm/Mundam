@@ -3,6 +3,8 @@
 
 pub mod commands;
 pub mod coordinator;
+/// Shared fingerprint execution for both scan entry points.
+pub mod fingerprint_processor;
 pub mod fingerprints;
 pub mod matcher;
 pub mod queries;

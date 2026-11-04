@@ -3,11 +3,12 @@ import {
     createSignal,
     createResource,
     createMemo,
-    onMount,
+    createEffect,
     Resource,
     Setter,
     Accessor
 } from 'solid-js';
+import { useDuplicateScan } from './useDuplicateScan';
 import { duplicatesApi } from '../../../../lib/duplicates';
 import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
@@ -15,15 +16,11 @@ import { useNotification, useMetadata } from '../../../../core/hooks';
 import { applyPreloadedCandidatesToGroups, fetchCandidatesForGroups } from './candidatePreloader';
 
 /**
- * Scan progress data emitted by the backend during a duplicate scan.
+ * Finite hashing progress read from the shared authoritative processing snapshot.
  */
 export interface ScanProgress {
     /** Number of fingerprints processed so far. */
     processed: number;
-    /** Number of fingerprints that matched a group. */
-    matched: number;
-    /** Number of new duplicate groups created. */
-    groupsCreated: number;
     /** Total number of fingerprints to process in this phase. Zero means indeterminate. */
     total: number;
 }
@@ -32,6 +29,8 @@ export interface ScanProgress {
  * Return type of the `useDuplicateGroups` hook.
  */
 export interface UseDuplicateGroupsReturn {
+    /** Shared snapshot-backed controls and finite scan phases. */
+    scan: ReturnType<typeof useDuplicateScan>;
     /** All fetched groups (open + ignored when enabled). */
     groups: Resource<DuplicateGroup[]>;
     /** The currently visible groups after applying the ignored filter. */
@@ -88,8 +87,14 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     const [groupTypeFilter, setGroupTypeFilter] = createSignal<
         'all' | 'exact' | 'visual' | 'derived'
     >('all');
-    const [isScanning, setIsScanning] = createSignal(false);
-    const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
+    const scan = useDuplicateScan();
+    const isScanning = scan.isScanning;
+    const scanProgress = createMemo<ScanProgress | null>(() => {
+        if (scan.isStopping()) return null;
+        const status = scan.status();
+        if (!status?.is_running || status.phase !== 'hashing') return null;
+        return { processed: status.processed, total: status.total };
+    });
     const [newGroupsFoundCount, setNewGroupsFoundCount] = createSignal(0);
     const notificationService = useNotification();
     const metadata = useMetadata();
@@ -112,47 +117,17 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         }
     });
 
-    onMount(() => {
-        void (async () => {
-            try {
-                console.info('[Duplicates] Checking scan status on mount...');
-                const scanStatus = await duplicatesApi.getDuplicateScanStatus();
-                if (scanStatus.is_running) {
-                    console.info(
-                        '[Duplicates] Scan is actively running in background:',
-                        scanStatus
-                    );
-                    setIsScanning(true);
-                    if (scanStatus.total > 0) {
-                        setScanProgress({
-                            processed: scanStatus.processed,
-                            matched: 0,
-                            groupsCreated: 0,
-                            total: scanStatus.total
-                        });
-                    } else {
-                        setScanProgress(null);
-                    }
-                }
-            } catch (statusError: unknown) {
-                console.error(
-                    '[Duplicates] Failed to get duplicate scan status on mount:',
-                    statusError
-                );
-            }
-        })();
+    let wasScanning = false;
+    let receivedCompletion = false;
+    createEffect(() => {
+        const running = isScanning();
+        if (running && !wasScanning) receivedCompletion = false;
+        if (wasScanning && !running && !receivedCompletion) {
+            void refetch();
+            void metadata.loadStats();
+        }
+        wasScanning = running;
     });
-
-    const handleScanProgressEvent = (eventData: Record<string, number>): void => {
-        // console.debug('[Duplicates] Scan progress event received:', eventData);
-        setScanProgress({
-            processed: eventData.processed ?? 0,
-            matched: eventData.matched ?? 0,
-            groupsCreated: eventData.groups_created ?? 0,
-            total: eventData.total ?? 0
-        });
-        setIsScanning(true);
-    };
 
     const isGroupMutationEventType = (eventType: string): boolean => {
         return (
@@ -168,8 +143,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     }>('mundam://domain-event', payload => {
         const domainEvent = payload as { type: string; payload: Record<string, number> };
         if (domainEvent.type === 'DuplicateScanStopped') {
-            setIsScanning(false);
-            setScanProgress(null);
+            receivedCompletion = true;
             refetch();
             void metadata.loadStats();
             return;
@@ -184,15 +158,14 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
         if (domainEvent.type === 'DuplicateScanProgressed') {
-            handleScanProgressEvent(domainEvent.payload);
+            // Progress is reconciled by the shared authoritative snapshot.
             return;
         }
         if (domainEvent.type === 'DuplicateScanFinished') {
             console.info(
                 '[Duplicates] DuplicateScanFinished event received, refreshing groups and stats'
             );
-            setIsScanning(false);
-            setScanProgress(null);
+            receivedCompletion = true;
             refetch();
             void metadata.loadStats();
             return;
@@ -378,34 +351,10 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
      * @returns {Promise<void>}
      */
     const startScan = async (): Promise<void> => {
-        try {
-            console.info('[Duplicates] Triggering manual duplicate scan');
-            setIsScanning(true);
-            setScanProgress(null);
-            await duplicatesApi.startDuplicateScan();
-        } catch (error: unknown) {
-            console.error('[Duplicates] Failed to start scan:', error);
-            setIsScanning(false);
-            throw error;
-        } finally {
-            setIsScanning(false);
-            setScanProgress(null);
-        }
+        await scan.startScan();
     };
 
-    /**
-     * Cancels an ongoing scan.
-     *
-     * @returns {Promise<void>}
-     */
-    const cancelScan = async (): Promise<void> => {
-        try {
-            console.info('[Duplicates] Cancelling duplicate scan');
-            await duplicatesApi.cancelDuplicateScan();
-        } catch (error: unknown) {
-            console.error('[Duplicates] Failed to cancel scan:', error);
-        }
-    };
+    const cancelScan = scan.cancelScan;
 
     /**
      * Resets the background-scan new-groups counter after the user acknowledges
@@ -479,6 +428,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
         resolveGroup,
         startScan,
         cancelScan,
+        scan,
         showIgnored,
         setShowIgnored,
         showResolved,

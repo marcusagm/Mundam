@@ -116,6 +116,7 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
             event_bus.clone(),
             asset_query_handler.clone(),
             format_registry.clone(),
+            processing_repository.clone(),
         )
         .with_processing_coordinator(duplicate_coordinator)
         .with_processing_control(processing_control.clone());

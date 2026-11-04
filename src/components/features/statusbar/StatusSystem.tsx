@@ -7,6 +7,7 @@ import { useSystem } from '../../../core/hooks';
 import { useProcessing } from '../../../core/hooks/useProcessing';
 import { ProcessingActivityPanel } from './ProcessingActivityPanel';
 import { processingIndicator, processingLabels } from './processingPresentation';
+import { isMac } from '../../../core/input/utils/platform';
 
 /** Displays authoritative activity and acknowledged session pause controls. */
 export const StatusSystem: Component = () => {
@@ -58,7 +59,8 @@ export const StatusSystem: Component = () => {
             <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Settings (Cmd+,)"
+                title={isMac() ? 'Settings (Cmd+,)' : 'Settings (Ctrl+,)'}
+                aria-label="Open Settings"
                 onClick={() => system.openSettings(true)}
             >
                 <Settings size={12} />
@@ -67,6 +69,7 @@ export const StatusSystem: Component = () => {
                 variant="ghost"
                 size="icon-sm"
                 title="Design System"
+                aria-label="Open Design System"
                 onClick={() => system.openDesignSystem(true)}
             >
                 <PaintRoller size={12} />

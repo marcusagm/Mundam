@@ -11,7 +11,7 @@ export const GlobalStatusbar: Component = () => {
     const shell = useAppShell();
 
     return (
-        <div class="global-statusbar">
+        <footer class="global-statusbar" aria-label="Library status">
             <div class="statusbar-left">
                 <Button
                     variant="ghost"
@@ -19,6 +19,7 @@ export const GlobalStatusbar: Component = () => {
                     class="status-btn"
                     onClick={() => shell?.toggleSidebar()}
                     title={shell?.isSidebarOpen() ? 'Close Sidebar' : 'Open Sidebar'}
+                    aria-label={shell?.isSidebarOpen() ? 'Close Sidebar' : 'Open Sidebar'}
                 >
                     {shell?.isSidebarOpen() ? (
                         <PanelLeftClose size={14} />
@@ -46,6 +47,7 @@ export const GlobalStatusbar: Component = () => {
                         class="status-btn"
                         onClick={() => shell?.toggleInspector()}
                         title={shell?.isInspectorOpen() ? 'Close Inspector' : 'Open Inspector'}
+                        aria-label={shell?.isInspectorOpen() ? 'Close Inspector' : 'Open Inspector'}
                     >
                         {shell?.isInspectorOpen() ? (
                             <PanelRightClose size={14} />
@@ -55,6 +57,6 @@ export const GlobalStatusbar: Component = () => {
                     </Button>
                 </div>
             </div>
-        </div>
+        </footer>
     );
 };

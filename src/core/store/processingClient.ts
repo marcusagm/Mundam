@@ -40,6 +40,11 @@ export class ProcessingClient {
     /** @param transport - Desktop commands, injectable without Solid or a webview. */
     constructor(private transport: ProcessingTransport) {}
 
+    /** Reconciles explicit actions through the same fenced transport as polling. */
+    refresh(): Promise<void> {
+        return this.poll();
+    }
+
     /** Subscribes the statusbar and releases polling when its final consumer unmounts. */
     subscribe(listener: (state: ProcessingClientState) => void): () => void {
         this.listeners.add(listener);

@@ -22,7 +22,7 @@ export const ProcessingWorkerRow: Component<ProcessingWorkerRowProperties> = pro
             <Button
                 variant="ghost"
                 size="icon-sm"
-                disabled={properties.pending}
+                disabled={properties.pending || !properties.worker.online}
                 aria-busy={properties.pending}
                 aria-label={`${properties.worker.paused ? 'Resume' : 'Pause'} ${workerNames[properties.worker.worker]}`}
                 title={properties.worker.paused ? 'Resume processing' : 'Pause new operations'}
@@ -64,5 +64,15 @@ export const ProcessingWorkerRow: Component<ProcessingWorkerRowProperties> = pro
                 <dd>{properties.worker.skipped}</dd>
             </div>
         </dl>
+        <Show when={properties.worker.failed > 0}>
+            <p class="processing-help">
+                Some files reached the retry limit. A new scan does not reset these failures.
+            </p>
+        </Show>
+        <Show when={properties.worker.skipped > 0}>
+            <p class="processing-help">
+                Some files cannot be processed with the available extractors.
+            </p>
+        </Show>
     </div>
 );

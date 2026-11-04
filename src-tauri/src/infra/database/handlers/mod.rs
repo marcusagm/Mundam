@@ -13,6 +13,7 @@ pub(crate) mod duplicate_removal;
 pub mod folder_handler;
 pub(crate) mod folder_removal;
 pub mod metadata_handler;
+pub(crate) mod processing_handler;
 pub mod shared;
 pub mod smart_folder_handler;
 pub mod tags_handler;

@@ -1,7 +1,7 @@
 # Workers: diagnóstico e proposta de controle do processamento
 
 **Data:** 30 de outubro de 2026.  
-**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–15 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
+**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–18 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
 **Escopo:** thumbnails/metadados, cores, fingerprints e comparação de duplicados, lifecycle e integração com a interface.
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` foi consultado como contexto e permanece inalterado. Esta análise usa a implementação atual como fonte de verdade.
@@ -400,3 +400,31 @@ A feature de duplicados conserva comandos, consultas, coordenação e algoritmos
 A convenção e os limites de responsabilidade estão no [README dos workers](../../src-tauri/src/processing/workers/README.md). Esta entrega centraliza a organização; unificação do cálculo de fingerprints entre scan manual e automático e reservas persistentes continuam pendentes no plano.
 
 Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` concluiu com **28 testes aprovados**, incluindo os testes do worker de duplicados já no novo módulo. Os testes cobrem pausa/retomada, comparação agendada, retries, contagens, admissão de scans manuais e contratos IPC. `git diff --check` e a formatação dos módulos reorganizados passaram. O documento histórico `05-job-scheduler-workers.md` permaneceu inalterado.
+
+## 16. Cálculo compartilhado de fingerprints
+
+O scan manual e o `DuplicateWorker` agora delegam ao mesmo `FingerprintProcessor`. A leitura incremental do arquivo e a resolução de pixels ficam em `processing/media/fingerprint.rs`, fora do adaptador SQLite. O método legado `rehash_pending_fingerprints` foi removido do repository e de sua implementação.
+
+Os dois caminhos usam a mesma elegibilidade, retries limitados, cancelamento e verificação da origem antes de salvar. A classificação usa família e formato do asset; um hash exato válido sem representação visual é um resultado concluído. O rebuild explícito limpa também as tentativas de fingerprints, sem reiniciar cores ou thumbnails. Os contratos IPC e controles da statusbar permanecem compatíveis.
+
+Comportamento, compatibilidade dos hashes v5, exemplos e limites estão em [Processamento compartilhado de fingerprints](fingerprint-processing.md). Reservas persistentes e fencing transacional continuam pendentes.
+
+Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` concluiu com **37 testes aprovados**, incluindo equivalência entre scans manual e automático, cancelamento durante leitura, fallback por providers, origem alterada, elegibilidade, retries e rebuild. Não houve execução no macOS nesta etapa. O documento histórico `05-job-scheduler-workers.md` permaneceu inalterado.
+
+## 17. Reservas persistentes e publicação transacional
+
+Thumbnails, cores e fingerprints agora reservam `(asset_id, kind)` no banco, com UUID por admissão, expiração de 120 segundos e heartbeat de 30 segundos. Uma tentativa expirada não pode renovar ou concluir sobre a propriedade seguinte, mesmo quando a geração é igual. Solicitações explícitas e mudanças de origem continuam invalidando tentativas anteriores.
+
+O Ledger valida propriedade, origem e geração na transação que salva o resultado e conclui a tentativa. Eventos são publicados após commit; uma conclusão rejeitada não altera dados ou emite sucesso. Thumbnails e previews 3D usam arquivos por tentativa, com ponteiros publicados atomicamente e reconciliação do cache.
+
+Os contratos, exemplos, recuperação após crash e limites estão em [Reservas persistentes e publicação transacional](processing-leases.md). Comparações persistidas de duplicados, orçamento global e snapshot físico da origem continuam fora desta etapa. O documento histórico do scheduler permanece inalterado.
+
+Validação no Windows: **45 testes de processamento**, **16 regressões de pastas** e **três testes de parsing de URIs** aprovados. A limpeza normal consulta diretamente os nomes da tentativa; a coleta geral ocorre no início do loop de thumbnails e em intervalos de 60 segundos conforme o ciclo avança. `git diff --check` e links locais da documentação passaram. Não houve validação visual ou execução no macOS nesta etapa.
+
+## 18. Revisão da integração com o frontend
+
+Configurações, regras e finder passaram a compartilhar admissão local e snapshot de scans com a statusbar. A interface distingue preparação, hashing, matching e cancelamento; permite retomada nas configurações, confirma rebuild e bloqueia ações incompatíveis com pausa, indisponibilidade ou execução em andamento. Os textos refletem automação em segundo plano, limites de retries e concorrência aplicada após reinício.
+
+Comportamento, validação e próximos itens priorizados estão em [Integração dos workers com a interface](workers-frontend-integration.md). Matching persistido, retry global por estágio, diagnóstico de capacidades, limites dinâmicos e otimização medida continuam planejados. O relatório histórico do scheduler permanece inalterado.
+
+Validação: **34 testes frontend aprovados**, typecheck, lint sem warnings nos arquivos alterados, Prettier e build de produção com carregador nativo da configuração. Não houve validação visual da aplicação nem execução no macOS nesta revisão.

@@ -71,6 +71,29 @@ impl SqliteAssetLedger {
 /// A `Result` containing the updated asset or an error.
 #[async_trait]
 impl TransactionalAssetLedger for SqliteAssetLedger {
+    async fn reconcile_processing_artifacts(&self, ticket: Option<&crate::core::processing::ProcessingTicket>) -> AppResult<()> {
+        crate::infra::asset_cache::prune_processing_artifacts(&self.pool, &self.app_data_directory, ticket).await
+    }
+    async fn commit_processing(
+        &self,
+        ticket: &crate::core::processing::ProcessingTicket,
+        result: crate::core::processing::ProcessingResult,
+    ) -> AppResult<bool> {
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let Some(events) = crate::infra::database::handlers::processing_handler::commit(
+            &mut transaction, ticket, result,
+        ).await? else {
+            return Ok(false);
+        };
+        transaction.commit().await?;
+        for event in events {
+            if let Err(error) = self.event_bus.publish(event) {
+                tracing::warn!(%error, "Processing result committed but its wake-up event was lost");
+            }
+        }
+        Ok(true)
+    }
+
     /// Executes a command that modifies the state of the asset ledger.
     async fn execute(&self, command: LedgerCommand) -> AppResult<Asset> {
         let mut tx = self.pool.begin().await?;

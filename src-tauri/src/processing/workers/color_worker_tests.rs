@@ -1,4 +1,5 @@
 use super::*;
+use crate::core::ledger::command::LedgerCommand;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 fn worker(fixture: &ProcessingFixture) -> ColorWorker {

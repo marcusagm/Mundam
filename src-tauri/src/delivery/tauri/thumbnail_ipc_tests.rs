@@ -71,6 +71,7 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
         fixture.event_bus.clone(),
         fixture.queries.clone(),
         fixture.registry.clone(),
+        fixture.processing.clone(),
     )
     .with_processing_control(control.clone());
     let settings = Arc::new(

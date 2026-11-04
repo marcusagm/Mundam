@@ -2,10 +2,9 @@
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::events::{AppEventBus, DomainEvent};
-use crate::core::ledger::command::{LedgerCommand, UpdateAssetColorsPayload};
 use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::processing::{
-    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingTicket,
+    ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingResult, ProcessingTicket,
 };
 use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::core::repository::AssetQueryHandler;
@@ -95,8 +94,13 @@ impl ColorWorker {
             else {
                 continue;
             };
+            let _lease = crate::processing::lease::ProcessingLease::start(
+                self.processing.clone(),
+                ticket.clone(),
+            );
             let result = self.extract(&ticket, token).await;
             if token.is_cancelled() {
+                self.processing.release(&ticket).await?;
                 return Ok(());
             }
             let outcome = match result {
@@ -107,6 +111,7 @@ impl ColorWorker {
                 }
             };
             self.processing.finish(&ticket, outcome).await?;
+            self.processing.release(&ticket).await?;
         }
         Ok(())
     }
@@ -134,10 +139,7 @@ impl ColorWorker {
             ));
         }
         self.ledger
-            .execute(LedgerCommand::UpdateAssetColors(UpdateAssetColorsPayload {
-                asset_id: ticket.asset_id.clone(),
-                colors,
-            }))
+            .commit_processing(ticket, ProcessingResult::Colors(colors))
             .await?;
         Ok(ProcessingOutcome::Completed)
     }

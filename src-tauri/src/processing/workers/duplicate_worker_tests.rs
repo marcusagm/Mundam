@@ -1,5 +1,78 @@
 use super::super::test_support::{ProcessingFixture, TestResult};
 use super::*;
+use crate::core::processing::ProcessingKind;
+
+#[tokio::test]
+async fn processing_manual_and_automatic_scans_persist_identical_fingerprints() -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    fixture.asset("asset", None).await?;
+    let source = fixture.data.path().join("asset.png");
+    image::RgbImage::from_fn(32, 32, |column, row| {
+        image::Rgb([(column * 6) as u8, (row * 5) as u8, 64])
+    })
+    .save(&source)?;
+    sqlx::query("UPDATE assets SET format_type = 'raw_sensor_alias', family = 'IMAGE'")
+        .execute(&fixture.pool)
+        .await?;
+    let original = tokio::fs::read(&source).await?;
+    let repository = Arc::new(
+        crate::infra::database::duplicates::SqliteDuplicatesRepository::new(fixture.pool.clone()),
+    );
+    let coordinator = Arc::new(DuplicateProcessingCoordinator::default());
+    let control = Arc::new(ProcessingControl::default());
+    let settings = SettingsService::new(Arc::new(
+        crate::infra::config::json_adapter::JsonSettingsAdapter::new(
+            fixture.data.path().join("settings.json"),
+        ),
+    ));
+    let worker = DuplicateWorker::new(
+        repository.clone(),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        settings,
+        fixture.registry.clone(),
+        fixture.processing.clone(),
+        fixture.queries.clone(),
+        coordinator.clone(),
+    )
+    .with_control(control.clone());
+    assert_eq!(worker.process_batch(&CancellationToken::new()).await?.0, 1);
+    let automatic = repository
+        .get_fingerprint("asset")
+        .await?
+        .ok_or("Missing automatic result")?;
+    assert!(automatic.perceptual_hash.is_some());
+    repository.reset_duplicate_index().await?;
+    let manual = crate::feature::duplicates::commands::DuplicateCommandService::new(
+        repository.clone(),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.queries.clone(),
+        fixture.registry.clone(),
+        fixture.processing.clone(),
+    )
+    .with_processing_coordinator(coordinator)
+    .with_processing_control(control);
+    manual.start_duplicate_scan().await?;
+    let manual_result = repository
+        .get_fingerprint("asset")
+        .await?
+        .ok_or("Missing manual result")?;
+    let mut expected = serde_json::to_value(automatic)?;
+    let mut actual = serde_json::to_value(manual_result)?;
+    expected
+        .as_object_mut()
+        .ok_or("Invalid fingerprint")?
+        .remove("updated_at");
+    actual
+        .as_object_mut()
+        .ok_or("Invalid fingerprint")?
+        .remove("updated_at");
+    assert_eq!(actual, expected);
+    assert_eq!(tokio::fs::read(&source).await?, original);
+    assert!(!manual.get_scan_status().is_running);
+    Ok(())
+}
 
 #[tokio::test]
 async fn processing_scheduled_comparison_survives_pause_and_finishes_after_resume() -> TestResult {
@@ -25,6 +98,7 @@ async fn processing_scheduled_comparison_survives_pause_and_finishes_after_resum
                 fixture.pool.clone(),
             ),
         ),
+        fixture.ledger.clone(),
         fixture.event_bus.clone(),
         settings,
         fixture.registry.clone(),
@@ -75,6 +149,7 @@ async fn processing_automatic_duplicates_pause_retains_hashing_and_matching_inte
                 fixture.pool.clone(),
             ),
         ),
+        fixture.ledger.clone(),
         fixture.event_bus.clone(),
         settings,
         fixture.registry.clone(),

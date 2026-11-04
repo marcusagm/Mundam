@@ -1,4 +1,4 @@
-import { Component, JSX, Show, createMemo, createSignal } from 'solid-js';
+import { Component, JSX, Show, createSignal } from 'solid-js';
 import { RefreshCw, Search, Bell, Settings } from 'lucide-solid';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui';
 import {
@@ -13,6 +13,7 @@ import { useDuplicateGroups } from '../components/features/duplicates/hooks/useD
 import { createConditionalScope, useCommands } from '../core/input';
 
 import './duplicate-finder-view.css';
+import { duplicateScanPhaseLabel } from '../utils/processing';
 
 export interface DuplicateFinderViewProperties {
     /** The title bar to render at the top */
@@ -44,6 +45,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         setGroupTypeFilter,
         isScanning,
         scanProgress,
+        scan,
         newGroupsFoundCount,
         resetNewGroupsCount,
         preloadGroupCandidates
@@ -59,15 +61,7 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         return currentGroups.find(group => group.id === selectedGroupId());
     };
 
-    /**
-     * Derives the real progress percentage when `total > 0`.
-     * Returns `undefined` when indeterminate (total is 0 or progress is null).
-     */
-    const scanProgressValue = createMemo(() => {
-        const progress = scanProgress();
-        if (!progress || progress.total === 0) return undefined;
-        return (progress.processed / progress.total) * 100;
-    });
+    const scanProgressValue = scan.progress;
 
     const moveGroupSelection = (offset: 1 | -1) => {
         const currentVisible = visibleGroups();
@@ -125,6 +119,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                             variant="primary"
                                             class="duplicate-finder-toolbar-button"
                                             onClick={startScan}
+                                            disabled={!scan.canStart()}
+                                            title={scan.unavailableReason()}
                                         >
                                             <Search
                                                 size={16}
@@ -138,12 +134,13 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                         variant="secondary"
                                         class="duplicate-finder-toolbar-button"
                                         onClick={cancelScan}
+                                        disabled={scan.isStopping()}
                                     >
                                         <RefreshCw
                                             size={16}
                                             class="duplicate-finder-toolbar-icon duplicate-finder-spinner"
                                         />
-                                        Cancel Scan
+                                        {scan.isStopping() ? 'Stopping…' : 'Cancel Scan'}
                                     </Button>
                                 </Show>
 
@@ -157,11 +154,16 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                 </Button>
                             </div>
 
+                            <Show when={!isScanning() && scan.unavailableReason()}>
+                                <p role="status">{scan.unavailableReason()}</p>
+                            </Show>
                             <Show when={isScanning()}>
                                 <div class="duplicate-finder-scan-progress-row">
                                     <Show
-                                        when={scanProgress()}
-                                        fallback={<span>Preparing scan…</span>}
+                                        when={scanProgressValue() !== undefined}
+                                        fallback={
+                                            <span>{duplicateScanPhaseLabel(scan.phase())}</span>
+                                        }
                                     >
                                         <span>
                                             {scanProgress()?.processed || 0}
@@ -169,9 +171,8 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                                 {' / '}
                                                 {scanProgress()?.total}
                                             </Show>{' '}
-                                            files hashed
+                                            files analyzed
                                         </span>
-                                        <span>Groups: {scanProgress()?.groupsCreated || 0}</span>
                                     </Show>
                                 </div>
                                 <ProgressBar

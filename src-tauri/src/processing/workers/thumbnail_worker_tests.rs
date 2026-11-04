@@ -1,6 +1,93 @@
 use super::*;
 use crate::core::formats::{capabilities::ThumbnailCapability, provider::FormatProvider};
+use crate::core::ledger::command::LedgerCommand;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
+
+#[tokio::test]
+async fn processing_thumbnail_publishes_immutable_versions_and_reclaims_previous_cache(
+) -> TestResult {
+    struct RasterProvider(Vec<u8>);
+    impl FormatProvider for RasterProvider {
+        fn name(&self) -> &'static str {
+            "RASTER_LEASE_TEST"
+        }
+        fn supported_extensions(&self) -> Vec<&'static str> {
+            vec!["png"]
+        }
+        fn thumbnail(&self) -> Option<&dyn ThumbnailCapability> {
+            Some(self)
+        }
+    }
+    #[async_trait::async_trait]
+    impl ThumbnailCapability for RasterProvider {
+        async fn generate(
+            &self,
+            _path: &std::path::Path,
+            _asset_id: &str,
+            _size_hint: u32,
+        ) -> AppResult<Vec<u8>> {
+            Ok(self.0.clone())
+        }
+    }
+    let fixture = ProcessingFixture::new().await?;
+    fixture.asset("asset", None).await?;
+    let source = fixture.data.path().join("asset.png");
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image::RgbImage::from_pixel(32, 32, image::Rgb([25, 75, 150]))
+        .write_to(&mut bytes, image::ImageFormat::Png)?;
+    let original = bytes.into_inner();
+    tokio::fs::write(&source, &original).await?;
+    let mut registry = FormatRegistry::new();
+    registry.register(Arc::new(RasterProvider(original.clone())));
+    let directory = fixture.data.path().join("thumbnails");
+    let worker = ThumbnailWorker::new(
+        Arc::new(registry),
+        fixture.ledger.clone(),
+        fixture.queries.clone(),
+        Arc::new(ThumbnailPriorityState::default()),
+        directory.clone(),
+        fixture.processing.clone(),
+    );
+    worker.process_single("asset".into(), false).await?;
+    let first = fixture
+        .processing
+        .thumbnail_statuses(&["asset".into()])
+        .await?
+        .remove(0);
+    assert_eq!(
+        first.state,
+        crate::core::processing::ThumbnailProcessingState::Succeeded
+    );
+    let first_name = first.thumbnail_path.ok_or("No first thumbnail")?;
+    assert!(first_name.starts_with("asset."));
+    assert_ne!(first_name, "asset.webp");
+    assert!(image::load_from_memory(&tokio::fs::read(directory.join(&first_name)).await?).is_ok());
+    fixture
+        .ledger
+        .execute(LedgerCommand::RegenerateThumbnail {
+            asset_id: "asset".into(),
+        })
+        .await?;
+    worker.process_single("asset".into(), false).await?;
+    let second = fixture
+        .processing
+        .thumbnail_statuses(&["asset".into()])
+        .await?
+        .remove(0);
+    let second_name = second.thumbnail_path.ok_or("No second thumbnail")?;
+    assert_ne!(first_name, second_name);
+    assert!(second.generation > first.generation);
+    fixture.ledger.reconcile_processing_artifacts(None).await?;
+    assert!(!directory.join(first_name).exists());
+    assert!(directory.join(second_name).exists());
+    assert_eq!(tokio::fs::read(source).await?, original);
+    assert!(fixture
+        .processing
+        .pending(ProcessingKind::Thumbnail, 1)
+        .await?
+        .is_empty());
+    Ok(())
+}
 
 #[tokio::test]
 async fn processing_thumbnail_pause_retains_durable_work_until_resume() -> TestResult {

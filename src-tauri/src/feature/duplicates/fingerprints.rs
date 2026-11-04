@@ -12,12 +12,8 @@ use image::{DynamicImage, GenericImageView};
 /// A 64-bit unsigned integer representing the gradient difference hash.
 pub fn compute_perceptual_dhash_64(image_reference: &DynamicImage) -> u64 {
     let grayscale_image = image_reference.grayscale();
-    let resized_image = image::imageops::resize(
-        &grayscale_image,
-        9,
-        8,
-        image::imageops::FilterType::Nearest,
-    );
+    let resized_image =
+        image::imageops::resize(&grayscale_image, 9, 8, image::imageops::FilterType::Nearest);
 
     let mut hash_value: u64 = 0;
     for row_index in 0..8 {
@@ -161,6 +157,8 @@ pub fn is_image_media(format_family: &str, format_type: &str) -> bool {
 /// 1. **PreviewCapability**: Generates a high-fidelity raster preview from the original file.
 /// 2. **ThumbnailCapability (1024px)**: Falls back to a large thumbnail if preview is unavailable.
 ///
+/// Cancellation is checked between provider calls; an active native extraction runs to completion.
+///
 /// # Safety
 /// This function calls `tokio::runtime::Handle::current().block_on()` which is safe because
 /// it is always invoked from within `spawn_blocking`, not from an async executor thread.
@@ -168,7 +166,11 @@ pub fn resolve_image_via_format_provider(
     format_registry: &crate::core::formats::FormatRegistry,
     file_path: &std::path::Path,
     asset_id: &str,
+    token: &tokio_util::sync::CancellationToken,
 ) -> Option<image::DynamicImage> {
+    if token.is_cancelled() {
+        return None;
+    }
     let format_provider = match format_registry.resolve(file_path, &[]) {
         Some(found_provider) => found_provider,
         None => {
@@ -192,6 +194,9 @@ pub fn resolve_image_via_format_provider(
                 .generate_preview(file_path, asset_id)
                 .await
         });
+        if token.is_cancelled() {
+            return None;
+        }
         if let Ok((preview_bytes, _mime_type)) = preview_result {
             if let Ok(loaded_image) = image::load_from_memory(&preview_bytes) {
                 tracing::debug!(
@@ -205,6 +210,9 @@ pub fn resolve_image_via_format_provider(
 
     // Fallback: ThumbnailCapability with large size_hint for better hash quality
     if let Some(thumbnail_capability) = format_provider.thumbnail() {
+        if token.is_cancelled() {
+            return None;
+        }
         tracing::debug!(
             "resolve_image_via_format_provider: falling back to thumbnail capability (1024px) for asset_id={}",
             asset_id
@@ -214,6 +222,9 @@ pub fn resolve_image_via_format_provider(
                 .generate(file_path, asset_id, 1024)
                 .await
         });
+        if token.is_cancelled() {
+            return None;
+        }
         if let Ok(thumbnail_bytes) = thumbnail_result {
             if let Ok(loaded_image) = image::load_from_memory(&thumbnail_bytes) {
                 tracing::debug!(
@@ -233,4 +244,3 @@ pub fn resolve_image_via_format_provider(
 
     None
 }
-

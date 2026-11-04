@@ -24,6 +24,8 @@ export function useProcessing() {
     return {
         /** Last snapshot, query errors and pending controls. */
         state,
+        /** Requests reconciliation after an explicit user action. */
+        refresh: () => client.refresh(),
         /** Sends pause/resume intent without optimistic execution state. */
         setPaused: client.setPaused.bind(client)
     };

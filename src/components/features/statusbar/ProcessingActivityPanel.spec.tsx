@@ -32,6 +32,33 @@ const state = (): ProcessingClientState => ({
 afterEach(cleanup);
 
 describe('processing statusbar controls', () => {
+    it('shows cancellation and matching phases without a misleading hashing percentage', () => {
+        const [current, setCurrent] = createSignal(state());
+        const active = state();
+        active.snapshot!.manual_scan = {
+            is_running: true,
+            phase: 'cancel_requested',
+            processed: 10,
+            total: 10
+        };
+        setCurrent(active);
+        const view = render(() => (
+            <ProcessingActivityPanel state={current()} indexing={null} onPause={vi.fn()} />
+        ));
+        expect(view.getByRole('status').textContent).toContain(
+            'Stopping — finishing the current operation'
+        );
+        expect(view.queryByText('10 / 10 files analyzed')).toBeNull();
+        setCurrent(previous => ({
+            ...previous,
+            snapshot: {
+                ...previous.snapshot!,
+                manual_scan: { is_running: true, phase: 'exact_matching', processed: 10, total: 10 }
+            }
+        }));
+        expect(view.getByRole('status').textContent).toContain('Comparing identical files');
+        expect(view.queryByText('10 / 10 files analyzed')).toBeNull();
+    });
     it('preserves focused controls when polling replaces the worker snapshots', () => {
         const [current, setCurrent] = createSignal(state());
         const view = render(() => (

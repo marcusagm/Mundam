@@ -77,7 +77,9 @@ Atualizações periódicas preservam os elementos das linhas e o foco dos contro
 
 ## Limites desta etapa
 
-O controle é local à instância, sem leases ou reserva distribuída. Não implementa persistência da pausa, interrupção imediata de operações nativas, alteração dinâmica dos limites de concorrência, repetição global de falhas ou migração do algoritmo manual de fingerprints para os jobs automáticos. Essas partes continuam no plano de [padronização dos workers](workers-processing-control.md).
+A revisão posterior das configurações e do finder está em [Integração dos workers com a interface](workers-frontend-integration.md). Ela compartilha admissão e progresso manual com a statusbar, corrige as fases exibidas e relaciona as pendências atuais do plano.
+
+O controle da pausa e a atividade exibida são locais à instância. Não implementam persistência da pausa, interrupção imediata de operações nativas, alteração dinâmica dos limites de concorrência ou repetição global de falhas. Essas partes continuam no plano de [padronização dos workers](workers-processing-control.md). O cálculo manual e automático foi unificado em [Processamento compartilhado de fingerprints](fingerprint-processing.md); a execução por asset passou a usar [reservas persistentes e publicação transacional](processing-leases.md). Reservas válidas ficam fora da contagem de pendências, sem transformar o painel em um monitor de atividade de outros processos.
 
 ## Validação executada
 

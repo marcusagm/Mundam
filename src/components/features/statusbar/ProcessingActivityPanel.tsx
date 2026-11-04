@@ -3,6 +3,7 @@ import type { ProcessingClientState, WorkerKind } from '../../../core/store/proc
 import type { ProgressPayload } from '../../../core/store/systemStore';
 import { ProcessingWorkerRow } from './ProcessingWorkerRow';
 import './processing-activity.css';
+import { duplicateScanPhaseLabel } from '../../../utils/processing';
 
 /** Snapshot presentation shared by the statusbar's activity popover. */
 interface ProcessingActivityPanelProperties {
@@ -49,10 +50,23 @@ export const ProcessingActivityPanel: Component<ProcessingActivityPanelPropertie
                 )}
             </Index>
             <Show when={properties.state.snapshot?.manual_scan.is_running}>
-                <p>
-                    Manual duplicate scan: {properties.state.snapshot?.manual_scan.processed} /{' '}
-                    {properties.state.snapshot?.manual_scan.total}
-                </p>
+                <div role="status">
+                    <p>
+                        Manual duplicate scan:{' '}
+                        {duplicateScanPhaseLabel(properties.state.snapshot!.manual_scan.phase)}
+                    </p>
+                    <Show
+                        when={
+                            properties.state.snapshot?.manual_scan.phase === 'hashing' &&
+                            properties.state.snapshot.manual_scan.total > 0
+                        }
+                    >
+                        <p>
+                            {properties.state.snapshot?.manual_scan.processed} /{' '}
+                            {properties.state.snapshot?.manual_scan.total} files analyzed
+                        </p>
+                    </Show>
+                </div>
             </Show>
         </Show>
         <p class="processing-help">

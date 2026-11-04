@@ -1,8 +1,8 @@
-import { Component, createSignal, onMount } from 'solid-js';
+import { Component, onMount } from 'solid-js';
 import { Button, SectionGroup, Switch } from '../../ui';
 import { DuplicateRulesForm } from '../duplicates/DuplicateRulesForm';
 import { useDuplicateRules } from '../duplicates/hooks/useDuplicateRules';
-import { duplicatesApi } from '../../../lib/duplicates';
+import { DuplicateScanControls } from './DuplicateScanControls';
 import { useNotification, useSettings } from '../../../core/hooks';
 import './duplicates-panel.css';
 
@@ -15,8 +15,6 @@ export const DuplicatesPanel: Component = () => {
     const settings = useSettings();
     const notification = useNotification();
     const duplicateRules = useDuplicateRules();
-
-    const [isRebuildingIndex, setIsRebuildingIndex] = createSignal<boolean>(false);
 
     onMount(async () => {
         await settings.initialize();
@@ -44,26 +42,6 @@ export const DuplicatesPanel: Component = () => {
         }
     };
 
-    const handleRebuildIndex = async (): Promise<void> => {
-        setIsRebuildingIndex(true);
-        notification.info(
-            'Rebuilding Index',
-            'Resetting existing duplicate index records and launching a library-wide scan...'
-        );
-        try {
-            await duplicatesApi.rebuildDuplicateIndex();
-            notification.success(
-                'Index Reset Complete',
-                'Duplicate index has been cleared and a fresh background scan has started.'
-            );
-        } catch (error) {
-            console.error('Failed to rebuild duplicate index:', error);
-            notification.error('Error', 'Failed to rebuild duplicate index.');
-        } finally {
-            setIsRebuildingIndex(false);
-        }
-    };
-
     return (
         <div class="settings-panel-content duplicates-panel">
             <h2 class="settings-panel-title">Duplicate Detection</h2>
@@ -73,17 +51,18 @@ export const DuplicatesPanel: Component = () => {
 
             <SectionGroup
                 title="Background Scanning"
-                description="Settings related to real-time exact duplicate detection on file import."
+                description="Choose whether duplicate analysis runs automatically in the background."
             >
                 <div class="general-setting-row duplicates-setting-row">
                     <div class="duplicates-setting-label-block">
-                        <span class="setting-label">Auto-Detect Exact Duplicates on Import</span>
+                        <span class="setting-label">Automatic Duplicate Detection</span>
                         <span class="duplicates-setting-description">
-                            Instantly check and group exact copies as soon as they are added to the
-                            library.
+                            Analyze imported files in the background and compare them using the
+                            active detection rules. Pause or resume processing in System Activity.
                         </span>
                     </div>
                     <Switch
+                        aria-label="Automatic Duplicate Detection"
                         checked={settings.autoDetectDuplicates()}
                         onCheckedChange={handleAutoDetectChange}
                     />
@@ -149,20 +128,7 @@ export const DuplicatesPanel: Component = () => {
                 </div>
             </SectionGroup>
 
-            <SectionGroup
-                title="Maintenance"
-                description="Erase all existing duplicate fingerprints and groups to re-analyze the entire library from scratch."
-            >
-                <div class="setting-action-row">
-                    <Button
-                        variant="destructive"
-                        onClick={handleRebuildIndex}
-                        loading={isRebuildingIndex()}
-                    >
-                        Rebuild Index
-                    </Button>
-                </div>
-            </SectionGroup>
+            <DuplicateScanControls />
         </div>
     );
 };

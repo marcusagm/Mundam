@@ -33,7 +33,9 @@ export const Switch: Component<SwitchProperties> = properties => {
         'description',
         'size',
         'id',
-        'disabled'
+        'disabled',
+        'aria-label',
+        'aria-labelledby'
     ]);
 
     const componentId = createMemo(() => localProperties.id || createId('switch'));
@@ -88,6 +90,8 @@ export const Switch: Component<SwitchProperties> = properties => {
                     isChecked() && 'ui-switch-checked'
                 )}
                 aria-checked={isChecked()}
+                aria-label={localProperties['aria-label'] || localProperties.label}
+                aria-labelledby={localProperties['aria-labelledby']}
                 aria-disabled={localProperties.disabled}
                 aria-describedby={descriptionId()}
                 disabled={localProperties.disabled}
