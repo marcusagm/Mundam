@@ -33,6 +33,14 @@ pub enum AppError {
     #[error("Transcoding error: {0}")]
     Transcoding(String),
 
+    /// A known required binary could not be resolved.
+    #[error("Required extraction tool is unavailable: {0}")]
+    ToolUnavailable(String),
+
+    /// A provider returned data that cannot be used as a generated output.
+    #[error("Extractor returned invalid output.")]
+    InvalidProcessingOutput,
+
     /// Error related to streaming operations.
     #[error("Streaming error: {0}")]
     Streaming(String),

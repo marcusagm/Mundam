@@ -1,8 +1,27 @@
 /** Executor identities accepted by the desktop control API. */
 export type WorkerKind = 'thumbnails' | 'colors' | 'duplicates';
 
+/** Separate intents prevent unsupported files from being retried automatically. */
+export type ProcessingRetryScope = 'failed' | 'unsupported';
+
+/** Safe grouped causes; raw logs and paths never cross this contract. */
+export interface ProcessingDiagnostic {
+    issue: string;
+    state: 'failed' | 'retry_wait' | 'skipped';
+    count: number;
+}
+
+/** Queue acknowledgement is not a processing completion notification. */
+export interface ProcessingRetryAcknowledgement {
+    snapshot: ProcessingSnapshot;
+    assets: number;
+    comparisons: number;
+}
+
 /** Runtime activity and durable queue counts are independent of AssetState. */
 export interface WorkerSnapshot {
+    /** Optional for older running backends until the application restarts. */
+    diagnostics?: ProcessingDiagnostic[];
     /** Stable executor identity. */
     worker: WorkerKind;
     /** Whether the orchestration task is alive. */
@@ -29,6 +48,18 @@ export interface WorkerSnapshot {
 
 /** Full replacement read model; no library invalidation is implied. */
 export interface ProcessingSnapshot {
+    /** Persisted comparison outcomes, separate from the per-asset queue. */
+    matching?: {
+        publication_sequence: number;
+        pending: number;
+        retry_wait: number;
+        failed: number;
+        completed: string[];
+        failed_phases: string[];
+        manual_pending: boolean;
+        manual_cancel_requested: boolean;
+        manual_phase: string | null;
+    };
     /** Application service identity, changed after restart. */
     instance_id: string;
     /** Monotonic response sequence within this service instance. */
@@ -41,6 +72,8 @@ export interface ProcessingSnapshot {
 
 /** Shared statusbar transport state. */
 export interface ProcessingClientState {
+    /** Most recent explicit action acknowledgement per worker. */
+    feedback?: Partial<Record<WorkerKind, string>>;
     /** Last authoritative snapshot, retained during temporary transport failures. */
     snapshot: ProcessingSnapshot | null;
     /** Staleness or explicit action failure, displayed inline without toasts. */

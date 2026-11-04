@@ -22,6 +22,22 @@
 .processing-help {
     color: var(--text-secondary);
 }
+
+.processing-retry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--p-space-s);
+}
+.processing-diagnostics {
+    margin-top: var(--p-space-s);
+    line-height: 1.5;
+}
+.processing-diagnostics summary {
+    cursor: pointer;
+}
+.processing-diagnostics ul {
+    padding-left: var(--p-space-m);
+}
 .processing-worker-counts {
     display: flex;
     gap: var(--p-space-s);

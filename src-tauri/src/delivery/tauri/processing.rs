@@ -28,3 +28,15 @@ pub async fn set_processing_worker_paused(
 ) -> AppResult<ProcessingSnapshot> {
     service.set_paused(worker, paused).await
 }
+
+/// Queues terminal failures or unsupported assets without exposing private extractor logs.
+/// # Errors
+/// Propagates validation and storage failures from the processing service.
+#[tauri::command]
+pub async fn retry_processing_worker(
+    worker: WorkerKind,
+    scope: crate::core::processing_diagnostics::ProcessingRetryScope,
+    service: State<'_, Arc<ProcessingControlService>>,
+) -> AppResult<crate::feature::processing_control::ProcessingRetryAcknowledgement> {
+    service.retry(worker, scope).await
+}

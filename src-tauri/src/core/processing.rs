@@ -89,6 +89,13 @@ pub enum ProcessingResult {
 
 /// Distinguishes valid results, unsupported work and retryable processing failures.
 pub enum ProcessingOutcome {
+    /// Typed cause with private log context, for bounded retries and grouped diagnostics.
+    DiagnosedFailure {
+        issue: crate::core::processing_diagnostics::ProcessingIssue,
+        message: String,
+    },
+    /// Unsupported output is terminal until the user explicitly requests reevaluation.
+    Unavailable(crate::core::processing_diagnostics::ProcessingIssue),
     /// The result was persisted successfully.
     Completed,
     /// This stage is not applicable to the asset or provider.
@@ -97,12 +104,38 @@ pub enum ProcessingOutcome {
     Failed(String),
 }
 
+impl ProcessingOutcome {
+    /// Preserves private failure details while exposing only a stable diagnostic cause.
+    pub fn failure(error: &crate::core::AppError) -> Self {
+        Self::DiagnosedFailure {
+            issue: crate::core::processing_diagnostics::ProcessingIssue::from_error(error),
+            message: error.to_string(),
+        }
+    }
+}
+
 /// Durable pending work and attempt outcomes shared by specialized executors.
 ///
 /// Runtime concurrency remains owned by each worker. Durable reservations fence
 /// concurrent executors and expire after crashes; renewal never revives an expired lease.
 #[async_trait]
 pub trait ProcessingRepository: Send + Sync {
+    /// Groups current active outcomes by a finite, safe cause whitelist.
+    /// # Errors
+    /// Propagates storage failures instead of claiming healthy processing.
+    async fn diagnostics(
+        &self,
+        kind: ProcessingKind,
+    ) -> AppResult<Vec<crate::core::processing_diagnostics::ProcessingDiagnostic>>;
+
+    /// Queues terminal outcomes atomically, preserving valid outputs and active leases.
+    /// # Errors
+    /// Rolls back the complete request on a storage error.
+    async fn retry(
+        &self,
+        kind: ProcessingKind,
+        scope: crate::core::processing_diagnostics::ProcessingRetryScope,
+    ) -> AppResult<crate::core::processing_diagnostics::ProcessingRetryCounts>;
     /// Counts durable outcomes, excluding the supplied running asset identities.
     ///
     /// # Errors

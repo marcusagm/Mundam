@@ -58,5 +58,6 @@ pub mod models;
 pub mod queries;
 pub mod query_handlers;
 pub mod duplicates;
+pub(crate) mod duplicate_policy;
 pub mod saga_recovery;
 pub mod search_builder;

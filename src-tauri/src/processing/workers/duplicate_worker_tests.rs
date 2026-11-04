@@ -1,6 +1,108 @@
 use super::super::test_support::{ProcessingFixture, TestResult};
 use super::*;
+use crate::core::matching::MatchingRepository;
 use crate::core::processing::ProcessingKind;
+
+#[tokio::test]
+async fn processing_matching_worker_recovers_manual_work_with_automation_off_after_pause(
+) -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    let repository = Arc::new(
+        crate::infra::database::duplicates::SqliteDuplicatesRepository::new(fixture.pool.clone()),
+    );
+    repository.get_active_rule_set().await?;
+    repository.request_matching("interrupted-manual").await?;
+    let control = Arc::new(ProcessingControl::default());
+    control.set_paused(WorkerKind::Duplicates, true);
+    let settings = SettingsService::new(Arc::new(
+        crate::infra::config::json_adapter::JsonSettingsAdapter::new(
+            fixture.data.path().join("settings.json"),
+        ),
+    ));
+    settings
+        .update_settings(crate::core::settings::AppSettings {
+            auto_detect_duplicates: false,
+            ..Default::default()
+        })
+        .await?;
+    let worker = Arc::new(
+        DuplicateWorker::new(
+            repository.clone(),
+            fixture.ledger.clone(),
+            fixture.event_bus.clone(),
+            settings,
+            fixture.registry.clone(),
+            fixture.processing.clone(),
+            fixture.queries.clone(),
+            Arc::new(DuplicateProcessingCoordinator::default()),
+        )
+        .with_control(control.clone()),
+    );
+    let token = CancellationToken::new();
+    let _shutdown = token.clone().drop_guard();
+    let handle = worker.start(token.clone());
+    tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+    assert!(repository.matching_status().await?.manual_pending);
+    assert!(control.snapshot()[2].scheduled);
+    assert_eq!(control.snapshot()[2].active, 0);
+    control.set_paused(WorkerKind::Duplicates, false);
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while repository.matching_status().await?.completed.len() < 2 {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        Ok::<(), crate::core::AppError>(())
+    })
+    .await??;
+    assert!(!repository.matching_status().await?.manual_pending);
+    token.cancel();
+    handle.await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn processing_matching_snapshot_and_cancel_recover_without_runtime_manual_status(
+) -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    let repository = Arc::new(
+        crate::infra::database::duplicates::SqliteDuplicatesRepository::new(fixture.pool.clone()),
+    );
+    repository.request_matching("interrupted-manual").await?;
+    let control = Arc::new(ProcessingControl::default());
+    let settings = Arc::new(
+        crate::infra::config::json_adapter::JsonSettingsAdapter::new(
+            fixture.data.path().join("settings.json"),
+        ),
+    );
+    let service = crate::feature::duplicates::commands::DuplicateCommandService::new(
+        repository.clone(),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.queries.clone(),
+        fixture.registry.clone(),
+        fixture.processing.clone(),
+    )
+    .with_processing_control(control.clone());
+    let snapshots = crate::feature::processing_control::ProcessingControlService::new(
+        repository.clone(),
+        control.clone(),
+        fixture.processing.clone(),
+        settings,
+        Arc::new(service.clone()),
+    );
+    assert!(!service.get_scan_status().is_running);
+    let snapshot = snapshots.snapshot().await?;
+    assert!(snapshot.manual_scan.is_running);
+    assert_eq!(snapshot.manual_scan.phase, "recovering");
+    control.set_paused(WorkerKind::Duplicates, true);
+    assert_eq!(snapshots.snapshot().await?.manual_scan.phase, "paused");
+    service.cancel_duplicate_scan().await?;
+    assert!(!snapshots.snapshot().await?.manual_scan.is_running);
+    assert!(repository
+        .claim_matching(crate::core::matching::MatchingKind::Exact, false)
+        .await?
+        .is_none());
+    Ok(())
+}
 
 #[tokio::test]
 async fn processing_manual_and_automatic_scans_persist_identical_fingerprints() -> TestResult {

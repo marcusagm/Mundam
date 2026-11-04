@@ -97,6 +97,23 @@ afterEach(() => {
 });
 
 describe('duplicate processing integration', () => {
+    it('keeps recovered comparisons visible while paused without animating progress', () => {
+        const current = snapshot();
+        current.snapshot!.workers[0].paused = true;
+        current.snapshot!.manual_scan = {
+            is_running: true,
+            phase: 'paused',
+            processed: 0,
+            total: 0
+        };
+        update(current);
+        const view = render(() => <DuplicateScanControls />);
+        expect(view.getByRole('status').textContent).toBe('Duplicate comparison paused');
+        expect(view.queryByRole('progressbar')).toBeNull();
+        expect(view.getByRole('button', { name: 'Cancel Scan' })).toBeTruthy();
+        fireEvent.click(view.getByRole('button', { name: 'Resume Duplicate Processing' }));
+        expect(mocks.setPaused).toHaveBeenCalledWith('duplicates', false);
+    });
     it('shares admission across views and recovers phases and completion from snapshots', async () => {
         const pending = deferred();
         mocks.start.mockReturnValue(pending.promise);

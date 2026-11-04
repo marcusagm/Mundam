@@ -47,16 +47,24 @@ pub(crate) async fn finish(
     ticket: &ProcessingTicket,
     outcome: ProcessingOutcome,
 ) -> AppResult<bool> {
-    let (state, error) = match outcome {
-        ProcessingOutcome::Completed => ("succeeded", None),
-        ProcessingOutcome::Skipped(reason) => ("skipped", Some(reason)),
-        ProcessingOutcome::Failed(error) => ("retry_wait", Some(error)),
+    let (state, error, issue) = match outcome {
+        ProcessingOutcome::DiagnosedFailure { issue, message } => {
+            ("retry_wait", Some(message), Some(issue.as_str()))
+        }
+        ProcessingOutcome::Unavailable(issue) => {
+            ("skipped", Some(issue.as_str().into()), Some(issue.as_str()))
+        }
+        ProcessingOutcome::Completed => ("succeeded", None, None),
+        ProcessingOutcome::Skipped(reason) => {
+            ("skipped", Some(reason), Some("unknown_unsupported"))
+        }
+        ProcessingOutcome::Failed(error) => ("retry_wait", Some(error), Some("unknown_failure")),
     };
     let statement = format!("UPDATE processing_tasks SET
         state = CASE WHEN ?6 = 'retry_wait' AND attempts + 1 >= 3 THEN 'failed' ELSE ?6 END,
         attempts = attempts + (?6 = 'retry_wait'),
         next_attempt_at = CASE WHEN ?6 = 'retry_wait' THEN unixepoch() + CASE attempts WHEN 0 THEN 5 WHEN 1 THEN 30 ELSE 120 END ELSE NULL END,
-        last_error = ?7, lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
+        last_error = ?7, issue_code = ?8, lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE {}", ownership());
     Ok(sqlx::query(&statement)
         .bind(&ticket.asset_id)
@@ -66,6 +74,7 @@ pub(crate) async fn finish(
         .bind(&ticket.lease_id)
         .bind(state)
         .bind(error.map(|message| message.chars().take(1000).collect::<String>()))
+        .bind(issue)
         .execute(&mut **transaction)
         .await?
         .rows_affected()

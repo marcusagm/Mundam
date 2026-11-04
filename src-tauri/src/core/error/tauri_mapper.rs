@@ -17,6 +17,16 @@ impl Serialize for AppError {
         S: Serializer,
     {
         let (code, message, details) = match self {
+            AppError::ToolUnavailable(_) => (
+                "TOOL_UNAVAILABLE",
+                "A required extraction tool is unavailable.".into(),
+                None,
+            ),
+            AppError::InvalidProcessingOutput => (
+                "INVALID_PROCESSING_OUTPUT",
+                "Extractor returned invalid output.".into(),
+                None,
+            ),
             AppError::NotFound(msg) => ("NOT_FOUND", msg.clone(), None),
             AppError::Database(err) => (
                 "DATABASE_ERROR",

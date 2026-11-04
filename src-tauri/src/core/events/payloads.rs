@@ -185,6 +185,8 @@ pub enum DomainEvent {
     DuplicateGroupsChanged {
         /// Groups processed by the comparison; this is not a count of newly created groups.
         groups_processed: usize,
+        /// Durable publication acknowledged by this invalidation.
+        publication_sequence: u64,
     },
     /// A duplicate group was resolved by the user.
     DuplicateGroupResolved {
@@ -207,6 +209,8 @@ pub enum DomainEvent {
     /// A duplicate scan finished.
     DuplicateScanFinished {
         groups_created: usize,
+        /// Allows snapshot reconciliation without duplicate result invalidation.
+        publication_sequence: u64,
     },
     /// A manual scan exited without its normal successful-completion event.
     DuplicateScanStopped {

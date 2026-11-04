@@ -1,5 +1,6 @@
 import type {
     ProcessingClientState,
+    ProcessingSnapshot,
     WorkerKind,
     WorkerSnapshot
 } from '../../../core/store/processingTypes';
@@ -52,6 +53,10 @@ function workerWaiting(worker: WorkerSnapshot): boolean {
 /** Aggregate display states preserve uncertainty and distinguish retries from active work. */
 export type ProcessingIndicator = 'unknown' | 'busy' | 'paused' | 'warning' | 'idle';
 
+function manualScanBusy(scan: ProcessingSnapshot['manual_scan']): boolean {
+    return scan.is_running && !['paused', 'retry_wait'].includes(scan.phase);
+}
+
 /** Missing snapshots and query failures never imply healthy idle workers. */
 export function processingIndicator(
     state: ProcessingClientState,
@@ -61,10 +66,12 @@ export function processingIndicator(
     if (
         indexing ||
         state.snapshot.workers.some(workerBusy) ||
-        state.snapshot.manual_scan.is_running
+        manualScanBusy(state.snapshot.manual_scan)
     )
         return 'busy';
     if (
+        state.snapshot.matching?.failed ||
+        state.snapshot.matching?.retry_wait ||
         state.snapshot.workers.some(
             worker => !worker.online || worker.failed > 0 || worker.retry_wait > 0
         )

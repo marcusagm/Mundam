@@ -1,10 +1,23 @@
-import type { ProcessingClientState, ProcessingSnapshot, WorkerKind } from './processingTypes';
+import type {
+    ProcessingClientState,
+    ProcessingSnapshot,
+    WorkerKind,
+    ProcessingRetryScope,
+    ProcessingRetryAcknowledgement
+} from './processingTypes';
+import { formatProcessingRetry } from '../../utils/processing';
 
 const POLL_INTERVAL = 2000;
 const REQUEST_TIMEOUT = 10000;
+const MAX_RETIRED_INSTANCES = 8;
 
 /** Injectable IPC boundary used by transport tests. */
 export interface ProcessingTransport {
+    /** Queues only eligible terminal work and returns its authoritative snapshot. */
+    retry: (
+        worker: WorkerKind,
+        scope: ProcessingRetryScope
+    ) => Promise<ProcessingRetryAcknowledgement>;
     /** Reads a full snapshot, even after missed notifications. */
     snapshot: () => Promise<ProcessingSnapshot>;
     /** Returns the backend acknowledgement of a new pause intent. */
@@ -36,6 +49,7 @@ export class ProcessingClient {
     private timer: ReturnType<typeof setTimeout> | undefined;
     private polling = false;
     private epoch = 0;
+    private retiredInstances = new Set<string>();
 
     /** @param transport - Desktop commands, injectable without Solid or a webview. */
     constructor(private transport: ProcessingTransport) {}
@@ -86,7 +100,43 @@ export class ProcessingClient {
         this.listeners.forEach(listener => listener(state));
     }
 
+    /** Retries are idempotent queue requests; never optimistically clear failures or announce success. */
+    async retry(worker: WorkerKind, scope: ProcessingRetryScope): Promise<void> {
+        if (this.state.pending.has(worker)) return;
+        const epoch = ++this.epoch;
+        this.publish({
+            ...this.state,
+            pending: new Set([...this.state.pending, worker]),
+            error: null,
+            feedback: { ...this.state.feedback, [worker]: '' }
+        });
+        try {
+            const acknowledgement = await withTimeout(this.transport.retry(worker, scope));
+            this.accept(acknowledgement.snapshot, epoch);
+            if (this.state.snapshot?.instance_id === acknowledgement.snapshot.instance_id) {
+                this.publish({
+                    ...this.state,
+                    feedback: {
+                        ...this.state.feedback,
+                        [worker]: formatProcessingRetry(acknowledgement, scope)
+                    }
+                });
+            }
+        } catch {
+            this.publish({
+                ...this.state,
+                error: 'The retry request could not be confirmed. Status will be refreshed.'
+            });
+        } finally {
+            const pending = new Set(this.state.pending);
+            pending.delete(worker);
+            this.publish({ ...this.state, pending });
+            this.schedule();
+        }
+    }
+
     private accept(snapshot: ProcessingSnapshot, epoch: number): void {
+        if (this.retiredInstances.has(snapshot.instance_id)) return;
         const previous = this.state.snapshot;
         if (
             previous?.instance_id === snapshot.instance_id &&
@@ -95,7 +145,19 @@ export class ProcessingClient {
             return;
         if (previous && previous.instance_id !== snapshot.instance_id && epoch !== this.epoch)
             return;
+        if (previous && previous.instance_id !== snapshot.instance_id) {
+            this.retireInstance(previous.instance_id);
+        }
         this.publish({ ...this.state, snapshot, error: null });
+    }
+
+    private retireInstance(instance: string): void {
+        this.retiredInstances.add(instance);
+        if (this.retiredInstances.size > MAX_RETIRED_INSTANCES) {
+            const oldest = this.retiredInstances.values().next().value;
+            if (oldest) this.retiredInstances.delete(oldest);
+        }
+        this.state = { ...this.state, feedback: {} };
     }
 
     private schedule(): void {

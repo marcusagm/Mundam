@@ -44,10 +44,88 @@ describe('global processing transport', () => {
         vi.useRealTimers();
     });
 
+    it('acknowledges retry counts without clearing failures optimistically or changing pause', async () => {
+        const initial = snapshot(1, true);
+        initial.workers[0].failed = 2;
+        const pending = deferred<{
+            snapshot: ProcessingSnapshot;
+            assets: number;
+            comparisons: number;
+        }>();
+        const transport = {
+            snapshot: async () => initial,
+            setPaused: vi.fn(),
+            retry: vi.fn(() => pending.promise)
+        };
+        const client = new ProcessingClient(transport);
+        const listener = vi.fn();
+        release.push(client.subscribe(listener));
+        await vi.advanceTimersByTimeAsync(0);
+        const action = client.retry('thumbnails', 'failed');
+        await client.retry('thumbnails', 'failed');
+        await client.setPaused('thumbnails', false);
+        expect(transport.retry).toHaveBeenCalledTimes(1);
+        expect(transport.setPaused).not.toHaveBeenCalled();
+        expect(listener.mock.lastCall?.[0].snapshot.workers[0].failed).toBe(2);
+        pending.resolve({ snapshot: snapshot(2, true), assets: 2, comparisons: 0 });
+        await action;
+        expect(listener.mock.lastCall?.[0].feedback.thumbnails).toContain(
+            '2 files queued for retry'
+        );
+        expect(listener.mock.lastCall?.[0].snapshot.workers[0].paused).toBe(true);
+        expect(listener.mock.lastCall?.[0].pending.size).toBe(0);
+    });
+
+    it('preserves failures when retry acknowledgement is unavailable', async () => {
+        const initial = snapshot();
+        initial.workers[0].failed = 2;
+        const client = new ProcessingClient({
+            snapshot: async () => initial,
+            setPaused: vi.fn(),
+            retry: async () => {
+                throw new Error('C:/private/log');
+            }
+        });
+        const listener = vi.fn();
+        release.push(client.subscribe(listener));
+        await vi.advanceTimersByTimeAsync(0);
+        await client.retry('thumbnails', 'failed');
+        const state = listener.mock.lastCall?.[0] as ProcessingClientState;
+        expect(state.snapshot?.workers[0].failed).toBe(2);
+        expect(state.error).toContain('could not be confirmed');
+        expect(state.error).not.toContain('private');
+        expect(state.feedback?.thumbnails).toBe('');
+    });
+
+    it('rejects a late retry acknowledgement after refresh observes a new service in the same epoch', async () => {
+        const pending = deferred<{
+            snapshot: ProcessingSnapshot;
+            assets: number;
+            comparisons: number;
+        }>();
+        let current = snapshot();
+        const client = new ProcessingClient({
+            snapshot: async () => current,
+            setPaused: vi.fn(),
+            retry: () => pending.promise
+        });
+        const listener = vi.fn();
+        release.push(client.subscribe(listener));
+        await vi.advanceTimersByTimeAsync(0);
+        const action = client.retry('thumbnails', 'failed');
+        current = { ...snapshot(), instance_id: 'restarted' };
+        await client.refresh();
+        pending.resolve({ snapshot: snapshot(100), assets: 20, comparisons: 0 });
+        await action;
+        expect(listener.mock.lastCall?.[0].snapshot.instance_id).toBe('restarted');
+        expect(listener.mock.lastCall?.[0].feedback?.thumbnails).toBeUndefined();
+    });
+
     it('accepts a restarted service and rejects a late control from the old instance', async () => {
         const old = deferred<ProcessingSnapshot>();
         const restarted = { ...snapshot(1, true), instance_id: 'restarted' };
         const client = new ProcessingClient({
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
             snapshot: async () => snapshot(),
             setPaused: worker =>
                 worker === 'thumbnails' ? old.promise : Promise.resolve(restarted)
@@ -64,7 +142,11 @@ describe('global processing transport', () => {
     });
 
     it('shares one polling request across statusbar consumers and releases timers', async () => {
-        const transport = { snapshot: vi.fn(async () => snapshot()), setPaused: vi.fn() };
+        const transport = {
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
+            snapshot: vi.fn(async () => snapshot()),
+            setPaused: vi.fn()
+        };
         const client = new ProcessingClient(transport);
         release.push(client.subscribe(vi.fn()), client.subscribe(vi.fn()));
         await vi.advanceTimersByTimeAsync(0);
@@ -80,6 +162,7 @@ describe('global processing transport', () => {
     it('does not let a poll started before a control undo its acknowledgement', async () => {
         const old = deferred<ProcessingSnapshot>();
         const client = new ProcessingClient({
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
             snapshot: () => old.promise,
             setPaused: async () => snapshot(5, true)
         });
@@ -95,6 +178,7 @@ describe('global processing transport', () => {
     it('retains known intent after a rejected action and reconciles the actual backend later', async () => {
         let current = snapshot();
         const transport: ProcessingTransport = {
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
             snapshot: async () => current,
             setPaused: async () => {
                 throw new Error('IPC rejected');
@@ -118,6 +202,7 @@ describe('global processing transport', () => {
     it('recovers from a hung query and ignores its late result', async () => {
         const hung = deferred<ProcessingSnapshot>();
         const transport = {
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
             snapshot: vi.fn().mockReturnValueOnce(hung.promise).mockResolvedValue(snapshot(8)),
             setPaused: vi.fn()
         };
@@ -137,6 +222,7 @@ describe('global processing transport', () => {
         const first = deferred<ProcessingSnapshot>();
         const second = deferred<ProcessingSnapshot>();
         const client = new ProcessingClient({
+            retry: async () => ({ snapshot: snapshot(), assets: 0, comparisons: 0 }),
             snapshot: async () => snapshot(),
             setPaused: worker => (worker === 'thumbnails' ? first.promise : second.promise)
         });

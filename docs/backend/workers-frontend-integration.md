@@ -43,8 +43,8 @@ As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-co
 
 | Prioridade sugerida | Próxima entrega | Limite atual |
 | --- | --- | --- |
-| 1 | Jobs persistidos de comparação de duplicados, com política de regras e recuperação após crash | Fingerprints têm reserva persistente; matching e sua intenção agendada continuam com coordenação local e estado em memória. |
-| 2 | Repetir falhas por estágio e diagnóstico agrupado de capacidades/extratores | Há resultados e limite de tentativas, mas não comando global de retry por worker ou diagnóstico detalhado no painel. Rebuild repete fingerprints; regeneração/reextração de assets conservam suas ações existentes. |
+| Entregue | Jobs persistidos de comparação de duplicados, com política de regras e recuperação após crash | Implementação posterior descrita em [Comparações persistentes](duplicate-matching-jobs.md), incluindo retomada e publicação por revisão. |
+| Entregue | Repetir falhas por estágio e diagnóstico agrupado de capacidades/extratores | [Retry por worker e diagnóstico](worker-retries-diagnostics.md) adiciona ações explícitas e causas seguras no painel. |
 | 3 | Concorrência efetiva em tempo de execução e orçamento comum de CPU/I/O | Os limites configurados ainda exigem reinício; workers mantêm concorrências próprias. |
 | 4 | Coalescência de progresso manual e matching incremental, orientados por benchmarks | Snapshot global é compartilhado, mas o backend ainda conserva o canal legado de progresso manual e comparações globais. |
 | Validação | Uso visual e testes de carga nas duas plataformas | Testes automatizados desta etapa não substituem uso real de modais, foco, statusbar e carga de biblioteca em Windows/macOS. |

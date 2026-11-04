@@ -175,10 +175,12 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                                         </span>
                                     </Show>
                                 </div>
-                                <ProgressBar
-                                    value={scanProgressValue() ?? 0}
-                                    isIndeterminate={scanProgressValue() === undefined}
-                                />
+                                <Show when={!scan.isWaiting()}>
+                                    <ProgressBar
+                                        value={scanProgressValue() ?? 0}
+                                        isIndeterminate={scanProgressValue() === undefined}
+                                    />
+                                </Show>
                             </Show>
                         </div>
                         <Show

@@ -107,7 +107,7 @@ impl ColorWorker {
                 Ok(outcome) => outcome,
                 Err(error) => {
                     warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
-                    ProcessingOutcome::Failed(error.to_string())
+                    ProcessingOutcome::failure(&error)
                 }
             };
             self.processing.finish(&ticket, outcome).await?;

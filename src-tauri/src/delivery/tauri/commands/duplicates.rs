@@ -92,7 +92,7 @@ pub async fn start_duplicate_scan(
 pub async fn cancel_duplicate_scan(
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
-    command_service.cancel_duplicate_scan();
+    command_service.cancel_duplicate_scan().await?;
     Ok(())
 }
 

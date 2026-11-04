@@ -122,6 +122,7 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         .with_processing_control(processing_control.clone());
     app.manage(Arc::new(
         crate::feature::processing_control::ProcessingControlService::new(
+            duplicates_repo.clone(),
             processing_control,
             processing_repository,
             app.state::<Arc<dyn crate::core::settings::SettingsRepository>>()

@@ -53,6 +53,11 @@ export function useDuplicateScan() {
             return undefined;
         return Math.min(100, Math.max(0, (current.processed / current.total) * 100));
     });
+    const publication = createMemo(() => {
+        const snapshot = processing.state().snapshot;
+        if (!snapshot?.matching) return undefined;
+        return { instance: snapshot.instance_id, sequence: snapshot.matching.publication_sequence };
+    });
 
     const run = async (mode: ScanRequest['mode']): Promise<boolean> => {
         if (unavailableReason()) return false;
@@ -107,6 +112,8 @@ export function useDuplicateScan() {
         phase,
         status,
         progress,
+        publication,
+        isWaiting: () => ['paused', 'retry_wait'].includes(phase()),
         unavailableReason,
         canStart: () => !unavailableReason(),
         isPaused: () => Boolean(worker()?.paused),

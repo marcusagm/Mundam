@@ -32,6 +32,97 @@ const state = (): ProcessingClientState => ({
 afterEach(cleanup);
 
 describe('processing statusbar controls', () => {
+    it('queues explicit retries and shows safe grouped causes without exposing arbitrary backend text', () => {
+        const [current, setCurrent] = createSignal(state());
+        const initial = state();
+        initial.snapshot!.workers[0].failed = 2;
+        initial.snapshot!.workers[0].skipped = 1;
+        initial.snapshot!.workers[0].diagnostics = [
+            { issue: 'ffmpeg_unavailable', state: 'failed', count: 2 },
+            { issue: 'C:/private/SECRET', state: 'skipped', count: 1 }
+        ];
+        setCurrent(initial);
+        const retry = vi.fn();
+        const view = render(() => (
+            <ProcessingActivityPanel
+                state={current()}
+                indexing={null}
+                onPause={vi.fn()}
+                onRetry={retry}
+            />
+        ));
+        expect(view.getByText(/FFmpeg is unavailable/)).toBeTruthy();
+        expect(view.container.textContent).not.toContain('SECRET');
+        fireEvent.click(view.getByRole('button', { name: 'Retry failures' }));
+        expect(retry).toHaveBeenLastCalledWith('thumbnails', 'failed');
+        fireEvent.click(view.getByRole('button', { name: 'Recheck unsupported' }));
+        expect(retry).toHaveBeenLastCalledWith('thumbnails', 'unsupported');
+        setCurrent(previous => ({ ...previous, pending: new Set(['thumbnails']) }));
+        expect(
+            (view.getByRole('button', { name: 'Retry failures' }) as HTMLButtonElement).disabled
+        ).toBe(true);
+        expect(
+            (
+                view.getByRole('button', {
+                    name: 'Pause Thumbnails and metadata'
+                }) as HTMLButtonElement
+            ).disabled
+        ).toBe(true);
+    });
+
+    it('offers duplicate comparison retries even when no individual asset failed', () => {
+        const current = state();
+        current.snapshot!.matching = {
+            publication_sequence: 1,
+            pending: 0,
+            retry_wait: 0,
+            failed: 1,
+            completed: [],
+            failed_phases: ['visual_matching'],
+            manual_pending: false,
+            manual_cancel_requested: false,
+            manual_phase: null
+        };
+        const retry = vi.fn();
+        const view = render(() => (
+            <ProcessingActivityPanel
+                state={current}
+                indexing={null}
+                onPause={vi.fn()}
+                onRetry={retry}
+            />
+        ));
+        fireEvent.click(view.getByRole('button', { name: 'Retry failures' }));
+        expect(retry).toHaveBeenCalledWith('duplicates', 'failed');
+    });
+    it('reports durable comparison failures separately and presents paused recovery without a busy indicator', () => {
+        const current = state();
+        current.snapshot!.matching = {
+            publication_sequence: 1,
+            pending: 0,
+            retry_wait: 0,
+            failed: 2,
+            completed: [],
+            failed_phases: ['exact_matching', 'visual_matching'],
+            manual_pending: false,
+            manual_cancel_requested: false,
+            manual_phase: null
+        };
+        const view = render(() => (
+            <ProcessingActivityPanel state={current} indexing={null} onPause={vi.fn()} />
+        ));
+        expect(view.getByText('Comparisons failed')).toBeTruthy();
+        expect(processingIndicator(current, false)).toBe('warning');
+        const paused = state();
+        paused.snapshot!.workers[2].paused = true;
+        paused.snapshot!.manual_scan = {
+            is_running: true,
+            phase: 'paused',
+            processed: 0,
+            total: 0
+        };
+        expect(processingIndicator(paused, false)).toBe('paused');
+    });
     it('shows cancellation and matching phases without a misleading hashing percentage', () => {
         const [current, setCurrent] = createSignal(state());
         const active = state();

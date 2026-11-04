@@ -12,6 +12,17 @@ use crate::core::models::{
 };
 use crate::core::repository::DuplicatesRepository;
 use async_trait::async_trait;
+
+#[path = "matching_jobs.rs"]
+mod matching_jobs;
+
+#[cfg(test)]
+#[path = "matching_tests.rs"]
+mod matching_tests;
+
+#[cfg(test)]
+#[path = "matching_recovery_tests.rs"]
+mod matching_recovery_tests;
 use sqlx::{Pool, Sqlite};
 
 /// SQLite implementation of the `DuplicatesRepository` port.
@@ -87,17 +98,13 @@ impl DuplicatesRepository for SqliteDuplicatesRepository {
         crate::infra::database::handlers::duplicates_handler::update_group_status(&self.pool, group_id, status).await
     }
 
-    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
-        crate::infra::database::handlers::duplicates_handler::run_exact_match_scan(&self.pool, token).await
-    }
+
 
     async fn backfill_missing_fingerprints(&self) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::backfill_missing_fingerprints(&self.pool).await
     }
 
-    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize> {
-        crate::infra::database::handlers::duplicates_handler::run_visual_match_scan(&self.pool, token).await
-    }
+
 
     async fn delete_fingerprint(&self, asset_id: &str) -> AppResult<()> {
         crate::infra::database::handlers::duplicates_handler::delete_fingerprint(&self.pool, asset_id).await

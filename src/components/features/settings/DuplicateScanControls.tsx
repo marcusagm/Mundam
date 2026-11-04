@@ -31,10 +31,12 @@ export const DuplicateScanControls: Component = () => {
                         {scan.status()?.processed} / {scan.status()?.total} files analyzed
                     </p>
                 </Show>
-                <ProgressBar
-                    value={scan.progress() ?? 0}
-                    isIndeterminate={scan.progress() === undefined}
-                />
+                <Show when={!scan.isWaiting()}>
+                    <ProgressBar
+                        value={scan.progress() ?? 0}
+                        isIndeterminate={scan.progress() === undefined}
+                    />
+                </Show>
             </Show>
             <Show when={!scan.isScanning() && scan.unavailableReason()}>
                 <p role="status">{scan.unavailableReason()}</p>
@@ -66,8 +68,9 @@ export const DuplicateScanControls: Component = () => {
                 </Button>
             </div>
             <p class="duplicates-setting-description">
-                Scans respect scheduled retries and exhausted attempts. Rebuild resets duplicate
-                analysis and its attempts. Files, thumbnails and colors are preserved.
+                File analysis respects scheduled retries and exhausted attempts. Scan Now requests
+                fresh comparisons. Rebuild also resets file analysis. Files, thumbnails and colors
+                are preserved.
             </p>
             <ConfirmModal
                 isOpen={isConfirming()}

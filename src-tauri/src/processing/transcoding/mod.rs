@@ -84,9 +84,9 @@ pub fn resolve_transcoding_tools<R: tauri::Runtime>(
     app_handle: Option<&tauri::AppHandle<R>>,
 ) -> AppResult<TranscodingTools> {
     let ffmpeg = find_binary(app_handle, "ffmpeg")
-        .ok_or_else(|| AppError::Transcoding("FFmpeg binary not found".to_string()))?;
+        .ok_or_else(|| AppError::ToolUnavailable("ffmpeg".into()))?;
     let ffprobe = find_binary(app_handle, "ffprobe")
-        .ok_or_else(|| AppError::Transcoding("FFprobe binary not found".to_string()))?;
+        .ok_or_else(|| AppError::ToolUnavailable("ffprobe".into()))?;
     let assimp = find_binary(app_handle, "assimp");
 
     Ok(TranscodingTools {

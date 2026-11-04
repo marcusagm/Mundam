@@ -19,6 +19,8 @@ use tokio::sync::Mutex;
 /// One row combines actual runtime admissions with durable queue outcomes.
 #[derive(Clone, Serialize)]
 pub struct WorkerSnapshot {
+    /// Safe grouped causes for the current catalog sources.
+    pub diagnostics: Vec<crate::core::processing_diagnostics::ProcessingDiagnostic>,
     /// Runtime lifecycle, pause intent and activity.
     #[serde(flatten)]
     pub activity: WorkerActivity,
@@ -32,6 +34,8 @@ pub struct WorkerSnapshot {
 /// Full replacement snapshot; instance and sequence fence stale frontend responses.
 #[derive(Clone, Serialize)]
 pub struct ProcessingSnapshot {
+    /// Durable comparison work is distinct from per-asset fingerprint queues.
+    pub matching: crate::core::matching::MatchingStatus,
     /// Changes when this application service restarts.
     pub instance_id: String,
     /// Increases for each emitted response within this instance.
@@ -44,6 +48,7 @@ pub struct ProcessingSnapshot {
 
 #[derive(Default)]
 struct SnapshotCache {
+    diagnostics: Vec<Vec<crate::core::processing_diagnostics::ProcessingDiagnostic>>,
     sequence: u64,
     sampled: Option<Instant>,
     counts: Vec<ProcessingQueueCounts>,
@@ -52,6 +57,7 @@ struct SnapshotCache {
 
 /// Serializes responses and shares short-lived queue samples between consumers.
 pub struct ProcessingControlService {
+    duplicates: Arc<dyn crate::core::repository::DuplicatesRepository>,
     control: Arc<ProcessingControl>,
     repository: Arc<dyn ProcessingRepository>,
     settings: Arc<dyn SettingsRepository>,
@@ -63,12 +69,14 @@ pub struct ProcessingControlService {
 impl ProcessingControlService {
     /// Shares admission state with all workers and the manual duplicate service.
     pub fn new(
+        duplicates: Arc<dyn crate::core::repository::DuplicatesRepository>,
         control: Arc<ProcessingControl>,
         repository: Arc<dyn ProcessingRepository>,
         settings: Arc<dyn SettingsRepository>,
         manual_scan: Arc<dyn ManualScanActivity>,
     ) -> Self {
         Self {
+            duplicates,
             control,
             repository,
             settings,
@@ -95,6 +103,7 @@ impl ProcessingControlService {
             || cache.active_assets != active_assets
         {
             let mut counts = Vec::new();
+            let mut diagnostics = Vec::new();
             for (index, kind) in [
                 ProcessingKind::Thumbnail,
                 ProcessingKind::Colors,
@@ -103,6 +112,7 @@ impl ProcessingControlService {
             .into_iter()
             .enumerate()
             {
+                diagnostics.push(self.repository.diagnostics(kind).await?);
                 counts.push(
                     self.repository
                         .queue_counts(kind, &active_assets[index])
@@ -110,29 +120,71 @@ impl ProcessingControlService {
                 );
             }
             cache.counts = counts;
+            cache.diagnostics = diagnostics;
             cache.active_assets = active_assets;
             cache.sampled = Some(Instant::now());
         }
         let automatic_duplicates = self.settings.load().await?.auto_detect_duplicates;
-        let activity = self.control.snapshot();
+        let matching = self.duplicates.matching_status().await?;
+        let mut activity = self.control.snapshot();
+        if let Some(duplicates) = activity
+            .iter_mut()
+            .find(|activity| activity.worker == WorkerKind::Duplicates)
+        {
+            duplicates.scheduled =
+                matching.pending > 0 || matching.retry_wait > 0 || matching.manual_pending;
+        }
+        let mut manual_scan = self.manual_scan.snapshot();
+        if !manual_scan.is_running && matching.manual_pending {
+            manual_scan.is_running = true;
+            manual_scan.phase = if matching.manual_cancel_requested {
+                "cancel_requested".into()
+            } else if activity.iter().any(|activity| {
+                activity.worker == WorkerKind::Duplicates && activity.paused && activity.active == 0
+            }) {
+                "paused".into()
+            } else if matching.retry_wait > 0 {
+                "retry_wait".into()
+            } else {
+                matching
+                    .manual_phase
+                    .clone()
+                    .unwrap_or_else(|| "recovering".into())
+            };
+            manual_scan.processed = 0;
+            manual_scan.total = 0;
+        }
+        if manual_scan.is_running
+            && matching.manual_pending
+            && matching.retry_wait > 0
+            && matches!(
+                manual_scan.phase.as_str(),
+                "exact_matching" | "visual_matching"
+            )
+        {
+            manual_scan.phase = "retry_wait".into();
+        }
         cache.sequence += 1;
         Ok(ProcessingSnapshot {
+            matching,
             instance_id: self.instance_id.clone(),
             sequence: cache.sequence,
             workers: activity
                 .into_iter()
                 .zip(cache.counts.iter().cloned())
-                .map(|(activity, queue)| {
+                .enumerate()
+                .map(|(index, (activity, queue))| {
                     let automatic_enabled =
                         activity.worker != WorkerKind::Duplicates || automatic_duplicates;
                     WorkerSnapshot {
+                        diagnostics: cache.diagnostics[index].clone(),
                         activity,
                         queue,
                         automatic_enabled,
                     }
                 })
                 .collect(),
-            manual_scan: self.manual_scan.snapshot(),
+            manual_scan,
         })
     }
 
@@ -148,4 +200,33 @@ impl ProcessingControlService {
         self.control.set_paused(worker, paused);
         self.snapshot().await
     }
+
+    /// Resets only explicitly selected terminal outcomes, without changing pause or automation.
+    /// # Errors
+    /// Propagates atomic queue writes or snapshot read failures; neither implies a completed retry.
+    pub async fn retry(
+        &self,
+        worker: WorkerKind,
+        scope: crate::core::processing_diagnostics::ProcessingRetryScope,
+    ) -> AppResult<ProcessingRetryAcknowledgement> {
+        let kind = match worker {
+            WorkerKind::Thumbnails => ProcessingKind::Thumbnail,
+            WorkerKind::Colors => ProcessingKind::Colors,
+            WorkerKind::Duplicates => ProcessingKind::Fingerprint,
+        };
+        let counts = self.repository.retry(kind, scope).await?;
+        self.cache.lock().await.sampled = None;
+        Ok(ProcessingRetryAcknowledgement {
+            snapshot: self.snapshot().await?,
+            counts,
+        })
+    }
+}
+
+/// Acknowledges how much work was actually queued, separately from eventual execution outcomes.
+#[derive(Serialize)]
+pub struct ProcessingRetryAcknowledgement {
+    pub snapshot: ProcessingSnapshot,
+    #[serde(flatten)]
+    pub counts: crate::core::processing_diagnostics::ProcessingRetryCounts,
 }

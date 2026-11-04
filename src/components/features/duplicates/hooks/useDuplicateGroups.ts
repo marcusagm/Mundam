@@ -9,6 +9,7 @@ import {
     Accessor
 } from 'solid-js';
 import { useDuplicateScan } from './useDuplicateScan';
+import { MatchingPublicationTracker } from '../../../../core/store/matchingPublication';
 import { duplicatesApi } from '../../../../lib/duplicates';
 import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';
@@ -118,11 +119,19 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
     });
 
     let wasScanning = false;
+    const publications = new MatchingPublicationTracker();
+    createEffect(() => {
+        const publication = scan.publication();
+        if (publication && publications.observe(publication.instance, publication.sequence)) {
+            void refetch();
+            void metadata.loadStats();
+        }
+    });
     let receivedCompletion = false;
     createEffect(() => {
         const running = isScanning();
         if (running && !wasScanning) receivedCompletion = false;
-        if (wasScanning && !running && !receivedCompletion) {
+        if (wasScanning && !running && !receivedCompletion && !scan.publication()) {
             void refetch();
             void metadata.loadStats();
         }
@@ -149,6 +158,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
         if (domainEvent.type === 'DuplicateGroupsChanged') {
+            publications.acknowledge(domainEvent.payload.publication_sequence);
             refetch();
             void metadata.loadStats();
             return;
@@ -162,6 +172,7 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             return;
         }
         if (domainEvent.type === 'DuplicateScanFinished') {
+            publications.acknowledge(domainEvent.payload.publication_sequence);
             console.info(
                 '[Duplicates] DuplicateScanFinished event received, refreshing groups and stats'
             );

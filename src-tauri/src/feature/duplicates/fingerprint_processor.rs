@@ -75,7 +75,7 @@ impl FingerprintProcessor {
         if let Err(error) = &result {
             if !token.is_cancelled() {
                 self.processing
-                    .finish(&ticket, ProcessingOutcome::Failed(error.to_string()))
+                    .finish(&ticket, ProcessingOutcome::failure(&error))
                     .await?;
             }
         }

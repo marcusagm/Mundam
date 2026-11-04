@@ -1,11 +1,23 @@
 import { Show, type Component } from 'solid-js';
 import { Pause, Play } from 'lucide-solid';
 import { Button } from '../../ui/Button';
-import type { WorkerKind, WorkerSnapshot } from '../../../core/store/processingTypes';
+import type {
+    WorkerKind,
+    WorkerSnapshot,
+    ProcessingRetryScope
+} from '../../../core/store/processingTypes';
 import { phaseLabel, workerNames, workerStatus } from './processingPresentation';
+import { ProcessingRetryActions } from './ProcessingRetryActions';
+import { ProcessingDiagnostics } from './ProcessingDiagnostics';
 
 /** One controlled executor and its distinct queue outcomes. */
 interface ProcessingWorkerRowProperties {
+    /** Failed comparisons share the duplicates worker's retry control. */
+    comparisonFailures?: number;
+    /** Acknowledgement of an explicit queue request. */
+    feedback?: string;
+    /** Optional for read-only consumers. */
+    onRetry?: (worker: WorkerKind, scope: ProcessingRetryScope) => void;
     /** Authoritative worker snapshot. */
     worker: WorkerSnapshot;
     /** Whether its action is awaiting acknowledgement. */
@@ -64,6 +76,32 @@ export const ProcessingWorkerRow: Component<ProcessingWorkerRowProperties> = pro
                 <dd>{properties.worker.skipped}</dd>
             </div>
         </dl>
+        <ProcessingRetryActions
+            worker={properties.worker}
+            comparisonFailures={properties.comparisonFailures}
+            pending={properties.pending}
+            onRetry={properties.onRetry}
+        />
+        <Show when={properties.feedback}>
+            <p role="status" class="processing-help">
+                {properties.feedback}
+            </p>
+        </Show>
+        <ProcessingDiagnostics diagnostics={properties.worker.diagnostics ?? []} />
+        <Show when={(properties.comparisonFailures ?? 0) > 0}>
+            <p class="processing-help">
+                Some duplicate comparisons failed. Retry queues comparisons without rebuilding the
+                index.
+            </p>
+        </Show>
+        <Show
+            when={properties.worker.worker === 'duplicates' && !properties.worker.automatic_enabled}
+        >
+            <p class="processing-help">
+                Automatic detection is off. Enable it in settings or use Scan Now in Duplicate
+                Finder to process queued work.
+            </p>
+        </Show>
         <Show when={properties.worker.failed > 0}>
             <p class="processing-help">
                 Some files reached the retry limit. A new scan does not reset these failures.

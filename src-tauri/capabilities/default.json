@@ -95,6 +95,7 @@
     "allow-get-thumbnail-processing-status",
     "allow-get-processing-snapshot",
     "allow-set-processing-worker-paused",
+    "allow-retry-processing-worker",
     "allow-get-streaming-token",
     "allow-get-asset-colors",
     "allow-reextract-asset-colors",

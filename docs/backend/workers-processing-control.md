@@ -1,7 +1,7 @@
 # Workers: diagnóstico e proposta de controle do processamento
 
 **Data:** 30 de outubro de 2026.  
-**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–18 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
+**Estado:** diagnóstico inicial e acompanhamento da implementação. As seções 2–4 registram a situação anterior à primeira entrega; as seções 10–20 acompanham as entregas posteriores. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](worker-statusbar-controls.md).
 **Escopo:** thumbnails/metadados, cores, fingerprints e comparação de duplicados, lifecycle e integração com a interface.
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` foi consultado como contexto e permanece inalterado. Esta análise usa a implementação atual como fonte de verdade.
@@ -428,3 +428,23 @@ Configurações, regras e finder passaram a compartilhar admissão local e snaps
 Comportamento, validação e próximos itens priorizados estão em [Integração dos workers com a interface](workers-frontend-integration.md). Matching persistido, retry global por estágio, diagnóstico de capacidades, limites dinâmicos e otimização medida continuam planejados. O relatório histórico do scheduler permanece inalterado.
 
 Validação: **34 testes frontend aprovados**, typecheck, lint sem warnings nos arquivos alterados, Prettier e build de produção com carregador nativo da configuração. Não houve validação visual da aplicação nem execução no macOS nesta revisão.
+
+## 19. Comparações persistentes de duplicados
+
+Matching exato e visual passaram a consumir dois jobs coalescidos persistidos. Revisão de dados/regras, UUID da reserva e expiração protegem a publicação completa de cada fase. A intenção automática é registrada na transação do fingerprint. Comparações manuais já agendadas são recuperadas após crash mesmo com automação desligada, respeitando pausa e cancelamento.
+
+O frontend apresenta recuperação, espera por retry e contagens de comparações separadas das filas de assets. Uma sequência persistida de publicação recupera invalidações perdidas sem consultar grupos a cada polling. Grupos protegidos e escolhas dos usuários são preservados nas comparações repetidas.
+
+Arquitetura, exemplos e limites estão em [Comparações de duplicados persistentes](duplicate-matching-jobs.md). Retry por estágio e diagnóstico de capacidades são a próxima entrega funcional; limites dinâmicos e otimização medida continuam planejados. O documento histórico do scheduler permanece inalterado.
+
+Validação no Windows: **57 testes de processamento**, **16 regressões de pastas**, **29 testes do matcher** e **40 testes frontend** aprovados. Typecheck, lint sem warnings, Prettier, build de produção com carregador nativo, whitespace e links da documentação passaram. Validação visual, carga e execução no macOS permanecem pendentes.
+
+## 20. Retry por worker e diagnóstico agrupado
+
+O painel de atividade oferece `Retry failures` e `Recheck unsupported`, com quantidades confirmadas pelo backend e sem alterar pausa ou automação. Assets ativos da origem atual são enfileirados sem remover outputs válidos ou interferir em reservas. No worker de duplicados, falhas de fingerprints e comparações são reiniciadas atomicamente.
+
+O snapshot acrescenta causas tipadas e agrupadas por estágio. Logs antigos ou códigos desconhecidos recebem descrições seguras; caminhos e stderr não são enviados à interface. O novo comando tem ACL própria e a splashscreen permanece sem acesso. O frontend também rejeita confirmações atrasadas de uma instância substituída.
+
+Contratos, regras de seleção e limites estão em [Retry por worker e diagnóstico](worker-retries-diagnostics.md). A próxima entrega planejada é concorrência efetiva em tempo de execução e orçamento compartilhado, com otimização orientada por medição.
+
+Validação: **62 testes de processamento** e **45 testes frontend** aprovados, incluindo o novo IPC com permissões reais, rollback e privacidade. O documento histórico do scheduler foi preservado.

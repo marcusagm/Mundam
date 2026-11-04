@@ -126,6 +126,7 @@ pub fn run() {
             delivery::tauri::thumbnails::get_thumbnail_processing_status,
             delivery::tauri::processing::get_processing_snapshot,
             delivery::tauri::processing::set_processing_worker_paused,
+            delivery::tauri::processing::retry_processing_worker,
             // Settings Commands
             delivery::tauri::commands::settings::get_app_settings,
             delivery::tauri::commands::settings::update_app_settings,

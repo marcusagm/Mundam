@@ -96,7 +96,7 @@ async fn processing_duplicate_cancel_waits_for_exit_and_prevents_a_second_scan()
     })
     .await?;
     let run_id = service.get_scan_status().run_id;
-    service.cancel_duplicate_scan();
+    service.cancel_duplicate_scan().await?;
     assert!(service.get_scan_status().is_running);
     assert_eq!(service.get_scan_status().phase, "cancel_requested");
     service.start_duplicate_scan().await?;

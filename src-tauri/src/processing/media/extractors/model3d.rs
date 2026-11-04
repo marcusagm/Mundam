@@ -68,10 +68,9 @@ pub async fn convert_to_glb_with_assimp(
     let tools = crate::processing::transcoding::resolve_transcoding_tools::<tauri::Wry>(None)?;
     let assimp_binary = tools
         .assimp
-        .ok_or_else(|| AppError::Transcoding("Assimp binary not found".to_string()))?;
+        .ok_or_else(|| AppError::ToolUnavailable("assimp".into()))?;
 
-    let temporary_directory =
-        std::env::temp_dir().join(format!("mundam_3d_{}", asset_id));
+    let temporary_directory = std::env::temp_dir().join(format!("mundam_3d_{}", asset_id));
     tokio::fs::create_dir_all(&temporary_directory)
         .await
         .map_err(AppError::Io)?;
@@ -106,7 +105,9 @@ pub async fn convert_to_glb_with_assimp(
         )));
     }
 
-    let glb_data = tokio::fs::read(&output_glb_path).await.map_err(AppError::Io)?;
+    let glb_data = tokio::fs::read(&output_glb_path)
+        .await
+        .map_err(AppError::Io)?;
 
     let _ = tokio::fs::remove_file(&output_glb_path).await;
     let _ = tokio::fs::remove_dir(&temporary_directory).await;

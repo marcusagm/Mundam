@@ -81,6 +81,11 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
     );
     let service = Arc::new(
         crate::feature::processing_control::ProcessingControlService::new(
+            Arc::new(
+                crate::infra::database::duplicates::SqliteDuplicatesRepository::new(
+                    fixture.pool.clone(),
+                ),
+            ),
             control.clone(),
             repository.clone(),
             settings,
@@ -93,7 +98,8 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
         .invoke_handler(tauri::generate_handler![
             get_thumbnail_processing_status,
             crate::delivery::tauri::processing::get_processing_snapshot,
-            crate::delivery::tauri::processing::set_processing_worker_paused
+            crate::delivery::tauri::processing::set_processing_worker_paused,
+            crate::delivery::tauri::processing::retry_processing_worker
         ])
         .build(tauri::generate_context!())?;
     for label in ["main", "design-system", "splashscreen"] {
@@ -118,6 +124,12 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
                 &window,
                 "set_processing_worker_paused",
                 json!({"worker":"thumbnails", "paused":true})
+            )
+            .is_err());
+            assert!(invoke_processing(
+                &window,
+                "retry_processing_worker",
+                json!({"worker":"colors", "scope":"failed"})
             )
             .is_err());
             assert!(
@@ -161,6 +173,23 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
                 .find(|row| row["worker"] == worker)
                 .ok_or("Missing row")?;
             assert_eq!(row["paused"], true);
+            if kind == WorkerKind::Colors {
+                let retry = invoke_processing(
+                    &window,
+                    "retry_processing_worker",
+                    json!({"worker":"colors", "scope":"failed"}),
+                )?;
+                assert_eq!(retry["assets"], 0);
+                assert_eq!(retry["comparisons"], 0);
+                assert_eq!(retry["snapshot"]["workers"][1]["paused"], true);
+                assert!(invoke_processing(
+                    &window,
+                    "retry_processing_worker",
+                    json!({"worker":"colors", "scope":"all"})
+                )
+                .is_err());
+            }
+
             assert_eq!(row["active"], 1);
             assert!(control.try_admit(kind, "blocked", None).is_none());
             drop(activity);

@@ -71,7 +71,7 @@ pub(crate) async fn enqueue(
          SELECT a.id, ?1, 'pending', {SOURCE_STAMP} FROM assets a WHERE a.id = ?2
          ON CONFLICT(asset_id, kind) DO UPDATE SET state = 'pending',
             generation = processing_tasks.generation + 1, source_stamp = excluded.source_stamp,
-            attempts = 0, next_attempt_at = NULL, last_error = NULL,
+            attempts = 0, next_attempt_at = NULL, last_error = NULL, issue_code = NULL,
             lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP"
     );
     sqlx::query(&statement)
@@ -84,6 +84,20 @@ pub(crate) async fn enqueue(
 
 #[async_trait]
 impl ProcessingRepository for SqliteProcessingRepository {
+    async fn diagnostics(
+        &self,
+        kind: ProcessingKind,
+    ) -> AppResult<Vec<crate::core::processing_diagnostics::ProcessingDiagnostic>> {
+        diagnostics::diagnostics(&self.pool, kind).await
+    }
+
+    async fn retry(
+        &self,
+        kind: ProcessingKind,
+        scope: crate::core::processing_diagnostics::ProcessingRetryScope,
+    ) -> AppResult<crate::core::processing_diagnostics::ProcessingRetryCounts> {
+        diagnostics::retry(&self.pool, kind, scope).await
+    }
     async fn queue_counts(
         &self,
         kind: ProcessingKind,
@@ -222,6 +236,9 @@ impl ProcessingRepository for SqliteProcessingRepository {
 #[path = "processing_counts.rs"]
 mod counts;
 
+#[path = "processing_diagnostics.rs"]
+mod diagnostics;
+
 #[cfg(test)]
 #[path = "processing_tests.rs"]
 mod tests;
@@ -236,3 +253,7 @@ pub(crate) mod attempts;
 #[cfg(test)]
 #[path = "processing_lease_tests.rs"]
 mod lease_tests;
+
+#[cfg(test)]
+#[path = "processing_diagnostics_tests.rs"]
+mod diagnostic_tests;

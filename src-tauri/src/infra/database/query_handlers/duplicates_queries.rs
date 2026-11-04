@@ -110,36 +110,7 @@ pub async fn get_active_rule_set(pool: &SqlitePool) -> AppResult<Option<Duplicat
         AppError::Database(database_error)
     })?;
 
-    let active_rule_set_record = sqlx::query_as!(
-        DuplicateRuleSet,
-        r#"
-        SELECT 
-            id as "id!", name as "name!", description, 
-            consider_exact_match as "consider_exact_match: bool", 
-            consider_visual_match as "consider_visual_match: bool", 
-            consider_crop_match as "consider_crop_match: bool", 
-            ignore_resolution_difference as "ignore_resolution_difference: bool", 
-            ignore_recompression as "ignore_recompression: bool", 
-            allow_rotation as "allow_rotation: bool", 
-            allow_mirroring as "allow_mirroring: bool", 
-            min_score as "min_score: f64", 
-            min_visual_score as "min_visual_score: f64", 
-            min_crop_score as "min_crop_score: f64", 
-            created_at as "created_at: chrono::DateTime<chrono::Utc>", 
-            updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
-        FROM duplicate_rule_sets
-        ORDER BY updated_at DESC
-        LIMIT 1
-        "#
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|database_error| {
-        tracing::error!("Failed to fetch active rule set: {:?}", database_error);
-        AppError::Database(database_error)
-    })?;
-
-    Ok(active_rule_set_record)
+    crate::infra::database::duplicate_policy::read(pool).await
 }
 
 /// Retrieves duplicate groups filtered by their status.

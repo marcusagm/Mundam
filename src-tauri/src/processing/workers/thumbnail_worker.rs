@@ -255,7 +255,7 @@ impl ThumbnailWorker {
             Ok(outcome) => self.processing.finish(&ticket, outcome).await,
             Err(error) => {
                 self.processing
-                    .finish(&ticket, ProcessingOutcome::Failed(error.to_string()))
+                    .finish(&ticket, ProcessingOutcome::failure(&error))
                     .await?;
                 Err(error)
             }
@@ -287,8 +287,8 @@ impl ThumbnailWorker {
         let provider = match self.format_registry.resolve(&asset.path, &[]) {
             Some(p) => p,
             None => {
-                return Ok(ProcessingOutcome::Skipped(
-                    "No format provider is available".into(),
+                return Ok(ProcessingOutcome::Unavailable(
+                    crate::core::processing_diagnostics::ProcessingIssue::ProviderMissing,
                 ));
             }
         };
@@ -423,9 +423,7 @@ impl Drop for ThumbnailReservation {
 
 fn prepare_thumbnail(bytes: Vec<u8>) -> AppResult<Vec<u8>> {
     if bytes.is_empty() || !image_utils::is_valid_image(&bytes) {
-        return Err(AppError::Internal(
-            "Thumbnail provider returned empty or invalid image data".into(),
-        ));
+        return Err(AppError::InvalidProcessingOutput);
     }
     if image_utils::detect_image_format(&bytes) == Some(image_utils::ImageFormat::Webp) {
         if let Some((width, height)) = image_utils::get_image_dimensions(&bytes) {

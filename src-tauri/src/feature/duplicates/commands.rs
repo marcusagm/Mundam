@@ -464,6 +464,19 @@ impl DuplicateCommandService {
 
     async fn run_duplicate_scan(&self, rebuild: bool) -> AppResult<()> {
         self.ensure_processing_resumed()?;
+        if self
+            .scan_status
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .is_running
+        {
+            return Ok(());
+        }
+        if self.duplicates_repo.matching_status().await?.manual_pending {
+            return Err(crate::core::AppError::ValidationFailed(
+                "A manual duplicate comparison is already pending".into(),
+            ));
+        }
         tracing::info!("DuplicateCommandService: start_duplicate_scan requested");
 
         let cancellation_token = CancellationToken::new();
@@ -526,10 +539,11 @@ impl DuplicateCommandService {
 
         let event_bus_clone = self.event_bus.clone();
         let scan_status_clone = self.scan_status.clone();
+        let progress_run_id = run_id.clone();
         let progress_handle = tokio::spawn(async move {
             while let Some((processed, total)) = progress_receiver.recv().await {
                 if let Ok(mut status_guard) = scan_status_clone.write() {
-                    if status_guard.run_id.as_deref() != Some(run_id.as_str()) {
+                    if status_guard.run_id.as_deref() != Some(progress_run_id.as_str()) {
                         continue;
                     }
                     if status_guard.phase != "cancel_requested" {
@@ -565,6 +579,12 @@ impl DuplicateCommandService {
             return Ok(());
         }
 
+        self.duplicates_repo.request_matching(&run_id).await?;
+        if cancellation_token.is_cancelled() {
+            self.duplicates_repo.cancel_matching(Some(&run_id)).await?;
+            return Ok(());
+        }
+
         {
             if let Ok(mut status_guard) = self.scan_status.write() {
                 status_guard.phase = "exact_matching".to_string();
@@ -572,13 +592,17 @@ impl DuplicateCommandService {
         }
         tracing::info!("DuplicateCommandService: [3/4] running exact match scan");
         activity.set_phase("exact_matching");
-        let exact_groups_count = self
-            .duplicates_repo
-            .run_exact_match_scan(Some(cancellation_token.clone()))
-            .await?;
+        let exact_groups_count = super::matching_processor::complete(
+            self.duplicates_repo.clone(),
+            self.processing_coordinator.clone(),
+            crate::core::matching::MatchingKind::Exact,
+            &cancellation_token,
+        )
+        .await?;
 
         if cancellation_token.is_cancelled() {
             tracing::info!("DuplicateCommandService: scan cancelled after exact matching");
+            self.duplicates_repo.cancel_matching(Some(&run_id)).await?;
             return Ok(());
         }
 
@@ -589,18 +613,28 @@ impl DuplicateCommandService {
         }
         tracing::info!("DuplicateCommandService: [4/4] running visual match scan");
         activity.set_phase("visual_matching");
-        let visual_groups_count = self
-            .duplicates_repo
-            .run_visual_match_scan(Some(cancellation_token.clone()))
-            .await?;
+        let visual_groups_count = super::matching_processor::complete(
+            self.duplicates_repo.clone(),
+            self.processing_coordinator.clone(),
+            crate::core::matching::MatchingKind::Visual,
+            &cancellation_token,
+        )
+        .await?;
 
         if cancellation_token.is_cancelled() {
+            self.duplicates_repo.cancel_matching(Some(&run_id)).await?;
             return Ok(());
         }
 
         scan_running_guard.completed = true;
         let _ = self.event_bus.publish(DomainEvent::DuplicateScanFinished {
             groups_created: exact_groups_count + visual_groups_count,
+            publication_sequence: self
+                .duplicates_repo
+                .matching_status()
+                .await
+                .unwrap_or_default()
+                .publication_sequence,
         });
 
         tracing::info!("DuplicateCommandService: full duplicate scan completed successfully");
@@ -626,21 +660,32 @@ impl DuplicateCommandService {
             .unwrap_or_default()
     }
 
-    pub fn cancel_duplicate_scan(&self) {
-        tracing::info!("DuplicateCommandService: cancel_duplicate_scan requested");
-        let mut cancellation_guard = self
-            .scan_cancel_token
-            .lock()
-            .unwrap_or_else(|poison_error| poison_error.into_inner());
-        if let Some(token) = cancellation_guard.take() {
-            token.cancel();
-            tracing::info!("DuplicateCommandService: cancelled ongoing scan via CancellationToken");
-        }
-        if let Ok(mut status_guard) = self.scan_status.write() {
-            if status_guard.is_running {
-                status_guard.phase = "cancel_requested".to_string();
+    /// Requests cooperative exit and persists cancellation of recovered comparisons.
+    ///
+    /// # Errors
+    /// Returns a storage error if durable cancellation cannot be acknowledged.
+    pub async fn cancel_duplicate_scan(&self) -> AppResult<()> {
+        self.processing_coordinator.cancel_manual_matching();
+        let mut local_preparation = false;
+        {
+            let mut cancellation_guard = self
+                .scan_cancel_token
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            if let Some(token) = cancellation_guard.take() {
+                token.cancel();
+            }
+            if let Ok(mut status) = self.scan_status.write() {
+                if status.is_running {
+                    local_preparation = matches!(status.phase.as_str(), "preparing" | "hashing");
+                    status.phase = "cancel_requested".into();
+                }
             }
         }
+        if local_preparation {
+            return Ok(());
+        }
+        self.duplicates_repo.cancel_matching(None).await
     }
 
     /// Updates a rule set in the database.

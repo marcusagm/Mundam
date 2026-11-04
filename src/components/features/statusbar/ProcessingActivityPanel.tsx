@@ -1,5 +1,9 @@
 import { Index, Show, type Component } from 'solid-js';
-import type { ProcessingClientState, WorkerKind } from '../../../core/store/processingTypes';
+import type {
+    ProcessingClientState,
+    WorkerKind,
+    ProcessingRetryScope
+} from '../../../core/store/processingTypes';
 import type { ProgressPayload } from '../../../core/store/systemStore';
 import { ProcessingWorkerRow } from './ProcessingWorkerRow';
 import './processing-activity.css';
@@ -7,6 +11,8 @@ import { duplicateScanPhaseLabel } from '../../../utils/processing';
 
 /** Snapshot presentation shared by the statusbar's activity popover. */
 interface ProcessingActivityPanelProperties {
+    /** Queues a user-selected terminal outcome group. */
+    onRetry?: (worker: WorkerKind, scope: ProcessingRetryScope) => void;
     /** Shared transport state and errors. */
     state: ProcessingClientState;
     /** Existing indexer telemetry remains visible alongside controlled workers. */
@@ -46,9 +52,32 @@ export const ProcessingActivityPanel: Component<ProcessingActivityPanelPropertie
                         worker={worker()}
                         pending={properties.state.pending.has(worker().worker)}
                         onPause={properties.onPause}
+                        onRetry={properties.onRetry}
+                        comparisonFailures={
+                            worker().worker === 'duplicates'
+                                ? properties.state.snapshot?.matching?.failed
+                                : 0
+                        }
+                        feedback={properties.state.feedback?.[worker().worker]}
                     />
                 )}
             </Index>
+            <Show when={properties.state.snapshot?.matching}>
+                <dl class="processing-worker-counts" aria-label="Duplicate comparisons">
+                    <div>
+                        <dt>Comparisons pending</dt>
+                        <dd>{properties.state.snapshot?.matching?.pending}</dd>
+                    </div>
+                    <div>
+                        <dt>Comparisons retrying</dt>
+                        <dd>{properties.state.snapshot?.matching?.retry_wait}</dd>
+                    </div>
+                    <div>
+                        <dt>Comparisons failed</dt>
+                        <dd>{properties.state.snapshot?.matching?.failed}</dd>
+                    </div>
+                </dl>
+            </Show>
             <Show when={properties.state.snapshot?.manual_scan.is_running}>
                 <div role="status">
                     <p>

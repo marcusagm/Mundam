@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 /// Port for read and write operations related to duplicates.
 #[async_trait]
-pub trait DuplicatesRepository: Send + Sync {
+pub trait DuplicatesRepository: crate::core::matching::MatchingRepository + Send + Sync {
     /// Saves or updates a duplicate fingerprint for an asset.
     ///
     /// # Arguments
@@ -123,11 +123,6 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the update fails.
     async fn update_group_status(&self, group_id: &str, status: &str) -> AppResult<()>;
 
-    /// Runs a database-level scan to find exact duplicates and groups them.
-    ///
-    /// # Errors
-    /// Returns `AppError::DatabaseError` if the query fails.
-    async fn run_exact_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
 
     /// Backfills missing fingerprint rows for assets that are not yet in duplicate_fingerprints.
     /// This ensures all newly indexed assets have placeholder records ready for rehashing.
@@ -136,11 +131,6 @@ pub trait DuplicatesRepository: Send + Sync {
     /// Returns `AppError::DatabaseError` if the query or insert fails.
     async fn backfill_missing_fingerprints(&self) -> AppResult<()>;
 
-    /// Runs a database-level scan to find similar visual duplicates and groups them.
-    ///
-    /// # Errors
-    /// Returns `AppError::DatabaseError` if the query fails.
-    async fn run_visual_match_scan(&self, token: Option<tokio_util::sync::CancellationToken>) -> AppResult<usize>;
 
     /// Deletes the fingerprint for a given asset.
     ///

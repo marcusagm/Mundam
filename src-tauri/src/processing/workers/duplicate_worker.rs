@@ -66,7 +66,6 @@ impl DuplicateWorker {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(1500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut dirty_count = 0;
-            let mut visual_dirty = false;
             loop {
                 tokio::select! {
                     _ = token.cancelled() => break,
@@ -80,41 +79,62 @@ impl DuplicateWorker {
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
                 }
-                if !self
-                    .settings_service
-                    .get_settings()
-                    .await
-                    .map(|settings| settings.auto_detect_duplicates)
-                    .unwrap_or(true)
-                {
+                let matching = match self.duplicates_repo.matching_status().await {
+                    Ok(status) => status,
+                    Err(error) => {
+                        warn!(%error, "Could not read durable matching intent");
+                        continue;
+                    }
+                };
+                self.control.set_scheduled(
+                    WorkerKind::Duplicates,
+                    matching.pending > 0 || matching.retry_wait > 0 || matching.manual_pending,
+                );
+                if self.control.is_paused(WorkerKind::Duplicates) {
                     continue;
                 }
-                match self.process_batch(&token).await {
-                    Ok((processed, idle)) => {
-                        dirty_count += processed;
-                        visual_dirty |= processed > 0;
-                        self.control
-                            .set_scheduled(WorkerKind::Duplicates, visual_dirty || dirty_count > 0);
-                        if ((idle && visual_dirty) || dirty_count >= 100) && !token.is_cancelled() {
-                            match self.compare(&token, idle).await {
-                                Ok(true) => {
-                                    dirty_count = 0;
-                                    if idle {
-                                        visual_dirty = false;
-                                    }
-                                    self.control.set_scheduled(
-                                        WorkerKind::Duplicates,
-                                        visual_dirty || dirty_count > 0,
-                                    );
-                                }
-                                Ok(false) => {}
-                                Err(error) => {
-                                    warn!(%error, "Automatic duplicate comparison failed")
-                                }
-                            }
+                let automatic = match self.settings_service.get_settings().await {
+                    Ok(settings) => settings.auto_detect_duplicates,
+                    Err(error) => {
+                        warn!(%error, "Could not confirm automatic duplicate policy");
+                        continue;
+                    }
+                };
+                let mut idle = true;
+                if automatic {
+                    match self.process_batch(&token).await {
+                        Ok((processed, queue_idle)) => {
+                            dirty_count += processed;
+                            idle = queue_idle;
+                        }
+                        Err(error) => {
+                            warn!(%error, "Automatic fingerprint processing failed");
+                            continue;
                         }
                     }
-                    Err(error) => warn!(%error, "Automatic fingerprint processing failed"),
+                }
+                let current = self.duplicates_repo.matching_status().await;
+                let Ok(current) = current else {
+                    continue;
+                };
+                self.control.set_scheduled(
+                    WorkerKind::Duplicates,
+                    current.pending > 0 || current.retry_wait > 0 || current.manual_pending,
+                );
+                if (automatic && (idle || dirty_count >= 100)) || current.manual_pending {
+                    match self.compare(&token, idle || current.manual_pending).await {
+                        Ok(true) => {
+                            dirty_count = 0;
+                        }
+                        Ok(false) => {}
+                        Err(error) => warn!(%error, "Durable duplicate comparison failed"),
+                    }
+                    if let Ok(status) = self.duplicates_repo.matching_status().await {
+                        self.control.set_scheduled(
+                            WorkerKind::Duplicates,
+                            status.pending > 0 || status.retry_wait > 0 || status.manual_pending,
+                        );
+                    }
                 }
             }
         })
@@ -171,21 +191,48 @@ impl DuplicateWorker {
         else {
             return Ok(false);
         };
-        let mut groups_processed = self
-            .duplicates_repo
-            .run_exact_match_scan(Some(token.clone()))
-            .await?;
-        if include_visual && !token.is_cancelled() {
-            activity.set_phase("visual_matching");
-            groups_processed += self
-                .duplicates_repo
-                .run_visual_match_scan(Some(token.clone()))
-                .await?;
+        let automatic = self
+            .settings_service
+            .get_settings()
+            .await?
+            .auto_detect_duplicates;
+        let mut published = false;
+        let mut groups_processed = 0;
+        for kind in [
+            crate::core::matching::MatchingKind::Exact,
+            crate::core::matching::MatchingKind::Visual,
+        ] {
+            if token.is_cancelled()
+                || (!include_visual && kind == crate::core::matching::MatchingKind::Visual)
+            {
+                break;
+            }
+            activity.set_phase(kind.as_str());
+            if let Some(count) = crate::feature::duplicates::matching_processor::process(
+                self.duplicates_repo.clone(),
+                self.coordinator.clone(),
+                kind,
+                automatic,
+                token,
+            )
+            .await?
+            {
+                published = true;
+                groups_processed += count;
+            }
         }
-        if !token.is_cancelled() {
+        if published {
             self.event_bus
-                .publish(DomainEvent::DuplicateGroupsChanged { groups_processed })?;
+                .publish(DomainEvent::DuplicateGroupsChanged {
+                    groups_processed,
+                    publication_sequence: self
+                        .duplicates_repo
+                        .matching_status()
+                        .await
+                        .unwrap_or_default()
+                        .publication_sequence,
+                })?;
         }
-        Ok(true)
+        Ok(published)
     }
 }

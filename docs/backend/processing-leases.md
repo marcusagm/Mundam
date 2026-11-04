@@ -63,7 +63,7 @@ Um crash pode deixar arquivos não publicados até a reconciliação seguinte; e
 
 - A revisão da origem usa os dados do catálogo: caminho, tamanho e `modified_at`. Não fornece snapshot físico atômico do arquivo durante a leitura.
 - Os arquivos são gravados antes de seus ponteiros. SQLite e filesystem não compartilham transação; arquivos não publicados podem permanecer após crash e ser recolhidos na reconciliação.
-- Comparações exata/visual, intenção de matching após crash, orçamento global de recursos e preferência de pausa persistente não foram convertidos em jobs nesta entrega. O coordenador de scans continua local à instância.
+- As comparações e sua recuperação após crash foram implementadas na etapa posterior de [comparações persistentes](duplicate-matching-jobs.md). Orçamento global de recursos e preferência de pausa persistente continuam fora desta entrega. O coordenador local permanece, acompanhado de reservas de comparação entre processos.
 - A expiração usa o relógio do SQLite. Não há interrupção forçada de extratores ou garantia de processamento físico exatamente uma vez; há exclusividade de publicação sob a propriedade válida.
 
 ## Validação

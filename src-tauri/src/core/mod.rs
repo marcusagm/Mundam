@@ -11,6 +11,8 @@ pub mod ledger;
 pub mod models;
 pub mod path_guard;
 pub mod processing;
+pub mod processing_diagnostics;
+pub mod matching;
 pub mod processing_control;
 pub mod repository;
 pub mod settings;

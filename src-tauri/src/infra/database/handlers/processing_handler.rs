@@ -59,7 +59,10 @@ pub(crate) async fn commit(
                 });
                 ProcessingOutcome::Completed
             } else {
-                ProcessingOutcome::Skipped(unsupported_reason.ok_or_else(invalid_result)?)
+                unsupported_reason.ok_or_else(invalid_result)?;
+                ProcessingOutcome::Unavailable(
+                    crate::core::processing_diagnostics::ProcessingIssue::CapabilityMissing,
+                )
             }
         }
         (ProcessingKind::Colors, ProcessingResult::Colors(colors)) => {

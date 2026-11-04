@@ -52,6 +52,7 @@ export const StatusSystem: Component = () => {
                         state={processing.state()}
                         indexing={system.progress()}
                         onPause={processing.setPaused}
+                        onRetry={processing.retry}
                     />
                 </PopoverContent>
             </PopoverRoot>

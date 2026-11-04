@@ -1,9 +1,15 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ProcessingClient } from '../store/processingClient';
-import type { ProcessingClientState, ProcessingSnapshot } from '../store/processingTypes';
+import type {
+    ProcessingClientState,
+    ProcessingSnapshot,
+    ProcessingRetryAcknowledgement
+} from '../store/processingTypes';
 
 const client = new ProcessingClient({
+    retry: (worker, scope) =>
+        invoke<ProcessingRetryAcknowledgement>('retry_processing_worker', { worker, scope }),
     snapshot: () => invoke<ProcessingSnapshot>('get_processing_snapshot'),
     setPaused: (worker, paused) =>
         invoke<ProcessingSnapshot>('set_processing_worker_paused', { worker, paused })
@@ -24,6 +30,8 @@ export function useProcessing() {
     return {
         /** Last snapshot, query errors and pending controls. */
         state,
+        /** Queues terminal outcomes after an explicit user action. */
+        retry: client.retry.bind(client),
         /** Requests reconciliation after an explicit user action. */
         refresh: () => client.refresh(),
         /** Sends pause/resume intent without optimistic execution state. */
