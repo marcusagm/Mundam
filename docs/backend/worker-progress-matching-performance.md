@@ -46,7 +46,18 @@ A rodada automatizada no Windows está registrada em [antes](benchmarks/duplicat
 | Visualmente próximos, crop habilitado | 910 ms | 791 ms | 1,2× |
 | Crops corroborados por multiscale | 1.729 ms | 1.577 ms | 1,1× |
 
-Os doze cenários conservaram seus checksums. Divergências interrompem o runner antes de gravar resultados. Os números medem **avaliação de pares**, incluindo preparação e checksum, e excluem extração, SQLite, agrupamento greedy e interface. Não são tempos ponta a ponta nem metas de performance. A máquina e o compiler da rodada automatizada ficam registrados no JSON ao lado dos TSVs; novos resultados devem ser comparados na mesma máquina sem carga concorrente relevante. Não há execução de benchmark no macOS nesta sessão.
+Os doze cenários conservaram seus checksums. Divergências interrompem o runner antes de gravar resultados. Os números medem **avaliação de pares**, incluindo preparação e checksum, e excluem extração, SQLite, agrupamento greedy e interface. Não são tempos ponta a ponta nem metas de performance. A máquina e o compiler da rodada automatizada ficam registrados no JSON ao lado dos TSVs; novos resultados devem ser comparados na mesma máquina sem carga concorrente relevante.
+
+A rodada no macOS está registrada em [antes](benchmarks/duplicate-matching-macos-before.tsv), [depois](benchmarks/duplicate-matching-macos-after.tsv) e [metadados](benchmarks/duplicate-matching-macos-metadata.json). Máquina: MacBook Air 2017 (A1466, `MacBookAir7,2`), Intel Core i5-5350U @ 1,80 GHz, x64, macOS 12.7.6, Rust 1.99.1. Para 1.024 hashes:
+
+| Cenário | Antes | Depois | Relação aproximada |
+| --- | --- | --- | --- |
+| Não relacionados, crop habilitado | 3.256 ms | 367 ms | 8,9× |
+| Não relacionados, somente visual | 990 ms | 331 ms | 3,0× |
+| Visualmente próximos, crop habilitado | 2.250 ms | 1.827 ms | 1,2× |
+| Crops corroborados por multiscale | 4.516 ms | 4.537 ms | 1,0× (sem ganho) |
+
+Os doze cenários conservaram seus checksums. O cenário de crops corroborados por multiscale não mostra ganho, pois o sinal de corroboração é satisfeito e as subgrades precisam ser avaliadas; a diferença de ~0,5% está dentro do ruído de uma máquina sem ventoinha dedicada a carga sustentada (notebook ultrabook sujeito a throttling térmico). Os valores são medianas de três amostras de uma única execução e não são comparáveis em termos absolutos com o Windows (CPU e compiler distintos).
 
 ## Matching incremental e escopo restante
 
@@ -54,7 +65,7 @@ Esta entrega **não mantém um índice incremental persistente de relações**. 
 
 Um índice de pares ou cache incremental exige uma política específica: alterações/remoções de anchors podem reorganizar grupos dependentes, regras invalidam relações anteriores, e grupos revisados/ignorados/resolvidos precisam preservar decisões. A avaliação de crop também pode aceitar um par por multiscale mesmo com dHashes distantes; um índice baseado apenas em distância de dHash eliminaria matches válidos.
 
-Como o uso informado permanece rápido nas duas plataformas e já houve ganho mensurável no caminho global, a próxima decisão será baseada nos logs por fase e em cargas representativas. O plano separa a otimização medida entregue da evolução incremental persistente, sem declarar esta última concluída. Carga ponta a ponta de bibliotecas grandes e benchmarks no macOS permanecem pendentes.
+Como o uso informado permanece rápido nas duas plataformas e já houve ganho mensurável no caminho global, a próxima decisão será baseada nos logs por fase e em cargas representativas. O plano separa a otimização medida entregue da evolução incremental persistente, sem declarar esta última concluída. Carga ponta a ponta de bibliotecas grandes permanece pendente.
 
 ## Verificação
 
