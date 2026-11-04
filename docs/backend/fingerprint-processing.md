@@ -8,7 +8,7 @@ O scan manual de duplicados e o worker automático usavam implementações difer
 
 | Camada | Responsabilidade |
 | --- | --- |
-| [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicate_worker.rs) | Consumo contínuo, preferência de detecção automática e agendamento das comparações |
+| [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicates/mod.rs) | Consumo contínuo, preferência de detecção automática e agendamento das comparações |
 | [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs) | Execução explícita, progresso, cancelamento, rebuild e fases de comparação |
 | [`FingerprintProcessor`](../../src-tauri/src/feature/duplicates/fingerprint_processor.rs) | Seleção compartilhada, tentativa persistida, verificação da origem e gravação do resultado |
 | [`processing/media/fingerprint.rs`](../../src-tauri/src/processing/media/fingerprint.rs) | Leitura do arquivo e extração técnica, em `spawn_blocking` |

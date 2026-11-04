@@ -1,11 +1,11 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ProcessingClient } from '../store/processingClient';
+import { ProcessingClient } from '../store/processing/client';
 import type {
     ProcessingClientState,
     ProcessingSnapshot,
     ProcessingRetryAcknowledgement
-} from '../store/processingTypes';
+} from '../store/processing/types';
 
 const client = new ProcessingClient({
     retry: (worker, scope) =>

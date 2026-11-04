@@ -2,10 +2,10 @@
 //!
 //! Encapsulates SQL mutations for folder creation, cascade removal, and
 //! recursive path renaming across both the `folders` and `assets` tables.
+use super::shared;
 use crate::core::error::{AppError, AppResult};
 use crate::core::ledger::command::{CreateFolderPayload, RemoveFolderPayload, RenameFolderPayload};
 use crate::core::models::asset::{Asset, AssetState};
-use super::shared;
 use chrono::Utc;
 use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
@@ -40,8 +40,10 @@ pub async fn handle_create_folder(
 
     let actual_id = result.id;
 
-    super::super::folder_hierarchy::adopt_orphaned_children(&mut **tx, &actual_id, &path_str)
-        .await?;
+    crate::infra::database::handlers::folders::hierarchy::adopt_orphaned_children(
+        &mut **tx, &actual_id, &path_str,
+    )
+    .await?;
 
     let op_payload = serde_json::to_value(&payload)
         .map_err(|e| AppError::Internal(format!("Failed to serialize payload: {}", e)))?;
@@ -79,8 +81,8 @@ pub async fn handle_create_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }
 
@@ -142,8 +144,8 @@ pub async fn handle_remove_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }
 
@@ -238,7 +240,7 @@ pub async fn handle_rename_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }

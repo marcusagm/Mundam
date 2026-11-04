@@ -24,9 +24,9 @@ Uma operação de duplicados pode ser um fingerprint, uma comparação ou um sca
 
 ## Contratos e integração
 
-- [`core/processing_control.rs`](../../src-tauri/src/core/processing_control.rs): pausa e admissão compartilham um único lock. Permits RAII mantêm operações e fases em memória, liberando atividade inclusive em erro ou unwind. Um guard de lifecycle distingue um worker ocioso de um orquestrador que saiu.
-- [`feature/processing_control.rs`](../../src-tauri/src/feature/processing_control.rs): reúne atividade, contagens persistidas e progresso do scan manual em respostas completas, com `instance_id` e `sequence` monotônica.
-- [`infra/processing_counts.rs`](../../src-tauri/src/infra/processing_counts.rs): reutiliza as condições de origem, dependência e resultado ausente da seleção de jobs. Exclui lixeira, offline e identidades de assets admitidas pelos workers automáticos. Cores só entra na fila após haver thumbnail utilizável.
+- [`core/processing/control.rs`](../../src-tauri/src/core/processing/control.rs): pausa e admissão compartilham um único lock. Permits RAII mantêm operações e fases em memória, liberando atividade inclusive em erro ou unwind. Um guard de lifecycle distingue um worker ocioso de um orquestrador que saiu.
+- [`feature/processing/control.rs`](../../src-tauri/src/feature/processing/control.rs): reúne atividade, contagens persistidas e progresso do scan manual em respostas completas, com `instance_id` e `sequence` monotônica.
+- [`infra/database/query_handlers/processing/counts.rs`](../../src-tauri/src/infra/database/query_handlers/processing/counts.rs): reutiliza as condições de origem, dependência e resultado ausente da seleção de jobs. Exclui lixeira, offline e identidades de assets admitidas pelos workers automáticos. Cores só entra na fila após haver thumbnail utilizável.
 - [`delivery/tauri/processing.rs`](../../src-tauri/src/delivery/tauri/processing.rs): encaminha os comandos para o serviço. Ambos estão no invoke handler e têm permissões específicas concedidas às janelas `main` e `design-system`, sem acesso pela splashscreen.
 
 O agregador depende das portas `ProcessingRepository`, `SettingsRepository` e `ManualScanActivity` do core. O composition root compartilha o repository de configurações com o serviço existente, e o serviço de duplicados fornece um adaptador de leitura do progresso. O snapshot não aciona handlers de comandos nem inicia trabalho para obter telemetria.
@@ -65,7 +65,7 @@ Os dois comandos retornam o snapshot completo. Exemplo de linha de um executor:
 
 ## Transporte e apresentação
 
-[`ProcessingClient`](../../src/core/store/processingClient.ts) é compartilhado pela mensagem central e pelo indicador. Há uma consulta global a cada dois segundos por webview com consumidores, sem uma chamada por linha ou por asset. O polling para quando o último consumidor desmonta e recupera o estado sem depender da entrega de eventos.
+[`ProcessingClient`](../../src/core/store/processing/client.ts) é compartilhado pela mensagem central e pelo indicador. Há uma consulta global a cada dois segundos por webview com consumidores, sem uma chamada por linha ou por asset. O polling para quando o último consumidor desmonta e recupera o estado sem depender da entrega de eventos.
 
 Respostas atrasadas são verificadas pela identidade da instância, sequência e época das ações. Um controle fica desabilitado enquanto aguarda confirmação. A interface só altera a pausa após a resposta do backend; falha ou timeout mantém o último snapshot conhecido, informa incerteza no painel e permite reconciliar o estado na consulta seguinte. Uma resposta que chega depois do timeout não muda o estado visual.
 

@@ -2,7 +2,7 @@ import { createMemo, type Component } from 'solid-js';
 import { Info } from 'lucide-solid';
 import { useProcessing } from '../../../core/hooks/useProcessing';
 import { useSystem } from '../../../core/hooks';
-import { processingIndicator, processingLabels } from './processingPresentation';
+import { processingIndicator, processingLabels } from './processing/processingPresentation';
 
 /** Ready is shown only after worker health is known. */
 export const StatusMessages: Component = () => {

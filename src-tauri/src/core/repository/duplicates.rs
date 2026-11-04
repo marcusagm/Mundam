@@ -1,10 +1,14 @@
 use crate::core::error::AppResult;
-use crate::core::models::{DuplicateFingerprint, DuplicateGroup, DuplicateCandidate, DuplicateRuleSet, DuplicateResolution};
+use crate::core::models::{
+    DuplicateCandidate, DuplicateFingerprint, DuplicateGroup, DuplicateResolution, DuplicateRuleSet,
+};
 use async_trait::async_trait;
 
 /// Port for read and write operations related to duplicates.
 #[async_trait]
-pub trait DuplicatesRepository: crate::core::matching::MatchingRepository + Send + Sync {
+pub trait DuplicatesRepository:
+    crate::core::duplicates::matching::MatchingRepository + Send + Sync
+{
     /// Saves or updates a duplicate fingerprint for an asset.
     ///
     /// # Arguments
@@ -99,7 +103,8 @@ pub trait DuplicatesRepository: crate::core::matching::MatchingRepository + Send
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query fails.
-    async fn get_latest_resolution(&self, group_id: &str) -> AppResult<Option<DuplicateResolution>>;
+    async fn get_latest_resolution(&self, group_id: &str)
+        -> AppResult<Option<DuplicateResolution>>;
 
     /// Deletes a specific resolution entry by its identifier.
     ///
@@ -123,14 +128,12 @@ pub trait DuplicatesRepository: crate::core::matching::MatchingRepository + Send
     /// Returns `AppError::DatabaseError` if the update fails.
     async fn update_group_status(&self, group_id: &str, status: &str) -> AppResult<()>;
 
-
     /// Backfills missing fingerprint rows for assets that are not yet in duplicate_fingerprints.
     /// This ensures all newly indexed assets have placeholder records ready for rehashing.
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the query or insert fails.
     async fn backfill_missing_fingerprints(&self) -> AppResult<()>;
-
 
     /// Deletes the fingerprint for a given asset.
     ///

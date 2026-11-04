@@ -40,9 +40,9 @@ async fn processing_manual_scan_drains_latest_progress_before_reporting_completi
 async fn processing_paused_duplicates_reject_manual_scans_without_changing_scan_status(
 ) -> TestResult {
     let fixture = ProcessingFixture::new().await?;
-    let control = Arc::new(crate::core::processing_control::ProcessingControl::default());
+    let control = Arc::new(crate::core::processing::control::ProcessingControl::default());
     control.set_paused(
-        crate::core::processing_control::WorkerKind::Duplicates,
+        crate::core::processing::control::WorkerKind::Duplicates,
         true,
     );
     let service = DuplicateCommandService::new(
@@ -66,7 +66,7 @@ async fn processing_rebuild_does_not_reset_the_index_while_queued_or_paused() ->
     fixture.asset("asset", None).await?;
     let repository = Arc::new(SqliteDuplicatesRepository::new(fixture.pool.clone()));
     repository.backfill_missing_fingerprints().await?;
-    let control = Arc::new(crate::core::processing_control::ProcessingControl::default());
+    let control = Arc::new(crate::core::processing::control::ProcessingControl::default());
     let coordinator =
         Arc::new(super::super::coordinator::DuplicateProcessingCoordinator::default());
     let busy = coordinator.acquire().await;
@@ -93,7 +93,7 @@ async fn processing_rebuild_does_not_reset_the_index_while_queued_or_paused() ->
         .await?;
     assert!(before > 0);
     control.set_paused(
-        crate::core::processing_control::WorkerKind::Duplicates,
+        crate::core::processing::control::WorkerKind::Duplicates,
         true,
     );
     drop(busy);

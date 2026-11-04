@@ -7,9 +7,8 @@
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::models::{
-    DuplicateCandidate, DuplicateFingerprint, DuplicateGroup,
-    DuplicateGroupStatus, DuplicateGroupType, DuplicateResolution,
-    DuplicateResolutionAction, DuplicateRuleSet,
+    DuplicateCandidate, DuplicateFingerprint, DuplicateGroup, DuplicateGroupStatus,
+    DuplicateGroupType, DuplicateResolution, DuplicateResolutionAction, DuplicateRuleSet,
 };
 use sqlx::SqlitePool;
 
@@ -42,7 +41,11 @@ pub async fn get_fingerprint(
     .fetch_optional(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to get fingerprint for asset {}: {:?}", asset_id, database_error);
+        tracing::error!(
+            "Failed to get fingerprint for asset {}: {:?}",
+            asset_id,
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -86,31 +89,15 @@ pub async fn get_rule_sets(pool: &SqlitePool) -> AppResult<Vec<DuplicateRuleSet>
 
 /// Retrieves the most recently updated duplicate rule set, serving as the active policy.
 ///
-/// Seeds a default 'visual-match' rule set if none exists in the database.
+/// Default policy creation belongs to the repository mutation adapter.
 ///
 /// # Arguments
 /// * `pool` - The SQLite database connection pool.
 ///
 /// # Errors
-/// Returns `AppError::Database` if reading or seeding fails.
+/// Returns `AppError::Database` if reading fails.
 pub async fn get_active_rule_set(pool: &SqlitePool) -> AppResult<Option<DuplicateRuleSet>> {
-    sqlx::query!(
-        r#"
-        INSERT OR IGNORE INTO duplicate_rule_sets (
-            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at
-        ) VALUES (
-            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, 0.9, 0.85, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        )
-        "#
-    )
-    .execute(pool)
-    .await
-    .map_err(|database_error| {
-        tracing::error!("Failed to seed visual-match rule set in get_active_rule_set: {:?}", database_error);
-        AppError::Database(database_error)
-    })?;
-
-    crate::infra::database::duplicate_policy::read(pool).await
+    crate::infra::database::query_handlers::duplicate_policy::read(pool).await
 }
 
 /// Retrieves duplicate groups filtered by their status.
@@ -151,8 +138,9 @@ pub async fn get_groups_by_status(
     let mut groups = Vec::new();
     for record in records {
         use std::str::FromStr;
-        let group_type = DuplicateGroupType::from_str(&record.group_type)
-            .map_err(|_| AppError::Internal(format!("Invalid group type in DB: {}", record.group_type)))?;
+        let group_type = DuplicateGroupType::from_str(&record.group_type).map_err(|_| {
+            AppError::Internal(format!("Invalid group type in DB: {}", record.group_type))
+        })?;
         let parsed_status = DuplicateGroupStatus::from_str(&record.status)
             .map_err(|_| AppError::Internal(format!("Invalid status in DB: {}", record.status)))?;
 
@@ -251,12 +239,13 @@ pub async fn get_latest_resolution(
     match optional_record {
         Some(record) => {
             use std::str::FromStr;
-            let parsed_action = DuplicateResolutionAction::from_str(&record.action).map_err(|_| {
-                AppError::Internal(format!(
-                    "Invalid resolution action stored in database: {}",
-                    record.action
-                ))
-            })?;
+            let parsed_action =
+                DuplicateResolutionAction::from_str(&record.action).map_err(|_| {
+                    AppError::Internal(format!(
+                        "Invalid resolution action stored in database: {}",
+                        record.action
+                    ))
+                })?;
 
             Ok(Some(DuplicateResolution {
                 id: record.id,
@@ -286,12 +275,10 @@ mod tests {
             .await
             .expect("Failed to initialize database manager");
 
-        let non_existent_resolution = get_latest_resolution(
-            database_manager.pool(),
-            "non-existent-group-identifier",
-        )
-        .await
-        .expect("Query for non-existent group should succeed");
+        let non_existent_resolution =
+            get_latest_resolution(database_manager.pool(), "non-existent-group-identifier")
+                .await
+                .expect("Query for non-existent group should succeed");
         assert!(non_existent_resolution.is_none());
 
         sqlx::query(
@@ -317,18 +304,22 @@ mod tests {
         .await
         .expect("Insert duplicate resolution must succeed");
 
-        let found_resolution = get_latest_resolution(
-            database_manager.pool(),
-            "test-group-identifier-1",
-        )
-        .await
-        .expect("Query for resolved group must succeed")
-        .expect("Resolution record should be present");
+        let found_resolution =
+            get_latest_resolution(database_manager.pool(), "test-group-identifier-1")
+                .await
+                .expect("Query for resolved group must succeed")
+                .expect("Resolution record should be present");
 
         assert_eq!(found_resolution.id, "resolution-1");
         assert_eq!(found_resolution.group_id, "test-group-identifier-1");
-        assert_eq!(found_resolution.action, DuplicateResolutionAction::CustomSelection);
-        assert_eq!(found_resolution.selected_asset_id.as_deref(), Some("asset-1"));
+        assert_eq!(
+            found_resolution.action,
+            DuplicateResolutionAction::CustomSelection
+        );
+        assert_eq!(
+            found_resolution.selected_asset_id.as_deref(),
+            Some("asset-1")
+        );
 
         crate::infra::database::handlers::duplicates_handler::delete_resolution(
             database_manager.pool(),
@@ -337,13 +328,10 @@ mod tests {
         .await
         .expect("Delete resolution must succeed");
 
-        let resolution_after_deletion = get_latest_resolution(
-            database_manager.pool(),
-            "test-group-identifier-1",
-        )
-        .await
-        .expect("Query after deletion must succeed");
+        let resolution_after_deletion =
+            get_latest_resolution(database_manager.pool(), "test-group-identifier-1")
+                .await
+                .expect("Query after deletion must succeed");
         assert!(resolution_after_deletion.is_none());
     }
 }
-

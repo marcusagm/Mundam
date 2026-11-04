@@ -48,7 +48,11 @@ pub async fn list_folders(
 ///
 /// * `Ok(Option<Folder>)` if the folder was found successfully.
 /// * `Err(sqlx::Error)` if the folder could not be found.
-pub async fn get_folder_by_id(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, id: &str) -> AppResult<Option<crate::core::models::Folder>> {
+pub async fn get_folder_by_id(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    id: &str,
+) -> AppResult<Option<crate::core::models::Folder>> {
     let row = sqlx::query_as!(
         crate::infra::database::models::FolderDb,
         r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders WHERE id = ?"#,
@@ -66,7 +70,10 @@ pub async fn get_folder_by_id(pool: &SqlitePool, _registry: &crate::core::format
 ///
 /// * `Ok(Vec<Folder>)` if the folders were found successfully.
 /// * `Err(sqlx::Error)` if the folders could not be found.
-pub async fn list_all_subfolders(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<Folder>> {
+pub async fn list_all_subfolders(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<Folder>> {
     let rows = sqlx::query_as!(
         crate::infra::database::models::FolderDb,
         r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders ORDER BY path"#
@@ -83,7 +90,10 @@ pub async fn list_all_subfolders(pool: &SqlitePool, _registry: &crate::core::for
 ///
 /// * `Ok(Vec<(String, i64)>)` if the counts were found successfully.
 /// * `Err(sqlx::Error)` if the counts could not be found.
-pub async fn get_subfolder_asset_counts(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<(String, i64)>> {
+pub async fn get_subfolder_asset_counts(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<(String, i64)>> {
     let rows = sqlx::query!(
         r#"
         WITH RECURSIVE 
@@ -115,7 +125,10 @@ pub async fn get_subfolder_asset_counts(pool: &SqlitePool, _registry: &crate::co
 ///
 /// * `Ok(Vec<(String, i64)>)` if the counts were found successfully.
 /// * `Err(sqlx::Error)` if the counts could not be found.
-pub async fn get_location_root_counts(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<(String, i64)>> {
+pub async fn get_location_root_counts(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<(String, i64)>> {
     let rows = sqlx::query!(
         r#"
         WITH RECURSIVE 
@@ -141,7 +154,11 @@ pub async fn get_location_root_counts(pool: &SqlitePool, _registry: &crate::core
     Ok(rows.into_iter().map(|r| (r.folder_id, r.count)).collect())
 }
 
-pub async fn find_folder_by_path(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, path: &str) -> AppResult<Option<String>> {
+pub async fn find_folder_by_path(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    path: &str,
+) -> AppResult<Option<String>> {
     let row = sqlx::query!(
         r#"SELECT id as "id!" FROM folders WHERE path = ? COLLATE NOCASE"#,
         path
@@ -151,12 +168,3 @@ pub async fn find_folder_by_path(pool: &SqlitePool, _registry: &crate::core::for
 
     Ok(row.map(|r| r.id))
 }
-
-/// Keeps legacy repository callers consistent with transactional folder creation.
-///
-/// # Errors
-/// Returns a database error if the hierarchy update cannot be persisted.
-pub async fn adopt_orphaned_children(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, parent_id: &str, parent_path: &str) -> AppResult<()> {
-    super::super::folder_hierarchy::adopt_orphaned_children(pool, parent_id, parent_path).await
-}
-

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
-import type { ThumbnailProcessingSnapshot } from '../../../../core/store/thumbnailProcessing';
+import type { ThumbnailProcessingSnapshot } from '../../../../core/store/processing/thumbnail';
 
 const api = vi.hoisted(() => ({
     outcomes: new Map<string, ThumbnailProcessingSnapshot>(),

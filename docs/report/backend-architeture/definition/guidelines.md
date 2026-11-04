@@ -119,3 +119,11 @@ pub fn resolve(&self, path: &Path, header: &[u8]) -> Option<Arc<dyn FormatProvid
 ```
 
 **Módulos (`mod.rs`)** devem conter um Big Picture no topo usando `//!` elucidando sua responsabilidade em face da Arquitetura Hexagonal.
+
+## Organização dos adaptadores por domínio
+
+Contratos relacionados ficam em pastas de domínio no `core`, por exemplo `core/processing/`, `core/duplicates/` e `core/trash/`. Executors contínuos ficam em `processing/workers/<domínio>/`, com testes junto da implementação.
+
+No adaptador SQLite, fachadas de repositório delegam consultas a `infra/database/query_handlers/` e mutações a `infra/database/handlers/`. Agrupe responsabilidades extensas em subpastas como `matching/` e `processing/`. Uma consulta read-only não cria configurações padrão nem altera hierarquias. Leituras de validação dentro de uma transação de escrita permanecem no handler responsável por essa transação. Predicados compartilhados de elegibilidade ficam junto da fachada, evitando políticas divergentes entre contagem e admissão.
+
+Ao mover módulos, atualize imports, testes, recursos incluídos e links da documentação. A revisão atual da estrutura e dos limites do plano está em [Organização dos módulos](../../../backend/worker-module-organization.md).

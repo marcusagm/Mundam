@@ -17,7 +17,7 @@ A concorrência do **indexer** permanece separada e ainda exige reinício. Repro
 
 ## Admissão e recuperação
 
-[`ProcessingBudget`](../../src-tauri/src/core/processing_budget.rs) mantém uma fila em memória e devolve permissões RAII. A fila é FIFO entre solicitações elegíveis: um worker que já atingiu seu limite individual não bloqueia a capacidade livre dos demais. O executor de thumbnails continua selecionando primeiro a janela mais recente do viewport quando recebe capacidade; pedidos de outros workers não ficam atrás de uma fila ilimitada de thumbnails.
+[`ProcessingBudget`](../../src-tauri/src/core/processing/budget.rs) mantém uma fila em memória e devolve permissões RAII. A fila é FIFO entre solicitações elegíveis: um worker que já atingiu seu limite individual não bloqueia a capacidade livre dos demais. O executor de thumbnails continua selecionando primeiro a janela mais recente do viewport quando recebe capacidade; pedidos de outros workers não ficam atrás de uma fila ilimitada de thumbnails.
 
 As permissões são obtidas **antes** de `ProcessingRepository.begin` e de `claim_matching`. Esperar capacidade não consome tentativas nem mantém reservas de banco. As reservas e heartbeats existentes só começam depois da admissão. Cada etapa do scan manual libera sua capacidade antes da próxima operação, sem reservar o orçamento por todo o scan. O coordenador de duplicados permanece responsável por impedir scans concorrentes.
 
@@ -25,7 +25,7 @@ Cancelar ou descartar uma espera remove sua solicitação da fila. Uma permissã
 
 ## Integração
 
-- [`ProcessingControl`](../../src-tauri/src/core/processing_control.rs) possui a instância compartilhada do orçamento.
+- [`ProcessingControl`](../../src-tauri/src/core/processing/control.rs) possui a instância compartilhada do orçamento.
 - O bootstrap cria o controle junto das configurações, carrega os limites persistidos antes de iniciar os workers e injeta a mesma instância no coordenador de duplicados.
 - [`SettingsService`](../../src-tauri/src/feature/settings/service.rs) serializa mutações entre seus clones. Uma alteração só configura o orçamento depois de o repositório confirmar a gravação. Não é criado um segundo polling de configurações.
 - O snapshot global inclui `capacity: { limit, active, waiting, thumbnail_limit }`. `active` mede permissões de recursos e é independente de atividades longas de scan manual. `waiting` mede solicitações de admissão dos executores, não o tamanho das filas persistidas de assets.

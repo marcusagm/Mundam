@@ -1,4 +1,4 @@
-# MUDAM - Frontend Overview
+# Mundam - Frontend Overview
 
 ## Folder structure
 ```
@@ -6,16 +6,16 @@ Mundam/src
 ├── assets/
 ├── components/
 │   ├── features/
-│   ├── layouts/
+│   ├── layout/
 │   └── ui/
 ├── config/
 ├── core/
 │   ├── dnd/
-│   ├── hooks
+│   ├── hooks/
 │   ├── input/
 │   ├── services/
 │   ├── store/
-│   ├── system/
+│   │   └── processing/
 │   ├── tauri/
 │   ├── tests/
 │   ├── types/
@@ -27,8 +27,9 @@ Mundam/src
 │   └── themes/
 ├── types/
 ├── utils/
-├── App.css
 ├── App.tsx
+├── mountApplication.tsx
+├── splash.tsx
 └── index.tsx
 ```
 
@@ -43,6 +44,10 @@ Mundam/src
 ### Services
 
 ### Store
+
+O estado compartilhado dos workers fica em [core/store/processing](../../src/core/store/processing/README.md), com cliente, contratos, read model de thumbnails e testes. O hook `useProcessing` compartilha o cliente entre statusbar, configurações e duplicados.
+
+A reconciliação de publicações exclusiva de duplicados fica em `components/features/duplicates/state/`.
 
 ### System
 
@@ -59,6 +64,10 @@ Mundam/src
 ## Components
 
 ### Features
+
+A subseção de processamento da statusbar fica em `components/features/statusbar/processing/`, com componentes, apresentação, CSS e testes juntos. Configurações de performance continuam na feature `settings`.
+
+A auditoria de módulos, limpeza e pendências do plano está em [Organização dos módulos](../backend/worker-module-organization.md).
 
 ### Layouts
 

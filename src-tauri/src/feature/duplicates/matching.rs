@@ -1,6 +1,6 @@
 //! Deterministic comparison math, outside SQLite transactions and the async executor.
 
-use crate::core::{matching::*, models::DuplicateGroupType};
+use crate::core::{duplicates::matching::*, models::DuplicateGroupType};
 use std::collections::BTreeMap;
 use tokio_util::sync::CancellationToken;
 

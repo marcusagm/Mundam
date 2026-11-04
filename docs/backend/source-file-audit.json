@@ -1,0 +1,23 @@
+{
+  "scope": "Conservative file reachability; includes tests, CSS and Rust cfg modules. Not an unused-export or runtime liveness proof.",
+  "frontend": {
+    "total": 637,
+    "production": 605,
+    "testOnly": 24,
+    "publicOnly": [
+      "src/core/input/store/index.ts",
+      "src/core/input/providers/index.ts",
+      "src/core/input/providers/GestureProvider.ts",
+      "src/core/input/providers/PointerProvider.ts",
+      "src/core/input/primitives/index.ts",
+      "src/components/features/statusbar/index.ts"
+    ],
+    "candidates": [],
+    "unresolved": []
+  },
+  "rust": {
+    "total": 348,
+    "candidates": [],
+    "unresolved": []
+  }
+}

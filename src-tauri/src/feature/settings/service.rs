@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct SettingsService {
     repository: Arc<dyn SettingsRepository>,
-    control: Option<Arc<crate::core::processing_control::ProcessingControl>>,
+    control: Option<Arc<crate::core::processing::control::ProcessingControl>>,
     mutations: Arc<tokio::sync::Mutex<()>>,
 }
 
@@ -33,7 +33,7 @@ impl SettingsService {
     /// Applies successful settings writes to the common admission policy.
     pub fn with_control(
         mut self,
-        control: Arc<crate::core::processing_control::ProcessingControl>,
+        control: Arc<crate::core::processing::control::ProcessingControl>,
     ) -> Self {
         self.control = Some(control);
         self

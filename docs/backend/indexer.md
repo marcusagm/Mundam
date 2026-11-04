@@ -151,7 +151,7 @@ Se houver níveis intermediários (`C:\Library\Projects\Photos`), a adoção de
 Assim, os níveis físicos são preservados, sem ligar todos os descendentes
 diretamente à nova raiz.
 
-A comparação em `infra/database/folder_hierarchy.rs` aceita `/` e `\` no Windows,
+A comparação em `infra/database/handlers/folders/hierarchy.rs` aceita `/` e `\` no Windows,
 incluindo raízes de unidade e caminhos UNC, sem alterar os caminhos armazenados.
 Em Unix, `\` continua sendo um caractere literal de nome. Os nomes são comparados
 por prefixo literal: `%` e `_` não atuam como curingas SQL.

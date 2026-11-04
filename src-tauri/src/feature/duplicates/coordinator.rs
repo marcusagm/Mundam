@@ -7,7 +7,7 @@ use tokio::sync::{Mutex, MutexGuard};
 pub struct DuplicateProcessingCoordinator {
     gate: Mutex<()>,
     /// Shared media-operation capacity, also used by manual scans.
-    pub budget: std::sync::Arc<crate::core::processing_budget::ProcessingBudget>,
+    pub budget: std::sync::Arc<crate::core::processing::budget::ProcessingBudget>,
     matching: std::sync::Mutex<Option<(String, bool, tokio_util::sync::CancellationToken)>>,
 }
 
@@ -15,7 +15,7 @@ impl DuplicateProcessingCoordinator {
     /// Injects the same resource policy used by the other media workers.
     pub fn with_budget(
         mut self,
-        budget: std::sync::Arc<crate::core::processing_budget::ProcessingBudget>,
+        budget: std::sync::Arc<crate::core::processing::budget::ProcessingBudget>,
     ) -> Self {
         self.budget = budget;
         self
@@ -29,7 +29,7 @@ impl DuplicateProcessingCoordinator {
     /// Makes recovered manual matching respond immediately to local cancellation controls.
     pub fn watch_matching(
         self: &std::sync::Arc<Self>,
-        ticket: &crate::core::matching::MatchingTicket,
+        ticket: &crate::core::duplicates::matching::MatchingTicket,
         token: tokio_util::sync::CancellationToken,
     ) -> MatchingActivity {
         *self

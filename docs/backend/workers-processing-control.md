@@ -26,7 +26,7 @@ O indexer oferece uma referência para exibição de progresso, não uma impleme
 | Estado consultável | Não há snapshot do worker | Não há snapshot do worker | Snapshot do scan manual; não representa todo o trabalho automático |
 | Controle existente | Prioridade do viewport; configuração de concorrência lida ao iniciar | Token de encerramento da aplicação | Preferência de detecção automática; cancelamento do scan manual; tokens de lifecycle |
 
-Fontes principais: [`bootstrap/workers.rs`](../../src-tauri/src/bootstrap/workers.rs), [`ThumbnailWorker`](../../src-tauri/src/processing/workers/thumbnail_worker.rs), [`ColorWorker`](../../src-tauri/src/processing/workers/color_worker.rs), [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicate_worker.rs) e [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs).
+Fontes principais: [`bootstrap/workers.rs`](../../src-tauri/src/bootstrap/workers.rs), [`ThumbnailWorker`](../../src-tauri/src/processing/workers/thumbnails/mod.rs), [`ColorWorker`](../../src-tauri/src/processing/workers/colors/mod.rs), [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicates/mod.rs) e [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs).
 
 Há bases úteis a preservar: prioridade do viewport com limite de 200 IDs, deduplicação de thumbnails em execução, uso do Ledger nos resultados de assets, isolamento de várias operações pesadas, registro dos serviços no lifecycle, recuperação de fingerprints pelo banco e status consultável do scan manual.
 
@@ -38,7 +38,7 @@ As evidências abaixo são de inspeção estática, exceto a reprodução SQL de
 
 **A01. Reextração de cores não tem consumidor correspondente.**
 
-[`handle_reextract_colors`](../../src-tauri/src/infra/database/handlers/metadata_handler.rs) apaga as cores existentes; o Ledger publica `ReextractAssetColors`. O [`ColorWorker`](../../src-tauri/src/processing/workers/color_worker.rs) trata apenas `ThumbnailGenerated`. Não há consumidor de `ReextractAssetColors` no código inspecionado. A intenção é registrada, mas esse worker não realiza a reextração solicitada.
+[`handle_reextract_colors`](../../src-tauri/src/infra/database/handlers/metadata_handler.rs) apaga as cores existentes; o Ledger publica `ReextractAssetColors`. O [`ColorWorker`](../../src-tauri/src/processing/workers/colors/mod.rs) trata apenas `ThumbnailGenerated`. Não há consumidor de `ReextractAssetColors` no código inspecionado. A intenção é registrada, mas esse worker não realiza a reextração solicitada.
 
 **Recomendação:** transformar a solicitação em trabalho recuperável, preservar a paleta anterior até substituir o resultado com sucesso e usar o mesmo executor para pedido manual e processamento automático.
 
@@ -50,33 +50,33 @@ As evidências abaixo são de inspeção estática, exceto a reprodução SQL de
 
 **A03. Falha de thumbnail pode ser gravada como processamento concluído.**
 
-[`process_single`](../../src-tauri/src/processing/workers/thumbnail_worker.rs) começa com `final_thumb_path = ""`. Erros, bytes inválidos, resultado vazio e ausência de capacidade podem chegar a `UpdateThumbnail` com esse valor. O [handler](../../src-tauri/src/infra/database/handlers/thumbnail_handler.rs) grava `Thumbnailed` mesmo sem arquivo. Falha de commit também é apenas registrada em log nesse trecho, sem representar um resultado estruturado de job.
+[`process_single`](../../src-tauri/src/processing/workers/thumbnails/mod.rs) começa com `final_thumb_path = ""`. Erros, bytes inválidos, resultado vazio e ausência de capacidade podem chegar a `UpdateThumbnail` com esse valor. O [handler](../../src-tauri/src/infra/database/handlers/thumbnail_handler.rs) grava `Thumbnailed` mesmo sem arquivo. Falha de commit também é apenas registrada em log nesse trecho, sem representar um resultado estruturado de job.
 
 **Recomendação:** distinguir `succeeded`, `unsupported`, `failed`, `retry_wait` e `canceled`. Não representar todos por caminho vazio. Mudar somente para `Err` é insuficiente: sem uma política de retry, o polling pode tentar o mesmo erro indefinidamente.
 
 **A04. Cores depende de entrega transitória de eventos.**
 
-O consumidor executa a extração inteira antes de receber o próximo evento. Em [`Lagged`](../../src-tauri/src/processing/workers/color_worker.rs), apenas registra o problema; não reconcilia pendências. Também não faz recuperação no início. Uma thumbnail já persistida sem cores pode permanecer nessa condição se o evento for perdido ou a aplicação encerrar entre as etapas.
+O consumidor executa a extração inteira antes de receber o próximo evento. Em [`Lagged`](../../src-tauri/src/processing/workers/colors/mod.rs), apenas registra o problema; não reconcilia pendências. Também não faz recuperação no início. Uma thumbnail já persistida sem cores pode permanecer nessa condição se o evento for perdido ou a aplicação encerrar entre as etapas.
 
 **Recomendação:** eventos acordam o processamento; o banco conserva a intenção e o estado. A retomada deve funcionar sem reproduzir eventos antigos.
 
 **A05. Duplicados possui várias entradas sem coordenação comum.**
 
-O [`start`](../../src-tauri/src/processing/workers/duplicate_worker.rs) ativa evento e polling em paralelo. Ambos podem selecionar/calcular o mesmo fingerprint antes da persistência. O [scan manual](../../src-tauri/src/feature/duplicates/commands.rs) usa outra coordenação. Sua leitura de `is_running` e a escrita seguinte ocorrem em locks separados; o cancelamento marca `is_running = false` antes de a execução confirmar sua saída. Isso permite sobreposição e atualizações tardias de status por uma execução anterior.
+O [`start`](../../src-tauri/src/processing/workers/duplicates/mod.rs) ativa evento e polling em paralelo. Ambos podem selecionar/calcular o mesmo fingerprint antes da persistência. O [scan manual](../../src-tauri/src/feature/duplicates/commands.rs) usa outra coordenação. Sua leitura de `is_running` e a escrita seguinte ocorrem em locks separados; o cancelamento marca `is_running = false` antes de a execução confirmar sua saída. Isso permite sobreposição e atualizações tardias de status por uma execução anterior.
 
 **Recomendação:** reserva única por `(asset_id, job_kind, source_revision)` e admissão atômica de scans. Todos os caminhos devem usar a mesma coordenação, com `run_id` e proteção contra resultados de execuções antigas.
 
 **A06. Falhas permanentes de fingerprints não têm backoff.**
 
-O [polling](../../src-tauri/src/processing/workers/duplicate_worker.rs) consulta dez itens e, após processar um lote não vazio, volta ao início sem atraso obrigatório. A [consulta](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs) não possui ordenação explícita nem controle de tentativas. Arquivos que sempre falham podem ser selecionados repetidamente, gerar logs e ocupar o início dos lotes, prejudicando outros itens.
+O [polling](../../src-tauri/src/processing/workers/duplicates/mod.rs) consulta dez itens e, após processar um lote não vazio, volta ao início sem atraso obrigatório. A [consulta](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs) não possui ordenação explícita nem controle de tentativas. Arquivos que sempre falham podem ser selecionados repetidamente, gerar logs e ocupar o início dos lotes, prejudicando outros itens.
 
 **Recomendação:** tentativas limitadas, erro persistido, `next_attempt_at`, backoff e ordenação estável. Separar erro transitório, arquivo indisponível, formato sem suporte e falha definitiva.
 
 **A07. Encerramento dos serviços não equivale a cancelamento dos jobs.**
 
-Thumbnails aguarda um [permit](../../src-tauri/src/processing/workers/thumbnail_worker.rs) sem selecionar simultaneamente o token de cancelamento e cria [tarefas filhas](../../src-tauri/src/processing/workers/thumbnail_worker.rs) sem guardá-las em um `JoinSet`. O lifecycle acompanha o orquestrador, não cada tarefa filha. O cleanup manual de `in_flight` também não cobre um panic antes da remoção do ID.
+Thumbnails aguarda um [permit](../../src-tauri/src/processing/workers/thumbnails/mod.rs) sem selecionar simultaneamente o token de cancelamento e cria [tarefas filhas](../../src-tauri/src/processing/workers/thumbnails/mod.rs) sem guardá-las em um `JoinSet`. O lifecycle acompanha o orquestrador, não cada tarefa filha. O cleanup manual de `in_flight` também não cobre um panic antes da remoção do ID.
 
-Cores e o consumidor de duplicados aguardam operações dentro de um ramo do `select!`; seus tokens não são verificados dentro dessas operações. O hashing de arquivo de [`generate_fingerprint`](../../src-tauri/src/processing/workers/duplicate_worker.rs) não recebe token. Existe ainda um [`run_exact_match_scan(None)`](../../src-tauri/src/processing/workers/duplicate_worker.rs) no caminho por evento.
+Cores e o consumidor de duplicados aguardam operações dentro de um ramo do `select!`; seus tokens não são verificados dentro dessas operações. O hashing de arquivo de [`generate_fingerprint`](../../src-tauri/src/processing/workers/duplicates/mod.rs) não recebe token. Existe ainda um [`run_exact_match_scan(None)`](../../src-tauri/src/processing/workers/duplicates/mod.rs) no caminho por evento.
 
 **Recomendação:** acompanhar tarefas filhas, cleanup por RAII, cancelamento cooperativo e drenagem explícita. Não prometer interrupção imediata de uma operação nativa que não oferece esse recurso.
 
@@ -94,13 +94,13 @@ A consulta usa apenas caminho nulo e estado diferente de `Thumbnailed`, sem `del
 
 **A10. Configurações e orçamento de recursos não são uniformes.**
 
-`thumbnail_threads` é lido [uma vez no início](../../src-tauri/src/processing/workers/thumbnail_worker.rs), embora o frontend permita alterá-lo. `worker_threads` aparece no modelo/configuração, mas não é consumido pelos três executores analisados. Não há orçamento comum entre thumbnails, cores, fingerprints e matching; limites específicos de providers precisam ser inventariados antes de definir limites globais.
+`thumbnail_threads` é lido [uma vez no início](../../src-tauri/src/processing/workers/thumbnails/mod.rs), embora o frontend permita alterá-lo. `worker_threads` aparece no modelo/configuração, mas não é consumido pelos três executores analisados. Não há orçamento comum entre thumbnails, cores, fingerprints e matching; limites específicos de providers precisam ser inventariados antes de definir limites globais.
 
 `auto_detect_duplicates` também não significa uma pausa uniforme: desliga o polling, enquanto o caminho `AssetCreated` calcula o hash antes de consultar a preferência para executar matching. A própria interface descreve a preferência como detecção exata na importação; é necessário separar essa política da geração de fingerprints e da pausa do serviço.
 
 **A11. Progresso e invalidação de dados precisam ser separados.**
 
-O worker pode iniciar matching exato por asset recebido e por lote de dez; matching visual ocorre ao atingir ociosidade. Alguns resumos são publicados como `DuplicateGroupCreated` com [`group_id` vazio e valores fixos](../../src-tauri/src/processing/workers/duplicate_worker.rs). O frontend interpreta esses eventos como criação e [recarrega grupos e estatísticas](../../src/components/features/duplicates/hooks/useDuplicateGroups.ts).
+O worker pode iniciar matching exato por asset recebido e por lote de dez; matching visual ocorre ao atingir ociosidade. Alguns resumos são publicados como `DuplicateGroupCreated` com [`group_id` vazio e valores fixos](../../src-tauri/src/processing/workers/duplicates/mod.rs). O frontend interpreta esses eventos como criação e [recarrega grupos e estatísticas](../../src/components/features/duplicates/hooks/useDuplicateGroups.ts).
 
 Metadados também geram `metadata:ready`; o [listener](../../src/core/store/systemStore.ts) chama [`refreshItem`](../../src/core/store/library/itemActions.ts), que consulta o asset mesmo quando ele não está entre os itens carregados. Repetir esse padrão para telemetria de jobs recriaria o excesso de IPC e recargas observado na remoção de pastas.
 
@@ -108,7 +108,7 @@ Metadados também geram `metadata:ready`; o [listener](../../src/core/store/syst
 
 **A12. Há duplicação de processamento e contratos históricos imprecisos.**
 
-Hashing/decodificação existe em [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicate_worker.rs) e em [`rehash_pending_fingerprints`](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs), dentro do adaptador de banco. O trabalho automático e o manual devem reutilizar o mesmo serviço de fingerprint, deixando SQL no adaptador.
+Hashing/decodificação existe em [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicates/mod.rs) e em [`rehash_pending_fingerprints`](../../src-tauri/src/infra/database/handlers/duplicates_handler.rs), dentro do adaptador de banco. O trabalho automático e o manual devem reutilizar o mesmo serviço de fingerprint, deixando SQL no adaptador.
 
 O documento histórico descreve um scheduler central, `BinaryHeap` e circuit breaker que não correspondem aos workers atuais. A prioridade real de thumbnails é uma janela substituível do viewport, atendida na ordem recebida, não uma pilha LIFO. Uma [lista vazia é ignorada](../../src-tauri/src/core/workflows/thumbnails/priority.rs), assim como no [frontend](../../src/core/store/library/itemActions.ts), impedindo limpar explicitamente prioridades antigas. O `FormatRegistry` de cores é clonado para uma variável não utilizada; convém remover dependências sem função real.
 
@@ -275,9 +275,9 @@ Implementação iniciada em 30 de outubro de 2026. Esta entrega prepara os execu
 
 ### Base compartilhada
 
-- `core/processing.rs` define tipos de etapa, ticket de geração, resultados e porta de persistência.
+- `core/processing/mod.rs` define tipos de etapa, ticket de geração, resultados e porta de persistência.
 - A migration `20261030010000_processing_attempts.sql` cria `processing_tasks`, com FK para o asset, geração da solicitação, identificação da origem, resultado, tentativas e próximo retry.
-- `infra/processing.rs` concentra elegibilidade, pendências, pedidos explícitos e bookkeeping de resultados. A seleção exclui `deleted_at` preenchido e estados de lixeira/offline.
+- `infra/database/processing/mod.rs` concentra elegibilidade, pendências, pedidos explícitos e bookkeeping de resultados. A seleção exclui `deleted_at` preenchido e estados de lixeira/offline.
 - Falhas têm até três tentativas: primeiro reagendamento em cinco segundos, segundo em trinta segundos e terceira falha terminal. Alterar a origem ou solicitar reprocessamento explicitamente permite nova tentativa. Não há toast por falha individual.
 - Pedidos explícitos são persistidos na transação do Ledger. Uma tentativa antiga não pode sobrescrever o registro de uma solicitação mais recente. Remover um asset apaga suas pendências por cascade.
 
@@ -343,9 +343,9 @@ O componente agora usa [`useThumbnail`](../../src/components/features/viewport/a
 | `unknown` no frontend | Mantém a espera enquanto o resultado é desconhecido; falha de consulta não confirma falha de extração |
 | `succeeded` | Imagem gerada, com identidade de cache que inclui sua geração |
 
-O read model `get_thumbnail_processing_status` recebe até 200 IDs únicos. A camada de delivery delega para `feature/processing.rs`; o repository lê apenas identidade, estado, geração e caminho da thumbnail, sem retornar erro bruto ou caminho original como diagnóstico.
+O read model `get_thumbnail_processing_status` recebe até 200 IDs únicos. A camada de delivery delega para `feature/processing/mod.rs`; o repository lê apenas identidade, estado, geração e caminho da thumbnail, sem retornar erro bruto ou caminho original como diagnóstico.
 
-[`thumbnailProcessing.ts`](../../src/core/store/thumbnailProcessing.ts) compartilha inscrições entre componentes e agrupa consultas em uma janela de 30 ms, com limite de 200 IDs por chamada. Trabalho pendente, retry e indisponibilidade de transporte são reconsultados a cada dois segundos; estados terminais não mantêm polling. Desmontar ou reciclar o card libera sua inscrição. Respostas anteriores à invalidação de uma geração são ignoradas. Essas consultas não recarregam biblioteca, árvores, contagens ou grupos, nem publicam eventos por asset.
+[`thumbnailProcessing.ts`](../../src/core/store/processing/thumbnail.ts) compartilha inscrições entre componentes e agrupa consultas em uma janela de 30 ms, com limite de 200 IDs por chamada. Trabalho pendente, retry e indisponibilidade de transporte são reconsultados a cada dois segundos; estados terminais não mantêm polling. Desmontar ou reciclar o card libera sua inscrição. Respostas anteriores à invalidação de uma geração são ignoradas. Essas consultas não recarregam biblioteca, árvores, contagens ou grupos, nem publicam eventos por asset.
 
 Um resultado consultado pode recuperar a imagem mesmo quando `thumbnail:ready` foi perdido. Invalidação e falhas de transporte preservam o último snapshot conhecido, incluindo sua geração e caminho de saída. Uma falha de transporte mantém a reconsulta mesmo se o estado preservado for terminal. URLs preservam a geração durante a atualização do snapshot e mudam quando uma regeneração produz nova imagem. O hook troca as inscrições quando o ID muda, evitando que uma conclusão antiga apareça em um card reciclado.
 
@@ -464,3 +464,11 @@ O benchmark reproduzível compara o avaliador do commit anterior com o atual e v
 O usuário confirmou funcionamento correto e boa performance das entregas anteriores no Windows e no macOS em 4 de novembro de 2026. A confirmação em uso foi separada de benchmarks controlados no plano de integração. O documento histórico do scheduler permanece inalterado.
 
 Validação desta entrega no Windows: **106 testes backend** (77 de processamento e 29 do matcher), **31 testes frontend**, TypeScript, lint, Prettier e build aprovados. O benchmark reproduzível preservou checksums nos 12 cenários. A execução desta revisão no macOS e cargas ponta a ponta continuam separadas da confirmação de uso das entregas anteriores.
+
+## 23. Organização física e auditoria do plano
+
+Contratos de processamento, matching, lixeira, fachadas SQLite, queries, handlers e workers passaram a ter pastas próprias de responsabilidade. O frontend agrupa estado compartilhado de processamento e apresentação da statusbar; o tracker de matching pertence à feature de duplicados. A auditoria removeu nove arquivos sem consumidores e manteve fachadas públicas e providers de entrada ainda não ativados devidamente classificados.
+
+A [revisão de organização e pendências](worker-module-organization.md) lista o que permanece planejado: matching incremental, bloqueio temporário de extratores, medições completas de carga, identidade de execução do indexer e validação física/versionamento uniforme da origem. APIs ilustrativas e opções futuras são distinguidas de lacunas funcionais.
+
+Validação da reorganização no Windows: **219 testes backend** e **116 testes frontend** aprovados, além de TypeScript, lint e build. O relatório histórico do scheduler permanece preservado.

@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 /// Computes through one pipeline; callers own scan admission and user-visible progress.
 #[derive(Clone)]
 pub struct FingerprintProcessor {
-    budget: Arc<crate::core::processing_budget::ProcessingBudget>,
+    budget: Arc<crate::core::processing::budget::ProcessingBudget>,
     ledger: Arc<dyn TransactionalAssetLedger>,
     processing: Arc<dyn ProcessingRepository>,
     queries: Arc<dyn AssetQueryHandler>,
@@ -42,7 +42,7 @@ impl FingerprintProcessor {
     /// Shares capacity with automatic and manual media operations.
     pub fn with_budget(
         mut self,
-        budget: Arc<crate::core::processing_budget::ProcessingBudget>,
+        budget: Arc<crate::core::processing::budget::ProcessingBudget>,
     ) -> Self {
         self.budget = budget;
         self
@@ -74,7 +74,7 @@ impl FingerprintProcessor {
         let Some(_resources) = self
             .budget
             .acquire(
-                crate::core::processing_control::WorkerKind::Duplicates,
+                crate::core::processing::control::WorkerKind::Duplicates,
                 token,
             )
             .await

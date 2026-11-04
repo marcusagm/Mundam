@@ -1,7 +1,7 @@
 //! Passive desktop adapter for global worker activity and session pause intent.
 
-use crate::core::{processing_control::WorkerKind, AppResult};
-use crate::feature::processing_control::{ProcessingControlService, ProcessingSnapshot};
+use crate::core::{processing::control::WorkerKind, AppResult};
+use crate::feature::processing::control::{ProcessingControlService, ProcessingSnapshot};
 use std::sync::Arc;
 use tauri::State;
 
@@ -35,8 +35,8 @@ pub async fn set_processing_worker_paused(
 #[tauri::command]
 pub async fn retry_processing_worker(
     worker: WorkerKind,
-    scope: crate::core::processing_diagnostics::ProcessingRetryScope,
+    scope: crate::core::processing::diagnostics::ProcessingRetryScope,
     service: State<'_, Arc<ProcessingControlService>>,
-) -> AppResult<crate::feature::processing_control::ProcessingRetryAcknowledgement> {
+) -> AppResult<crate::feature::processing::control::ProcessingRetryAcknowledgement> {
     service.retry(worker, scope).await
 }

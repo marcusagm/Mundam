@@ -54,7 +54,12 @@ impl SqliteAssetLedger {
         app_data_directory: PathBuf,
         path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
     ) -> Self {
-        Self { pool, event_bus, app_data_directory, path_guard }
+        Self {
+            pool,
+            event_bus,
+            app_data_directory,
+            path_guard,
+        }
     }
 }
 
@@ -71,8 +76,16 @@ impl SqliteAssetLedger {
 /// A `Result` containing the updated asset or an error.
 #[async_trait]
 impl TransactionalAssetLedger for SqliteAssetLedger {
-    async fn reconcile_processing_artifacts(&self, ticket: Option<&crate::core::processing::ProcessingTicket>) -> AppResult<()> {
-        crate::infra::asset_cache::prune_processing_artifacts(&self.pool, &self.app_data_directory, ticket).await
+    async fn reconcile_processing_artifacts(
+        &self,
+        ticket: Option<&crate::core::processing::ProcessingTicket>,
+    ) -> AppResult<()> {
+        crate::infra::filesystem::asset_cache::prune_processing_artifacts(
+            &self.pool,
+            &self.app_data_directory,
+            ticket,
+        )
+        .await
     }
     async fn commit_processing(
         &self,
@@ -81,8 +94,12 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
     ) -> AppResult<bool> {
         let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let Some(events) = crate::infra::database::handlers::processing_handler::commit(
-            &mut transaction, ticket, result,
-        ).await? else {
+            &mut transaction,
+            ticket,
+            result,
+        )
+        .await?
+        else {
             return Ok(false);
         };
         transaction.commit().await?;
@@ -132,7 +149,7 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
             .iter()
             .map(|asset| asset.id.clone())
             .collect();
-        let cache_cleanup_result = crate::infra::asset_cache::remove_asset_artifacts(
+        let cache_cleanup_result = crate::infra::filesystem::asset_cache::remove_asset_artifacts(
             &self.app_data_directory,
             &removed_asset_ids,
         )
@@ -146,7 +163,8 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
                     path: Some(path_reference),
                     ..
                 } => {
-                    self.execute_saga_physical_delete(asset, path_reference).await;
+                    self.execute_saga_physical_delete(asset, path_reference)
+                        .await;
                 }
                 LedgerCommand::MoveToTrash(_) => {
                     self.execute_saga_move_to_trash(asset).await;
@@ -362,9 +380,7 @@ impl SqliteAssetLedger {
         };
 
         match command {
-            LedgerCommand::CreateAsset(payload) => {
-                asset_handler::handle_create(tx, payload).await
-            }
+            LedgerCommand::CreateAsset(payload) => asset_handler::handle_create(tx, payload).await,
             LedgerCommand::BatchCreate(payloads) => {
                 asset_handler::handle_batch_create(tx, payloads).await
             }
@@ -378,27 +394,17 @@ impl SqliteAssetLedger {
                 asset_id,
                 path,
                 physical_delete,
-            } => {
-                asset_handler::handle_delete_asset(tx, asset_id, path, physical_delete).await
-            }
+            } => asset_handler::handle_delete_asset(tx, asset_id, path, physical_delete).await,
             LedgerCommand::SetAssetFolder {
                 asset_id,
                 folder_id,
-            } => {
-                asset_handler::handle_set_asset_folder(tx, &asset_id, folder_id.as_deref()).await
-            }
+            } => asset_handler::handle_set_asset_folder(tx, &asset_id, folder_id.as_deref()).await,
             LedgerCommand::UpdateTags(payload) => {
                 tags_handler::handle_update_tags(tx, payload).await
             }
-            LedgerCommand::CreateTag(payload) => {
-                tags_handler::handle_create_tag(tx, payload).await
-            }
-            LedgerCommand::UpdateTag(payload) => {
-                tags_handler::handle_update_tag(tx, payload).await
-            }
-            LedgerCommand::DeleteTag { id } => {
-                tags_handler::handle_delete_tag(tx, id).await
-            }
+            LedgerCommand::CreateTag(payload) => tags_handler::handle_create_tag(tx, payload).await,
+            LedgerCommand::UpdateTag(payload) => tags_handler::handle_update_tag(tx, payload).await,
+            LedgerCommand::DeleteTag { id } => tags_handler::handle_delete_tag(tx, id).await,
             LedgerCommand::AddTagsToAssetsBatch(payload) => {
                 tags_handler::handle_add_tags_to_assets_batch(tx, payload).await
             }
@@ -420,9 +426,7 @@ impl SqliteAssetLedger {
             LedgerCommand::UpdateThumbnail {
                 asset_id,
                 thumbnail_path,
-            } => {
-                thumbnail_handler::handle_update_thumbnail(tx, &asset_id, &thumbnail_path).await
-            }
+            } => thumbnail_handler::handle_update_thumbnail(tx, &asset_id, &thumbnail_path).await,
             LedgerCommand::RegenerateThumbnail { asset_id } => {
                 thumbnail_handler::handle_regenerate_thumbnail(tx, &asset_id).await
             }
@@ -613,11 +617,7 @@ impl SqliteAssetLedger {
                 .await;
             }
             Err(error) => {
-                tracing::warn!(
-                    "Ledger: MoveToTrash FAILED for {}: {}",
-                    asset.id,
-                    error
-                );
+                tracing::warn!("Ledger: MoveToTrash FAILED for {}: {}", asset.id, error);
                 let error_message = error.to_string();
                 let _ = crate::infra::database::handlers::shared::update_operation_status(
                     &self.pool,
@@ -658,7 +658,11 @@ impl SqliteAssetLedger {
                 let mut found_path: Option<PathBuf> = None;
                 for entry_result in entries {
                     if let Ok(entry) = entry_result {
-                        if entry.file_name().to_string_lossy().starts_with(&asset_id_prefix) {
+                        if entry
+                            .file_name()
+                            .to_string_lossy()
+                            .starts_with(&asset_id_prefix)
+                        {
                             found_path = Some(entry.path());
                             break;
                         }

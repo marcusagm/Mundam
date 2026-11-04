@@ -4,15 +4,15 @@ Este diretório concentra os executores de segundo plano iniciados por [`bootstr
 
 | Executor | Arquivo | Responsabilidade |
 | --- | --- | --- |
-| `ThumbnailWorker` | [`thumbnail_worker.rs`](thumbnail_worker.rs) | Thumbnails, metadados técnicos e prioridade do viewport |
-| `ColorWorker` | [`color_worker.rs`](color_worker.rs) | Extração de paletas a partir das thumbnails |
-| `DuplicateWorker` | [`duplicate_worker.rs`](duplicate_worker.rs) | Fingerprints automáticos e agendamento de comparações de duplicados |
-| `AutoEmptyTrashWorker` | [`auto_empty_trash_worker.rs`](auto_empty_trash_worker.rs) | Manutenção periódica da lixeira conforme as configurações existentes |
+| `ThumbnailWorker` | [`thumbnails/mod.rs`](thumbnails/mod.rs) | Thumbnails, metadados técnicos e prioridade do viewport |
+| `ColorWorker` | [`colors/mod.rs`](colors/mod.rs) | Extração de paletas a partir das thumbnails |
+| `DuplicateWorker` | [`duplicates/mod.rs`](duplicates/mod.rs) | Fingerprints automáticos e agendamento de comparações de duplicados |
+| `AutoEmptyTrashWorker` | [`trash/mod.rs`](trash/mod.rs) | Manutenção periódica da lixeira conforme as configurações existentes |
 
 ## Padrão de organização
 
-- Implementação em `<responsabilidade>_worker.rs`, com tipo público `<Responsabilidade>Worker`.
-- Testes específicos em `<responsabilidade>_worker_tests.rs`, como módulo do próprio executor.
+- Cada responsabilidade tem uma pasta (`thumbnails`, `colors`, `duplicates`, `trash`) e sua implementação em `mod.rs`, com tipo público `<Responsabilidade>Worker`.
+- Testes específicos ficam em `tests.rs` junto da implementação, como módulo do próprio executor.
 - Fixtures compartilhadas em [`test_support.rs`](test_support.rs).
 - Exportação dos tipos públicos pela fachada [`mod.rs`](mod.rs), usada pelo bootstrap.
 
@@ -22,7 +22,7 @@ Exemplo de importação:
 use crate::processing::workers::{ColorWorker, DuplicateWorker, ThumbnailWorker};
 ```
 
-Os workers de extração usam a admissão compartilhada de [`ProcessingControl`](../../core/processing_control.rs), o bookkeeping de [`ProcessingRepository`](../../core/processing.rs) e o token de encerramento do lifecycle. Pausa, retomada, prioridades e retries continuam obedecendo a esses contratos.
+Os workers de extração usam a admissão compartilhada de [`ProcessingControl`](../../core/processing/control.rs), o bookkeeping de [`ProcessingRepository`](../../core/processing/mod.rs) e o token de encerramento do lifecycle. Pausa, retomada, prioridades e retries continuam obedecendo a esses contratos.
 
 A limpeza automática da lixeira é um executor de manutenção. Ela conserva sua configuração de habilitação e retenção e não é adicionada aos controles de extração da statusbar por esta reorganização.
 

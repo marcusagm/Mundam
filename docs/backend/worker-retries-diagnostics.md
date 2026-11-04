@@ -38,13 +38,13 @@ O diagnóstico descreve **resultados observados**, não um teste contínuo de in
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| [`core/processing_diagnostics.rs`](../../src-tauri/src/core/processing_diagnostics.rs) | Códigos, escopos e contagens de retry |
-| [`infra/processing_diagnostics.rs`](../../src-tauri/src/infra/processing_diagnostics.rs) | Agrupamento seguro e reset transacional de filas |
-| [`ProcessingControlService`](../../src-tauri/src/feature/processing_control.rs) | Mapeamento de worker para estágio, invalidação do cache e snapshot de confirmação |
+| [`core/processing/diagnostics.rs`](../../src-tauri/src/core/processing/diagnostics.rs) | Códigos, escopos e contagens de retry |
+| [`infra/database/query_handlers/processing/diagnostics.rs`](../../src-tauri/src/infra/database/query_handlers/processing/diagnostics.rs) | Agrupamento seguro e reset transacional de filas |
+| [`ProcessingControlService`](../../src-tauri/src/feature/processing/control.rs) | Mapeamento de worker para estágio, invalidação do cache e snapshot de confirmação |
 | [`delivery/tauri/processing.rs`](../../src-tauri/src/delivery/tauri/processing.rs) | Adaptador IPC, com permissão própria para janelas da biblioteca |
-| [`ProcessingClient`](../../src/core/store/processingClient.ts) | Serialização de controles por worker, timeout e proteção contra respostas de instâncias anteriores |
-| [`ProcessingRetryActions`](../../src/components/features/statusbar/ProcessingRetryActions.tsx) | Ações distintas de retry e reavaliação |
-| [`ProcessingDiagnostics`](../../src/components/features/statusbar/ProcessingDiagnostics.tsx) | Descrições locais seguras em detalhes expansíveis |
+| [`ProcessingClient`](../../src/core/store/processing/client.ts) | Serialização de controles por worker, timeout e proteção contra respostas de instâncias anteriores |
+| [`ProcessingRetryActions`](../../src/components/features/statusbar/processing/ProcessingRetryActions.tsx) | Ações distintas de retry e reavaliação |
+| [`ProcessingDiagnostics`](../../src/components/features/statusbar/processing/ProcessingDiagnostics.tsx) | Descrições locais seguras em detalhes expansíveis |
 
 Exemplo de solicitação:
 

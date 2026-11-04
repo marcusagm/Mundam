@@ -48,7 +48,7 @@ pub fn init(app: &AppHandle) {
         .inner()
         .clone();
     let control = app
-        .state::<Arc<crate::core::processing_control::ProcessingControl>>()
+        .state::<Arc<crate::core::processing::control::ProcessingControl>>()
         .inner()
         .clone();
 

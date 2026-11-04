@@ -233,3 +233,9 @@ Run the linter before pushing:
 ```bash
 npm run lint
 ```
+
+### Organização do estado compartilhado
+
+Agrupe contratos, clientes e testes de uma responsabilidade compartilhada em uma pasta própria, por exemplo `core/store/processing/`. Estado e reconciliação usados apenas por uma feature ficam dentro dela, como `components/features/duplicates/state/`. Componentes e estilos de uma subseção extensa ficam juntos, como `components/features/statusbar/processing/`.
+
+Uma auditoria de arquivos sem uso deve considerar imports dinâmicos, workers do bundler, CSS, testes e fachadas públicas antes de remover arquivos. Diferencie uma API pública disponível de uma funcionalidade efetivamente ativada em runtime.

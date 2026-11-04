@@ -43,11 +43,13 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         ));
     app.manage(asset_query_handler.clone());
     let processing_repository: Arc<dyn crate::core::processing::ProcessingRepository> = Arc::new(
-        crate::infra::processing::SqliteProcessingRepository::new(db_manager.pool().clone()),
+        crate::infra::database::processing::SqliteProcessingRepository::new(
+            db_manager.pool().clone(),
+        ),
     );
     app.manage(processing_repository.clone());
     let processing_control = app
-        .state::<Arc<crate::core::processing_control::ProcessingControl>>()
+        .state::<Arc<crate::core::processing::control::ProcessingControl>>()
         .inner()
         .clone();
     let settings = app
@@ -130,7 +132,7 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         .with_processing_coordinator(duplicate_coordinator)
         .with_processing_control(processing_control.clone());
     app.manage(Arc::new(
-        crate::feature::processing_control::ProcessingControlService::new(
+        crate::feature::processing::control::ProcessingControlService::new(
             duplicates_repo.clone(),
             processing_control,
             processing_repository,

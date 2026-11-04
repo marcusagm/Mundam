@@ -1,7 +1,5 @@
 use crate::core::error::AppResult;
-use crate::core::models::{
-    Asset, AssetFilter, AssetSummaryDto, PageParams,
-};
+use crate::core::models::{Asset, AssetFilter, AssetSummaryDto, PageParams};
 use crate::infra::database::models::AssetSummaryDb;
 use chrono::{DateTime, Utc};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
@@ -37,7 +35,10 @@ fn push_folder_filter(
 ///
 /// * `Ok(Vec<Asset>)` if the assets were found successfully.
 /// * `Err(sqlx::Error)` if the assets could not be found.
-pub async fn find_all(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<Asset>> {
+pub async fn find_all(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<Asset>> {
     let rows = sqlx::query!(
         r#"
         SELECT
@@ -107,7 +108,11 @@ pub async fn find_all(pool: &SqlitePool, _registry: &crate::core::formats::regis
 ///
 /// * `Ok(Option<Asset>)` if the asset was found successfully.
 /// * `Err(sqlx::Error)` if the asset could not be found.
-pub async fn get_by_id(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, id: &str) -> AppResult<Option<Asset>> {
+pub async fn get_by_id(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    id: &str,
+) -> AppResult<Option<Asset>> {
     let row = sqlx::query!(
         r#"
         SELECT
@@ -224,9 +229,8 @@ pub async fn list_paginated(
                     trigrams.push(format!("\"{}\"", tri));
                 }
                 let match_expr = trigrams.join(" OR ");
-                query_builder.push(
-                    " AND a.rowid IN (SELECT rowid FROM assets_fts WHERE assets_fts MATCH ",
-                );
+                query_builder
+                    .push(" AND a.rowid IN (SELECT rowid FROM assets_fts WHERE assets_fts MATCH ");
                 query_builder.push_bind(match_expr);
                 query_builder.push(" ORDER BY bm25(assets_fts) LIMIT 500)");
             } else {
@@ -240,13 +244,17 @@ pub async fn list_paginated(
     }
 
     if let Some(folder_ids) = filter.folder_ids {
-        push_folder_filter(&mut query_builder, "a.folder_id", folder_ids, filter.recursive.unwrap_or(false));
+        push_folder_filter(
+            &mut query_builder,
+            "a.folder_id",
+            folder_ids,
+            filter.recursive.unwrap_or(false),
+        );
     }
 
     if let Some(tags) = filter.tags {
         if !tags.is_empty() {
-            query_builder
-                .push(" AND a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN (");
+            query_builder.push(" AND a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN (");
             let mut first = true;
             for tag in tags {
                 if !first {
@@ -279,18 +287,17 @@ pub async fn list_paginated(
         query_builder.push(" AND a.id IN (SELECT asset_id FROM asset_tags)");
     }
 
-
     // --- Sorting Logic ---
     let allowed_cols = [
-        "filename",      // Frontend uses 'filename'
-        "name",          // Backend fallback
+        "filename", // Frontend uses 'filename'
+        "name",     // Backend fallback
         "created_at",
         "modified_at",
         "added_at",
-        "size",          // Frontend uses 'size'
-        "file_size",     // Backend fallback
-        "format",        // Frontend uses 'format'
-        "format_type",   // Backend fallback
+        "size",        // Frontend uses 'size'
+        "file_size",   // Backend fallback
+        "format",      // Frontend uses 'format'
+        "format_type", // Backend fallback
         "rating",
     ];
 
@@ -313,7 +320,11 @@ pub async fn list_paginated(
         .filter(|o| *o == "asc" || *o == "desc")
         .unwrap_or("desc");
 
-    let final_order = if sort_order_input == "asc" { "ASC" } else { "DESC" };
+    let final_order = if sort_order_input == "asc" {
+        "ASC"
+    } else {
+        "DESC"
+    };
 
     query_builder.push(" ORDER BY a.");
     query_builder.push(final_sort_by);
@@ -354,7 +365,11 @@ pub async fn list_paginated(
 ///
 /// * `Ok(Asset)` if the asset was found successfully.
 /// * `Err(sqlx::Error)` if the asset could not be found.
-pub async fn get_asset_by_id(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, id: &str) -> AppResult<Asset> {
+pub async fn get_asset_by_id(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    id: &str,
+) -> AppResult<Asset> {
     let row = sqlx::query!(
         r#"
         SELECT
@@ -415,7 +430,11 @@ pub async fn get_asset_by_id(pool: &SqlitePool, _registry: &crate::core::formats
     Ok(asset_db.into())
 }
 
-pub async fn find_asset_by_path(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, path: &str) -> AppResult<Option<Asset>> {
+pub async fn find_asset_by_path(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    path: &str,
+) -> AppResult<Option<Asset>> {
     let row = sqlx::query!(
         r#"
         SELECT
@@ -555,7 +574,11 @@ pub async fn find_assets_by_size(
 ///
 /// * `Ok(i64)` asset count.
 /// * `Err(sqlx::Error)` on query failure.
-pub async fn get_asset_count(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, filter: AssetFilter) -> AppResult<i64> {
+pub async fn get_asset_count(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    filter: AssetFilter,
+) -> AppResult<i64> {
     let mut query_builder: QueryBuilder<Sqlite> =
         QueryBuilder::new("SELECT COUNT(*) as count FROM assets WHERE 1=1 ");
 
@@ -580,9 +603,8 @@ pub async fn get_asset_count(pool: &SqlitePool, _registry: &crate::core::formats
                     trigrams.push(format!("\"{}\"", tri));
                 }
                 let match_expr = trigrams.join(" OR ");
-                query_builder.push(
-                    " AND rowid IN (SELECT rowid FROM assets_fts WHERE assets_fts MATCH ",
-                );
+                query_builder
+                    .push(" AND rowid IN (SELECT rowid FROM assets_fts WHERE assets_fts MATCH ");
                 query_builder.push_bind(match_expr);
                 query_builder.push(" ORDER BY bm25(assets_fts) LIMIT 500)");
             } else {
@@ -596,7 +618,12 @@ pub async fn get_asset_count(pool: &SqlitePool, _registry: &crate::core::formats
     }
 
     if let Some(folder_ids) = filter.folder_ids {
-        push_folder_filter(&mut query_builder, "folder_id", folder_ids, filter.recursive.unwrap_or(false));
+        push_folder_filter(
+            &mut query_builder,
+            "folder_id",
+            folder_ids,
+            filter.recursive.unwrap_or(false),
+        );
     }
 
     if let Some(tags) = filter.tags {
@@ -634,14 +661,16 @@ pub async fn get_asset_count(pool: &SqlitePool, _registry: &crate::core::formats
         query_builder.push(" AND id IN (SELECT asset_id FROM asset_tags)");
     }
 
-
     let row = query_builder.build().fetch_one(pool).await?;
     let count: i64 = sqlx::Row::get(&row, 0);
 
     Ok(count)
 }
 
-pub async fn get_assets_needing_repair(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<Asset>> {
+pub async fn get_assets_needing_repair(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<Asset>> {
     let rows = sqlx::query!(
         r#"
         SELECT
@@ -712,12 +741,17 @@ pub async fn get_assets_needing_repair(pool: &SqlitePool, _registry: &crate::cor
 ///
 /// * `Ok(Vec<String>)` if the asset IDs were found successfully.
 /// * `Err(sqlx::Error)` if the asset IDs could not be found.
-pub async fn get_assets_needing_thumbnails(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, limit: u32) -> AppResult<Vec<String>> {
+pub async fn get_assets_needing_thumbnails(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    limit: u32,
+) -> AppResult<Vec<String>> {
     crate::core::processing::ProcessingRepository::pending(
-        &crate::infra::processing::SqliteProcessingRepository::new(pool.clone()),
+        &crate::infra::database::processing::SqliteProcessingRepository::new(pool.clone()),
         crate::core::processing::ProcessingKind::Thumbnail,
         limit,
-    ).await
+    )
+    .await
 }
 
 /// Retrieves a map of path -> (file_size, updated_at) for all assets under a root path.
@@ -878,12 +912,9 @@ mod tests {
         .expect("Query must succeed");
 
         assert_eq!(retrieved_assets.len(), 2);
-        let returned_asset_identifiers: Vec<String> = retrieved_assets
-            .into_iter()
-            .map(|asset| asset.id)
-            .collect();
+        let returned_asset_identifiers: Vec<String> =
+            retrieved_assets.into_iter().map(|asset| asset.id).collect();
         assert!(returned_asset_identifiers.contains(&"test-asset-identifier-1".to_string()));
         assert!(returned_asset_identifiers.contains(&"test-asset-identifier-2".to_string()));
     }
 }
-

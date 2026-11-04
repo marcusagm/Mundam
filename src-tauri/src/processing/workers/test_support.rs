@@ -2,9 +2,9 @@
 
 use crate::core::formats::FormatRegistry;
 use crate::core::path_guard::LedgerPathGuard;
+use crate::infra::database::processing::SqliteProcessingRepository;
 use crate::infra::database::{ledger::SqliteAssetLedger, queries::SqliteAssetQueries};
 use crate::infra::events::TokioEventBus;
-use crate::infra::processing::SqliteProcessingRepository;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 

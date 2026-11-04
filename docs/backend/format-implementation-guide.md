@@ -54,7 +54,7 @@ Abaixo, detalhamos cada arquivo e trecho de código envolvido no processo:
 1.  **Detecção**: `src-tauri/src/processing/watcher/sensor.rs` captura o evento do S.O. e envia para o `debouncer.rs`, que evita redundâncias.
 2.  **Indexação**: `src-tauri/src/feature/library/indexer.rs` recebe o evento. Ele usa o `FormatRegistry` para validar se a extensão é suportada e então envia um `LedgerCommand::CreateAsset` para o `AssetLedger`.
 3.  **Persistência Inicial**: `src-tauri/src/infra/database/ledger.rs` salva o asset no banco com `thumbnail_path = NULL` e metadados básicos.
-4.  **Orquestração de Fundo**: `src-tauri/src/processing/workers/thumbnail_worker.rs` detecta assets sem thumbnail (FIFO) ou recebe IDs prioritários da UI (LIFO via `ThumbnailPriorityState`).
+4.  **Orquestração de Fundo**: `src-tauri/src/processing/workers/thumbnails/mod.rs` detecta assets sem thumbnail (FIFO) ou recebe IDs prioritários da UI (LIFO via `ThumbnailPriorityState`).
 5.  **Resolução de Formato**: O worker chama `format_registry.resolve(&asset.path, &header)`. 
     - O `FormatRegistry` (`src-tauri/src/core/formats/registry.rs`) faz um lookup O(1) no HashMap de extensões.
 6.  **Extração**: O worker invoca as *Capabilities* do provedor encontrado:

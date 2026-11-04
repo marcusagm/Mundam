@@ -5,8 +5,8 @@ import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { Loader } from '../../ui/Loader';
 import { useSystem } from '../../../core/hooks';
 import { useProcessing } from '../../../core/hooks/useProcessing';
-import { ProcessingActivityPanel } from './ProcessingActivityPanel';
-import { processingIndicator, processingLabels } from './processingPresentation';
+import { ProcessingActivityPanel } from './processing/ProcessingActivityPanel';
+import { processingIndicator, processingLabels } from './processing/processingPresentation';
 import { isMac } from '../../../core/input/utils/platform';
 
 /** Displays authoritative activity and acknowledged session pause controls. */

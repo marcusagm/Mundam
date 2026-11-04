@@ -1,7 +1,7 @@
 //! Shared matching execution for automatic consumption and explicit scans.
 
 use super::coordinator::DuplicateProcessingCoordinator;
-use crate::core::{matching::*, repository::DuplicatesRepository, AppError, AppResult};
+use crate::core::{duplicates::matching::*, repository::DuplicatesRepository, AppError, AppResult};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
@@ -22,7 +22,7 @@ pub async fn process(
     let Some(_resources) = coordinator
         .budget
         .acquire(
-            crate::core::processing_control::WorkerKind::Duplicates,
+            crate::core::processing::control::WorkerKind::Duplicates,
             token,
         )
         .await

@@ -9,7 +9,7 @@ import {
     Accessor
 } from 'solid-js';
 import { useDuplicateScan } from './useDuplicateScan';
-import { MatchingPublicationTracker } from '../../../../core/store/matchingPublication';
+import { MatchingPublicationTracker } from '../state/matchingPublication';
 import { duplicatesApi } from '../../../../lib/duplicates';
 import { DuplicateGroup, DuplicateGroupStatus } from '../types';
 import { LifecycleManager } from '../../../../core/utils/LifecycleManager';

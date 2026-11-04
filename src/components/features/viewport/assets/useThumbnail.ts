@@ -12,7 +12,7 @@ import {
     invalidateThumbnailProcessing,
     subscribeThumbnailProcessing,
     type ThumbnailProcessingSnapshot
-} from '../../../../core/store/thumbnailProcessing';
+} from '../../../../core/store/processing/thumbnail';
 import type { ThumbnailProperties } from './thumbnailTypes';
 
 const loadedUrls = new Set<string>();

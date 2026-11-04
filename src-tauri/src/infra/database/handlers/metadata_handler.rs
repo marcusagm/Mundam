@@ -2,13 +2,13 @@
 //!
 //! Encapsulates SQL mutations for all metadata fields: colors, rating, notes,
 //! technical metadata (envelope upsert), and format type corrections.
+use super::shared;
 use crate::core::error::{AppError, AppResult};
 use crate::core::ledger::command::{
     UpdateAssetColorsPayload, UpdateAssetNotesPayload, UpdateAssetRatingPayload,
     UpdateTechnicalMetadataPayload,
 };
 use crate::core::models::asset::Asset;
-use super::shared;
 use chrono::Utc;
 use sqlx::{Sqlite, Transaction};
 
@@ -35,7 +35,9 @@ pub async fn handle_update_asset_colors(
         "SELECT EXISTS (SELECT 1 FROM assets WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline'))",
     ).bind(asset_id_reference).fetch_one(&mut **tx).await?;
     if !eligible {
-        return Err(AppError::NotFound("Asset is no longer available for color processing".into()));
+        return Err(AppError::NotFound(
+            "Asset is no longer available for color processing".into(),
+        ));
     }
 
     // 1. Delete existing colors for this asset
@@ -335,7 +337,12 @@ pub async fn handle_reextract_colors(
     transaction: &mut Transaction<'_, Sqlite>,
     asset_id: &str,
 ) -> AppResult<Asset> {
-    crate::infra::processing::enqueue(transaction, crate::core::processing::ProcessingKind::Colors, asset_id).await?;
+    crate::infra::database::handlers::processing::enqueue(
+        transaction,
+        crate::core::processing::ProcessingKind::Colors,
+        asset_id,
+    )
+    .await?;
 
     shared::log_operation(
         transaction,

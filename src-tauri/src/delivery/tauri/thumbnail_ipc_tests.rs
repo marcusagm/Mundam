@@ -1,8 +1,8 @@
 //! Exercises real command authorization using production capabilities and a mock desktop runtime.
 
 use super::get_thumbnail_processing_status;
+use crate::core::processing::control::{ProcessingControl, WorkerKind};
 use crate::core::processing::{ProcessingKind, ProcessingOutcome, ProcessingRepository};
-use crate::core::processing_control::{ProcessingControl, WorkerKind};
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -80,7 +80,7 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
         ),
     );
     let service = Arc::new(
-        crate::feature::processing_control::ProcessingControlService::new(
+        crate::feature::processing::control::ProcessingControlService::new(
             Arc::new(
                 crate::infra::database::duplicates::SqliteDuplicatesRepository::new(
                     fixture.pool.clone(),

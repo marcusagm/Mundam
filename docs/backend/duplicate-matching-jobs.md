@@ -8,9 +8,9 @@ Comparações exatas e visuais agora têm intenção, reserva, retry e conclusã
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| [`core/matching.rs`](../../src-tauri/src/core/matching.rs) | Portas e DTOs de reserva, snapshot, resultados e status |
-| [`infra/database/matching_jobs.rs`](../../src-tauri/src/infra/database/matching_jobs.rs) | Admissão exclusiva, captura dos inputs, cancelamento e retries |
-| [`matching_publication.rs`](../../src-tauri/src/infra/database/matching_publication.rs) | Reconciliação dos grupos e conclusão protegida na mesma transação |
+| [`core/duplicates/matching.rs`](../../src-tauri/src/core/duplicates/matching.rs) | Portas e DTOs de reserva, snapshot, resultados e status |
+| [`infra/database/duplicates/matching.rs`](../../src-tauri/src/infra/database/duplicates/matching.rs) | Admissão exclusiva, captura dos inputs, cancelamento e retries |
+| [`matching_publication.rs`](../../src-tauri/src/infra/database/handlers/matching/publication.rs) | Reconciliação dos grupos e conclusão protegida na mesma transação |
 | [`feature/duplicates/matching.rs`](../../src-tauri/src/feature/duplicates/matching.rs) | Cálculo determinístico usando o matcher existente |
 | [`matching_processor.rs`](../../src-tauri/src/feature/duplicates/matching_processor.rs) | Trabalho em `spawn_blocking`, heartbeat e desfecho da reserva |
 | Worker e comandos de duplicados | Política automática, admissão de sessão, fases e eventos consolidados |
@@ -78,7 +78,7 @@ O snapshot global acrescenta `matching`, separado das contagens de assets: compa
 
 Configurações, finder e statusbar distinguem recuperação, pausa, espera por retry e cancelamento. A barra de progresso não anima durante pausa ou espera por retry. `Scan Now` solicita novas comparações; não reinicia falhas terminais da leitura de arquivos. Rebuild conserva seu alcance maior e sua confirmação.
 
-[`MatchingPublicationTracker`](../../src/core/store/matchingPublication.ts) invalida grupos quando observa nova publicação ou reinício do serviço. Um evento que já atualizou os grupos pode confirmar a mesma sequência sem outra invalidação. Amostras repetidas de atividade não recarregam biblioteca, árvore ou badges.
+[`MatchingPublicationTracker`](../../src/components/features/duplicates/state/matchingPublication.ts) invalida grupos quando observa nova publicação ou reinício do serviço. Um evento que já atualizou os grupos pode confirmar a mesma sequência sem outra invalidação. Amostras repetidas de atividade não recarregam biblioteca, árvore ou badges.
 
 ## Limites e próximos passos
 

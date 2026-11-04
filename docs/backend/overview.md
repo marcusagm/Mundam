@@ -11,44 +11,63 @@
 - [Processing](#processing)
 
 ## Folder structure
-```
+```text
 src-tauri/src/
-
+├── bootstrap/                 # Composition and startup
 ├── core/
+│   ├── duplicates/            # Matching contracts and publication inputs
 │   ├── error/
 │   ├── events/
 │   ├── formats/
 │   ├── ledger/
 │   ├── models/
+│   ├── processing/            # Stage contracts, budget, control and diagnostics
 │   ├── repository/
 │   ├── settings/
+│   ├── trash/                 # Pure trash path policy
 │   └── workflows/
-├── delivery/
-│   ├── protocols/
-│   ├── streaming/
-│   └── tauri/
+├── delivery/                  # Protocols, streaming and Tauri adapters
 ├── feature/
 │   ├── analysis/
 │   ├── assets/
+│   ├── duplicates/            # Commands, coordination and comparison algorithms
 │   ├── library/
 │   ├── media/
+│   ├── processing/            # Read handlers and worker controls
 │   ├── search/
 │   ├── settings/
+│   ├── startup/
 │   └── transcoding/
 ├── infra/
 │   ├── config/
 │   ├── database/
+│   │   ├── duplicates/        # Repository facade and integration tests
+│   │   ├── processing/        # Repository facade, shared predicates and tests
+│   │   ├── handlers/          # SQL mutations grouped by responsibility
+│   │   │   ├── folders/
+│   │   │   ├── matching/
+│   │   │   └── processing/
+│   │   └── query_handlers/    # Read-only SQL projections
+│   │       ├── matching/
+│   │       └── processing/
 │   ├── events/
+│   ├── filesystem/            # Generated artifact cache adapter
 │   └── telemetry.rs
 ├── processing/
 │   ├── media/
 │   ├── transcoding/
 │   ├── watcher/
 │   └── workers/
+│       ├── colors/
+│       ├── duplicates/
+│       ├── thumbnails/
+│       └── trash/
 ├── lib.rs
 ├── lifecycle.rs
-├── main.rs
+└── main.rs
 ```
+
+A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](worker-module-organization.md).
 
 ## Architeture details
 

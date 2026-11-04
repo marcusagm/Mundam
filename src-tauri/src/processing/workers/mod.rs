@@ -1,16 +1,14 @@
-//! Background executors share one entry point for bootstrap, lifecycle and processing controls.
-//!
-//! Feature modules retain domain algorithms and commands; workers own continuous consumption.
+//! Continuous executors grouped by responsibility; features retain application algorithms.
 
-pub mod auto_empty_trash_worker;
-pub mod color_worker;
-pub mod duplicate_worker;
-pub mod thumbnail_worker;
+pub mod colors;
+pub mod duplicates;
+pub mod thumbnails;
+pub mod trash;
 
-pub use auto_empty_trash_worker::AutoEmptyTrashWorker;
-pub use color_worker::ColorWorker;
-pub use duplicate_worker::DuplicateWorker;
-pub use thumbnail_worker::ThumbnailWorker;
+pub use colors::ColorWorker;
+pub use duplicates::DuplicateWorker;
+pub use thumbnails::ThumbnailWorker;
+pub use trash::AutoEmptyTrashWorker;
 
 #[cfg(test)]
 pub(crate) mod test_support;

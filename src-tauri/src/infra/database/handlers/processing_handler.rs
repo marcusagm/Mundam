@@ -7,7 +7,7 @@ use crate::core::{
     processing::{ProcessingKind, ProcessingOutcome, ProcessingResult, ProcessingTicket},
     AppError, AppResult,
 };
-use crate::infra::processing::attempts;
+use crate::infra::database::handlers::processing::attempts;
 use sqlx::{Sqlite, Transaction};
 
 /// Returns no events when ownership is lost; the caller must roll back that transaction.
@@ -61,7 +61,7 @@ pub(crate) async fn commit(
             } else {
                 unsupported_reason.ok_or_else(invalid_result)?;
                 ProcessingOutcome::Unavailable(
-                    crate::core::processing_diagnostics::ProcessingIssue::CapabilityMissing,
+                    crate::core::processing::diagnostics::ProcessingIssue::CapabilityMissing,
                 )
             }
         }

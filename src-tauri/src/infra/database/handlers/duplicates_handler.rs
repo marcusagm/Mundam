@@ -196,10 +196,7 @@ pub async fn save_group(pool: &SqlitePool, group: DuplicateGroup) -> AppResult<(
 ///
 /// # Errors
 /// Returns `AppError::Database` if the insert/update fails.
-pub async fn save_candidate(
-    pool: &SqlitePool,
-    candidate: DuplicateCandidate,
-) -> AppResult<()> {
+pub async fn save_candidate(pool: &SqlitePool, candidate: DuplicateCandidate) -> AppResult<()> {
     sqlx::query!(
         r#"
         INSERT INTO duplicate_candidates (
@@ -231,10 +228,7 @@ pub async fn save_candidate(
 ///
 /// # Errors
 /// Returns `AppError::Database` if the insert fails.
-pub async fn save_resolution(
-    pool: &SqlitePool,
-    resolution: DuplicateResolution,
-) -> AppResult<()> {
+pub async fn save_resolution(pool: &SqlitePool, resolution: DuplicateResolution) -> AppResult<()> {
     let action_str = resolution.action.to_string();
     sqlx::query!(
         r#"
@@ -272,10 +266,7 @@ pub async fn save_resolution(
 ///
 /// # Errors
 /// Returns `AppError::Database` if the delete statement fails.
-pub async fn delete_resolution(
-    pool: &SqlitePool,
-    resolution_id: &str,
-) -> AppResult<()> {
+pub async fn delete_resolution(pool: &SqlitePool, resolution_id: &str) -> AppResult<()> {
     sqlx::query!(
         r#"
         DELETE FROM duplicate_resolutions
@@ -301,11 +292,7 @@ pub async fn delete_resolution(
 ///
 /// # Errors
 /// Returns `AppError::Database` if the update fails.
-pub async fn update_group_status(
-    pool: &SqlitePool,
-    group_id: &str,
-    status: &str,
-) -> AppResult<()> {
+pub async fn update_group_status(pool: &SqlitePool, group_id: &str, status: &str) -> AppResult<()> {
     sqlx::query!(
         r#"
         UPDATE duplicate_groups
@@ -318,7 +305,11 @@ pub async fn update_group_status(
     .execute(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to update group status {}: {:?}", group_id, database_error);
+        tracing::error!(
+            "Failed to update group status {}: {:?}",
+            group_id,
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -350,12 +341,15 @@ pub async fn backfill_missing_fingerprints(pool: &SqlitePool) -> AppResult<()> {
           AND NOT EXISTS (
             SELECT 1 FROM duplicate_fingerprints df WHERE df.asset_id = a.id
         )
-        "#
+        "#,
     )
     .execute(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to backfill missing fingerprints: {:?}", database_error);
+        tracing::error!(
+            "Failed to backfill missing fingerprints: {:?}",
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -374,7 +368,11 @@ pub async fn delete_fingerprint(pool: &SqlitePool, asset_id: &str) -> AppResult<
     .execute(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to delete fingerprint for asset {}: {:?}", asset_id, database_error);
+        tracing::error!(
+            "Failed to delete fingerprint for asset {}: {:?}",
+            asset_id,
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -396,7 +394,11 @@ pub async fn remove_candidate_from_groups(pool: &SqlitePool, asset_id: &str) -> 
     .fetch_all(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to find groups for asset {}: {:?}", asset_id, database_error);
+        tracing::error!(
+            "Failed to find groups for asset {}: {:?}",
+            asset_id,
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -407,7 +409,11 @@ pub async fn remove_candidate_from_groups(pool: &SqlitePool, asset_id: &str) -> 
     .execute(pool)
     .await
     .map_err(|database_error| {
-        tracing::error!("Failed to remove candidate {} from groups: {:?}", asset_id, database_error);
+        tracing::error!(
+            "Failed to remove candidate {} from groups: {:?}",
+            asset_id,
+            database_error
+        );
         AppError::Database(database_error)
     })?;
 
@@ -430,7 +436,11 @@ pub async fn remove_candidate_from_groups(pool: &SqlitePool, asset_id: &str) -> 
             .await
             .map_err(AppError::Database)?;
 
-            tracing::info!("DuplicateHandler: auto-resolved group {} (only {} candidate(s) remain)", group_id, remaining_count);
+            tracing::info!(
+                "DuplicateHandler: auto-resolved group {} (only {} candidate(s) remain)",
+                group_id,
+                remaining_count
+            );
         } else {
             sqlx::query!(
                 r#"UPDATE duplicate_groups SET candidate_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"#,
@@ -481,7 +491,10 @@ pub async fn reset_duplicate_index(pool: &SqlitePool) -> AppResult<()> {
         .await
         .map_err(AppError::Database)?;
 
-    database_transaction.commit().await.map_err(AppError::Database)?;
+    database_transaction
+        .commit()
+        .await
+        .map_err(AppError::Database)?;
 
     tracing::info!("reset_duplicate_index: successfully wiped all duplicate tables");
     Ok(())
@@ -523,11 +536,13 @@ pub async fn get_assets_needing_fingerprints(
 
     let pending_assets: Vec<crate::core::models::PendingFingerprintAsset> = database_rows
         .into_iter()
-        .map(|database_row| crate::core::models::PendingFingerprintAsset {
-            asset_id: database_row.id,
-            path: database_row.path,
-            format_type: database_row.format_type,
-        })
+        .map(
+            |database_row| crate::core::models::PendingFingerprintAsset {
+                asset_id: database_row.id,
+                path: database_row.path,
+                format_type: database_row.format_type,
+            },
+        )
         .collect();
 
     if !pending_assets.is_empty() {
@@ -541,3 +556,25 @@ pub async fn get_assets_needing_fingerprints(
     Ok(pending_assets)
 }
 
+/// Preserves default policy creation as an explicit persistence mutation.
+/// # Errors
+/// Propagates storage errors without selecting a policy on failure.
+pub(crate) async fn ensure_default_rule_set(pool: &SqlitePool) -> AppResult<()> {
+    sqlx::query!(
+        r#"
+        INSERT OR IGNORE INTO duplicate_rule_sets (
+            id, name, description, consider_exact_match, consider_visual_match, consider_crop_match, ignore_resolution_difference, ignore_recompression, allow_rotation, allow_mirroring, min_score, min_visual_score, min_crop_score, created_at, updated_at
+        ) VALUES (
+            'visual-match', 'Visual Similarity (Default)', 'Finds visually similar files using perceptual hashing', 0, 1, 0, 1, 1, 0, 0, 0.9, 0.9, 0.85, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+        "#
+    )
+    .execute(pool)
+    .await
+    .map_err(|database_error| {
+        tracing::error!("Failed to seed visual-match rule set in get_active_rule_set: {:?}", database_error);
+        AppError::Database(database_error)
+    })?;
+
+    Ok(())
+}

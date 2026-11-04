@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createRoot, createSignal } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProcessingClientState } from '../../../core/store/processingTypes';
+import type { ProcessingClientState } from '../../../core/store/processing/types';
 import { useDuplicateScan } from '../duplicates/hooks/useDuplicateScan';
 import { DuplicateScanControls } from './DuplicateScanControls';
 import { Switch } from '../../ui/Switch';

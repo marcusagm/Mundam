@@ -2,10 +2,10 @@
 //!
 //! Encapsulates SQL mutations for persisting and invalidating asset thumbnail paths,
 //! decoupled from the actual image generation workers.
-use crate::core::error::{AppError, AppResult};
-use crate::core::processing::ProcessingKind;
-use crate::core::models::asset::{Asset, AssetState};
 use super::shared;
+use crate::core::error::{AppError, AppResult};
+use crate::core::models::asset::{Asset, AssetState};
+use crate::core::processing::ProcessingKind;
 use chrono::Utc;
 use sqlx::{Sqlite, Transaction};
 
@@ -26,7 +26,9 @@ pub async fn handle_update_thumbnail(
     thumbnail_path: &str,
 ) -> AppResult<Asset> {
     if thumbnail_path.is_empty() {
-        return Err(AppError::ValidationFailed("A successful thumbnail requires a generated file".into()));
+        return Err(AppError::ValidationFailed(
+            "A successful thumbnail requires a generated file".into(),
+        ));
     }
     let now = Utc::now();
     let state_thumb = AssetState::Thumbnailed.to_string();
@@ -36,13 +38,19 @@ pub async fn handle_update_thumbnail(
         "UPDATE assets SET thumbnail_path = ?, state = ?, updated_at = ?
          WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline')",
     )
-    .bind(thumbnail_path).bind(state_thumb).bind(now).bind(asset_id)
+    .bind(thumbnail_path)
+    .bind(state_thumb)
+    .bind(now)
+    .bind(asset_id)
     .execute(&mut **tx)
     .await?;
     if updated.rows_affected() == 0 {
-        return Err(AppError::NotFound("Asset is no longer available for thumbnail processing".into()));
+        return Err(AppError::NotFound(
+            "Asset is no longer available for thumbnail processing".into(),
+        ));
     }
-    crate::infra::processing::enqueue(tx, ProcessingKind::Colors, asset_id).await?;
+    crate::infra::database::handlers::processing::enqueue(tx, ProcessingKind::Colors, asset_id)
+        .await?;
 
     // 2. Audit Log
     shared::log_operation(
@@ -82,10 +90,12 @@ pub async fn handle_regenerate_thumbnail(
         "UPDATE assets SET thumbnail_path = NULL, state = 'Indexed', updated_at = ?
          WHERE id = ? AND deleted_at IS NULL AND LOWER(state) NOT IN ('trashed', 'offline')",
     )
-    .bind(now).bind(asset_id)
+    .bind(now)
+    .bind(asset_id)
     .execute(&mut **tx)
     .await?;
-    crate::infra::processing::enqueue(tx, ProcessingKind::Thumbnail, asset_id).await?;
+    crate::infra::database::handlers::processing::enqueue(tx, ProcessingKind::Thumbnail, asset_id)
+        .await?;
 
     // 2. Audit Log
     shared::log_operation(

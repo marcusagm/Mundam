@@ -83,16 +83,16 @@ pub struct DuplicateCommandService {
     scan_cancel_token: Arc<Mutex<Option<CancellationToken>>>,
     scan_status: Arc<RwLock<DuplicateScanStatus>>,
     processing_coordinator: Arc<super::coordinator::DuplicateProcessingCoordinator>,
-    processing_control: Arc<crate::core::processing_control::ProcessingControl>,
+    processing_control: Arc<crate::core::processing::control::ProcessingControl>,
 }
 
-impl crate::core::processing_control::ManualScanActivity for DuplicateCommandService {
-    fn snapshot(&self) -> crate::core::processing_control::ManualScanProgress {
+impl crate::core::processing::control::ManualScanActivity for DuplicateCommandService {
+    fn snapshot(&self) -> crate::core::processing::control::ManualScanProgress {
         let status = self
             .scan_status
             .read()
             .unwrap_or_else(|error| error.into_inner());
-        crate::core::processing_control::ManualScanProgress {
+        crate::core::processing::control::ManualScanProgress {
             is_running: status.is_running,
             phase: status.phase.clone(),
             processed: status.processed,
@@ -137,7 +137,7 @@ impl DuplicateCommandService {
                 super::coordinator::DuplicateProcessingCoordinator::default(),
             ),
             processing_control: Arc::new(
-                crate::core::processing_control::ProcessingControl::default(),
+                crate::core::processing::control::ProcessingControl::default(),
             ),
         }
     }
@@ -157,7 +157,7 @@ impl DuplicateCommandService {
     /// Shares session pause intent with automatic duplicate processing.
     pub fn with_processing_control(
         mut self,
-        control: Arc<crate::core::processing_control::ProcessingControl>,
+        control: Arc<crate::core::processing::control::ProcessingControl>,
     ) -> Self {
         self.processing_control = control;
         self
@@ -519,7 +519,7 @@ impl DuplicateCommandService {
         let activity = self
             .processing_control
             .try_admit(
-                crate::core::processing_control::WorkerKind::Duplicates,
+                crate::core::processing::control::WorkerKind::Duplicates,
                 "manual_scan",
                 None,
             )
@@ -577,7 +577,7 @@ impl DuplicateCommandService {
         let exact_groups_count = super::matching_processor::complete(
             self.duplicates_repo.clone(),
             self.processing_coordinator.clone(),
-            crate::core::matching::MatchingKind::Exact,
+            crate::core::duplicates::matching::MatchingKind::Exact,
             &cancellation_token,
         )
         .await?;
@@ -598,7 +598,7 @@ impl DuplicateCommandService {
         let visual_groups_count = super::matching_processor::complete(
             self.duplicates_repo.clone(),
             self.processing_coordinator.clone(),
-            crate::core::matching::MatchingKind::Visual,
+            crate::core::duplicates::matching::MatchingKind::Visual,
             &cancellation_token,
         )
         .await?;
@@ -695,7 +695,7 @@ impl DuplicateCommandService {
     fn ensure_processing_resumed(&self) -> AppResult<()> {
         if self
             .processing_control
-            .is_paused(crate::core::processing_control::WorkerKind::Duplicates)
+            .is_paused(crate::core::processing::control::WorkerKind::Duplicates)
         {
             return Err(crate::core::AppError::ValidationFailed(
                 "Resume duplicate processing before starting a scan".into(),

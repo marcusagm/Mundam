@@ -8,8 +8,8 @@
 //! asset fetching, path resolution) as free functions, decoupled from the Ledger
 //! struct to enable independent compilation and testing of each handler.
 pub mod asset_handler;
-pub mod duplicates_handler;
 pub(crate) mod duplicate_removal;
+pub mod duplicates_handler;
 pub mod folder_handler;
 pub(crate) mod folder_removal;
 pub mod metadata_handler;
@@ -18,3 +18,7 @@ pub mod shared;
 pub mod smart_folder_handler;
 pub mod tags_handler;
 pub mod thumbnail_handler;
+
+pub(crate) mod folders;
+pub(crate) mod matching;
+pub(crate) mod processing;

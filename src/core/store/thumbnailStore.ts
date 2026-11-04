@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import { listen } from '@tauri-apps/api/event';
-import { invalidateThumbnailProcessing } from './thumbnailProcessing';
+import { invalidateThumbnailProcessing } from './processing/thumbnail';
 
 // Centralized store to track thumbnail regeneration state
 // This persists across component mount/unmount cycles (virtualization)

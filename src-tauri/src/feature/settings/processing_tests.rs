@@ -1,6 +1,6 @@
 use super::service::SettingsService;
 use crate::core::{
-    processing_control::ProcessingControl,
+    processing::control::ProcessingControl,
     settings::{AppSettings, SettingsRepository},
     AppError, AppResult,
 };
