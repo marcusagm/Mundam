@@ -3,6 +3,40 @@ use crate::infra::database::duplicates::SqliteDuplicatesRepository;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 #[tokio::test]
+async fn processing_manual_scan_drains_latest_progress_before_reporting_completion() -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    for identifier in ["first", "second", "third"] {
+        fixture.asset(identifier, None).await?;
+        image::RgbImage::from_fn(16, 16, |column, row| {
+            image::Rgb([(column * 8) as u8, (row * 8) as u8, 64])
+        })
+        .save(fixture.data.path().join(format!("{identifier}.png")))?;
+    }
+    let service = DuplicateCommandService::new(
+        Arc::new(SqliteDuplicatesRepository::new(fixture.pool.clone())),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.queries.clone(),
+        fixture.registry.clone(),
+        fixture.processing.clone(),
+    );
+    let mut events = fixture.event_bus.subscribe();
+    service.start_duplicate_scan().await?;
+    let status = service.get_scan_status();
+    assert!(!status.is_running);
+    assert_eq!(status.phase, "idle");
+    assert_eq!((status.processed, status.total), (3, 3));
+    let mut completions = 0;
+    while let Ok(event) = events.try_recv() {
+        if matches!(event, DomainEvent::DuplicateScanFinished { .. }) {
+            completions += 1;
+        }
+    }
+    assert_eq!(completions, 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn processing_paused_duplicates_reject_manual_scans_without_changing_scan_status(
 ) -> TestResult {
     let fixture = ProcessingFixture::new().await?;

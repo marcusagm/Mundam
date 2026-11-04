@@ -454,3 +454,13 @@ Validação: **62 testes de processamento** e **45 testes frontend** aprovados, 
 Thumbnails, cores, fingerprints e comparações compartilham capacidade de operações com admissão justa entre solicitações elegíveis. Os limites compartilhado e de thumbnails aplicam após salvar, sem reiniciar, preservando a drenagem das operações atuais. Esperas por capacidade não mantêm leases nem consomem tentativas. A configuração do indexer conserva o requisito de reinício.
 
 A statusbar mostra capacidade efetiva, ocupação e solicitações em espera. Configurações de mídia só mudam no store após confirmação da gravação. Contratos, limites e validação estão em [Orçamento compartilhado dos workers](worker-resource-budget.md). Medição de carga nas plataformas e otimização orientada por resultados são os próximos itens. O documento histórico do scheduler permanece inalterado.
+
+## 22. Progresso coalescido e otimização medida
+
+O scan manual substitui o canal ilimitado e eventos por asset por um canal de último valor, reconciliado ao snapshot global com fencing de run e drenagem final. O matching prepara variantes de hashes uma vez por snapshot e calcula subgrades somente quando a corroboração existente permite aceitar crop. As regras e a publicação transacional são preservadas.
+
+O benchmark reproduzível compara o avaliador do commit anterior com o atual e valida checksums. Logs agregados por fase distinguem captura, comparação e publicação. Contratos, resultados e limites estão em [Progresso e custo do matching](worker-progress-matching-performance.md). O matching incremental persistente continua uma evolução condicionada a medições de carga, não é apresentado como concluído.
+
+O usuário confirmou funcionamento correto e boa performance das entregas anteriores no Windows e no macOS em 4 de novembro de 2026. A confirmação em uso foi separada de benchmarks controlados no plano de integração. O documento histórico do scheduler permanece inalterado.
+
+Validação desta entrega no Windows: **106 testes backend** (77 de processamento e 29 do matcher), **31 testes frontend**, TypeScript, lint, Prettier e build aprovados. O benchmark reproduzível preservou checksums nos 12 cenários. A execução desta revisão no macOS e cargas ponta a ponta continuam separadas da confirmação de uso das entregas anteriores.

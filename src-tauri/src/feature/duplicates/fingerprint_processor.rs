@@ -144,12 +144,12 @@ impl FingerprintProcessor {
     pub async fn rehash_pending(
         &self,
         token: &CancellationToken,
-        progress: Option<tokio::sync::mpsc::UnboundedSender<(usize, usize)>>,
+        progress: Option<tokio::sync::watch::Sender<(usize, usize)>>,
     ) -> AppResult<usize> {
         let pending = self.pending(u32::MAX).await?;
         let total = pending.len();
         if let Some(sender) = &progress {
-            let _ = sender.send((0, total));
+            let _ = sender.send_replace((0, total));
         }
         let mut completed = 0;
         for (index, asset_id) in pending.into_iter().enumerate() {
@@ -167,7 +167,7 @@ impl FingerprintProcessor {
                 break;
             }
             if let Some(sender) = &progress {
-                let _ = sender.send((index + 1, total));
+                let _ = sender.send_replace((index + 1, total));
             }
         }
         Ok(completed)

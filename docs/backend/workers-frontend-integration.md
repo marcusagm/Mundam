@@ -33,7 +33,7 @@ O scan manual continua disponível quando a automação está desligada. Snapsho
 
 As fases `preparing`, `hashing`, `exact_matching`, `visual_matching` e `cancel_requested` têm rótulos próprios. Somente hashing com total positivo recebe percentual; as demais fases são indeterminadas. Não são apresentados contadores de grupos criados sem suporte no snapshot.
 
-Eventos de progresso antigos não alteram mais o estado de execução do finder. Eventos de resultado continuam invalidando os grupos. Se a notificação de término for perdida, a transição de execução para ociosidade no snapshot recupera a consulta dos resultados. O polling de progresso não recarrega listas, árvores ou badges a cada amostragem.
+O progresso manual vem somente do snapshot global, alimentado por um canal de último valor; os eventos legados de progresso por asset foram retirados. Eventos de resultado continuam invalidando os grupos. A sequência persistida de publicação permite recuperar resultados mesmo quando a notificação de término é perdida. O polling de progresso não recarrega listas, árvores ou badges a cada amostragem.
 
 Uma confirmação de cancelamento não equivale à saída do executor. A interface mantém “Stopping” até o término e não informa rebuild concluído para uma solicitação cancelada. Falhas de ações explícitas recebem feedback consolidado; falhas de polling permanecem no painel.
 
@@ -46,8 +46,10 @@ As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-co
 | Entregue | Jobs persistidos de comparação de duplicados, com política de regras e recuperação após crash | Implementação posterior descrita em [Comparações persistentes](duplicate-matching-jobs.md), incluindo retomada e publicação por revisão. |
 | Entregue | Repetir falhas por estágio e diagnóstico agrupado de capacidades/extratores | [Retry por worker e diagnóstico](worker-retries-diagnostics.md) adiciona ações explícitas e causas seguras no painel. |
 | Entregue | Concorrência efetiva em tempo de execução e orçamento compartilhado de operações | [Orçamento dos workers](worker-resource-budget.md) limita operações de mídia; threads nativas e percentuais de CPU/I/O não são quotas. |
-| 4 | Coalescência de progresso manual e matching incremental, orientados por benchmarks | Snapshot global é compartilhado, mas o backend ainda conserva o canal legado de progresso manual e comparações globais. |
-| Validação | Uso visual e testes de carga nas duas plataformas | Testes automatizados desta etapa não substituem uso real de modais, foco, statusbar e carga de biblioteca em Windows/macOS. |
+| Entregue | Coalescência de progresso manual e otimização do matching orientada por benchmark | [Progresso e custo do matching](worker-progress-matching-performance.md) remove eventos de progresso por asset, prepara variantes uma vez e evita crops sem corroboração. |
+| Evolução condicionada a medições | Matching incremental persistente | O matching continua global; índices de relações e invalidação de anchors exigem política própria para preservar grupos e decisões. Usar medições por fase e cargas representativas para decidir o investimento. |
+| Confirmado pelo usuário | Funcionamento e boa performance em uso no Windows e no macOS | Confirmação recebida em 4 de novembro de 2026 para as entregas anteriores. As medições controladas de carga são registradas separadamente. |
+| Validação de carga | Benchmarks comparáveis e cargas representativas nas duas plataformas | Há benchmark sintético de pares no Windows; carga ponta a ponta e benchmark no macOS continuam pendentes. |
 
 Persistência da pausa, separação entre pausa de fundo e prioridade do viewport, identidade por execução do indexer e snapshot físico atômico da origem também permanecem evoluções separadas. A interface atual explica a política suportada: pausa inclui thumbnails visíveis, drena operações admitidas e reinicia com a aplicação.
 
@@ -57,4 +59,4 @@ Vitest aprovou **34 testes** nos arquivos `duplicateProcessing.spec.tsx`, `Proce
 
 `npm run typecheck`, ESLint dos arquivos alterados com `--max-warnings 0`, Prettier e `git diff --check` passaram. O build de produção também passou com `npm run build -- --configLoader native`. O carregador padrão do esbuild não conseguiu ler diretórios ancestrais no ambiente restrito; o carregador nativo utilizou a mesma configuração sem alterá-la.
 
-Os testes de componentes usam jsdom e IPC simulado; não houve execução visual da aplicação ou validação no macOS nesta etapa. O relatório histórico `05-job-scheduler-workers.md` permanece inalterado.
+Os testes de componentes desta revisão original usaram jsdom e IPC simulado. Posteriormente, o usuário confirmou funcionamento correto e boa performance das entregas no Windows e no macOS, em 4 de novembro de 2026. A validação de carga controlada permanece separada, conforme a tabela atualizada. O relatório histórico `05-job-scheduler-workers.md` permanece inalterado.

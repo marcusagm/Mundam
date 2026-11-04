@@ -1,5 +1,9 @@
 use crate::core::models::DuplicateGroupType;
 
+#[cfg(test)]
+#[path = "matcher_prepared_tests.rs"]
+mod prepared_tests;
+
 /// The evaluated relationship result between two candidate assets.
 #[derive(Debug, Clone)]
 pub struct DuplicateMatchResult {
@@ -114,11 +118,7 @@ pub fn mirror_dhash_vertical(hash: u64) -> u64 {
 /// Returns a `Vec` containing the original hash plus all enabled
 /// permutations. The caller should compare each variant and take
 /// the maximum similarity score.
-pub fn generate_hash_variants(
-    hash: u64,
-    allow_rotation: bool,
-    allow_mirroring: bool,
-) -> Vec<u64> {
+pub fn generate_hash_variants(hash: u64, allow_rotation: bool, allow_mirroring: bool) -> Vec<u64> {
     let mut variants: Vec<u64> = Vec::with_capacity(8);
     variants.push(hash);
 
@@ -352,8 +352,7 @@ fn evaluate_subgrid_overlap(
                 for window_col in target_col_shift..(target_col_shift + sub_grid_dimension) {
                     let source_tile_value = source_subgrid[element_index];
                     let target_tile_value = target_tiles[window_row * 4 + window_col];
-                    current_window_distance +=
-                        (source_tile_value ^ target_tile_value).count_ones();
+                    current_window_distance += (source_tile_value ^ target_tile_value).count_ones();
                     element_index += 1;
                 }
             }
@@ -409,6 +408,52 @@ pub fn evaluate_visual_and_crop_match(
     allow_rotation: bool,
     allow_mirroring: bool,
 ) -> Option<DuplicateMatchResult> {
+    if hash_one == 0 || hash_two == 0 {
+        return None;
+    }
+    let variants = generate_hash_variants(hash_two, allow_rotation, allow_mirroring);
+    evaluate_visual_and_crop_match_prepared(
+        hash_one,
+        hash_two,
+        &variants,
+        block_hash_one,
+        block_hash_two,
+        multi_scale_one,
+        multi_scale_two,
+        dimension_one,
+        dimension_two,
+        file_size_one,
+        file_size_two,
+        visual_score_threshold,
+        crop_score_threshold,
+        consider_visual_match,
+        consider_crop_match,
+        allow_rotation,
+        allow_mirroring,
+    )
+}
+
+/// Evaluates the same rules with comparison variants prepared once per catalog snapshot.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn evaluate_visual_and_crop_match_prepared(
+    hash_one: u64,
+    hash_two: u64,
+    comparison_variants: &[u64],
+    block_hash_one: Option<&str>,
+    block_hash_two: Option<&str>,
+    multi_scale_one: Option<&str>,
+    multi_scale_two: Option<&str>,
+    dimension_one: (Option<i32>, Option<i32>),
+    dimension_two: (Option<i32>, Option<i32>),
+    file_size_one: Option<i64>,
+    file_size_two: Option<i64>,
+    visual_score_threshold: f64,
+    crop_score_threshold: f64,
+    consider_visual_match: bool,
+    consider_crop_match: bool,
+    allow_rotation: bool,
+    allow_mirroring: bool,
+) -> Option<DuplicateMatchResult> {
     // Guard: Reject degenerate zero-hash images. Images that decode as fully uniform
     // (black, white, or failed decode) produce hash 0x0, which has zero visual entropy
     // and would falsely match other images.
@@ -416,12 +461,10 @@ pub fn evaluate_visual_and_crop_match(
         return None;
     }
 
-    let visual_similarity = calculate_visual_similarity_with_variants(
-        hash_one,
-        hash_two,
-        allow_rotation,
-        allow_mirroring,
-    );
+    let visual_similarity = comparison_variants
+        .iter()
+        .map(|variant| calculate_visual_similarity(hash_one, *variant))
+        .fold(0.0_f64, f64::max);
 
     let actual_multiscale_similarity = match (multi_scale_one, multi_scale_two) {
         (Some(first_hex), Some(second_hex)) => {
@@ -435,9 +478,10 @@ pub fn evaluate_visual_and_crop_match(
         // When multiscale hash is available and visual similarity is below 0.85,
         // require multiscale similarity >= 0.65 to ensure the match is not a low-entropy
         // artifact of matching background zeros.
-        let multiscale_is_reliable = actual_multiscale_similarity.map_or(true, |similarity_value| {
-            visual_similarity >= 0.85 || similarity_value >= 0.65
-        });
+        let multiscale_is_reliable = actual_multiscale_similarity
+            .map_or(true, |similarity_value| {
+                visual_similarity >= 0.85 || similarity_value >= 0.65
+            });
 
         if multiscale_is_reliable {
             let mut explainable_reasons: Vec<String> = Vec::new();
@@ -485,25 +529,24 @@ pub fn evaluate_visual_and_crop_match(
     const CROP_CORROBORATION_FLOOR: f64 = 0.72;
 
     if consider_crop_match {
-        let (crop_two_by_two, crop_three_by_three) = match (block_hash_one, block_hash_two) {
-            (Some(first_block), Some(second_block)) => {
-                let is_zero_block_one = first_block.chars().all(|character| character == '0');
-                let is_zero_block_two = second_block.chars().all(|character| character == '0');
-                if is_zero_block_one || is_zero_block_two {
-                    (0.0, 0.0)
-                } else {
-                    calculate_crop_subgrid_scores(first_block, second_block)
-                }
-            }
-            _ => (0.0, 0.0),
-        };
-
         let has_corroborating_signal = visual_similarity >= CROP_CORROBORATION_FLOOR
-            || actual_multiscale_similarity.is_some_and(|similarity_value| {
-                similarity_value >= CROP_CORROBORATION_FLOOR
-            });
+            || actual_multiscale_similarity
+                .is_some_and(|similarity_value| similarity_value >= CROP_CORROBORATION_FLOOR);
 
         if has_corroborating_signal {
+            let (crop_two_by_two, crop_three_by_three) = match (block_hash_one, block_hash_two) {
+                (Some(first_block), Some(second_block)) => {
+                    let is_zero_block_one = first_block.chars().all(|character| character == '0');
+                    let is_zero_block_two = second_block.chars().all(|character| character == '0');
+                    if is_zero_block_one || is_zero_block_two {
+                        (0.0, 0.0)
+                    } else {
+                        calculate_crop_subgrid_scores(first_block, second_block)
+                    }
+                }
+                _ => (0.0, 0.0),
+            };
+
             // 3x3 subgrid covers 56.25% of the image (144 bits of entropy)
             // 2x2 subgrid covers only 25% of the image (64 bits of entropy), so it requires
             // a stricter threshold (>= 0.85) to overcome the multi-position noise floor.
@@ -525,10 +568,8 @@ pub fn evaluate_visual_and_crop_match(
                 if let Some(actual_multiscale) = actual_multiscale_similarity {
                     if actual_multiscale >= CROP_CORROBORATION_FLOOR {
                         let multiscale_percentage = (actual_multiscale * 100.0).round() as u32;
-                        explainable_reasons.push(format!(
-                            "multiscale_similarity:{}%",
-                            multiscale_percentage
-                        ));
+                        explainable_reasons
+                            .push(format!("multiscale_similarity:{}%", multiscale_percentage));
                     }
                 }
 
@@ -557,7 +598,6 @@ pub fn evaluate_visual_and_crop_match(
 
     None
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -876,7 +916,8 @@ mod tests {
     #[test]
     fn test_rotate_270_is_inverse_of_rotate_90() {
         let original_hash: u64 = 0x4777ac2327478753;
-        let rotated_90_then_270 = rotate_dhash_270_clockwise(rotate_dhash_90_clockwise(original_hash));
+        let rotated_90_then_270 =
+            rotate_dhash_270_clockwise(rotate_dhash_90_clockwise(original_hash));
         assert_eq!(
             original_hash, rotated_90_then_270,
             "90° CW followed by 270° CW must return to the original hash"
@@ -886,7 +927,8 @@ mod tests {
     #[test]
     fn test_rotate_90_followed_by_270_returns_original() {
         let original_hash: u64 = 0xb1957762a39ba986;
-        let rotated_270_then_90 = rotate_dhash_90_clockwise(rotate_dhash_270_clockwise(original_hash));
+        let rotated_270_then_90 =
+            rotate_dhash_90_clockwise(rotate_dhash_270_clockwise(original_hash));
         assert_eq!(
             original_hash, rotated_270_then_90,
             "270° CW followed by 90° CW must return to the original hash"
@@ -937,29 +979,48 @@ mod tests {
     fn test_generate_variants_rotation_only() {
         let original_hash: u64 = 0x4777ac2327478753;
         let variants = generate_hash_variants(original_hash, true, false);
-        assert_eq!(variants.len(), 4, "Rotation-only should produce 4 variants (0°, 90°, 180°, 270°)");
-        assert_eq!(variants[0], original_hash, "First variant should be the original hash");
+        assert_eq!(
+            variants.len(),
+            4,
+            "Rotation-only should produce 4 variants (0°, 90°, 180°, 270°)"
+        );
+        assert_eq!(
+            variants[0], original_hash,
+            "First variant should be the original hash"
+        );
     }
 
     #[test]
     fn test_generate_variants_mirror_only() {
         let original_hash: u64 = 0x4777ac2327478753;
         let variants = generate_hash_variants(original_hash, false, true);
-        assert_eq!(variants.len(), 3, "Mirror-only should produce 3 variants (original + horizontal + vertical)");
+        assert_eq!(
+            variants.len(),
+            3,
+            "Mirror-only should produce 3 variants (original + horizontal + vertical)"
+        );
     }
 
     #[test]
     fn test_generate_variants_rotation_and_mirror() {
         let original_hash: u64 = 0x4777ac2327478753;
         let variants = generate_hash_variants(original_hash, true, true);
-        assert_eq!(variants.len(), 8, "Rotation + mirror should produce 8 variants (4 rotations × 2 mirror states)");
+        assert_eq!(
+            variants.len(),
+            8,
+            "Rotation + mirror should produce 8 variants (4 rotations × 2 mirror states)"
+        );
     }
 
     #[test]
     fn test_generate_variants_neither_produces_single_entry() {
         let original_hash: u64 = 0x4777ac2327478753;
         let variants = generate_hash_variants(original_hash, false, false);
-        assert_eq!(variants.len(), 1, "No rotation or mirror should produce 1 variant (original only)");
+        assert_eq!(
+            variants.len(),
+            1,
+            "No rotation or mirror should produce 1 variant (original only)"
+        );
     }
 
     #[test]
@@ -975,12 +1036,8 @@ mod tests {
         );
 
         // With rotation: should find perfect match via variant search
-        let with_rotation = calculate_visual_similarity_with_variants(
-            original_hash,
-            rotated_hash,
-            true,
-            false,
-        );
+        let with_rotation =
+            calculate_visual_similarity_with_variants(original_hash, rotated_hash, true, false);
         assert!(
             (with_rotation - 1.0).abs() < f64::EPSILON,
             "Rotated hash should match 100% when rotation is enabled"
@@ -1000,12 +1057,8 @@ mod tests {
         );
 
         // With mirroring: should find perfect match
-        let with_mirroring = calculate_visual_similarity_with_variants(
-            original_hash,
-            mirrored_hash,
-            false,
-            true,
-        );
+        let with_mirroring =
+            calculate_visual_similarity_with_variants(original_hash, mirrored_hash, false, true);
         assert!(
             (with_mirroring - 1.0).abs() < f64::EPSILON,
             "Mirrored hash should match 100% when mirroring is enabled"
@@ -1045,7 +1098,9 @@ mod tests {
             "Rotated match score should be 1.0"
         );
         assert!(
-            match_result.reasons.contains(&"rotation_mirroring_checked".to_string()),
+            match_result
+                .reasons
+                .contains(&"rotation_mirroring_checked".to_string()),
             "Reasons should mention rotation/mirroring was checked"
         );
     }
@@ -1068,8 +1123,8 @@ mod tests {
             (Some(1000), Some(566)),
             Some(500000),
             Some(500000),
-            0.50,  // visual threshold (low)
-            0.99,  // crop threshold (high, but irrelevant since visual passes first)
+            0.50, // visual threshold (low)
+            0.99, // crop threshold (high, but irrelevant since visual passes first)
             true,
             true,
             false,
@@ -1092,7 +1147,10 @@ mod tests {
         let original_image_path = sample_directory_path.join("olka 2.png");
 
         if !original_image_path.exists() {
-            println!("Sample files not found at {:?}, skipping test", original_image_path);
+            println!(
+                "Sample files not found at {:?}, skipping test",
+                original_image_path
+            );
             return;
         }
 
@@ -1113,7 +1171,6 @@ mod tests {
             "Original olka 2.png: hash=0x{:016x}, dims={:?}",
             original_hash, original_dimensions
         );
-
 
         let test_file_names = [
             ("olka 4.png", "Cópia exata"),
@@ -1147,18 +1204,10 @@ mod tests {
             let (crop_two_by_two, _crop_three_by_three) =
                 calculate_crop_subgrid_scores(&original_spatial_block, &sample_spatial_block);
 
-            let variant_similarity_rotation = calculate_visual_similarity_with_variants(
-                original_hash,
-                sample_hash,
-                true,
-                false,
-            );
-            let variant_similarity_mirror = calculate_visual_similarity_with_variants(
-                original_hash,
-                sample_hash,
-                false,
-                true,
-            );
+            let variant_similarity_rotation =
+                calculate_visual_similarity_with_variants(original_hash, sample_hash, true, false);
+            let variant_similarity_mirror =
+                calculate_visual_similarity_with_variants(original_hash, sample_hash, false, true);
 
             let evaluated_match = evaluate_visual_and_crop_match(
                 original_hash,
@@ -1190,25 +1239,37 @@ mod tests {
                     variant_similarity_rotation >= 0.90,
                     "180° rotated image must match with >= 90% similarity under rotation variants"
                 );
-                assert!(evaluated_match.is_some(), "180° rotated image must be accepted");
+                assert!(
+                    evaluated_match.is_some(),
+                    "180° rotated image must be accepted"
+                );
             } else if sample_file_name == "olka 6.png" {
                 assert!(
                     variant_similarity_mirror >= 0.99,
                     "Vertically flipped image must match with >= 99% similarity under mirror variants"
                 );
-                assert!(evaluated_match.is_some(), "Vertically flipped image must be accepted");
+                assert!(
+                    evaluated_match.is_some(),
+                    "Vertically flipped image must be accepted"
+                );
             } else if sample_file_name == "olka 7.png" {
                 assert!(
                     variant_similarity_mirror >= 0.90,
                     "Horizontally flipped image must match with >= 90% similarity under mirror variants"
                 );
-                assert!(evaluated_match.is_some(), "Horizontally flipped image must be accepted");
+                assert!(
+                    evaluated_match.is_some(),
+                    "Horizontally flipped image must be accepted"
+                );
             } else if sample_file_name == "olka.png" {
                 assert!(
                     direct_similarity >= 0.99,
                     "Original with a drawn line must match with >= 99% similarity"
                 );
-                assert!(evaluated_match.is_some(), "Image with drawn line must be accepted");
+                assert!(
+                    evaluated_match.is_some(),
+                    "Image with drawn line must be accepted"
+                );
             } else if sample_file_name == "olka 3.png" {
                 assert!(
                     direct_similarity >= 0.65,
@@ -1222,4 +1283,3 @@ mod tests {
         }
     }
 }
-

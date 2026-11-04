@@ -124,18 +124,16 @@ async fn processing_manual_fingerprints_share_eligibility_retries_and_exact_only
     let repository = SqliteDuplicatesRepository::new(fixture.pool.clone());
     repository.backfill_missing_fingerprints().await?;
     let processor = processor(&fixture);
-    let (progress, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (progress, mut receiver) = tokio::sync::watch::channel((0, 0));
     assert_eq!(
         processor
             .rehash_pending(&CancellationToken::new(), Some(progress))
             .await?,
         2
     );
-    let mut last = None;
-    while let Some(item) = receiver.recv().await {
-        last = Some(item);
-    }
-    assert_eq!(last, Some((3, 3)));
+    assert!(receiver.changed().await.is_ok());
+    assert_eq!(*receiver.borrow_and_update(), (3, 3));
+    assert!(receiver.changed().await.is_err());
     let counts = fixture
         .processing
         .queue_counts(ProcessingKind::Fingerprint, &[])

@@ -4,6 +4,10 @@ use crate::core::{matching::*, models::DuplicateGroupType};
 use std::collections::BTreeMap;
 use tokio_util::sync::CancellationToken;
 
+#[cfg(test)]
+#[path = "matching_tests.rs"]
+mod tests;
+
 /// Returns no result on cancellation, rather than publishing a partially evaluated prefix.
 pub fn compare(input: &MatchingInput, token: &CancellationToken) -> Option<Vec<MatchingGroup>> {
     if token.is_cancelled() {
@@ -60,15 +64,24 @@ fn visual(input: &MatchingInput, token: &CancellationToken) -> Option<Vec<Matchi
     if !policy.consider_visual_match && !policy.consider_crop_match {
         return Some(Vec::new());
     }
-    let candidates: Vec<_> = input
-        .fingerprints
-        .iter()
-        .filter_map(|fingerprint| {
-            u64::from_str_radix(fingerprint.perceptual_hash.as_deref()?, 16)
-                .ok()
-                .map(|hash| (fingerprint, hash))
-        })
-        .collect();
+    let mut candidates = Vec::with_capacity(input.fingerprints.len());
+    for fingerprint in &input.fingerprints {
+        if token.is_cancelled() {
+            return None;
+        }
+        if let Some(hash) = fingerprint
+            .perceptual_hash
+            .as_deref()
+            .and_then(|value| u64::from_str_radix(value, 16).ok())
+        {
+            let variants = super::matcher::generate_hash_variants(
+                hash,
+                policy.allow_rotation,
+                policy.allow_mirroring,
+            );
+            candidates.push((fingerprint, hash, variants));
+        }
+    }
     let visual_threshold = if policy.min_visual_score > 0.0 {
         policy.min_visual_score
     } else {
@@ -88,7 +101,7 @@ fn visual(input: &MatchingInput, token: &CancellationToken) -> Option<Vec<Matchi
         if grouped[primary_index] {
             continue;
         }
-        let (primary, primary_hash) = candidates[primary_index];
+        let (primary, primary_hash, _) = &candidates[primary_index];
         let mut members = vec![candidate(
             primary.asset_id.clone(),
             1.0,
@@ -103,13 +116,14 @@ fn visual(input: &MatchingInput, token: &CancellationToken) -> Option<Vec<Matchi
             if grouped[comparison_index] {
                 continue;
             }
-            let (comparison, comparison_hash) = candidates[comparison_index];
+            let (comparison, comparison_hash, comparison_variants) = &candidates[comparison_index];
             if primary.content_hash == comparison.content_hash {
                 continue;
             }
-            let evaluation = super::matcher::evaluate_visual_and_crop_match(
-                primary_hash,
-                comparison_hash,
+            let evaluation = super::matcher::evaluate_visual_and_crop_match_prepared(
+                *primary_hash,
+                *comparison_hash,
+                comparison_variants,
                 primary.block_hash.as_deref(),
                 comparison.block_hash.as_deref(),
                 primary.thumb_hash.as_deref(),

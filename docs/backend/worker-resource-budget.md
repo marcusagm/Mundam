@@ -38,7 +38,7 @@ Não há migration de banco. Arquivos antigos de configurações recebem `proces
 
 O orçamento limita **operações**, não threads nativas, memória ou percentuais de CPU/I/O. FFmpeg, codecs e bibliotecas de imagem podem criar várias threads dentro de uma operação. Todas as operações têm peso unitário; não há ajuste adaptativo por telemetria, classes por custo ou quotas distintas para disco e CPU. O matching global conserva seu algoritmo atual, inclusive o custo quadrático da comparação visual em grandes bibliotecas.
 
-A próxima etapa é medir cargas representativas em Windows/macOS e usar os resultados para orientar otimizações de matching e a necessidade de pesos ou políticas específicas por tipo de operação.
+A etapa posterior [Progresso e custo do matching](worker-progress-matching-performance.md) remove o canal ilimitado de progresso e registra uma primeira otimização com benchmark sintético. Medições ponta a ponta de cargas representativas continuam necessárias antes de introduzir pesos, índices persistentes ou políticas específicas por tipo de operação.
 
 ## Validação
 
@@ -48,4 +48,4 @@ No Windows, **71 testes de processamento** passaram, incluindo os nove testes no
 
 `npm run typecheck`, ESLint dos arquivos alterados com `--max-warnings 0`, Prettier, `npm run build -- --configLoader native`, `git diff --check` e verificação dos links locais passaram. Os testes de componentes usam jsdom e IPC simulado.
 
-A validação visual na aplicação e a execução nativa no macOS dependem da rodada de testes nessas plataformas.
+Posteriormente, o usuário confirmou funcionamento correto e boa performance desta entrega no Windows e no macOS (4 de novembro de 2026). Isso registra validação em uso; benchmarks controlados de carga nas duas plataformas permanecem separados.

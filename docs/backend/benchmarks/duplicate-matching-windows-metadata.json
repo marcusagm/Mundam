@@ -1,0 +1,11 @@
+{
+  "measuredAt": "2026-11-04T18:55:57.826Z",
+  "baselineRevision": "2b2bb2977e1336d4532c812b8e4ce9085d928b9c",
+  "platform": "windows",
+  "arch": "x64",
+  "processor": "Intel(R) Core(TM) i3-2100 CPU @ 3.10GHz",
+  "compiler": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+  "matcherSha256": "b5ac6cbdac97cb5be04a4f6b4bb555bfa624b1c5c7ef6f75b9db7c1f35ef8750",
+  "driverSha256": "6f03023701184e5c9d310a0044b93678c39e452bfd04fc4c79186ba9a43c4b8e",
+  "scope": "Synthetic pair evaluation, preparation included; excludes grouping, extraction, SQLite and UI."
+}

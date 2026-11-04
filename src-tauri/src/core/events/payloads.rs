@@ -164,7 +164,7 @@ pub enum DomainEvent {
         component: String,
         message: String,
     },
-    
+
     // ├─ Duplicates Originated
     /// A duplicate group was created.
     DuplicateGroupCreated {
@@ -196,15 +196,6 @@ pub enum DomainEvent {
     /// A duplicate group resolution was undone, restoring assets and reopening the group.
     DuplicateResolutionUndone {
         group_id: String,
-    },
-    /// Progress of a duplicate scan.
-    DuplicateScanProgressed {
-        processed: usize,
-        matched: usize,
-        groups_created: usize,
-        /// Total number of assets to process in this scan phase.
-        /// Zero means the total is not yet known (indeterminate).
-        total: usize,
     },
     /// A duplicate scan finished.
     DuplicateScanFinished {

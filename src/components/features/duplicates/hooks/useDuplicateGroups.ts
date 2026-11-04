@@ -167,10 +167,6 @@ export function useDuplicateGroups(): UseDuplicateGroupsReturn {
             refetch();
             return;
         }
-        if (domainEvent.type === 'DuplicateScanProgressed') {
-            // Progress is reconciled by the shared authoritative snapshot.
-            return;
-        }
         if (domainEvent.type === 'DuplicateScanFinished') {
             publications.acknowledge(domainEvent.payload.publication_sequence);
             console.info(

@@ -29,9 +29,11 @@ pub async fn process(
     else {
         return Ok(None);
     };
+    let claim_started = std::time::Instant::now();
     let Some(input) = repository.claim_matching(kind, automatic_enabled).await? else {
         return Ok(None);
     };
+    let claim_ms = claim_started.elapsed().as_millis() as u64;
     let input = Arc::new(input);
     let computation = token.child_token();
     let _activity = coordinator.watch_matching(&input.ticket, computation.clone());
@@ -64,8 +66,10 @@ pub async fn process(
     let result = async {
         let worker_input = input.clone();
         let worker_token = computation.clone();
-        let groups = tokio::task::spawn_blocking(move || {
-            super::matching::compare(&worker_input, &worker_token)
+        let (groups, compare_ms) = tokio::task::spawn_blocking(move || {
+            let started = std::time::Instant::now();
+            let groups = super::matching::compare(&worker_input, &worker_token);
+            (groups, started.elapsed().as_millis() as u64)
         })
         .await
         .map_err(|error| AppError::Internal(format!("Matching computation failed: {error}")))?;
@@ -76,7 +80,20 @@ pub async fn process(
             return Ok(None);
         }
         let count = groups.len();
-        if repository.publish_matching(&input, groups).await? {
+        let publish_started = std::time::Instant::now();
+        let published = repository.publish_matching(&input, groups).await?;
+        tracing::info!(
+            phase = kind.as_str(),
+            revision = input.ticket.revision,
+            fingerprints = input.fingerprints.len(),
+            groups = count,
+            claim_ms,
+            compare_ms,
+            publish_ms = publish_started.elapsed().as_millis() as u64,
+            published,
+            "Duplicate matching measurement"
+        );
+        if published {
             Ok(Some(count))
         } else {
             Ok(None)

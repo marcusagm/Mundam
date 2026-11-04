@@ -455,9 +455,8 @@ impl DuplicateCommandService {
 
     /// Triggers a scan to find new duplicates.
     ///
-    /// Emits `DuplicateScanProgressed` with granular per-asset progress during
-    /// the rehash phase via an internal mpsc channel. The event includes the
-    /// `total` field so the frontend can render a real percentage progress bar.
+    /// Reconciles latest-value hashing progress through the shared processing snapshot.
+    /// No per-asset progress events or unbounded progress queue are created.
     ///
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
@@ -537,32 +536,12 @@ impl DuplicateCommandService {
         tracing::info!("DuplicateCommandService: [1/4] backfilling missing fingerprints");
         self.duplicates_repo.backfill_missing_fingerprints().await?;
 
-        let (progress_sender, mut progress_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<(usize, usize)>();
-
-        let event_bus_clone = self.event_bus.clone();
-        let scan_status_clone = self.scan_status.clone();
-        let progress_run_id = run_id.clone();
-        let progress_handle = tokio::spawn(async move {
-            while let Some((processed, total)) = progress_receiver.recv().await {
-                if let Ok(mut status_guard) = scan_status_clone.write() {
-                    if status_guard.run_id.as_deref() != Some(progress_run_id.as_str()) {
-                        continue;
-                    }
-                    if status_guard.phase != "cancel_requested" {
-                        status_guard.phase = "hashing".to_string();
-                    }
-                    status_guard.processed = processed;
-                    status_guard.total = total;
-                }
-                let _ = event_bus_clone.publish(DomainEvent::DuplicateScanProgressed {
-                    processed,
-                    matched: 0,
-                    groups_created: 0,
-                    total,
-                });
-            }
-        });
+        let (progress_sender, progress_receiver) = tokio::sync::watch::channel((0, 0));
+        let progress_handle = tokio::spawn(super::scan_progress::reconcile(
+            progress_receiver,
+            self.scan_status.clone(),
+            run_id.clone(),
+        ));
 
         tracing::info!("DuplicateCommandService: [2/4] rehashing pending fingerprints");
         let rehash_result = self
