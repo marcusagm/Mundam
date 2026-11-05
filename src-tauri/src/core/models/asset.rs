@@ -123,6 +123,8 @@ pub struct Folder {
 /// A Domain entity representing a taxonomy Tag.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
+    /// Distinguishes inherited colors from explicit user choices.
+    pub inherits_color: bool,
     /// Unique identifier (UUID/ULID)
     pub id: String,
     /// Name of the tag

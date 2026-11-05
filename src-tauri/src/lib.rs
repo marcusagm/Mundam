@@ -84,6 +84,7 @@ pub fn run() {
             delivery::tauri::commands::mutations::set_asset_folder,
             delivery::tauri::commands::mutations::update_asset_tags,
             delivery::tauri::commands::mutations::create_tag,
+            delivery::tauri::commands::mutations::import_tags,
             delivery::tauri::commands::mutations::update_tag,
             delivery::tauri::commands::mutations::delete_tag,
             delivery::tauri::commands::mutations::add_tags_to_assets_batch,

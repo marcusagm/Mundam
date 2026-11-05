@@ -159,6 +159,8 @@ pub struct CreateTagPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTagPayload {
+    /// Whether this tag follows its parent color, overriding a custom color.
+    pub inherits_color: Option<bool>,
     /// The unique identifier of the tag to update.
     pub id: String,
     /// New display name (optional).
@@ -267,6 +269,8 @@ pub enum LedgerCommand {
 
     /// Create a new taxonomy tag with name, optional color and parent.
     CreateTag(CreateTagPayload),
+    /// Atomically merges or replaces a taxonomy from an ordered outline.
+    ImportTags(ImportTagsPayload),
     /// Update an existing tag's properties (name, color, parent_id, order_index).
     UpdateTag(UpdateTagPayload),
     /// Delete a tag and remove all its asset associations.
@@ -286,4 +290,26 @@ pub enum LedgerCommand {
     DeleteSmartFolder(DeleteSmartFolderPayload),
     /// Execute a collection of commands in a single atomic transaction.
     Batch(Vec<LedgerCommand>),
+}
+
+/// One tag in a preorder outline, referencing an earlier entry as its parent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportTagEntry {
+    /// Unique, nonempty display name.
+    pub name: String,
+    /// Index of the parent in the same outline; absent for roots.
+    pub parent_index: Option<usize>,
+    /// Explicit hexadecimal color; absent when inherited.
+    pub color: Option<String>,
+}
+
+/// A complete taxonomy import performed in a single ledger transaction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportTagsPayload {
+    /// Entries in markdown preorder, with sibling order preserved.
+    pub entries: Vec<ImportTagEntry>,
+    /// Deletes the existing taxonomy and asset associations when true.
+    pub replace_existing: bool,
 }

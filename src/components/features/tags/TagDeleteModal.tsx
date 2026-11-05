@@ -23,7 +23,8 @@ interface TagDeleteModalProperties {
  * @returns The rendered TagDeleteModal.
  */
 export const TagDeleteModal: Component<TagDeleteModalProperties> = componentProperties => {
-    const { deleteTag, createTag } = useMetadata();
+    const metadata = useMetadata();
+    const { deleteTag, createTag } = metadata;
     const notification = useNotification();
 
     /**
@@ -53,11 +54,10 @@ export const TagDeleteModal: Component<TagDeleteModalProperties> = componentProp
         }
 
         const tagName = node.label;
-        const parentIdentifier = (node.data as Record<string, unknown>)?.parent_id as
-            | string
-            | undefined;
-        const tagColor = (node.data as Record<string, unknown>)?.color as string;
         const tagIdentifier = String(node.id);
+        const currentTag = metadata.tags.find(tag => tag.id === tagIdentifier);
+        const parentIdentifier = currentTag?.parent_id;
+        const tagColor = currentTag?.inherits_color ? undefined : currentTag?.color;
 
         const result = await deleteTag(tagIdentifier);
 

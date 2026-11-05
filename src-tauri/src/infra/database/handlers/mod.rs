@@ -22,3 +22,11 @@ pub mod thumbnail_handler;
 pub(crate) mod folders;
 pub(crate) mod matching;
 pub(crate) mod processing;
+
+/// Atomic taxonomy imports.
+pub mod tag_import;
+/// Color inheritance and hierarchy validation inside write transactions.
+pub mod tag_hierarchy;
+
+#[cfg(test)]
+mod tag_import_tests;

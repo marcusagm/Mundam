@@ -280,6 +280,9 @@ impl SqliteAssetLedger {
                     name: asset.name.clone(),
                 })?;
             }
+            LedgerCommand::ImportTags(_) => {
+                self.event_bus.publish(DomainEvent::TagUpdated { id: asset.id.clone() })?;
+            }
             LedgerCommand::UpdateTag(tag_payload) => {
                 self.event_bus.publish(DomainEvent::TagUpdated {
                     id: tag_payload.id.clone(),
@@ -402,6 +405,7 @@ impl SqliteAssetLedger {
             LedgerCommand::UpdateTags(payload) => {
                 tags_handler::handle_update_tags(tx, payload).await
             }
+            LedgerCommand::ImportTags(payload) => crate::infra::database::handlers::tag_import::handle_import(tx, payload).await,
             LedgerCommand::CreateTag(payload) => tags_handler::handle_create_tag(tx, payload).await,
             LedgerCommand::UpdateTag(payload) => tags_handler::handle_update_tag(tx, payload).await,
             LedgerCommand::DeleteTag { id } => tags_handler::handle_delete_tag(tx, id).await,

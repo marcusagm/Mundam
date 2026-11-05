@@ -2,12 +2,12 @@
 //!
 //! Encapsulates SQL mutations for tag CRUD operations and batch tag
 //! association/dissociation across multiple assets.
+use super::shared;
 use crate::core::error::{AppError, AppResult};
 use crate::core::ledger::command::{
     BatchTagsPayload, CreateTagPayload, UpdateTagPayload, UpdateTagsPayload,
 };
 use crate::core::models::asset::{Asset, AssetState};
-use super::shared;
 use chrono::Utc;
 use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
@@ -111,16 +111,14 @@ pub async fn handle_create_tag(
         }
     });
 
-    sqlx::query!(
-        r#"INSERT INTO tags (id, name, color, parent_id, order_index) VALUES (?, ?, ?, ?, ?)"#,
-        tag_id,
-        payload.name,
-        payload.color,
-        normalized_parent_id,
-        0 // Default order_index for new tags
-    )
-    .execute(&mut **tx)
-    .await?;
+    if let Some(parent_id) = &normalized_parent_id {
+        super::tag_hierarchy::validate_parent(tx, &tag_id, parent_id).await?;
+    }
+    sqlx::query("INSERT INTO tags (id, name, color, parent_id, order_index, inherits_color) VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(order_index), -100) + 100 FROM tags WHERE parent_id IS ?), ?)")
+        .bind(&tag_id).bind(&payload.name).bind(&payload.color)
+        .bind(&normalized_parent_id).bind(&normalized_parent_id).bind(payload.color.is_none())
+        .execute(&mut **tx).await?;
+    super::tag_hierarchy::refresh_colors(tx).await?;
 
     let operation_payload = serde_json::to_value(&payload).map_err(|serialization_error| {
         AppError::Internal(format!(
@@ -182,9 +180,24 @@ pub async fn handle_update_tag(
     tx: &mut Transaction<'_, Sqlite>,
     payload: UpdateTagPayload,
 ) -> AppResult<Asset> {
-    // Build a dynamic UPDATE query only for non-None fields
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE id = ?)")
+        .bind(&payload.id)
+        .fetch_one(&mut **tx)
+        .await?;
+    if !exists {
+        return Err(AppError::NotFound(payload.id.clone()));
+    }
+    if let Some(parent_id) = &payload.parent_id {
+        super::tag_hierarchy::validate_parent(tx, &payload.id, parent_id).await?;
+    }
+    let inheritance = payload
+        .inherits_color
+        .or_else(|| payload.color.as_ref().map(|_| false));
     let mut set_clauses = Vec::new();
 
+    if inheritance.is_some() {
+        set_clauses.push("inherits_color = ?");
+    }
     if payload.name.is_some() {
         set_clauses.push("name = ?");
     }
@@ -202,6 +215,9 @@ pub async fn handle_update_tag(
         let update_sql = format!("UPDATE tags SET {} WHERE id = ?", set_clauses.join(", "));
         let mut query = sqlx::query(&update_sql);
 
+        if let Some(inherits_color) = inheritance {
+            query = query.bind(inherits_color);
+        }
         if let Some(ref tag_name) = payload.name {
             query = query.bind(tag_name);
         }
@@ -221,6 +237,9 @@ pub async fn handle_update_tag(
 
         query = query.bind(&payload.id);
         query.execute(&mut **tx).await?;
+    }
+    if payload.color.is_some() || payload.parent_id.is_some() || inheritance.is_some() {
+        super::tag_hierarchy::refresh_colors(tx).await?;
     }
 
     let operation_payload = serde_json::to_value(&payload).map_err(|serialization_error| {
@@ -287,6 +306,8 @@ pub async fn handle_delete_tag(tx: &mut Transaction<'_, Sqlite>, id: String) -> 
     sqlx::query!("DELETE FROM tags WHERE id = ?", id)
         .execute(&mut **tx)
         .await?;
+
+    super::tag_hierarchy::refresh_colors(tx).await?;
 
     shared::log_operation(
         tx,

@@ -1,5 +1,6 @@
 import { metadataState, setMetadataState } from './metadataState';
 import { Tag, tagService } from '../../../lib/tags';
+import { parseTagMarkdown } from '../../../lib/tagMarkdown';
 import { ActionResult, ErrorCode } from '../../types/actions';
 import { eventBus } from '../../utils/eventBus';
 import { metadataCache } from './cache';
@@ -11,6 +12,13 @@ export function initTagRefs(locations: { loadStats: () => Promise<void> }) {
 }
 
 export const tagActions = {
+    /** Imports an outline and reconciles tags, counts, and asset views. */
+    importTags: async (markdown: string, replaceExisting: boolean): Promise<void> => {
+        await tagService.importTags(parseTagMarkdown(markdown), replaceExisting);
+        await tagActions.loadTags(true);
+        tagActions.notifyTagUpdate();
+    },
+
     /**
      * Notifies the system of a tag update.
      * @param options - Configuration for what needs refreshing.
@@ -80,7 +88,8 @@ export const tagActions = {
         name?: string | null,
         color?: string | null,
         parentId?: string | null,
-        orderIndex?: number | null
+        orderIndex?: number | null,
+        inheritsColor?: boolean
     ): Promise<ActionResult> => {
         try {
             const finalName = name === null ? undefined : name;
@@ -93,11 +102,15 @@ export const tagActions = {
                 finalName,
                 finalColor,
                 finalParentId,
-                finalOrderIndex
+                finalOrderIndex,
+                inheritsColor
             );
 
-            tagActions.applyTagStoreUpdates(itemId, name, color, parentId, orderIndex);
-            tagActions.resolveTagNotificationType(name, parentId, orderIndex);
+            await tagActions.loadTags(true);
+            tagActions.notifyTagUpdate({
+                stats: parentId !== undefined || orderIndex !== undefined,
+                assets: true
+            });
 
             return { success: true, data: undefined };
         } catch (error) {
@@ -106,49 +119,6 @@ export const tagActions = {
                 success: false,
                 error: { code: ErrorCode.IO_ERROR, message: 'Failed to update tag' }
             };
-        }
-    },
-
-    /**
-     * Applies local store updates after a tag modification.
-     */
-    applyTagStoreUpdates: (
-        itemId: string,
-        name?: string | null,
-        color?: string | null,
-        parentId?: string | null,
-        orderIndex?: number | null
-    ) => {
-        const tagUpdates: Partial<Tag> = {};
-
-        if (name !== null && name !== undefined) tagUpdates.name = name;
-        if (color !== null && color !== undefined) tagUpdates.color = color;
-        if (orderIndex !== null && orderIndex !== undefined) tagUpdates.order_index = orderIndex;
-        if (parentId !== undefined) {
-            tagUpdates.parent_id = parentId === null ? null : String(parentId);
-        }
-
-        setMetadataState('tags', (tag: Tag) => tag.id === itemId, tagUpdates);
-    },
-
-    /**
-     * Determines and triggers the correct notification after a tag update.
-     */
-    resolveTagNotificationType: async (
-        name?: string | null,
-        parentId?: string | null,
-        orderIndex?: number | null
-    ) => {
-        const isStructuralChange = parentId !== undefined || orderIndex !== undefined;
-
-        if (isStructuralChange) {
-            await tagActions.loadTags();
-            tagActions.notifyTagUpdate({});
-        } else {
-            tagActions.notifyTagUpdate({
-                stats: false,
-                assets: name !== null && name !== undefined
-            });
         }
     },
 

@@ -143,9 +143,11 @@ pub async fn update_tag(
     color: Option<String>,
     parent_id: Option<String>,
     order_index: Option<i64>,
+    inherits_color: Option<bool>,
 ) -> AppResult<()> {
     ledger
         .execute(LedgerCommand::UpdateTag(UpdateTagPayload {
+            inherits_color,
             id,
             name,
             color,
@@ -782,4 +784,16 @@ pub async fn empty_trash(
     }
 
     Ok(deleted_count)
+}
+
+/// Imports an ordered taxonomy through the application command handler.
+///
+/// # Errors
+/// Returns validation errors for invalid outlines or database errors on persistence.
+#[tauri::command]
+pub async fn import_tags(
+    ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
+    payload: crate::core::ledger::command::ImportTagsPayload,
+) -> AppResult<()> {
+    crate::feature::assets::tag_commands::import_tags(ledger.inner().as_ref(), payload).await
 }

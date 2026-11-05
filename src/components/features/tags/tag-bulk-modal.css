@@ -1,0 +1,28 @@
+.tag-bulk-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-s);
+}
+
+.tag-bulk-outline {
+    width: 100%;
+    min-height: 18em;
+    resize: vertical;
+    padding: var(--p-space-s);
+    background: var(--bg-surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-m);
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    tab-size: 2;
+}
+
+.tag-bulk-outline:focus-visible {
+    outline: 2px solid var(--border-active);
+    outline-offset: 2px;
+}
+
+.tag-bulk-warning {
+    color: var(--text-destructive);
+}

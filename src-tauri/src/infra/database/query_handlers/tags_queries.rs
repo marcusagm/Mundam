@@ -8,10 +8,12 @@ use sqlx::SqlitePool;
 ///
 /// * `Ok(Vec<Tag>)` if the tags were found successfully.
 /// * `Err(sqlx::Error)` if the tags could not be found.
-pub async fn list_tags(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<crate::core::models::Tag>> {
-    let rows = sqlx::query_as!(
-        crate::infra::database::models::TagDb,
-        r#"SELECT id as "id!", name as "name!", color, parent_id, order_index as "order_index!" FROM tags ORDER BY order_index ASC, name ASC"#
+pub async fn list_tags(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<crate::core::models::Tag>> {
+    let rows = sqlx::query_as::<_, crate::infra::database::models::TagDb>(
+        r#"SELECT id, name, color, parent_id, order_index, inherits_color FROM tags ORDER BY order_index ASC, name ASC"#
     )
     .fetch_all(pool)
     .await?;
@@ -29,16 +31,19 @@ pub async fn list_tags(pool: &SqlitePool, _registry: &crate::core::formats::regi
 ///
 /// * `Ok(Vec<Tag>)` if the tags were found successfully.
 /// * `Err(sqlx::Error)` if the query fails.
-pub async fn get_tags_for_asset(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, asset_id: &str) -> AppResult<Vec<crate::core::models::Tag>> {
-    let rows = sqlx::query_as!(
-        crate::infra::database::models::TagDb,
-        r#"SELECT t.id as "id!", t.name as "name!", t.color, t.parent_id, t.order_index as "order_index!"
+pub async fn get_tags_for_asset(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    asset_id: &str,
+) -> AppResult<Vec<crate::core::models::Tag>> {
+    let rows = sqlx::query_as::<_, crate::infra::database::models::TagDb>(
+        r#"SELECT t.id, t.name, t.color, t.parent_id, t.order_index, t.inherits_color
            FROM tags t
            JOIN asset_tags at ON t.id = at.tag_id
            WHERE at.asset_id = ?
            ORDER BY t.order_index ASC, t.name ASC"#,
-        asset_id
     )
+    .bind(asset_id)
     .fetch_all(pool)
     .await?;
 
@@ -78,6 +83,7 @@ pub async fn get_tags_for_assets(
         color: Option<String>,
         parent_id: Option<String>,
         order_index: i64,
+        inherits_color: bool,
     }
 
     let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
@@ -88,6 +94,7 @@ pub async fn get_tags_for_assets(
             t.name as name,
             t.color as color,
             t.parent_id as parent_id,
+            t.inherits_color,
             t.order_index as order_index
         FROM tags t
         JOIN asset_tags at ON t.id = at.tag_id
@@ -113,6 +120,7 @@ pub async fn get_tags_for_assets(
             id: asset_tag_record.id,
             name: asset_tag_record.name,
             color: asset_tag_record.color,
+            inherits_color: asset_tag_record.inherits_color,
             parent_id: asset_tag_record.parent_id,
             order_index: asset_tag_record.order_index,
         };
@@ -141,13 +149,10 @@ mod tests {
             .expect("Failed to initialize DbManager");
         let format_registry = FormatRegistry::new();
 
-        let tags_by_asset_identifier = get_tags_for_assets(
-            database_manager.pool(),
-            &format_registry,
-            &[],
-        )
-        .await
-        .expect("Query must succeed for empty asset list");
+        let tags_by_asset_identifier =
+            get_tags_for_assets(database_manager.pool(), &format_registry, &[])
+                .await
+                .expect("Query must succeed for empty asset list");
         assert!(tags_by_asset_identifier.is_empty());
     }
 
@@ -203,4 +208,3 @@ mod tests {
         assert_eq!(asset_two_tags.len(), 1);
     }
 }
-

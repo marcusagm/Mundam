@@ -28,6 +28,7 @@ export const useMetadata = () => {
         deleteSmartFolder: metadataActions.deleteSmartFolder,
         refreshAll: metadataActions.refreshAll,
         notifyTagUpdate: metadataActions.notifyTagUpdate,
+        importTags: metadataActions.importTags,
         createTag: metadataActions.createTag,
         updateTag: metadataActions.updateTag,
         deleteTag: metadataActions.deleteTagRecursive,

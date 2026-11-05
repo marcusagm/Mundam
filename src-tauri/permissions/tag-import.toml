@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-import-tags"
+description = "Enables atomic taxonomy outline imports"
+commands.allow = ["import_tags"]

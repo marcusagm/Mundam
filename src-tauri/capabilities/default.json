@@ -56,6 +56,7 @@
     "core:event:allow-emit",
     "allow-start-indexing",
     "allow-create-tag",
+    "allow-import-tags",
     "allow-update-tag",
     "allow-delete-tag",
     "allow-get-all-tags",

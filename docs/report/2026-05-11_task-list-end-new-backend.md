@@ -102,7 +102,7 @@
 
 ## Tags
 
-- [ ] Permitir a criação de multiplas tags de uma vez através de uma tela com um campo de texto que permita a inserção de várias tags em formato de lista markdown, que permita definir hieraquia e ordem das tags, alem de cores. Uma sugestão é definir um padrão como:
+- [x] Permitir a criação de multiplas tags de uma vez através de uma tela com um campo de texto que permita a inserção de várias tags em formato de lista markdown, que permita definir hieraquia e ordem das tags, alem de cores. Uma sugestão é definir um padrão como:
   ```
   - Tag 1: color=<cor>
   - Tag 2: color=<cor>
@@ -111,8 +111,8 @@
   - Tag 3: color=<cor>
   ```
   Na janela deve ter a opção de manter tags existentes ou remover, com o aviso de que remover tags existentes apagará todas as tags atualmente associadas aos assets. O acesso a essa funcionalidade deve ser através de um botão ao lado do atual botão de adicionar tags.
-- [ ] Permitir a exportação de tags em formato de lista markdown, mantendo a hierarquia, ordem e cores definidas.
-- [ ] Adicionar ao menu de contexto a opção de que tags filhas tenham a mesma cor da tag pai. Essa opção deve ser padrão do sistema, mas desativada se o usuário definir uma cor personalizada para a tag filha. Precisamos ter atenção ao comportamento ao alterar a cor da tag pai, garantindo que as tags filhas sejam atualizadas corretamente, exceto quando tiverem cores personalizadas.
+- [x] Permitir a exportação de tags em formato de lista markdown, mantendo a hierarquia, ordem e cores definidas.
+- [x] Adicionar ao menu de contexto a opção de que tags filhas tenham a mesma cor da tag pai. Essa opção deve ser padrão do sistema, mas desativada se o usuário definir uma cor personalizada para a tag filha. Precisamos ter atenção ao comportamento ao alterar a cor da tag pai, garantindo que as tags filhas sejam atualizadas corretamente, exceto quando tiverem cores personalizadas.
 
 ## Modo de desenvolvimento
 

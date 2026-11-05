@@ -1,6 +1,6 @@
 import { Button } from '../../ui';
 import { Component, createMemo, createSignal, untrack } from 'solid-js';
-import { Bookmark, Plus } from 'lucide-solid';
+import { Bookmark, Plus, ListPlus } from 'lucide-solid';
 import {
     useMetadata,
     useFilters,
@@ -15,6 +15,7 @@ import { dndRegistry, DragItem } from '../../../core/dnd';
 import { TagDomainService } from '../../../core/services/TagDomainService';
 import { TagContextMenu } from './TagContextMenu';
 import { TagDeleteModal } from './TagDeleteModal';
+import { TagBulkModal } from './TagBulkModal';
 
 /**
  * Sidebar panel for managing the hierarchical tag system.
@@ -22,6 +23,7 @@ import { TagDeleteModal } from './TagDeleteModal';
  */
 export const TagTreeSidebarPanel: Component = () => {
     const metadata = useMetadata();
+    const [isBulkModalOpen, setIsBulkModalOpen] = createSignal(false);
     const filters = useFilters();
     const notification = useNotification();
     const tree = useTree('tags');
@@ -247,9 +249,25 @@ export const TagTreeSidebarPanel: Component = () => {
             title="Tags"
             class="panel-fluid"
             headerActions={
-                <Button variant="ghost" size="icon-xs" title="Create Tag" onClick={handleCreateTag}>
-                    <Plus size={14} />
-                </Button>
+                <>
+                    <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        title="Import / Export Tags"
+                        aria-label="Import / Export Tags"
+                        onClick={() => setIsBulkModalOpen(true)}
+                    >
+                        <ListPlus size={14} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        title="Create Tag"
+                        onClick={handleCreateTag}
+                    >
+                        <Plus size={14} />
+                    </Button>
+                </>
             }
             contentClass={isTagHeaderDragOver() ? 'drag-over' : ''}
             onDragOver={(event: DragEvent) => {
@@ -294,6 +312,7 @@ export const TagTreeSidebarPanel: Component = () => {
                 }}
             />
 
+            <TagBulkModal isOpen={isBulkModalOpen()} onClose={() => setIsBulkModalOpen(false)} />
             <TagDeleteModal
                 isOpen={deleteModalOpen()}
                 onClose={() => setDeleteModalOpen(false)}

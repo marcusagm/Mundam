@@ -279,6 +279,8 @@ impl From<FolderDb> for crate::core::models::asset::Folder {
 /// Database model for tags.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct TagDb {
+    /// Distinguishes inherited colors from explicit user choices.
+    pub inherits_color: bool,
     pub id: String,
     pub name: String,
     pub color: Option<String>,
@@ -292,6 +294,7 @@ impl From<TagDb> for crate::core::models::asset::Tag {
             id: row.id,
             name: row.name,
             color: row.color,
+            inherits_color: row.inherits_color,
             parent_id: row.parent_id,
             order_index: row.order_index,
         }

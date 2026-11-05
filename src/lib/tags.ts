@@ -1,4 +1,5 @@
 import { invokeCommand as invoke } from './api';
+import type { TagOutlineEntry } from './tagMarkdown';
 import {
     type SearchCriteria,
     type AssetFilter,
@@ -12,6 +13,8 @@ export interface Tag {
     parent_id: string | null;
     color: string | null;
     order_index: number;
+    /** Whether the effective color follows the parent. */
+    inherits_color?: boolean;
 }
 
 export interface FamilyStat {
@@ -38,6 +41,11 @@ export interface LibraryStats {
 }
 
 export const tagService = {
+    /** Imports an entire outline in one atomic transaction. */
+    importTags: async (entries: TagOutlineEntry[], replaceExisting: boolean): Promise<void> => {
+        await invoke('import_tags', { payload: { entries, replaceExisting } });
+    },
+
     getAllTags: async (): Promise<Tag[]> => {
         return await invoke('list_tags');
     },
@@ -97,9 +105,10 @@ export const tagService = {
         name?: string | null,
         color?: string | null,
         parentId?: string | null,
-        orderIndex?: number | null
+        orderIndex?: number | null,
+        inheritsColor?: boolean
     ): Promise<void> => {
-        return await invoke('update_tag', { id, name, color, parentId, orderIndex });
+        return await invoke('update_tag', { id, name, color, parentId, orderIndex, inheritsColor });
     },
 
     deleteTag: async (id: string): Promise<void> => {

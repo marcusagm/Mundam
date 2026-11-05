@@ -1,357 +1,129 @@
-# 🦀 Backend Guidelines (Rust + Tauri)
+# 🦀 Backend Guidelines (Rust + Tauri - Hexagonal)
 
-This document outlines the coding standards, patterns, and best practices for the **Mundam** backend, built with [Rust](https://www.rust-lang.org/) and [Tauri](https://tauri.app/).
-
----
-
-## 🏗️ Architecture
-
-### Command Pattern & Organization
-
-- **Thin Commands**: Tauri commands (`#[tauri::command]`) should be thin wrappers. They should validate input, call business logic functions, and handle errors. They should rarely contain complex business logic themselves.
-- **Domain Modules**: Commands must be organized into semantic domain modules. Avoid putting commands in the root `src-tauri/src/`.
-    - **`library/commands/`**: Core assets management (tags, folders, metadata).
-    - **`media/commands.rs`**: Audio/Video processing and metadata extraction commands.
-    - **`thumbnails/commands.rs`**: Thumbnail generation and priority management.
-    - **`settings/commands.rs`**: Configuration and maintenance.
-    - **`transcoding/commands.rs`**: Streaming and transcoding logic.
-- **State Management**: Use `app.manage()` to inject state. Access state in commands using `tauri::State<T>`.
-
-#### 🛡️ Tauri Permissions
-
-Whenever a new command is created, you **MUST** update the Tauri permissions:
-
-1.  **`src-tauri/permissions/main.toml`**: Define a new permission for the command.
-2.  **`src-tauri/capabilities/default.json`**: Add the new permission to the default visibility list (or appropriate capability set).
-
-```rust
-// ✅ Correct Example: Organzed Command
-// Localized in src/library/commands/tags.rs
-#[tauri::command]
-pub async fn create_tag(
-    db: State<'_, Arc<Db>>,
-    name: String,
-) -> AppResult<i64> {
-    Ok(db.create_tag(&name).await?)
-}
-```
+Este documento dita os padrões de código, documentação e arquitetura exigidos para o backend do **Mundam**, estruturado em Rust sob os princípios da Arquitetura Hexagonal, CQRS e Orientação a Eventos (EDA).
 
 ---
 
-## 📝 Coding Standards
+## 🏗️ 1. Regras de Arquitetura (Hexagonal & CQRS)
 
-### Naming Conventions
+### Separação de Camadas (Obrigatório)
 
-- **Never abbreviate variable names.** Each variable name must describe **exactly** its responsibility.
+O código nunca deve misturar IO de banco de dados, regras de negócio e chamadas de Tauri na mesma função.
+
+- **`core/` (Domínio & Portas):** É o coração puro. Não sabe o que é Tauri, não toca no disco rigidamente. Aqui vivem as estruturas de dados, os Enums de Domínio (`AppError`, `DomainEvent`) e as Interfaces (Traits) como `TransactionalAssetLedger` e `FormatProvider`.
+- **`feature/` (Application Layer / Handlers):** Contém a lógica orquestradora. Aqui residem os *Command Handlers* (Que alteram estado via Ledger) e os *Query Handlers* (Que leem dados velozmente via SQLx). Toda rota do Tauri `invoke()` deve repassar a chamada **imediatamente** para um Handler nesta pasta.
+- **`infra/` (Adaptadores Ativos):** Implementa as Traits do Core. Se o `AssetLedger` exige um banco, o `SqliteLedgerAdapter` vive aqui, realizando as queries sujas do SQLx.
+- **`delivery/` (Adaptadores Passivos):** Onde o mundo externo bate. Os comandos `#[tauri::command]` vivem em `delivery/tauri/`. O servidor de vídeo vive em `delivery/streaming/`. Nenhum deles contém regra de negócio, apenas convertem `AppResult<T>` em JSON e extraem parâmetros.
+
+### Mutação Guiada por CQRS e EventBus
+
+- **Comandos (Mutação):** Nunca dê `UPDATE` ou `INSERT` no SQLite diretamente nos Command Handlers. Repasse o payload (ex: `CreateAssetCommand`) para o **Asset Ledger**, que cuidará da Atomicidade.
+- **Leitura (Query):** Leia à vontade e o mais rápido possível através da injeção de `Db` utilizando SQLx direto para as tabelas de Read-Model.
+- **Reatividade:** Handlers não chamam Handlers. Handlers finalizam o trabalho reportando as mudanças de estado para o banco, e o Ledger publica um `DomainEvent` no EventBus. Outros interessados (como o JobScheduler de Thumbnails) ouvem as mudanças via `.subscribe()`.
+
+---
+
+## 📝 2. Padrões de Código (Clean Code)
+
+### Nomenclatura Estrita
+
+- **Jamais abrevie nomes de variáveis.** O código deve ser descritivamente explícito.
     ```rust
-    // ✅ Correct
-    let processed_image_buffer = ...;
-    // ❌ Avoid
+    // ✅ Correto
+    let processed_thumbnail_buffer = ...;
+    // ❌ Terminantemente Proibido
     let buf = ...;
+    let thumb_buf = ...;
     ```
-- **Variables & Functions**: snake_case (e.g., `process_image`, `user_id`)
-- **Types & Traits**: PascalCase (e.g., `ThumbnailStrategy`, `AppState`)
-- **Constants**: SCREAMING_SNAKE_CASE (e.g., `MAX_RETRY_ATTEMPTS`)
+- **Funções e Variáveis**: `snake_case` (ex: `process_image`, `asset_id`).
+- **Structs e Traits**: `PascalCase` (ex: `FormatProvider`, `AssetState`).
+- **Constantes**: `SCREAMING_SNAKE_CASE` (ex: `MAX_WORKER_THREADS`).
 
-### Coding Principles
+### Princípios de Ouro
 
-- **Single Responsibility Principle (SRP):**
-  Each function or module must have **only one clear purpose**.
+- **Single Responsibility Principle (SRP):** Cada função, adapter ou handler deve ter uma única responsabilidade. Funções monstras não passarão no Code Review.
+- **Sem "Cleverness" Tóxica:** Prefira um código banal, explícito e longo a um macro obscuro ("Magic Rust") ou correntes de iteradores que ninguém entende.
+- **Não Mascare Erros com `unwrap()`:** Use **sempre** o operador `?`. O uso de `.unwrap()` ou `.expect()` só é tolerado em configurações fixas no `main.rs` onde a quebra é intencional antes do boot.
 
-- **Readability over cleverness:**
-  Favor code that is **easy to understand** over complex iterator chains or macros unless necessary for performance.
-    - **Avoid deeply nested `match` statements**: Break them into functions.
+### Assincronismo Limpo (Sem Freeze)
 
-- **Explicit Error Handling:**
-  Always handle errors. Never swallow them without logging or context.
-
-### Error Handling & Centralized Management
-
-We use a centralized error management system to ensure consistency, tipability, and clear communication with the frontend.
-
-- **Centralized Enum (`AppError`)**: All errors are defined in `src/error.rs` using the `thiserror` crate. This allows for automatic conversion from external errors (SQLx, IO, Tauri) using `#[from]`.
-- **Primary Result Type (`AppResult<T>`)**: Almost all functions and commands should return `AppResult<T>`, which is an alias for `Result<T, AppError>`.
-- **No `unwrap()`**: Avoid `.unwrap()` or `.expect()` in production code (except in tests or unavoidable initialization). Use the `?` operator for clean propagation.
-- **Frontend Serialization**: `AppError` implements `serde::Serialize` to return structured information to the JavaScript/TypeScript frontend instead of raw strings.
+Nunca bloqueie o Executor do Tokio. Se uma função manipula o FileSystem via APIs síncronas brutas (C++ FFI, `image-rs`, FFmpeg nativo), jogue a carga para `spawn_blocking`.
 
 ```rust
-// ✅ Correct Example: Using AppResult in a command
-#[tauri::command]
-pub async fn get_data(db: State<'_, Arc<Db>>) -> AppResult<Vec<Data>> {
-    // Automatic conversion from sqlx::Error to AppError via ?
-    let result = db.fetch_all().await?;
-    Ok(result)
-}
-
-// ✅ Correct Example: Handling specific failures
-if !path.exists() {
-    return Err(AppError::NotFound(format!("Path missing: {}", path)));
+// ✅ Delegando carga pesada de CPU / IO síncrono
+pub async fn heavy_extraction() -> AppResult<()> {
+    tokio::task::spawn_blocking(|| {
+        perform_heavy_cpp_math_or_io()
+    })
+    .await
+    .map_err(|_| AppError::ExtractionProcessTimeout)??;
+    Ok(())
 }
 ```
 
-- **Logging**: Errors should be logged at the point of origin or in the command handler if they indicate critical failures.
+---
 
-### Telemetry & Tracing
+## 🛡️ 3. Tratamento Centralizado de Erros
 
-We use the `tracing` ecosystem instead of raw `println!` macros. This ensures structured logging, trace correlation, and potential OpenTelemetry (OTLP) integration in development.
+A comunicação de falhas é contratual e ocorre via pacote `core/error/`.
 
-- **Use `tracing` macros (`info!`, `debug!`, `warn!`, `error!`)**: Never use `println!` in library code or commands unless it's a CLI-specific stdout output.
-- **Instrument Commands**: Tauri commands and heavy I/O operations should be annotated with `#[tracing::instrument]` to automatically track span lifecycles.
-- **OTLP Feature**: In development, we can enable OpenTelemetry exporters to visualize bottlenecks (like heavy SQLite transactions or File System delays) via Jaeger/Prometheus without bloating the production binary.
+- **Retorno Unitário:** Toda função falível da fronteira do Domínio e Tauri retorna `AppResult<T>` (Alias para `Result<T, AppError>`).
+- **AppError Enum:** Centralizado em `thiserror`. Captura falhas primitivas (SQLx, std::io) por baixo, mas se apresenta ao desenvolvedor como Erro de Domínio.
+- **Tradução FrontendSegura:** O `AppError` implementa `serde::Serialize` ativamente, mascarando rastros de pilha do SQL e Strings puras, devolvendo mapas JSON padronizados `{ "code": "ASSET_NOT_FOUND", "message": "..." }`.
+
+---
+
+## 📈 4. Tracing e Telemetria
+
+Jamais polua o terminal com `println!`. O log oficial é feito pela crate `tracing`.
+
+- Use `tracing::info!`, `debug!`, `warn!` ou `error!`.
+- Adorne Command Handlers importantes com `#[tracing::instrument]` para que o OpenTelemetry rastreie as ramificações de tempo e parâmetros das funções automaticamente.
 
 ```rust
-// ✅ Correct Example: Using tracing instrumentation
 use tracing::{info, instrument, error};
 
-#[tauri::command]
-#[instrument(skip(db), err)]
-pub async fn ingest_assets(db: State<'_, Arc<Db>>, path: String) -> AppResult<usize> {
-    info!("Starting ingestion for path: {}", path);
-    match db.ingest(&path).await {
-        Ok(count) => {
-            info!("Successfully ingested {} items", count);
-            Ok(count)
-        },
-        Err(e) => {
-            error!("Failed to ingest: {:?}", e);
-            Err(e.into())
-        }
-    }
-}
-```
-
-### Async/Await
-
-- Use `.await` responsibly. Avoid blocking the async runtime (Tokio) with heavy CPU-bound tasks. Use `tokio::task::spawn_blocking` for heavy synchronous operations like image processing or file I/O.
-
-```rust
-// ✅ Correct handling of heavy work
-pub async fn heavy_processing() -> Result<(), String> {
-    let result = tokio::task::spawn_blocking(|| {
-        // CPU intensive work here
-        compute_hash()
-    }).await.map_err(|e| e.to_string())?;
-
-    Ok(result)
+#[instrument(skip(ledger))]
+pub async fn ingest_assets(ledger: Arc<dyn TransactionalAssetLedger>, path: PathBuf) -> AppResult<()> {
+    info!("Iniciando fluxo de ingestão de ativos");
+    // ...
 }
 ```
 
 ---
 
-## 🛠️ Tooling & Quality
+## 📚 5. Obrigações de Documentação (Rustdoc)
 
-### Clippy
+O código Rust do projeto precisa respirar via `rustdoc`. Se você assinou um Trait, comentou uma struct ou publicou um módulo, você deve explicá-lo com as barras triplas (`///`). 
 
-We adhere to **Clippy** lints. Warnings should be treated as errors.
-Run strict checks locally:
+**Regra Absoluta:** Explicar o **"Por que" (Motivação Arquitetural)** e não o **"O Que" (Descrição Trivial)** da mecânica.
 
-```bash
-cargo clippy -- -D warnings
-```
+1. **Sumário:** Linha direta descrevendo o objetivo do bloco de código.
+2. **`# Arguments`:** Lista dos parâmetros obscuros.
+3. **`# Errors` (Obrigatório!):** Se a função retorna `AppResult`, ela deve mapear explicitamente quando e por que ela atirará os erros previstos.
 
-### Formatting
-
-- Follow standard `rustfmt` rules.
-- Run `cargo fmt` before every commit.
-
-## 📖 Documentation Patterns
-
-### Mandatory Documentation
-
-Every item, including **functions, methods, structs, enums, traits, and their respective fields (properties)**, whether public or private, **MUST** have documentation via `///`. The goal is for any developer to understand the intent and risks without having to read the implementation.
-
-- **Summary**: A short, direct line describing the purpose.
-- **`# Errors` Section**: Mandatory if the function returns `Result`. Must list failure conditions.
-- **`# Panics` Section**: Mandatory if the function contains `unwrap()`, `expect()`, or could logically panic.
-- **`# Examples` Section**: Highly recommended for complex modules or global utilities.
-
-````rust
-/// Processes image resizing while maintaining aspect ratio.
+```rust
+/// Resolve o provedor de extração adequado em complexidade O(1)
+///
+/// Compara a extensão do arquivo no `HashMap` registrado no Bootlace. Se falhar,
+/// aciona a segunda rota de detecção profunda operando verificação de Magic Bytes
 ///
 /// # Arguments
-/// * `buffer` - Byte vector of the original image.
-/// * `dimensions` - Desired tuple (width, height).
+/// * `path` - Caminho canônico fornecido pelo SO.
+/// * `header` - Array com os 512 primeiros bytes vitais. Utilize um file handle eficiente.
 ///
 /// # Errors
-/// Returns `Err` if the image format is unsupported or if the buffer is corrupted.
-///
-/// # Examples
-/// ```rust
-/// let resized = processor::resize(my_bytes, (300, 300)).await?;
-/// ```
-pub async fn resize(buffer: Vec<u8>, dimensions: (u32, u32)) -> Result<Vec<u8>, Error> { ... }
-````
-
-### Module Documentation
-
-Use `//!` at the top of files to describe the module's responsibility and how it integrates into the system. This provides the "Big Picture" necessary before diving into specific functions.
-
-### Implementation Comments (Clean Code)
-
-Comments within functions must follow the **"Why, not What"** rule. Code should be self-explanatory (What); comments should explain business logic or technical constraints (Why).
-
-- **What to COMMENT**:
-    - Non-obvious technical decisions (e.g., "We use 600ms debounce because the macOS file system takes time to release the lock").
-    - Complex algorithms or mathematical formulas.
-    - Security or performance notes.
-    - `TODO` or `FIXME` with a clear description.
-- **What NOT to COMMENT (Pollution)**:
-    - The obvious: `let count = 10; // sets count to 10`.
-    - Commented-out code: If it's not useful, delete it. History is in Git.
-    - Variable descriptions: Use descriptive names instead of comments next to them.
-
-```rust
-// ❌ POLLUTION: Redundant comment
-let images = db.get_images().await?; // fetches images from database
-
-// ✅ CORRECT: Explains technical motivation
-// We start a manual transaction here to avoid multiple disk flushes,
-// which is critical for performance on traditional HDDs.
-let mut transaction = pool.begin().await?;
+/// Retorna `AppError::FormatNotSupported` caso o arquivo recuse identificação binária
+/// absoluta após fallback O(N).
+pub fn resolve(&self, path: &Path, header: &[u8]) -> Option<Arc<dyn FormatProvider>> { ... }
 ```
 
----
+**Módulos (`mod.rs`)** devem conter um Big Picture no topo usando `//!` elucidando sua responsabilidade em face da Arquitetura Hexagonal.
 
-## 📂 Supported File Formats
+## Organização dos adaptadores por domínio
 
-The application relies on a centralized registry of supported file formats to consistently handle detection, thumbnail generation, and playback strategies.
+Contratos relacionados ficam em pastas de domínio no `core`, por exemplo `core/processing/`, `core/duplicates/` e `core/trash/`. Executors contínuos ficam em `processing/workers/<domínio>/`, com testes junto da implementação.
 
-### 📍 Registry Location
+No adaptador SQLite, fachadas de repositório delegam consultas a `infra/database/query_handlers/` e mutações a `infra/database/handlers/`. Agrupe responsabilidades extensas em subpastas como `matching/` e `processing/`. Uma consulta read-only não cria configurações padrão nem altera hierarquias. Leituras de validação dentro de uma transação de escrita permanecem no handler responsável por essa transação. Predicados compartilhados de elegibilidade ficam junto da fachada, evitando políticas divergentes entre contagem e admissão.
 
-- **Definitions**: `src-tauri/src/formats/definitions.rs`
-- **Types**: `src-tauri/src/formats/types.rs`
-- **Logic**: `src-tauri/src/formats/mod.rs`
-
-### 🔍 How to Use
-
-Use the `crate::formats::FileFormat` struct for all format-related logic.
-
-```rust
-use crate::formats::FileFormat;
-use crate::formats::MediaType;
-
-// 1. Detect format (File signature > Extension)
-if let Some(format) = FileFormat::detect(path) {
-    match format.type_category {
-        MediaType::Image => { ... },
-        MediaType::Video => { ... },
-        _ => { ... }
-    }
-}
-
-// 2. Quick check (Indexer / File Walker)
-if FileFormat::is_supported_extension(path) {
-    // Process file...
-}
-```
-
-### ➕ How to Add a New Format
-
-1.  Open `src-tauri/src/formats/definitions.rs`.
-2.  Add a new `FileFormat` entry to the `SUPPORTED_FORMATS` array.
-3.  Specify the properties:
-    - **`name`**: Human-readable name (e.g., "WebP Image").
-    - **`extensions`**: List of lowercase extensions (e.g., `&["webp"]`).
-    - **`mime_types`**: Standard MIME types.
-    - **`type_category`**: `MediaType::Image`, `Video`, `Audio`, `Project`, etc.
-    - **`strategy`**: How thumbnails are generated (`NativeImage`, `Ffmpeg`, `NativeExtractor`, etc.).
-    - **`playback`**: How it is played in the UI (`Native`, `Hls`, `LinearHls`, `None`).
-
-```rust
-FileFormat {
-    name: "New Format",
-    extensions: &["new", "nf"],
-    mime_types: &["image/x-new"],
-    type_category: MediaType::Image,
-    strategy: ThumbnailStrategy::NativeImage,
-    playback: PlaybackStrategy::None,
-},
-```
-
-### 🌐 Frontend Usage
-
-To retrieve the list of supported formats in the frontend, invoke the `get_library_supported_formats` command:
-
-```typescript
-import { invoke } from '@tauri-apps/api/core';
-
-interface FileFormat {
-    name: string;
-    extensions: string[];
-    mimeTypes: string[];
-    typeCategory:
-        | 'Image'
-        | 'Video'
-        | 'Audio'
-        | 'Project'
-        | 'Archive'
-        | 'Model3D'
-        | 'Font'
-        | 'Unknown';
-    playback:
-        | 'Native'
-        | 'Hls'
-        | 'LinearHls'
-        | 'AudioHls'
-        | 'AudioLinearHls'
-        | 'Transcode'
-        | 'AudioTranscode'
-        | 'None';
-}
-
-const formats = await invoke<FileFormat[]>('get_library_supported_formats');
-```
-
----
-
-## 🗄️ Database & SQLx
-
-### Modular Database Architecture
-
-The database layer is organized into the `src/db/` module. **NEVER** place database logic in commands or multiple flat files. Follow the domain-driven modular structure:
-
-- **`db/mod.rs`**: Entry point, `Db` struct, initialization, and maintenance.
-- **`db/models.rs`**: **Single source of truth** for all database-related structs (DTOs). No duplication across the system.
-- **`db/images.rs`**: Image/File persistence.
-- **`db/folders.rs`**: Hierarchy and location management.
-- **`db/tags.rs`**: Taxonomy and relationships.
-- **`db/search.rs`**: Dynamic query building with `QueryBuilder`.
-
-### SQLx Macro Safety
-
-- **Use `sqlx::query!` and `sqlx::query_as!`**: Favor macros for compile-time validation.
-- **Non-Null Indicators**: SQLite nullability detection can fail. Use the "force non-null" syntax for columns you know are `NOT NULL`:
-    ```sql
-    SELECT id AS "id!", name FROM tags
-    ```
-- **Type Overrides**: For custom types (like `chrono::DateTime`), use explicit type hints in the query if detection fails:
-    ```sql
-    SELECT created_at AS "created_at: DateTime<Utc>" FROM images
-    ```
-- **Case Consistency**: Backend models should **avoid** `#[serde(rename_all = "camelCase")]` unless strictly required, to maintain consistency with the SQL schema and existing frontend property expectations (which often use `snake_case` from the API).
-
-### 🚀 CI / Offline Compilation (SQLx Prepare)
-
-Because we use `sqlx` macros (`query!`, `query_as!`), the Rust compiler requires an active database connection to verify queries during type-checking. To ensure our CI pipelines (GitHub Actions) succeed without spinning up a live database:
-
-1. **Always run `cargo sqlx prepare`** inside the `src-tauri/` directory whenever you **add, modify, or delete** any SQL query.
-2. **Commit the `.sqlx/` folder**: This command generates/updates the `src-tauri/.sqlx/` directory, which acts as an offline cache. This folder **must** be committed.
-3. The CI workflow uses `SQLX_OFFLINE=true` to consume this cache instead of a live connection.
-
-### Performance & Transactions
-
-- **Batch Operations**: Use dedicated `batch` functions for high-volume operations (indexing).
-- **Transactions**: Wrap multi-step logic in `pool.begin()`. Reusable helpers should accept `&mut SqliteConnection` or `&mut SqliteTransaction`.
-- **Wal Mode**: Optimized for concurrent reads and single writer.
-
-```rust
-// ✅ Implementation pattern in db/domain.rs
-impl Db {
-    pub async fn add_item(&self, name: &str) -> Result<i64, sqlx::Error> {
-        let res = sqlx::query!("INSERT INTO items (name) VALUES (?)", name)
-            .execute(&self.pool)
-            .await?;
-        Ok(res.last_insert_rowid())
-    }
-}
-```
+Ao mover módulos, atualize imports, testes, recursos incluídos e links da documentação. A revisão atual da estrutura e dos limites do plano está em [Organização dos módulos](../../../backend/workers/2026-11-04-19-02-worker-module-organization.md).

@@ -1,5 +1,5 @@
 import { Component, createMemo } from 'solid-js';
-import { Plus, Pencil, Palette, Trash2 } from 'lucide-solid';
+import { Plus, Pencil, Palette, Trash2, Check } from 'lucide-solid';
 import { ContextMenu, ContextMenuItem } from '../../ui/ContextMenu';
 import { TreeNode } from '../../ui/TreeView';
 import { ColorPicker } from '../../ui/ColorPicker';
@@ -40,7 +40,21 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
         const treeNode = properties.node;
         if (!treeNode) return [];
 
+        const tag = metadata.tags.find(tag => tag.id === String(treeNode.id));
+        const inheritanceItems: ContextMenuItem[] = tag?.parent_id
+            ? [
+                  {
+                      type: 'item',
+                      label: 'Use Parent Color',
+                      icon: tag.inherits_color ? Check : Palette,
+                      action: () => {
+                          void metadata.updateTag(tag.id, null, null, undefined, undefined, true);
+                      }
+                  }
+              ]
+            : [];
         return [
+            ...inheritanceItems,
             {
                 type: 'item',
                 label: 'Add Child Tag',
