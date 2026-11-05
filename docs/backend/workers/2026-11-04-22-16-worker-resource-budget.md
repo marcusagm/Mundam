@@ -1,6 +1,9 @@
 # Orçamento compartilhado dos workers
 
-Entrega de 4 de novembro de 2026, após [retries e diagnósticos](worker-retries-diagnostics.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
+Entrega de 4 de novembro de 2026, após [retries e diagnósticos](2026-11-04-22-16-worker-retries-diagnostics.md).
 
 ## Comportamento
 
@@ -17,7 +20,7 @@ A concorrência do **indexer** permanece separada e ainda exige reinício. Repro
 
 ## Admissão e recuperação
 
-[`ProcessingBudget`](../../src-tauri/src/core/processing/budget.rs) mantém uma fila em memória e devolve permissões RAII. A fila é FIFO entre solicitações elegíveis: um worker que já atingiu seu limite individual não bloqueia a capacidade livre dos demais. O executor de thumbnails continua selecionando primeiro a janela mais recente do viewport quando recebe capacidade; pedidos de outros workers não ficam atrás de uma fila ilimitada de thumbnails.
+[`ProcessingBudget`](../../../src-tauri/src/core/processing/budget.rs) mantém uma fila em memória e devolve permissões RAII. A fila é FIFO entre solicitações elegíveis: um worker que já atingiu seu limite individual não bloqueia a capacidade livre dos demais. O executor de thumbnails continua selecionando primeiro a janela mais recente do viewport quando recebe capacidade; pedidos de outros workers não ficam atrás de uma fila ilimitada de thumbnails.
 
 As permissões são obtidas **antes** de `ProcessingRepository.begin` e de `claim_matching`. Esperar capacidade não consome tentativas nem mantém reservas de banco. As reservas e heartbeats existentes só começam depois da admissão. Cada etapa do scan manual libera sua capacidade antes da próxima operação, sem reservar o orçamento por todo o scan. O coordenador de duplicados permanece responsável por impedir scans concorrentes.
 
@@ -25,11 +28,11 @@ Cancelar ou descartar uma espera remove sua solicitação da fila. Uma permissã
 
 ## Integração
 
-- [`ProcessingControl`](../../src-tauri/src/core/processing/control.rs) possui a instância compartilhada do orçamento.
+- [`ProcessingControl`](../../../src-tauri/src/core/processing/control.rs) possui a instância compartilhada do orçamento.
 - O bootstrap cria o controle junto das configurações, carrega os limites persistidos antes de iniciar os workers e injeta a mesma instância no coordenador de duplicados.
-- [`SettingsService`](../../src-tauri/src/feature/settings/service.rs) serializa mutações entre seus clones. Uma alteração só configura o orçamento depois de o repositório confirmar a gravação. Não é criado um segundo polling de configurações.
+- [`SettingsService`](../../../src-tauri/src/feature/settings/service.rs) serializa mutações entre seus clones. Uma alteração só configura o orçamento depois de o repositório confirmar a gravação. Não é criado um segundo polling de configurações.
 - O snapshot global inclui `capacity: { limit, active, waiting, thumbnail_limit }`. `active` mede permissões de recursos e é independente de atividades longas de scan manual. `waiting` mede solicitações de admissão dos executores, não o tamanho das filas persistidas de assets.
-- [`PerformanceSettings`](../../src/components/features/settings/PerformanceSettings.tsx) distingue limites aplicados imediatamente da configuração do indexer. Os valores de mídia no store só mudam após confirmação do backend; falhas aparecem inline. Seletores têm nomes acessíveis no botão interativo.
+- [`PerformanceSettings`](../../../src/components/features/settings/PerformanceSettings.tsx) distingue limites aplicados imediatamente da configuração do indexer. Os valores de mídia no store só mudam após confirmação do backend; falhas aparecem inline. Seletores têm nomes acessíveis no botão interativo.
 - A statusbar apresenta capacidade efetiva e espera usando o snapshot compartilhado já existente. Esse campo é opcional no frontend para compatibilidade com um backend anterior ainda em execução.
 
 Não há migration de banco. Arquivos antigos de configurações recebem `processing_concurrency = 0` pela desserialização. O controle de pausa continua sendo apenas da sessão.
@@ -38,7 +41,7 @@ Não há migration de banco. Arquivos antigos de configurações recebem `proces
 
 O orçamento limita **operações**, não threads nativas, memória ou percentuais de CPU/I/O. FFmpeg, codecs e bibliotecas de imagem podem criar várias threads dentro de uma operação. Todas as operações têm peso unitário; não há ajuste adaptativo por telemetria, classes por custo ou quotas distintas para disco e CPU. O matching global conserva seu algoritmo atual, inclusive o custo quadrático da comparação visual em grandes bibliotecas.
 
-A etapa posterior [Progresso e custo do matching](worker-progress-matching-performance.md) remove o canal ilimitado de progresso e registra uma primeira otimização com benchmark sintético. Medições ponta a ponta de cargas representativas continuam necessárias antes de introduzir pesos, índices persistentes ou políticas específicas por tipo de operação.
+A etapa posterior [Progresso e custo do matching](2026-11-04-22-16-worker-progress-matching-performance.md) remove o canal ilimitado de progresso e registra uma primeira otimização com benchmark sintético. Medições ponta a ponta de cargas representativas continuam necessárias antes de introduzir pesos, índices persistentes ou políticas específicas por tipo de operação.
 
 ## Validação
 

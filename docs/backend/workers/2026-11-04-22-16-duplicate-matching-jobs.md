@@ -1,5 +1,8 @@
 # Comparações de duplicados persistentes
 
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
 **Implementação:** 4 de novembro de 2026.
 
 Comparações exatas e visuais agora têm intenção, reserva, retry e conclusão persistidos. O worker automático e o scan manual usam o mesmo caminho de cálculo e publicação, substituindo os dois algoritmos que gravavam diretamente pelo adaptador legado.
@@ -8,11 +11,11 @@ Comparações exatas e visuais agora têm intenção, reserva, retry e conclusã
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| [`core/duplicates/matching.rs`](../../src-tauri/src/core/duplicates/matching.rs) | Portas e DTOs de reserva, snapshot, resultados e status |
-| [`infra/database/duplicates/matching.rs`](../../src-tauri/src/infra/database/duplicates/matching.rs) | Admissão exclusiva, captura dos inputs, cancelamento e retries |
-| [`matching_publication.rs`](../../src-tauri/src/infra/database/handlers/matching/publication.rs) | Reconciliação dos grupos e conclusão protegida na mesma transação |
-| [`feature/duplicates/matching.rs`](../../src-tauri/src/feature/duplicates/matching.rs) | Cálculo determinístico usando o matcher existente |
-| [`matching_processor.rs`](../../src-tauri/src/feature/duplicates/matching_processor.rs) | Trabalho em `spawn_blocking`, heartbeat e desfecho da reserva |
+| [`core/duplicates/matching.rs`](../../../src-tauri/src/core/duplicates/matching.rs) | Portas e DTOs de reserva, snapshot, resultados e status |
+| [`infra/database/duplicates/matching.rs`](../../../src-tauri/src/infra/database/duplicates/matching.rs) | Admissão exclusiva, captura dos inputs, cancelamento e retries |
+| [`matching_publication.rs`](../../../src-tauri/src/infra/database/handlers/matching/publication.rs) | Reconciliação dos grupos e conclusão protegida na mesma transação |
+| [`feature/duplicates/matching.rs`](../../../src-tauri/src/feature/duplicates/matching.rs) | Cálculo determinístico usando o matcher existente |
+| [`matching_processor.rs`](../../../src-tauri/src/feature/duplicates/matching_processor.rs) | Trabalho em `spawn_blocking`, heartbeat e desfecho da reserva |
 | Worker e comandos de duplicados | Política automática, admissão de sessão, fases e eventos consolidados |
 
 `DuplicatesRepository` estende `MatchingRepository`, implementado pelo mesmo adaptador SQLite. A composição injeta esse repository também no serviço de snapshots. Nenhum comando IPC novo foi acrescentado; o cancelamento existente passa a aguardar a persistência quando há comparação manual agendada.
@@ -78,13 +81,13 @@ O snapshot global acrescenta `matching`, separado das contagens de assets: compa
 
 Configurações, finder e statusbar distinguem recuperação, pausa, espera por retry e cancelamento. A barra de progresso não anima durante pausa ou espera por retry. `Scan Now` solicita novas comparações; não reinicia falhas terminais da leitura de arquivos. Rebuild conserva seu alcance maior e sua confirmação.
 
-[`MatchingPublicationTracker`](../../src/components/features/duplicates/state/matchingPublication.ts) invalida grupos quando observa nova publicação ou reinício do serviço. Um evento que já atualizou os grupos pode confirmar a mesma sequência sem outra invalidação. Amostras repetidas de atividade não recarregam biblioteca, árvore ou badges.
+[`MatchingPublicationTracker`](../../../src/components/features/duplicates/state/matchingPublication.ts) invalida grupos quando observa nova publicação ou reinício do serviço. Um evento que já atualizou os grupos pode confirmar a mesma sequência sem outra invalidação. Amostras repetidas de atividade não recarregam biblioteca, árvore ou badges.
 
 ## Limites e próximos passos
 
 O snapshot dos inputs e a publicação ainda abrangem a fase inteira. A comparação visual continua global e quadrática; matching incremental, orçamento comum e medições de carga continuam planejados. Não há nova configuração de concorrência dinâmica nesta etapa. A identificação da origem continua baseada no catálogo.
 
-Retry por worker e diagnóstico agrupado foram implementados na etapa posterior de [retries e diagnóstico](worker-retries-diagnostics.md). Repetir falhas de duplicados enfileira fingerprints e comparações que falharam na mesma transação, sem exigir rebuild. Limites dinâmicos e orçamento compartilhado de operações foram entregues em [Orçamento dos workers](worker-resource-budget.md). Medição de carga e otimização orientada por resultados continuam planejadas.
+Retry por worker e diagnóstico agrupado foram implementados na etapa posterior de [retries e diagnóstico](2026-11-04-22-16-worker-retries-diagnostics.md). Repetir falhas de duplicados enfileira fingerprints e comparações que falharam na mesma transação, sem exigir rebuild. Limites dinâmicos e orçamento compartilhado de operações foram entregues em [Orçamento dos workers](2026-11-04-22-16-worker-resource-budget.md). Medição de carga e otimização orientada por resultados continuam planejadas.
 
 ## Validação
 

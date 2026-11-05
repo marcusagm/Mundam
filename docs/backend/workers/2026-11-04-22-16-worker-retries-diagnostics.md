@@ -1,5 +1,8 @@
 # Retry por worker e diagnóstico de extração
 
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
 **Implementação:** 4 de novembro de 2026.
 
 O painel de atividade permite repetir falhas esgotadas ou reavaliar resultados sem suporte, com confirmação das quantidades realmente enfileiradas. Os motivos são agrupados por códigos seguros, sem enviar logs, comandos ou caminhos de assets à interface.
@@ -38,13 +41,13 @@ O diagnóstico descreve **resultados observados**, não um teste contínuo de in
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| [`core/processing/diagnostics.rs`](../../src-tauri/src/core/processing/diagnostics.rs) | Códigos, escopos e contagens de retry |
-| [`infra/database/query_handlers/processing/diagnostics.rs`](../../src-tauri/src/infra/database/query_handlers/processing/diagnostics.rs) | Agrupamento seguro e reset transacional de filas |
-| [`ProcessingControlService`](../../src-tauri/src/feature/processing/control.rs) | Mapeamento de worker para estágio, invalidação do cache e snapshot de confirmação |
-| [`delivery/tauri/processing.rs`](../../src-tauri/src/delivery/tauri/processing.rs) | Adaptador IPC, com permissão própria para janelas da biblioteca |
-| [`ProcessingClient`](../../src/core/store/processing/client.ts) | Serialização de controles por worker, timeout e proteção contra respostas de instâncias anteriores |
-| [`ProcessingRetryActions`](../../src/components/features/statusbar/processing/ProcessingRetryActions.tsx) | Ações distintas de retry e reavaliação |
-| [`ProcessingDiagnostics`](../../src/components/features/statusbar/processing/ProcessingDiagnostics.tsx) | Descrições locais seguras em detalhes expansíveis |
+| [`core/processing/diagnostics.rs`](../../../src-tauri/src/core/processing/diagnostics.rs) | Códigos, escopos e contagens de retry |
+| [`infra/database/query_handlers/processing/diagnostics.rs`](../../../src-tauri/src/infra/database/query_handlers/processing/diagnostics.rs) | Agrupamento seguro e reset transacional de filas |
+| [`ProcessingControlService`](../../../src-tauri/src/feature/processing/control.rs) | Mapeamento de worker para estágio, invalidação do cache e snapshot de confirmação |
+| [`delivery/tauri/processing.rs`](../../../src-tauri/src/delivery/tauri/processing.rs) | Adaptador IPC, com permissão própria para janelas da biblioteca |
+| [`ProcessingClient`](../../../src/core/store/processing/client.ts) | Serialização de controles por worker, timeout e proteção contra respostas de instâncias anteriores |
+| [`ProcessingRetryActions`](../../../src/components/features/statusbar/processing/ProcessingRetryActions.tsx) | Ações distintas de retry e reavaliação |
+| [`ProcessingDiagnostics`](../../../src/components/features/statusbar/processing/ProcessingDiagnostics.tsx) | Descrições locais seguras em detalhes expansíveis |
 
 Exemplo de solicitação:
 
@@ -60,7 +63,7 @@ Enquanto uma ação está pendente, os controles daquele worker ficam desabilita
 
 Não há instalação de extratores pela interface, lista de caminhos dos arquivos afetados ou inferência retroativa de erros antigos. Indexação e limpeza automática da lixeira conservam seus controles próprios. Esta etapa não muda concorrência ou interrompe tarefas nativas em andamento.
 
-A entrega posterior [Orçamento compartilhado dos workers](worker-resource-budget.md) aplica limites de operações em tempo de execução. Otimização orientada por medição e testes de carga permanecem como próxima etapa. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
+A entrega posterior [Orçamento compartilhado dos workers](2026-11-04-22-16-worker-resource-budget.md) aplica limites de operações em tempo de execução. Otimização orientada por medição e testes de carga permanecem como próxima etapa. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
 
 ## Validação
 

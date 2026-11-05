@@ -1,5 +1,8 @@
 # Processamento compartilhado de fingerprints
 
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
 **Implementado em:** 3 de novembro de 2026.
 
 O scan manual de duplicados e o worker automático usavam implementações diferentes para calcular fingerprints. O caminho manual também executava leitura de arquivos e hashing dentro do adaptador de banco, com seleção e cancelamento diferentes do worker. Agora ambos usam o mesmo processador e a mesma política de tentativas.
@@ -8,11 +11,11 @@ O scan manual de duplicados e o worker automático usavam implementações difer
 
 | Camada | Responsabilidade |
 | --- | --- |
-| [`DuplicateWorker`](../../src-tauri/src/processing/workers/duplicates/mod.rs) | Consumo contínuo, preferência de detecção automática e agendamento das comparações |
-| [`DuplicateCommandService`](../../src-tauri/src/feature/duplicates/commands.rs) | Execução explícita, progresso, cancelamento, rebuild e fases de comparação |
-| [`FingerprintProcessor`](../../src-tauri/src/feature/duplicates/fingerprint_processor.rs) | Seleção compartilhada, tentativa persistida, verificação da origem e gravação do resultado |
-| [`processing/media/fingerprint.rs`](../../src-tauri/src/processing/media/fingerprint.rs) | Leitura do arquivo e extração técnica, em `spawn_blocking` |
-| [`fingerprints.rs`](../../src-tauri/src/feature/duplicates/fingerprints.rs) | Matemática dos hashes perceptuais e resolução de pixels por providers |
+| [`DuplicateWorker`](../../../src-tauri/src/processing/workers/duplicates/mod.rs) | Consumo contínuo, preferência de detecção automática e agendamento das comparações |
+| [`DuplicateCommandService`](../../../src-tauri/src/feature/duplicates/commands.rs) | Execução explícita, progresso, cancelamento, rebuild e fases de comparação |
+| [`FingerprintProcessor`](../../../src-tauri/src/feature/duplicates/fingerprint_processor.rs) | Seleção compartilhada, tentativa persistida, verificação da origem e gravação do resultado |
+| [`processing/media/fingerprint.rs`](../../../src-tauri/src/processing/media/fingerprint.rs) | Leitura do arquivo e extração técnica, em `spawn_blocking` |
+| [`fingerprints.rs`](../../../src-tauri/src/feature/duplicates/fingerprints.rs) | Matemática dos hashes perceptuais e resolução de pixels por providers |
 | Repositories de processamento e duplicados | Elegibilidade SQL, tentativas e persistência |
 
 O repository de duplicados não contém mais `rehash_pending_fingerprints`. O bootstrap injeta o mesmo repository de processamento nos caminhos manual e automático.
@@ -55,7 +58,7 @@ O scan manual usa `processor.rehash_pending(&cancellation_token, Some(progress_s
 
 ## Limites e próxima etapa
 
-Na etapa posterior, o processador passou a usar reserva persistente com heartbeat e publicação do fingerprint e do desfecho na mesma transação do Ledger. A implementação e seus limites estão em [Reservas persistentes e publicação transacional](processing-leases.md). A revisão ainda usa caminho, tamanho e modificação do catálogo; não garante snapshot físico atômico do original. O coordenador das comparações continua local à instância.
+Na etapa posterior, o processador passou a usar reserva persistente com heartbeat e publicação do fingerprint e do desfecho na mesma transação do Ledger. A implementação e seus limites estão em [Reservas persistentes e publicação transacional](2026-11-04-22-16-processing-leases.md). A revisão ainda usa caminho, tamanho e modificação do catálogo; não garante snapshot físico atômico do original. O coordenador das comparações continua local à instância.
 
 O canal de progresso manual continua não limitado. Matching exato e visual preservam seus algoritmos e adaptadores atuais; esta entrega unifica o cálculo dos fingerprints, sem migrar matching para jobs persistidos.
 

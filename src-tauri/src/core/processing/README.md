@@ -16,4 +16,4 @@ use crate::core::processing::{ProcessingKind, ProcessingRepository};
 use crate::core::processing::control::{ProcessingControl, WorkerKind};
 ```
 
-Invariantes e pendências estão na [revisão de organização](../../../../docs/backend/worker-module-organization.md).
+Invariantes e pendências estão na [revisão de organização](../../../../docs/backend/workers/2026-11-04-22-16-worker-module-organization.md).

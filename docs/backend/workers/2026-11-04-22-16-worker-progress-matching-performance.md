@@ -1,16 +1,19 @@
 # Progresso coalescido e custo do matching
 
-Entrega de 4 de novembro de 2026, após [limites dinâmicos e orçamento de operações](worker-resource-budget.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
+Entrega de 4 de novembro de 2026, após [limites dinâmicos e orçamento de operações](2026-11-04-22-16-worker-resource-budget.md).
 
 ## Estado de validação
 
-O usuário confirmou funcionamento correto e boa performance das entregas anteriores no Windows e no macOS. Essa validação de uso foi registrada no [plano de integração](workers-frontend-integration.md). Ela é distinta das medições sintéticas abaixo e não é apresentada como benchmark de bibliotecas grandes nas duas plataformas.
+O usuário confirmou funcionamento correto e boa performance das entregas anteriores no Windows e no macOS. Essa validação de uso foi registrada no [plano de integração](2026-11-04-22-16-workers-frontend-integration.md). Ela é distinta das medições sintéticas abaixo e não é apresentada como benchmark de bibliotecas grandes nas duas plataformas.
 
 ## Progresso manual
 
 O scan manual deixa de criar um canal `mpsc::unbounded_channel` e de publicar `DuplicateScanProgressed` por asset. O frontend já consumia o snapshot global e descartava esses eventos, mas eles ainda atravessavam o EventBus e a ponte Tauri.
 
-[`FingerprintProcessor`](../../src-tauri/src/feature/duplicates/fingerprint_processor.rs) passa a informar `(processed, total)` por `tokio::sync::watch`: só o valor mais recente fica retido. O consumidor [`scan_progress`](../../src-tauri/src/feature/duplicates/scan_progress.rs) atualiza o estado do run correspondente. Uma rajada não cria uma fila proporcional ao número de assets. O fechamento do produtor drena a última atualização antes de entrar em matching. Atualizações antigas não alteram um run novo e progresso não sobrescreve `cancel_requested`.
+[`FingerprintProcessor`](../../../src-tauri/src/feature/duplicates/fingerprint_processor.rs) passa a informar `(processed, total)` por `tokio::sync::watch`: só o valor mais recente fica retido. O consumidor [`scan_progress`](../../../src-tauri/src/feature/duplicates/scan_progress.rs) atualiza o estado do run correspondente. Uma rajada não cria uma fila proporcional ao número de assets. O fechamento do produtor drena a última atualização antes de entrar em matching. Atualizações antigas não alteram um run novo e progresso não sobrescreve `cancel_requested`.
 
 Finder e statusbar continuam usando o mesmo polling global. Não há novo polling, notificação de progresso por asset, invalidação de grupos por progresso ou toast. `DuplicateScanFinished`, `DuplicateScanStopped` e a sequência persistida de publicação conservam suas funções de conclusão e recuperação. O contrato legado `DuplicateScanProgressed` e seu ramo vazio no frontend foram removidos.
 
@@ -27,17 +30,17 @@ O processamento registra **uma medição agregada por fase concluída** com `pha
 
 ## Benchmark reproduzível
 
-O runner [`bench-duplicate-matching.mjs`](../../scripts/bench-duplicate-matching.mjs) compila apenas a matemática de produção com `rustc -O`, usando o driver [`Rust`](../../scripts/bench-duplicate-matching.rs). Não compila Tauri nem acessa banco ou mídia do usuário. Requer Node, Git e Rust stable; no Windows usa o toolchain MSVC.
+O runner [`bench-duplicate-matching.mjs`](../../../scripts/bench-duplicate-matching.mjs) compila apenas a matemática de produção com `rustc -O`, usando o driver [`Rust`](../../../scripts/bench-duplicate-matching.rs). Não compila Tauri nem acessa banco ou mídia do usuário. Requer Node, Git e Rust stable; no Windows usa o toolchain MSVC.
 
 ```sh
 node scripts/bench-duplicate-matching.mjs
 ```
 
-A referência padrão é o commit `2b2bb29`, anterior a esta entrega. Pode-se informar outro commit compatível como argumento. O runner extrai o avaliador de referência para um diretório temporário, executa três amostras por cenário e compara os checksums dos resultados antes de gravar os TSVs e metadados em `docs/backend/benchmarks`. A preparação das variantes entra no tempo medido. Os temporários são removidos sem alterar o checkout.
+A referência padrão é o commit `2b2bb29`, anterior a esta entrega. Pode-se informar outro commit compatível como argumento. O runner extrai o avaliador de referência para um diretório temporário, executa três amostras por cenário e compara os checksums dos resultados antes de gravar os TSVs e metadados em `docs/backend/workers/benchmarks`. A preparação das variantes entra no tempo medido. Os temporários são removidos sem alterar o checkout. Novos artefatos recebem o prefixo `yyyy-mm-dd-hh-ii` do início da execução no horário local; os metadados registram `startedAt` e `measuredAt` em UTC. O runner recusa sobrescrever uma rodada da mesma plataforma com o mesmo prefixo de minuto. Os nomes datados dos artefatos históricos abaixo refletem a consolidação documental, preservando seus metadados originais.
 
 Os cenários usam seed fixa e 128, 512 e 1.024 hashes. Em 1.024 hashes são avaliados **523.776 pares** por amostra. Há cenários sem relação, com crop habilitado/desabilitado, cenários visualmente próximos e crops corroborados por multiscale. Eles exercitam scores e razões de matches visuais e derivados. O digest inclui índices, tipo, score e razões dos resultados.
 
-A rodada automatizada no Windows está registrada em [antes](benchmarks/duplicate-matching-windows-before.tsv), [depois](benchmarks/duplicate-matching-windows-after.tsv) e [metadados](benchmarks/duplicate-matching-windows-metadata.json). Máquina: Intel Core i3-2100, x64, Rust 1.94.0. Para 1.024 hashes:
+A rodada automatizada no Windows está registrada em [antes](benchmarks/2026-11-04-22-16-duplicate-matching-windows-before.tsv), [depois](benchmarks/2026-11-04-22-16-duplicate-matching-windows-after.tsv) e [metadados](benchmarks/2026-11-04-22-16-duplicate-matching-windows-metadata.json). Máquina: Intel Core i3-2100, x64, Rust 1.94.0. Para 1.024 hashes:
 
 | Cenário | Antes | Depois | Relação aproximada |
 | --- | --- | --- | --- |
@@ -48,7 +51,7 @@ A rodada automatizada no Windows está registrada em [antes](benchmarks/duplicat
 
 Os doze cenários conservaram seus checksums. Divergências interrompem o runner antes de gravar resultados. Os números medem **avaliação de pares**, incluindo preparação e checksum, e excluem extração, SQLite, agrupamento greedy e interface. Não são tempos ponta a ponta nem metas de performance. A máquina e o compiler da rodada automatizada ficam registrados no JSON ao lado dos TSVs; novos resultados devem ser comparados na mesma máquina sem carga concorrente relevante.
 
-A rodada no macOS está registrada em [antes](benchmarks/duplicate-matching-macos-before.tsv), [depois](benchmarks/duplicate-matching-macos-after.tsv) e [metadados](benchmarks/duplicate-matching-macos-metadata.json). Máquina: MacBook Air 2017 (A1466, `MacBookAir7,2`), Intel Core i5-5350U @ 1,80 GHz, x64, macOS 12.7.6, Rust 1.99.1. Para 1.024 hashes:
+A rodada no macOS está registrada em [antes](benchmarks/2026-11-04-22-16-duplicate-matching-macos-before.tsv), [depois](benchmarks/2026-11-04-22-16-duplicate-matching-macos-after.tsv) e [metadados](benchmarks/2026-11-04-22-16-duplicate-matching-macos-metadata.json). Máquina: MacBook Air 2017 (A1466, `MacBookAir7,2`), Intel Core i5-5350U @ 1,80 GHz, x64, macOS 12.7.6, Rust 1.99.1. Para 1.024 hashes:
 
 | Cenário | Antes | Depois | Relação aproximada |
 | --- | --- | --- | --- |
@@ -65,7 +68,7 @@ Esta entrega **não mantém um índice incremental persistente de relações**. 
 
 Um índice de pares ou cache incremental exige uma política específica: alterações/remoções de anchors podem reorganizar grupos dependentes, regras invalidam relações anteriores, e grupos revisados/ignorados/resolvidos precisam preservar decisões. A avaliação de crop também pode aceitar um par por multiscale mesmo com dHashes distantes; um índice baseado apenas em distância de dHash eliminaria matches válidos.
 
-Como o uso informado permanece rápido nas duas plataformas e já houve ganho mensurável no caminho global, a próxima decisão será baseada nos logs por fase e em cargas representativas. O plano separa a otimização medida entregue da evolução incremental persistente, sem declarar esta última concluída. Carga ponta a ponta de bibliotecas grandes permanece pendente.
+No encerramento, o usuário confirmou bom desempenho em bibliotecas representativas nas duas plataformas e dispensou benchmarks ponta a ponta adicionais. Matching incremental persistente foi adiado explicitamente. Os logs e este runner ficam disponíveis para uma eventual avaliação futura; não há medição adicional exigida para concluir o ciclo. O [encerramento](2026-11-04-22-16-workers-closure.md) registra a decisão e as [evoluções futuras](2026-11-04-22-16-workers-future-evolutions.md) explicam o escopo técnico separado.
 
 ## Verificação
 

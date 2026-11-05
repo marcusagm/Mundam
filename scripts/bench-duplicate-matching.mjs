@@ -1,19 +1,32 @@
+/* eslint-disable no-unsafe-finally */
 /** Runs reproducible before/after pair benchmarks without changing the checkout or database. */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { cpus, tmpdir } from 'node:os';
 import { dirname, join, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const reference = process.argv[2] ?? '2b2bb29';
+const startedAt = new Date();
+const timestamp = [
+    startedAt.getFullYear(),
+    startedAt.getMonth() + 1,
+    startedAt.getDate(),
+    startedAt.getHours(),
+    startedAt.getMinutes()
+]
+    .map(value => String(value).padStart(2, '0'))
+    .join('-');
 const matcherPath = 'src-tauri/src/feature/duplicates/matcher.rs';
 const driverPath = 'scripts/bench-duplicate-matching.rs';
 const temporary = mkdtempSync(join(tmpdir(), 'mundam-matching-'));
 const executable = join(temporary, process.platform === 'win32' ? 'benchmark.exe' : 'benchmark');
 const driver = readFileSync(join(root, driverPath), 'utf8');
 const platform = { win32: 'windows', darwin: 'macos' }[process.platform] ?? process.platform;
+const outputDirectory = join(root, 'docs/backend/workers/benchmarks');
+const prefix = join(outputDirectory, `${timestamp}-duplicate-matching-${platform}`);
 const toolchain = process.platform === 'win32' ? '+stable-x86_64-pc-windows-msvc' : '+stable';
 
 /** Compiles only the production math with optimizations; no Tauri or SQLite is linked. */
@@ -37,6 +50,13 @@ function rows(output) {
 }
 
 try {
+    if (
+        ['-before.tsv', '-after.tsv', '-metadata.json'].some(suffix => existsSync(prefix + suffix))
+    ) {
+        throw new Error(
+            'Benchmark results already exist for this start minute; keep the existing evidence and retry in another minute.'
+        );
+    }
     const baseline = join(temporary, 'matcher.rs');
     const revision = execFileSync('git', ['rev-parse', reference], {
         cwd: root,
@@ -73,13 +93,14 @@ try {
             ].join('\t')
         );
     });
-    const prefix = join(root, 'docs/backend/benchmarks', `duplicate-matching-${platform}`);
+    mkdirSync(outputDirectory, { recursive: true });
     writeFileSync(`${prefix}-before.tsv`, before);
     writeFileSync(`${prefix}-after.tsv`, after);
     writeFileSync(
         `${prefix}-metadata.json`,
         JSON.stringify(
             {
+                startedAt: startedAt.toISOString(),
                 measuredAt: new Date().toISOString(),
                 baselineRevision: revision,
                 platform,

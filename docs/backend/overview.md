@@ -68,9 +68,11 @@ src-tauri/src/
 └── main.rs
 ```
 
-A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](worker-module-organization.md).
+A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](workers/2026-11-04-22-16-worker-module-organization.md).
 
-A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](worker-tool-availability.md).
+A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](workers/2026-11-04-22-16-worker-tool-availability.md).
+
+O ciclo de padronização dos workers está concluído e validado pelo usuário em Windows/macOS. O [encerramento](workers/2026-11-04-22-16-workers-closure.md) reúne o aceite, os limites e o índice dos documentos. As [evoluções técnicas futuras](workers/2026-11-04-22-16-workers-future-evolutions.md) são propostas separadas; matching incremental foi adiado e benchmarks ponta a ponta adicionais foram dispensados para este encerramento.
 
 ## Architeture details
 
@@ -376,5 +378,5 @@ Responsável por manter a biblioteca sincronizada com as mudanças no disco em t
 
 Atores em background que processam tarefas intensivas de CPU e I/O.
 
-*   **`thumbnail_worker.rs`**: Gerencia a fila de geração de thumbnails, respeitando as prioridades de visibilidade enviadas pelo frontend.
-*   **`color_worker.rs`**: Extrai informações cromáticas dos assets de forma assíncrona, permitindo que a busca por cores funcione sem atrasar a indexação inicial.
+*   **`thumbnails/mod.rs`**: Gerencia a fila de geração de thumbnails, respeitando as prioridades de visibilidade enviadas pelo frontend.
+*   **`colors/mod.rs`**: Extrai informações cromáticas dos assets de forma assíncrona, permitindo que a busca por cores funcione sem atrasar a indexação inicial.

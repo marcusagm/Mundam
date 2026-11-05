@@ -126,4 +126,4 @@ Contratos relacionados ficam em pastas de domínio no `core`, por exemplo `core/
 
 No adaptador SQLite, fachadas de repositório delegam consultas a `infra/database/query_handlers/` e mutações a `infra/database/handlers/`. Agrupe responsabilidades extensas em subpastas como `matching/` e `processing/`. Uma consulta read-only não cria configurações padrão nem altera hierarquias. Leituras de validação dentro de uma transação de escrita permanecem no handler responsável por essa transação. Predicados compartilhados de elegibilidade ficam junto da fachada, evitando políticas divergentes entre contagem e admissão.
 
-Ao mover módulos, atualize imports, testes, recursos incluídos e links da documentação. A revisão atual da estrutura e dos limites do plano está em [Organização dos módulos](../../../backend/worker-module-organization.md).
+Ao mover módulos, atualize imports, testes, recursos incluídos e links da documentação. A revisão atual da estrutura e dos limites do plano está em [Organização dos módulos](../../../backend/workers/2026-11-04-22-16-worker-module-organization.md).

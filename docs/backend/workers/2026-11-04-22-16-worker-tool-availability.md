@@ -1,6 +1,9 @@
 # Disponibilidade de ferramentas dos workers
 
-Esta entrega distingue falha do arquivo de indisponibilidade temporária de **FFmpeg, FFprobe e Assimp**. O [benchmark de matching](worker-progress-matching-performance.md), agora com resultados Windows e macOS fornecidos pelo usuário, mantém o matching incremental persistente condicionado a medições de carga real. A matemática e os critérios de agrupamento não mudam nesta entrega.
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
+Esta entrega distingue falha do arquivo de indisponibilidade temporária de **FFmpeg, FFprobe e Assimp**. O [benchmark de matching](2026-11-04-22-16-worker-progress-matching-performance.md), agora com resultados Windows e macOS fornecidos pelo usuário, preserva as medições históricas; matching incremental persistente foi adiado pelo usuário no encerramento. A matemática e os critérios de agrupamento não mudam nesta entrega.
 
 ## Comportamento
 
@@ -14,18 +17,18 @@ O loop de manutenção verifica no início e a cada 60 segundos. A statusbar per
 
 ## Contratos e organização
 
-- [`core/processing/tools.rs`](../../src-tauri/src/core/processing/tools.rs): inventário finito, fatos seguros e port do probe.
-- [`feature/processing/tools.rs`](../../src-tauri/src/feature/processing/tools.rs): coordenação e coalescência dos lotes.
-- [`processing/transcoding/binaries.rs`](../../src-tauri/src/processing/transcoding/binaries.rs): descoberta e probe técnico. A descoberta consulta recursos/PATH sem subprocessos, com cache positivo e negativo de 60 segundos, limitado a 32 contextos. O probe invalida a descoberta anterior. Falhas tipadas de lançamento invalidam o cache.
-- [`processing/workers/tools/mod.rs`](../../src-tauri/src/processing/workers/tools/mod.rs): manutenção registrada no lifecycle; não é uma quarta linha de worker controlável.
-- [`processing_tool_health`](../../src-tauri/migrations/20261104030000_processing_tool_health.sql): três fatos persistidos, com horário e revisão. Leituras ficam em `query_handlers/processing/tools.rs` e mutações em `handlers/processing/tools.rs`.
-- [`check_processing_tools`](../../src-tauri/src/delivery/tauri/processing.rs): comando sem argumentos que retorna o snapshot global ordenado. Permitido às janelas da biblioteca e negado ao splashscreen.
+- [`core/processing/tools.rs`](../../../src-tauri/src/core/processing/tools.rs): inventário finito, fatos seguros e port do probe.
+- [`feature/processing/tools.rs`](../../../src-tauri/src/feature/processing/tools.rs): coordenação e coalescência dos lotes.
+- [`processing/transcoding/binaries.rs`](../../../src-tauri/src/processing/transcoding/binaries.rs): descoberta e probe técnico. A descoberta consulta recursos/PATH sem subprocessos, com cache positivo e negativo de 60 segundos, limitado a 32 contextos. O probe invalida a descoberta anterior. Falhas tipadas de lançamento invalidam o cache.
+- [`processing/workers/tools/mod.rs`](../../../src-tauri/src/processing/workers/tools/mod.rs): manutenção registrada no lifecycle; não é uma quarta linha de worker controlável.
+- [`processing_tool_health`](../../../src-tauri/migrations/20261104030000_processing_tool_health.sql): três fatos persistidos, com horário e revisão. Leituras ficam em `query_handlers/processing/tools.rs` e mutações em `handlers/processing/tools.rs`.
+- [`check_processing_tools`](../../../src-tauri/src/delivery/tauri/processing.rs): comando sem argumentos que retorna o snapshot global ordenado. Permitido às janelas da biblioteca e negado ao splashscreen.
 
 Uma falha de extração só altera a disponibilidade dentro da transação que aceita seu ticket vigente. Probes capturam revisões antes de iniciar e publicam por comparação de revisão: uma resposta antiga não sobrescreve uma falha mais recente. Tickets expirados ou substituídos não alteram a saúde da ferramenta.
 
 O snapshot global acrescenta `tools` e a contagem `blocked` por worker. Diagnósticos agrupados também distinguem `blocked`. A interface mostra ferramentas opcionais indisponíveis sem declarar todo o processamento problemático; o indicador recebe atenção quando existe trabalho bloqueado. Falhas de comunicação aparecem inline, sem toast ou invalidação de listas, árvores e badges.
 
-O viewport recebe `blocked` no read model compartilhado de thumbnails e mostra um ícone explicado, mantendo o polling em lote. O ícone fica estável enquanto aguarda; após recuperação, o estado volta a `pending` e depois ao resultado publicado. Thumbnails legitimamente pendentes conservam seu loader. A [implementação do hook](../../src/components/features/viewport/assets/useThumbnail.ts) contém a apresentação, mantendo `Thumbnail.tsx` como componente visual.
+O viewport recebe `blocked` no read model compartilhado de thumbnails e mostra um ícone explicado, mantendo o polling em lote. O ícone fica estável enquanto aguarda; após recuperação, o estado volta a `pending` e depois ao resultado publicado. Thumbnails legitimamente pendentes conservam seu loader. A [implementação do hook](../../../src/components/features/viewport/assets/useThumbnail.ts) contém a apresentação, mantendo `Thumbnail.tsx` como componente visual.
 
 ## Limites
 
@@ -52,4 +55,4 @@ npm run build -- --configLoader native
 node scripts/audit-source-files.mjs --strict
 ```
 
-O nome do executável de testes depende do build; o script Windows localiza o binário e incorpora o manifesto necessário antes de executá-lo. A execução visual nativa desta entrega no Windows/macOS permanece uma validação posterior à suíte automatizada. O documento histórico `05-job-scheduler-workers.md` permanece inalterado.
+O nome do executável de testes depende do build; o script Windows localiza o binário e incorpora o manifesto necessário antes de executá-lo. Posteriormente, o usuário confirmou a validação funcional desta entrega no Windows/macOS. Também confirmou bom desempenho em bibliotecas representativas, sem executar benchmarks ponta a ponta e dispensando-os para o aceite. O documento histórico `05-job-scheduler-workers.md` permanece inalterado.

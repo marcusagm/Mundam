@@ -1,5 +1,8 @@
 # Integração dos workers com a interface
 
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+
+
 **Revisão:** 4 de novembro de 2026.
 
 Esta etapa revisa configurações, duplicados e statusbar após a unificação dos fingerprints e a publicação transacional com reservas persistentes. Os contratos IPC dos workers continuam compatíveis; as reservas são um mecanismo interno de execução.
@@ -18,7 +21,7 @@ Esta etapa revisa configurações, duplicados e statusbar após a unificação d
 
 ## Fonte de estado e ações
 
-[`useDuplicateScan`](../../src/components/features/duplicates/hooks/useDuplicateScan.ts) consome o mesmo `ProcessingClient` utilizado pela statusbar. Configurações, regras e finder não criam novos loops de polling. A admissão local é compartilhada entre componentes; o backend conserva a validação definitiva contra concorrência e pausa.
+[`useDuplicateScan`](../../../src/components/features/duplicates/hooks/useDuplicateScan.ts) consome o mesmo `ProcessingClient` utilizado pela statusbar. Configurações, regras e finder não criam novos loops de polling. A admissão local é compartilhada entre componentes; o backend conserva a validação definitiva contra concorrência e pausa.
 
 Exemplo de consumo:
 
@@ -37,22 +40,20 @@ O progresso manual vem somente do snapshot global, alimentado por um canal de ú
 
 Uma confirmação de cancelamento não equivale à saída do executor. A interface mantém “Stopping” até o término e não informa rebuild concluído para uma solicitação cancelada. Falhas de ações explícitas recebem feedback consolidado; falhas de polling permanecem no painel.
 
-## Pendências do plano
+## Estado final da integração
 
-As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-control.md) preservam o planejamento original. A [revisão de organização e pendências](worker-module-organization.md) consolida o estado atual, incluindo propostas opcionais. As entregas posteriores não encerram todos os itens:
+A integração com configurações, Duplicate Finder, viewport e statusbar está concluída. O usuário confirmou a validação funcional da última entrega no Windows e no macOS, além de bom desempenho em bibliotecas representativas. Não foram feitos benchmarks ponta a ponta e o usuário dispensou sua realização para encerrar o ciclo.
 
-| Prioridade sugerida | Próxima entrega | Limite atual |
-| --- | --- | --- |
-| Entregue | Jobs persistidos de comparação de duplicados, com política de regras e recuperação após crash | Implementação posterior descrita em [Comparações persistentes](duplicate-matching-jobs.md), incluindo retomada e publicação por revisão. |
-| Entregue | Repetir falhas por estágio e diagnóstico agrupado de capacidades/extratores | [Retry por worker e diagnóstico](worker-retries-diagnostics.md) adiciona ações explícitas e causas seguras no painel. |
-| Entregue | Concorrência efetiva em tempo de execução e orçamento compartilhado de operações | [Orçamento dos workers](worker-resource-budget.md) limita operações de mídia; threads nativas e percentuais de CPU/I/O não são quotas. |
-| Entregue | Coalescência de progresso manual e otimização do matching orientada por benchmark | [Progresso e custo do matching](worker-progress-matching-performance.md) remove eventos de progresso por asset, prepara variantes uma vez e evita crops sem corroboração. |
-| Evolução condicionada a medições | Matching incremental persistente | O matching continua global; índices de relações e invalidação de anchors exigem política própria para preservar grupos e decisões. Usar medições por fase e cargas representativas para decidir o investimento. |
-| Confirmado pelo usuário | Funcionamento e boa performance em uso no Windows e no macOS | Confirmação recebida em 4 de novembro de 2026 para as entregas anteriores. As medições controladas de carga são registradas separadamente. |
-| Validação de carga | CPU, memória, I/O, espera e IPC em cargas representativas nas duas plataformas | Há benchmark sintético de pares no Windows e no macOS, com resultados equivalentes. Carga ponta a ponta permanece pendente. |
-| Entregue | Suspensão por ferramenta e probes limitados | [Disponibilidade de ferramentas](worker-tool-availability.md) suspende tarefas dependentes sem consumir tentativas, verifica a cada minuto e oferece recheck na statusbar. |
+| Área | Situação |
+| --- | --- |
+| Comparações persistentes e recuperação | Entregues. |
+| Retry por etapa e diagnóstico agrupado | Entregues. |
+| Limites dinâmicos e orçamento compartilhado | Entregues. |
+| Progresso coalescido e otimização medida | Entregues, com benchmarks sintéticos Windows/macOS preservados. |
+| Suspensão por ferramenta e recheck na statusbar | Entregues e validados. |
+| Matching incremental persistente | Adiado por decisão do usuário; comparações permanecem globais. |
 
-Persistência da pausa, separação entre pausa de fundo e prioridade do viewport, identidade por execução do indexer e snapshot físico atômico da origem também permanecem evoluções separadas. A interface atual explica a política suportada: pausa inclui thumbnails visíveis, drena operações admitidas e reinicia com a aplicação.
+O [encerramento](2026-11-04-22-16-workers-closure.md) consolida o aceite e os limites. As [evoluções técnicas](2026-11-04-22-16-workers-future-evolutions.md) ficam em documento próprio e não constituem uma próxima entrega obrigatória.
 
 ## Validação desta revisão
 

@@ -1,5 +1,8 @@
 # Native GoPro RAW Decoder
 
+> Related implementation record. See the [workers closure](2026-11-04-22-16-workers-closure.md) for the accepted scope and the [separate future evolutions](2026-11-04-22-16-workers-future-evolutions.md). Validation statements below retain their original scope.
+
+
 ## Goal
 
 Decode GoPro `.gpr` images on Windows, macOS, and Linux without compiling or linking the GoPro GPR SDK. The application parses the TIFF/DNG container in Rust and uses FlashRaw for VC-5 sensor decoding and RAW development.
