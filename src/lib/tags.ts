@@ -106,9 +106,18 @@ export const tagService = {
         color?: string | null,
         parentId?: string | null,
         orderIndex?: number | null,
-        inheritsColor?: boolean
+        inheritsColor?: boolean,
+        resetColor?: boolean
     ): Promise<void> => {
-        return await invoke('update_tag', { id, name, color, parentId, orderIndex, inheritsColor });
+        return await invoke('update_tag', {
+            id,
+            name,
+            color,
+            parentId,
+            orderIndex,
+            inheritsColor,
+            resetColor
+        });
     },
 
     deleteTag: async (id: string): Promise<void> => {

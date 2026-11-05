@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, Show } from 'solid-js';
+import { Component, createMemo, createSignal } from 'solid-js';
 import {
     ExternalLink,
     FolderOpen,
@@ -17,7 +17,7 @@ import { useLibrary } from '../../../../core/hooks/useLibrary';
 import { useTrashActions } from '../../../../core/hooks/useTrashActions';
 import { useNotification } from '../../../../core/hooks/useNotification';
 import { useFilters } from '../../../../core/hooks/useFilters';
-import { PromptModal } from '../../../ui/Modal/PromptModal';
+import { FolderActionsDialog, FolderDialogTarget } from '../../library/FolderActionsDialog';
 
 /**
  * Interface for Component's Properties of AssetContextMenu.
@@ -48,8 +48,7 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
     const trash = useTrashActions();
     const notify = useNotification();
     const filters = useFilters();
-
-    const [isRenameModalOpen, setIsRenameModalOpen] = createSignal(false);
+    const [moveTarget, setMoveTarget] = createSignal<FolderDialogTarget | null>(null);
 
     /**
      * Obtains the target assets for the context menu.
@@ -204,8 +203,17 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
             });
         }
 
-        // Rename option is only available for single selection
-        if (!isMulti && assets[0].path) {
+        if (!filters.filterTrash)
+            menuItems.push({
+                type: 'item',
+                label: 'Move to Folder',
+                icon: FolderOpen,
+                action: () =>
+                    setMoveTarget({ action: 'moveAssets', assetIds: assets.map(asset => asset.id) })
+            });
+
+        // Rename option is only available for active single selections.
+        if (!isMulti && assets[0].path && !filters.filterTrash) {
             menuItems.push({
                 type: 'separator'
             });
@@ -214,8 +222,11 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
                 label: 'Rename',
                 icon: Edit2,
                 action: () => {
-                    setIsRenameModalOpen(true);
-                    // Do not close the main context menu state fully yet, let the modal overlay take over
+                    setMoveTarget({
+                        action: 'renameAsset',
+                        assetIds: [assets[0].id],
+                        initialName: assets[0].filename.replace(/\.[^/.]+$/, '')
+                    });
                 }
             });
         }
@@ -223,58 +234,16 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
         return menuItems;
     });
 
-    const handleRenameConfirm = async (newName: string) => {
-        const asset = props.asset;
-        if (!asset || !asset.path) return;
-
-        try {
-            // Extrair o diretório do arquivo original e manter a extensão
-            const pathParts = asset.path.split('/');
-            const oldFilename = pathParts.pop() || '';
-            const extensionMatch = oldFilename.match(/\.[^/.]+$/);
-            const extension = extensionMatch ? extensionMatch[0] : '';
-
-            // Garantir que a extensão original seja mantida se o usuário não digitar
-            const finalNewName = newName.endsWith(extension) ? newName : `${newName}${extension}`;
-            const newPath = [...pathParts, finalNewName].join('/');
-
-            // Renomeia o arquivo fisicamente através do nosso próprio backend,
-            // driblando os bloqueios de segurança exagerados da API de Frontend do Tauri V2.
-            // O indexer do backend processará isso como um evento e atualizará o banco de dados via Heuristics.
-            await invokeCommand('rename_file', { oldPath: asset.path, newPath });
-        } catch (error) {
-            console.error('Failed to rename file:', error);
-        }
-        props.onClose();
-    };
-
     return (
         <>
+            <FolderActionsDialog target={moveTarget()} onClose={() => setMoveTarget(null)} />
             <ContextMenu
                 coordinateX={props.coordinateX}
                 coordinateY={props.coordinateY}
                 items={items()}
-                isOpen={props.isOpen && !isRenameModalOpen()}
+                isOpen={props.isOpen && !moveTarget()}
                 onClose={props.onClose}
             />
-
-            <Show when={props.asset}>
-                {asset => (
-                    <PromptModal
-                        isOpen={isRenameModalOpen()}
-                        onClose={() => {
-                            setIsRenameModalOpen(false);
-                            props.onClose();
-                        }}
-                        onConfirm={handleRenameConfirm}
-                        title="Rename Asset"
-                        description="Enter the new name for this file. The extension will be preserved."
-                        initialValue={asset().filename.replace(/\.[^/.]+$/, '')}
-                        placeholder="New filename"
-                        required={true}
-                    />
-                )}
-            </Show>
         </>
     );
 };

@@ -6,6 +6,7 @@
 pub mod duplicates;
 pub mod handlers;
 pub mod ledger;
+mod library_operations;
 pub mod manager;
 pub mod models;
 pub mod processing;

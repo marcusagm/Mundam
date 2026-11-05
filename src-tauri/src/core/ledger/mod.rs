@@ -5,6 +5,7 @@
 //! is atomic, valid, and audited.
 
 pub mod command;
+pub mod library_operation;
 pub mod mock;
 pub mod port;
 

@@ -6,6 +6,8 @@ export interface FolderNode {
     path: string;
     name: string;
     parent_id: string | null;
+    color?: string | null;
+    inherits_color?: boolean;
     is_root: boolean;
 }
 

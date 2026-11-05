@@ -26,9 +26,17 @@ export interface TagDragPayload {
     color?: string | null;
 }
 
+/** An indexed folder dragged as a whole subtree. */
+export interface FolderDragPayload {
+    id: string;
+    name: string;
+    path: string;
+}
+
 export type DragItem =
     | { type: 'ASSET'; payload: AssetDragPayload }
-    | { type: 'TAG'; payload: TagDragPayload };
+    | { type: 'TAG'; payload: TagDragPayload }
+    | { type: 'FOLDER'; payload: FolderDragPayload };
 
 // --- Strategy Interface ---
 

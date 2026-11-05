@@ -8,6 +8,7 @@
 //! - **`event_handler`**: Real-time filesystem event processing (add, rename, delete, move recovery).
 //! - **`classifier`**: Pure file classification logic for the fan-out producer pipeline.
 
+pub mod operations;
 pub mod classifier;
 pub mod event_handler;
 pub mod indexer;

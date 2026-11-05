@@ -1,6 +1,5 @@
 use crate::core::error::AppResult;
 use crate::core::models::Folder;
-use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 
 /// Lists folders in the database.
@@ -19,18 +18,11 @@ pub async fn list_folders(
     parent_id: Option<String>,
 ) -> AppResult<Vec<crate::core::models::Folder>> {
     let rows = if let Some(parent) = parent_id {
-        sqlx::query_as!(
-            crate::infra::database::models::FolderDb,
-            r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders WHERE parent_id = ?"#,
-            parent
-        )
+        sqlx::query_as::<_, crate::infra::database::models::FolderDb>("SELECT color, inherits_color, id, parent_id, name, path, created_at, updated_at FROM folders WHERE parent_id = ?").bind(parent)
         .fetch_all(pool)
         .await?
     } else {
-        sqlx::query_as!(
-            crate::infra::database::models::FolderDb,
-            r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders WHERE parent_id IS NULL"#
-        )
+        sqlx::query_as::<_, crate::infra::database::models::FolderDb>("SELECT color, inherits_color, id, parent_id, name, path, created_at, updated_at FROM folders WHERE parent_id IS NULL")
         .fetch_all(pool)
         .await?
     };
@@ -53,11 +45,7 @@ pub async fn get_folder_by_id(
     _registry: &crate::core::formats::registry::FormatRegistry,
     id: &str,
 ) -> AppResult<Option<crate::core::models::Folder>> {
-    let row = sqlx::query_as!(
-        crate::infra::database::models::FolderDb,
-        r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders WHERE id = ?"#,
-        id
-    )
+    let row = sqlx::query_as::<_, crate::infra::database::models::FolderDb>("SELECT color, inherits_color, id, parent_id, name, path, created_at, updated_at FROM folders WHERE id = ?").bind(id)
     .fetch_optional(pool)
     .await?;
 
@@ -74,10 +62,7 @@ pub async fn list_all_subfolders(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
 ) -> AppResult<Vec<Folder>> {
-    let rows = sqlx::query_as!(
-        crate::infra::database::models::FolderDb,
-        r#"SELECT id as "id!", parent_id, name as "name!", path as "path!", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>" FROM folders ORDER BY path"#
-    )
+    let rows = sqlx::query_as::<_, crate::infra::database::models::FolderDb>("SELECT color, inherits_color, id, parent_id, name, path, created_at, updated_at FROM folders ORDER BY path")
     .fetch_all(pool)
     .await?;
 

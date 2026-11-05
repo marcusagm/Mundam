@@ -65,6 +65,7 @@ pub async fn handle_import(
             tags_handler::handle_update_tag(
                 transaction,
                 UpdateTagPayload {
+                    reset_color: false,
                     id: tag_id.clone(),
                     name: None,
                     color: entry.color.clone(),

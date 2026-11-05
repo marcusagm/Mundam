@@ -113,6 +113,9 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
 
     /// Executes a command that modifies the state of the asset ledger.
     async fn execute(&self, command: LedgerCommand) -> AppResult<Asset> {
+        if let LedgerCommand::LibraryOperation(operation) = command {
+            return super::library_operations::execute(&self.pool, self.event_bus.as_ref(), &self.path_guard, &self.app_data_directory, operation).await;
+        }
         let mut tx = self.pool.begin().await?;
 
         // 1. Resolve and expand commands (Handle Batch expansion but NOT BatchCreate)
@@ -383,6 +386,7 @@ impl SqliteAssetLedger {
         };
 
         match command {
+            LedgerCommand::LibraryOperation(_) => Err(AppError::ValidationFailed("Managed operations cannot be nested in batches".into())),
             LedgerCommand::CreateAsset(payload) => asset_handler::handle_create(tx, payload).await,
             LedgerCommand::BatchCreate(payloads) => {
                 asset_handler::handle_batch_create(tx, payloads).await

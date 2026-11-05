@@ -36,6 +36,7 @@ fn update(
     parent_id: Option<&str>,
 ) -> UpdateTagPayload {
     UpdateTagPayload {
+        reset_color: false,
         id: id.into(),
         name: None,
         color: color.map(str::to_string),
@@ -50,6 +51,24 @@ async fn color(pool: &SqlitePool, name: &str) -> AppResult<Option<String>> {
         .bind(name)
         .fetch_one(pool)
         .await?)
+}
+
+#[tokio::test]
+async fn resetting_custom_color_clears_it_without_enabling_parent_inheritance() -> AppResult<()> {
+    let pool = database().await?;
+    sqlx::query("INSERT INTO tags (id, name, color, inherits_color) VALUES ('parent', 'Parent', '#112233', 0)").execute(&pool).await?;
+    sqlx::query("INSERT INTO tags (id, name, color, parent_id, inherits_color) VALUES ('child', 'Child', '#445566', 'parent', 0)").execute(&pool).await?;
+    let mut payload = update("child", None, None, None);
+    payload.reset_color = true;
+    let mut transaction = pool.begin().await?;
+    handle_update_tag(&mut transaction, payload).await?;
+    transaction.commit().await?;
+    assert_eq!(color(&pool, "Child").await?, None);
+    let inherits: bool = sqlx::query_scalar("SELECT inherits_color FROM tags WHERE id = 'child'")
+        .fetch_one(&pool)
+        .await?;
+    assert!(!inherits);
+    Ok(())
 }
 
 #[tokio::test]

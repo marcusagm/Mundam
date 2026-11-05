@@ -1,3 +1,4 @@
+import { executeLibraryOperation } from '../store/library/folderActions';
 import { createMemo } from 'solid-js';
 import { libraryState, libraryActions } from '../store/library';
 
@@ -33,6 +34,7 @@ export const useLibrary = () => {
         restoreFromTrashAssets: libraryActions.restoreFromTrashAssets,
         updateThumbnail: libraryActions.updateThumbnail,
         setThumbnailPriority: libraryActions.setThumbnailPriority,
+        executeOperation: executeLibraryOperation,
         addLocation: libraryActions.addLocation,
         removeLocation: libraryActions.removeLocation
     };

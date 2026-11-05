@@ -159,6 +159,9 @@ pub struct CreateTagPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTagPayload {
+    /// Clear the custom color without enabling inheritance.
+    #[serde(default)]
+    pub reset_color: bool,
     /// Whether this tag follows its parent color, overriding a custom color.
     pub inherits_color: Option<bool>,
     /// The unique identifier of the tag to update.
@@ -213,6 +216,8 @@ pub struct DeleteSmartFolderPayload {
 /// validating these commands against the current state before applying them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LedgerCommand {
+    /// Coordinate filesystem edits with a library transaction.
+    LibraryOperation(super::library_operation::LibraryOperation),
     /// Register a new asset in the system.
     CreateAsset(CreateAssetPayload),
     /// Register multiple assets in a single atomic transaction.

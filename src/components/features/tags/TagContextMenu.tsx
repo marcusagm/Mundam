@@ -1,6 +1,6 @@
 import { Component, createMemo } from 'solid-js';
-import { Plus, Pencil, Palette, Trash2, Check } from 'lucide-solid';
-import { ContextMenu, ContextMenuItem } from '../../ui/ContextMenu';
+import { Plus, Pencil, Palette, Trash2 } from 'lucide-solid';
+import { ContextMenu, ContextMenuItem, ContextMenuCheckboxItem } from '../../ui/ContextMenu';
 import { TreeNode } from '../../ui/TreeView';
 import { ColorPicker } from '../../ui/ColorPicker';
 import { useMetadata } from '../../../core/hooks';
@@ -44,12 +44,24 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
         const inheritanceItems: ContextMenuItem[] = tag?.parent_id
             ? [
                   {
-                      type: 'item',
-                      label: 'Use Parent Color',
-                      icon: tag.inherits_color ? Check : Palette,
-                      action: () => {
-                          void metadata.updateTag(tag.id, null, null, undefined, undefined, true);
-                      }
+                      type: 'custom',
+                      content: (
+                          <ContextMenuCheckboxItem
+                              label="Use Parent Color"
+                              checked={tag.inherits_color ?? true}
+                              onCheckedChange={checked => {
+                                  void metadata.updateTag(
+                                      tag.id,
+                                      null,
+                                      tag.color,
+                                      undefined,
+                                      undefined,
+                                      checked
+                                  );
+                              }}
+                              onClose={properties.onClose}
+                          />
+                      )
                   }
               ]
             : [];
@@ -85,6 +97,26 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
                     }
                 ]
             },
+            ...(!tag?.inherits_color && tag?.color
+                ? [
+                      {
+                          type: 'item' as const,
+                          label: 'Reset Color',
+                          icon: Palette,
+                          action: () => {
+                              void metadata.updateTag(
+                                  tag.id,
+                                  null,
+                                  null,
+                                  undefined,
+                                  undefined,
+                                  false,
+                                  true
+                              );
+                          }
+                      }
+                  ]
+                : []),
             { type: 'separator' },
             {
                 type: 'item',

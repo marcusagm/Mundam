@@ -504,24 +504,10 @@ pub async fn handle_update_asset(
         .ok_or_else(|| AppError::ValidationFailed("Invalid new file path".to_string()))?;
     let new_path_str = payload.new_path.to_string_lossy().to_string();
 
-    info!(
-        "Ledger: UpdateAsset safety DELETE checking for '{}' (collision prevention)",
-        new_path_str
-    );
-    let delete_result = sqlx::query!(
-        "DELETE FROM assets WHERE path = ? AND id != ?",
-        new_path_str,
-        asset_id
-    )
-    .execute(&mut **transaction)
-    .await?;
-
-    if delete_result.rows_affected() > 0 {
-        info!(
-            "Ledger: UpdateAsset collision DETECTED. Pruned {} record(s) for '{}'",
-            delete_result.rows_affected(),
-            new_path_str
-        );
+    let collision: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assets WHERE path = ? AND id != ?")
+        .bind(&new_path_str).bind(&asset_id).fetch_one(&mut **transaction).await?;
+    if collision > 0 {
+        return Err(AppError::ValidationFailed("Destination already belongs to another asset".into()));
     }
 
     info!(

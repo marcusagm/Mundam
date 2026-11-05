@@ -38,7 +38,8 @@
       "allow": [{ "path": "**" }]
     },
     "allow-copy-files-to-clipboard",
-    "allow-rename-file",
+    "allow-library-operation",
+    "allow-folder-recovery-directory",
     "allow-toggle-favorite",
     "allow-move-to-trash",
     "allow-restore-from-trash",

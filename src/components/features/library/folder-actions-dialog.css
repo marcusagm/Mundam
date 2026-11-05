@@ -1,0 +1,24 @@
+.folder-actions-form,
+.folder-actions-form label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-s);
+}
+
+.folder-actions-form {
+    gap: var(--p-space-m);
+}
+
+.folder-destination-tree {
+    max-height: calc(var(--p-space-4xl) * 4);
+    overflow: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-m);
+    background: var(--bg-surface-1);
+}
+
+.folder-actions-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--p-space-s);
+}

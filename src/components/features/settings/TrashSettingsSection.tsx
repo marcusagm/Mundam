@@ -4,6 +4,7 @@ import { Select } from '../../ui/Select';
 import { useNotification, useMetadata } from '../../../core/hooks';
 import { invokeCommand } from '../../../lib/api';
 import { TrashEmptyModal } from './TrashEmptyModal';
+import { openPath } from '@tauri-apps/plugin-opener';
 
 /**
  * Self-contained settings section for Trash management.
@@ -16,6 +17,8 @@ import { TrashEmptyModal } from './TrashEmptyModal';
 export const TrashSettingsSection: Component = () => {
     const notification = useNotification();
     const metadata = useMetadata();
+
+    const [isOpeningRecovery, setIsOpeningRecovery] = createSignal(false);
 
     const [isTrashModalOpen, setIsTrashModalOpen] = createSignal(false);
     const [trashAutoEmptyEnabled, setTrashAutoEmptyEnabled] = createSignal(false);
@@ -31,6 +34,19 @@ export const TrashSettingsSection: Component = () => {
         if (autoEmptyEnabledValue === 'true') setTrashAutoEmptyEnabled(true);
         if (autoEmptyDaysValue) setTrashAutoEmptyDays(Number(autoEmptyDaysValue));
     });
+
+    /** Exposes storage only from the advanced recovery settings action. */
+    const handleOpenRecovery = async (): Promise<void> => {
+        if (isOpeningRecovery()) return;
+        setIsOpeningRecovery(true);
+        try {
+            await openPath(await invokeCommand<string>('folder_recovery_directory'));
+        } catch {
+            notification.error('Could not open folder recovery');
+        } finally {
+            setIsOpeningRecovery(false);
+        }
+    };
 
     const handleOpenTrashModal = () => {
         setIsTrashModalOpen(true);
@@ -110,6 +126,19 @@ export const TrashSettingsSection: Component = () => {
                 >
                     Empty Trash ({metadata.stats.trash_assets || 0})
                 </Button>
+            </div>
+            <div class="setting-action-row">
+                <Button
+                    variant="secondary"
+                    disabled={isOpeningRecovery()}
+                    onClick={handleOpenRecovery}
+                >
+                    Open Folder Recovery
+                </Button>
+                <p class="setting-note">
+                    Advanced access to deleted folders. Manually changing these files can prevent
+                    Undo. Folder recovery is separate from asset trash auto-empty.
+                </p>
             </div>
             <TrashEmptyModal
                 isOpen={isTrashModalOpen()}

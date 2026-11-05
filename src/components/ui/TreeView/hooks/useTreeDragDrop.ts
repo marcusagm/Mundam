@@ -1,6 +1,7 @@
 import { createSignal, createMemo } from 'solid-js';
 import { currentDragItem, setDragItem, DragItem } from '../../../../core/dnd';
 import { TreeNode, TreeDropPosition } from '../types';
+import { createTreeDragItem } from '../utils/createTreeDragItem';
 
 /**
  * Options for configuring the drag-and-drop behavior for a tree node.
@@ -14,6 +15,10 @@ interface TreeDragDropOptions {
     isEditing: () => boolean;
     /** Accessor function that returns the specific drag type identifier for this tree (e.g., 'TAG'). */
     dragType: () => string | undefined;
+    /** Nesting-only trees do not display sibling reorder indicators. */
+    dropMode?: () => 'inside' | 'reorder' | undefined;
+    /** Cursor feedback for the operation performed by the destination. */
+    dropEffect?: () => 'move' | 'copy' | undefined;
     /** Accessor function that returns the list of external drag types this node accepts. */
     acceptedDragTypes: () => string[] | undefined;
     /** Function to perform custom business logic validation for a specific drop operation. */
@@ -109,41 +114,17 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
     const handleDragStart = (event: DragEvent) => {
         const selfDragType = dragDropOptions.dragType();
         if (!dragDropOptions.isEnabled() || dragDropOptions.isEditing() || !selfDragType) {
+            event.preventDefault();
             return;
         }
 
         event.stopPropagation();
         if (event.dataTransfer) {
-            const node = dragDropOptions.node();
-            /**
-             * Minimal interface for data properties we expect to find in tree nodes.
-             */
-            interface TreeData {
-                path?: string;
-                parent_id?: number | null;
+            const currentDragData = createTreeDragItem(selfDragType, dragDropOptions.node());
+            if (!currentDragData) {
+                event.preventDefault();
+                return;
             }
-            const nodeData = node.data as TreeData;
-
-            const currentDragData: DragItem =
-                selfDragType === 'TAG'
-                    ? {
-                          type: 'TAG',
-                          payload: {
-                              id: String(node.id),
-                              name: node.label,
-                              parent_id: nodeData?.parent_id
-                          }
-                      }
-                    : {
-                          type: 'ASSET',
-                          // This case is rare for tree, but we follow the union
-                          payload: {
-                              id: String(node.id),
-                              ids: [String(node.id)],
-                              filename: node.label,
-                              path: nodeData?.path || ''
-                          }
-                      };
 
             setDragItem(currentDragData);
             event.dataTransfer.effectAllowed = 'all';
@@ -170,7 +151,11 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
     const handleDragOver = (event: DragEvent) => {
         event.preventDefault();
 
-        if (!dragDropOptions.isEnabled() || !validationStatus().isValid) {
+        const acceptsExternalDrops = (dragDropOptions.acceptedDragTypes()?.length ?? 0) > 0;
+        if (
+            (!dragDropOptions.isEnabled() && !acceptsExternalDrops) ||
+            !validationStatus().isValid
+        ) {
             if (event.dataTransfer) {
                 event.dataTransfer.dropEffect = 'none';
             }
@@ -190,7 +175,7 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
         const isSiblingDragMatch = draggingItem?.type === selfDragType;
 
         // Position indicators ('before'/'after') only for sibling moves
-        if (isSiblingDragMatch) {
+        if (isSiblingDragMatch && dragDropOptions.dropMode?.() !== 'inside') {
             if (mouseYPosition < edgeThresholdDistance) {
                 calculatedDropPosition = 'before';
             } else if (mouseYPosition > totalElementHeight - edgeThresholdDistance) {
@@ -200,7 +185,8 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
 
         setDropPosition(calculatedDropPosition);
         if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = isSiblingDragMatch ? 'move' : 'copy';
+            event.dataTransfer.dropEffect =
+                dragDropOptions.dropEffect?.() ?? (isSiblingDragMatch ? 'move' : 'copy');
         }
         event.stopPropagation();
     };

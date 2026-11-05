@@ -71,11 +71,15 @@
 
 ## Folders
 
-- [ ] Criar nova subpasta
-- [ ] Renomear pasta
-- [ ] Mover pasta
-- [ ] Excluir pasta
-- [ ] Permitir que o usuário defina uma cor para a pasta a ser exibida pelo sistema.
+- [x] Criar nova subpasta
+- [x] Renomear pasta
+- [x] Mover pasta
+- [x] Excluir pasta com possibilidade de desfazer
+- [x] Mover assets entre pastas
+- [x] Revisar operações como rename de assets, pois ao tentar renomear um asset pelo mundam o arquivo foi removido fisicamente e perdido.
+- [x] Permitir que o usuário defina uma cor para a pasta a ser exibida pelo sistema.
+  - [x] Cor personalizada por pasta
+  - [x] Usar mesma cor da pasta pai
 
 ## Listagem
 

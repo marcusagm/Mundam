@@ -353,9 +353,9 @@ description = "Enables copy_files_to_clipboard"
 commands.allow = ["copy_files_to_clipboard"]
 
 [[permission]]
-identifier = "allow-rename-file"
-description = "Enables rename_file"
-commands.allow = ["rename_file"]
+identifier = "allow-library-operation"
+description = "Enables validated library file and folder operations"
+commands.allow = ["library_operation"]
 
 [[permission]]
 identifier = "allow-toggle-favorite"
@@ -441,3 +441,8 @@ commands.allow = ["retry_processing_worker"]
 identifier = "allow-check-processing-tools"
 description = "Allows bounded extraction tool checks from library windows."
 commands.allow = ["check_processing_tools"]
+
+[[permission]]
+identifier = "allow-folder-recovery-directory"
+description = "Enables explicit access to folder recovery from settings"
+commands.allow = ["folder_recovery_directory"]

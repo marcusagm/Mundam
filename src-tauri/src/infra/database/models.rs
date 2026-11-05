@@ -255,6 +255,10 @@ impl From<AssetSummaryDb> for crate::core::models::AssetSummaryDto {
 /// Database model for folders.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct FolderDb {
+    /// Explicit icon color, absent for the default appearance.
+    pub color: Option<String>,
+    /// Resolve the ancestor color when enabled.
+    pub inherits_color: bool,
     pub id: String,
     pub parent_id: Option<String>,
     pub name: String,
@@ -266,6 +270,8 @@ pub struct FolderDb {
 impl From<FolderDb> for crate::core::models::asset::Folder {
     fn from(row: FolderDb) -> Self {
         Self {
+            color: row.color,
+            inherits_color: row.inherits_color,
             id: row.id,
             parent_id: row.parent_id,
             name: row.name,

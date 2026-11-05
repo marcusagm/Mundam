@@ -25,7 +25,12 @@ pub struct LedgerPathGuard {
 }
 
 fn normalized_key(path: &Path) -> String {
-    path.to_string_lossy().nfc().collect()
+    let normalized: String = path.to_string_lossy().nfc().collect();
+    if cfg!(windows) {
+        normalized.replace('/', "\\").to_lowercase()
+    } else {
+        normalized
+    }
 }
 
 impl LedgerPathGuard {
@@ -36,16 +41,19 @@ impl LedgerPathGuard {
 
     /// Registers (or refreshes) a path as being modified by the application.
     pub fn mark(&self, path: &Path) {
-        self.entries.retain(|_, marked_at| marked_at.elapsed() < SUPPRESSION_WINDOW);
+        self.entries
+            .retain(|_, marked_at| marked_at.elapsed() < SUPPRESSION_WINDOW);
         self.entries.insert(normalized_key(path), Instant::now());
     }
 
     /// Returns `true` if the path was registered within the suppression window.
     pub fn is_marked(&self, path: &Path) -> bool {
-        self.entries
-            .get(&normalized_key(path))
-            .map(|marked_at| marked_at.elapsed() < SUPPRESSION_WINDOW)
-            .unwrap_or(false)
+        path.ancestors().any(|ancestor| {
+            self.entries
+                .get(&normalized_key(ancestor))
+                .map(|marked_at| marked_at.elapsed() < SUPPRESSION_WINDOW)
+                .unwrap_or(false)
+        })
     }
 }
 

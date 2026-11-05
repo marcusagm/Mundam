@@ -115,7 +115,8 @@ export const TreeView: Component<TreeViewProps<unknown>> = props => {
             if (event.dataTransfer) {
                 // If it's the tree's own type, it's a move (reorder), otherwise it's a copy (assignment)
                 event.dataTransfer.dropEffect =
-                    activeDragSource.type === localProperties.dragType ? 'move' : 'copy';
+                    props.dropEffect ??
+                    (activeDragSource.type === localProperties.dragType ? 'move' : 'copy');
             }
         }
     };

@@ -156,6 +156,8 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
         isEnabled: () => props.draggable ?? false,
         isEditing,
         dragType: () => props.dragType,
+        dropMode: () => props.dropMode,
+        dropEffect: () => props.dropEffect,
         acceptedDragTypes: () => props.acceptedDragTypes,
         isValidDrop: (dragged: DragItem, target: TreeNode<unknown>) =>
             props.isValidDrop?.(dragged, target) ?? true,
@@ -223,7 +225,8 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
                             event.stopPropagation();
                             if (event.dataTransfer) {
                                 event.dataTransfer.dropEffect =
-                                    dragging.type === props.dragType ? 'move' : 'copy';
+                                    props.dropEffect ??
+                                    (dragging.type === props.dragType ? 'move' : 'copy');
                             }
                         }
                     }}
@@ -237,7 +240,12 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
                         const rawJsonData = event.dataTransfer?.getData('application/json');
                         if (rawJsonData && props.onDrop) {
                             const droppedItem: DragItem = JSON.parse(rawJsonData);
-                            props.onDrop(droppedItem, props.node.id, 'inside');
+                            if (
+                                (props.acceptedDragTypes?.includes(droppedItem.type) ?? true) &&
+                                (props.isValidDrop?.(droppedItem, props.node) ?? true)
+                            ) {
+                                props.onDrop(droppedItem, props.node.id, 'inside');
+                            }
                         }
                     }}
                 >

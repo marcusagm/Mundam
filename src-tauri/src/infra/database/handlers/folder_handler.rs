@@ -153,59 +153,67 @@ pub async fn handle_rename_folder(
     tx: &mut Transaction<'_, Sqlite>,
     payload: RenameFolderPayload,
 ) -> AppResult<Asset> {
-    let old_path_str = payload.old_path.to_string_lossy().to_string();
-    let new_path_str = payload.new_path.to_string_lossy().to_string();
     let now = Utc::now();
 
-    // 1. Update the target folder name and path
     let folder_name = payload
         .new_path
         .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("Unknown")
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::ValidationFailed("Invalid folder name".into()))?
         .to_string();
-
-    sqlx::query!(
-        "UPDATE folders SET name = ?, path = ?, updated_at = ? WHERE id = ?",
-        folder_name,
-        new_path_str,
-        now,
-        payload.folder_id
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    // 2. Recursively update all subfolder paths
-    sqlx::query!(
-        r#"
-        UPDATE folders 
-        SET path = ? || SUBSTR(path, LENGTH(?) + 1),
-            updated_at = ?
-        WHERE path LIKE ? || '/%'
-        "#,
-        new_path_str,
-        old_path_str,
-        now,
-        old_path_str
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    // 3. Recursively update all asset paths
-    sqlx::query!(
-        r#"
-        UPDATE assets 
-        SET path = ? || SUBSTR(path, LENGTH(?) + 1),
-            updated_at = ?
-        WHERE path LIKE ? || '%'
-        "#,
-        new_path_str,
-        old_path_str,
-        now,
-        old_path_str
-    )
-    .execute(&mut **tx)
-    .await?;
+    let parent_path = payload
+        .new_path
+        .parent()
+        .map(|path| path.to_string_lossy().to_string());
+    let parent_id: Option<String> =
+        sqlx::query_scalar("SELECT id FROM folders WHERE path = ? COLLATE NOCASE")
+            .bind(parent_path)
+            .fetch_optional(&mut **tx)
+            .await?;
+    let folders: Vec<(String, String)> = sqlx::query_as("WITH RECURSIVE subtree(id, path) AS (SELECT id, path FROM folders WHERE id = ? UNION ALL SELECT folders.id, folders.path FROM folders JOIN subtree ON folders.parent_id = subtree.id) SELECT id, path FROM subtree")
+        .bind(&payload.folder_id).fetch_all(&mut **tx).await?;
+    for (identifier, path) in &folders {
+        let path = std::path::Path::new(path);
+        let relative = path.strip_prefix(&payload.old_path).map_err(|_| {
+            AppError::ValidationFailed("Folder hierarchy does not match its disk path".into())
+        })?;
+        let destination = if relative.as_os_str().is_empty() {
+            payload.new_path.clone()
+        } else {
+            payload.new_path.join(relative)
+        }
+        .to_string_lossy()
+        .to_string();
+        sqlx::query("UPDATE folders SET path = ?, updated_at = ? WHERE id = ?")
+            .bind(destination)
+            .bind(now)
+            .bind(identifier)
+            .execute(&mut **tx)
+            .await?;
+        let assets: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, path FROM assets WHERE folder_id = ?")
+                .bind(identifier)
+                .fetch_all(&mut **tx)
+                .await?;
+        for (asset_id, path) in assets {
+            let path = std::path::Path::new(&path);
+            let relative = path.strip_prefix(&payload.old_path).map_err(|_| {
+                AppError::ValidationFailed("Asset path does not match its folder".into())
+            })?;
+            sqlx::query("UPDATE assets SET path = ?, updated_at = ? WHERE id = ?")
+                .bind(payload.new_path.join(relative).to_string_lossy().as_ref())
+                .bind(now)
+                .bind(asset_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+    }
+    sqlx::query("UPDATE folders SET name = ?, parent_id = ? WHERE id = ?")
+        .bind(&folder_name)
+        .bind(&parent_id)
+        .bind(&payload.folder_id)
+        .execute(&mut **tx)
+        .await?;
 
     // 4. Audit Log
     shared::log_operation(

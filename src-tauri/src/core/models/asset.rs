@@ -106,6 +106,10 @@ pub struct AssetColor {
 /// A Domain entity representing a recursive folder.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Folder {
+    /// Explicit icon color, absent for the default appearance.
+    pub color: Option<String>,
+    /// Resolve the ancestor color when enabled.
+    pub inherits_color: bool,
     /// Unique identifier (UUID/ULID)
     pub id: String,
     /// ID of the parent folder

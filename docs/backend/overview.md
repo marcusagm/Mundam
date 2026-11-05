@@ -291,6 +291,10 @@ Gerencia a lógica de negócio focada em assets individuais.
 
 ### Library
 
+As operações iniciadas pelo usuário (subpastas, rename, movimento de assets e
+cores) estão descritas em [Operações de arquivos e pastas](library-operations.md),
+incluindo garantias de colisão, compensação de falhas e recuperação de exclusões.
+
 O núcleo de gestão da biblioteca de mídia do Mundam.
 
 *   **`indexer.rs`**: O `LibraryIndexer` é responsável por varrer o sistema de arquivos, detectar novos arquivos ou mudanças, e sincronizar o estado com o Ledger de forma concorrente e resiliente.

@@ -144,9 +144,11 @@ pub async fn update_tag(
     parent_id: Option<String>,
     order_index: Option<i64>,
     inherits_color: Option<bool>,
+    reset_color: Option<bool>,
 ) -> AppResult<()> {
     ledger
         .execute(LedgerCommand::UpdateTag(UpdateTagPayload {
+            reset_color: reset_color.unwrap_or(false),
             inherits_color,
             id,
             name,
@@ -637,15 +639,6 @@ pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
     let _ = &paths;
 
     Ok(())
-}
-
-/// RPC Command to rename a physical file directly.
-/// This bypasses Tauri's frontend FS scope limitations.
-#[tauri::command]
-pub async fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
-    tokio::fs::rename(old_path, new_path)
-        .await
-        .map_err(|e| e.to_string())
 }
 
 /// RPC Command to toggle the favorite status of an asset.

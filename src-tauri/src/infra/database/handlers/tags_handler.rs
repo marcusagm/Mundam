@@ -190,9 +190,13 @@ pub async fn handle_update_tag(
     if let Some(parent_id) = &payload.parent_id {
         super::tag_hierarchy::validate_parent(tx, &payload.id, parent_id).await?;
     }
-    let inheritance = payload
-        .inherits_color
-        .or_else(|| payload.color.as_ref().map(|_| false));
+    let inheritance = if payload.reset_color {
+        Some(false)
+    } else {
+        payload
+            .inherits_color
+            .or_else(|| payload.color.as_ref().map(|_| false))
+    };
     let mut set_clauses = Vec::new();
 
     if inheritance.is_some() {
@@ -201,7 +205,7 @@ pub async fn handle_update_tag(
     if payload.name.is_some() {
         set_clauses.push("name = ?");
     }
-    if payload.color.is_some() {
+    if payload.color.is_some() || payload.reset_color {
         set_clauses.push("color = ?");
     }
     if payload.parent_id.is_some() {
@@ -221,7 +225,9 @@ pub async fn handle_update_tag(
         if let Some(ref tag_name) = payload.name {
             query = query.bind(tag_name);
         }
-        if let Some(ref tag_color) = payload.color {
+        if payload.reset_color {
+            query = query.bind(None::<String>);
+        } else if let Some(ref tag_color) = payload.color {
             query = query.bind(tag_color);
         }
         if let Some(ref parent_tag_id) = payload.parent_id {

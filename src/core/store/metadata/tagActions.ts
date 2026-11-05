@@ -89,7 +89,8 @@ export const tagActions = {
         color?: string | null,
         parentId?: string | null,
         orderIndex?: number | null,
-        inheritsColor?: boolean
+        inheritsColor?: boolean,
+        resetColor?: boolean
     ): Promise<ActionResult> => {
         try {
             const finalName = name === null ? undefined : name;
@@ -103,7 +104,8 @@ export const tagActions = {
                 finalColor,
                 finalParentId,
                 finalOrderIndex,
-                inheritsColor
+                inheritsColor,
+                resetColor
             );
 
             await tagActions.loadTags(true);
