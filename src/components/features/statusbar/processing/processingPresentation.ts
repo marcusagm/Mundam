@@ -19,8 +19,13 @@ export function workerStatus(worker: WorkerSnapshot): string {
         return worker.paused ? 'Pausing — finishing current operation' : 'Processing';
     if (worker.paused) return 'Paused';
     if (!worker.automatic_enabled) return 'Automatic detection off';
+    return workerQueueStatus(worker);
+}
+
+function workerQueueStatus(worker: WorkerSnapshot): string {
     if (workerWaiting(worker)) return 'Waiting for processing';
     if (worker.retry_wait > 0) return 'Waiting to retry';
+    if ((worker.blocked ?? 0) > 0) return 'Waiting for extraction tools';
     if (worker.failed > 0) return 'Idle with failures';
     return 'Idle';
 }
@@ -73,7 +78,11 @@ export function processingIndicator(
         state.snapshot.matching?.failed ||
         state.snapshot.matching?.retry_wait ||
         state.snapshot.workers.some(
-            worker => !worker.online || worker.failed > 0 || worker.retry_wait > 0
+            worker =>
+                !worker.online ||
+                worker.failed > 0 ||
+                worker.retry_wait > 0 ||
+                (worker.blocked ?? 0) > 0
         )
     )
         return 'warning';

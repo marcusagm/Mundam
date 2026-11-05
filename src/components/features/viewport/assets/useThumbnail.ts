@@ -29,6 +29,8 @@ function remember(cache: Set<string>, key: string): void {
 
 function stateLabel(snapshot: ThumbnailProcessingSnapshot | null): string | undefined {
     switch (snapshot?.state) {
+        case 'blocked':
+            return 'Thumbnail generation is waiting for an extraction tool. Check tools in System Activity.';
         case 'failed':
             return 'Thumbnail generation failed. Automatic retries are exhausted.';
         case 'skipped':
@@ -116,9 +118,12 @@ export function useThumbnail(properties: ThumbnailProperties) {
                             setLoaded(false);
                             setImageVersion(version => version + 1);
                         }
-                        if (['failed', 'skipped'].includes(status.state)) setLocalThumbnail(null);
+                        if (['failed', 'skipped', 'blocked'].includes(status.state))
+                            setLocalThumbnail(null);
                         if (
-                            ['failed', 'skipped', 'succeeded', 'unavailable'].includes(status.state)
+                            ['failed', 'skipped', 'blocked', 'succeeded', 'unavailable'].includes(
+                                status.state
+                            )
                         ) {
                             clearPendingRegeneration(identifier);
                         }
@@ -176,7 +181,7 @@ export function useThumbnail(properties: ThumbnailProperties) {
     );
     const fallback = createMemo(() => {
         const status = snapshot()?.state;
-        if (['failed', 'skipped'].includes(status || '')) return true;
+        if (['failed', 'skipped', 'blocked'].includes(status || '')) return true;
         if (localError()) return !waitingForOutput();
         if (output()) return false;
         if (status === 'unavailable') return true;

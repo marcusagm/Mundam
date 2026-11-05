@@ -6,6 +6,7 @@ use sqlx::SqlitePool;
 
 mod counts;
 mod diagnostics;
+pub(crate) mod tools;
 pub(crate) use counts::queue_counts;
 pub(crate) use diagnostics::diagnostics;
 
@@ -26,6 +27,8 @@ pub(crate) async fn thumbnail_statuses(
         "SELECT a.id,
             CASE WHEN NOT ({ACTIVE_ASSET}) THEN 'unavailable'
                  WHEN task.source_stamp IS NOT NULL AND task.source_stamp != ({SOURCE_STAMP}) THEN 'pending'
+                 WHEN {TOOL_WAIT} AND NOT {TOOL_READY} THEN 'blocked'
+                 WHEN {TOOL_WAIT} AND {TOOL_READY} THEN 'pending'
                  WHEN task.state IN ('pending', 'retry_wait', 'failed', 'skipped') THEN task.state
                  WHEN a.thumbnail_path IS NOT NULL AND a.thumbnail_path != '' THEN 'succeeded'
                  ELSE 'pending' END,
@@ -46,6 +49,7 @@ pub(crate) async fn thumbnail_statuses(
                 thumbnail_path,
                 state: match state.as_str() {
                     "retry_wait" => ThumbnailProcessingState::RetryWait,
+                    "blocked" => ThumbnailProcessingState::Blocked,
                     "failed" => ThumbnailProcessingState::Failed,
                     "skipped" => ThumbnailProcessingState::Skipped,
                     "succeeded" => ThumbnailProcessingState::Succeeded,

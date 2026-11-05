@@ -4,7 +4,7 @@ use crate::core::{
     error::AppResult, processing::control::ProcessingQueueCounts, processing::ProcessingKind,
 };
 use crate::infra::database::processing::selection::{
-    dependency, missing_result, ACTIVE_ASSET, SOURCE_STAMP,
+    dependency, missing_result, ACTIVE_ASSET, SOURCE_STAMP, TOOL_READY, TOOL_WAIT,
 };
 use sqlx::SqlitePool;
 
@@ -23,6 +23,8 @@ pub(crate) async fn queue_counts(
                 WHEN task.source_stamp IS NOT NULL AND task.source_stamp != ({SOURCE_STAMP}) THEN 'pending'
                 WHEN task.lease_id IS NOT NULL AND task.lease_expires_at > unixepoch() THEN NULL
                 WHEN task.state IN ('failed', 'skipped') THEN task.state
+                WHEN {TOOL_WAIT} AND NOT {TOOL_READY} THEN 'blocked'
+                WHEN {TOOL_WAIT} AND {TOOL_READY} THEN 'pending'
                 WHEN task.state = 'retry_wait' AND task.next_attempt_at > unixepoch() THEN 'retry_wait'
                 WHEN task.state IN ('pending', 'retry_wait') OR {missing} THEN 'pending'
                 ELSE NULL END AS outcome
@@ -46,6 +48,7 @@ pub(crate) async fn queue_counts(
         let count = count as u64;
         match outcome.as_str() {
             "pending" => counts.pending = count,
+            "blocked" => counts.blocked = count,
             "retry_wait" => counts.retry_wait = count,
             "failed" => counts.failed = count,
             "skipped" => counts.skipped = count,

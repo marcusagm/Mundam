@@ -44,7 +44,7 @@ Imports de código, mocks e testes foram atualizados. A reorganização não alt
 node scripts/audit-source-files.mjs --strict
 ```
 
-O script segue entradas HTML, imports/exports estáticos e dinâmicos, imports de workers do Vite, URLs de workers, CSS e testes. No Rust, percorre módulos da biblioteca/binário e módulos com `#[path]`, incluindo testes condicionais. O [relatório desta revisão](source-file-audit.json) registra 637 arquivos frontend e 348 arquivos Rust, sem candidatos órfãos ou referências não resolvidas no escopo do script. O resultado é uma auditoria conservadora de arquivos, sem afirmar que todos os exports de um arquivo são executados em runtime. Declarações ambientes e quatro fachadas públicas são classificadas separadamente.
+O script segue entradas HTML, imports/exports estáticos e dinâmicos, imports de workers do Vite, URLs de workers, CSS e testes. No Rust, percorre módulos da biblioteca/binário e módulos com `#[path]`, incluindo testes condicionais. O [relatório desta revisão](source-file-audit.json) registra, após a entrega de disponibilidade de ferramentas, 638 arquivos frontend e 355 arquivos Rust, sem candidatos órfãos ou referências não resolvidas no escopo do script. O resultado é uma auditoria conservadora de arquivos, sem afirmar que todos os exports de um arquivo são executados em runtime. Declarações ambientes e quatro fachadas públicas são classificadas separadamente.
 
 Foram removidos oito arquivos frontend sem importadores de aplicação, testes ou ferramentas:
 
@@ -69,11 +69,11 @@ As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-co
 | Correções A01–A08, elegibilidade, tentativas e coordenação | Entregues e cobertas pelas regressões de processamento. |
 | Reservas persistentes, fencing e publicação transacional | Entregues para extrações e comparações. |
 | Snapshot, pausa/retomada, retries, diagnóstico e limites dinâmicos | Entregues; progresso manual foi coalescido e telemetria não invalida listas por asset. |
-| Otimização medida do matching | Entregue parcialmente: variantes preparadas, crop sob corroboração, logs por fase e benchmark sintético no Windows. |
+| Otimização medida do matching | Entregue parcialmente: variantes preparadas, crop sob corroboração, logs por fase e benchmarks sintéticos no Windows e no macOS. |
 | Matching incremental persistente | Ainda não entregue; comparações continuam globais. Depende de uma política de invalidação de relações/anchors que preserve grupos e decisões. |
-| Bloqueio temporário de extratores indisponíveis e probes de capacidade | Ainda não entregue. Existem causas tipadas, resultados sem suporte e retry explícito, sem circuit breaker por ferramenta. |
+| Bloqueio temporário de extratores indisponíveis e probes de capacidade | Entregue posteriormente em [Disponibilidade de ferramentas](worker-tool-availability.md), com suspensão seletiva, probes limitados e recheck na statusbar. |
 | Medição ponta a ponta de CPU, memória, I/O, espera e IPC em carga representativa | Ainda pendente nas duas plataformas. Benchmark sintético de pares não cobre esses custos. |
-| Benchmark controlado no macOS | Pendente; o runner é portátil. O usuário confirmou funcionamento e boa performance das entregas anteriores em Windows/macOS. |
+| Benchmark controlado no macOS | Dados adicionados pelo usuário em [Progresso e custo do matching](worker-progress-matching-performance.md); os 12 cenários preservam resultados. A medição ponta a ponta continua separada. |
 | Identidade de execução do indexer | Continua evolução separada: seu progresso ainda não recebeu o mesmo fencing de run do scan manual de duplicados. |
 | Snapshot físico atômico da origem e versão uniforme por algoritmo/etapa | Ainda não entregues. A origem usa metadados do catálogo e fingerprint mantém sua versão própria. |
 

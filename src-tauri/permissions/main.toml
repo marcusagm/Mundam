@@ -436,3 +436,8 @@ commands.allow = ["rebuild_duplicate_index"]
 identifier = "allow-retry-processing-worker"
 description = "Queues failed or unsupported processing outcomes for library windows"
 commands.allow = ["retry_processing_worker"]
+
+[[permission]]
+identifier = "allow-check-processing-tools"
+description = "Allows bounded extraction tool checks from library windows."
+commands.allow = ["check_processing_tools"]

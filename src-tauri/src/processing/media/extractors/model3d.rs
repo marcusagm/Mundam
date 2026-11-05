@@ -65,10 +65,9 @@ pub async fn convert_to_glb_with_assimp(
     source_path: &std::path::Path,
     asset_id: &str,
 ) -> AppResult<(Vec<u8>, String)> {
-    let tools = crate::processing::transcoding::resolve_transcoding_tools::<tauri::Wry>(None)?;
-    let assimp_binary = tools
-        .assimp
-        .ok_or_else(|| AppError::ToolUnavailable("assimp".into()))?;
+    let assimp_binary = crate::processing::transcoding::require_extraction_tool(
+        crate::core::processing::tools::ExtractionTool::Assimp,
+    )?;
 
     let temporary_directory = std::env::temp_dir().join(format!("mundam_3d_{}", asset_id));
     tokio::fs::create_dir_all(&temporary_directory)
@@ -82,13 +81,16 @@ pub async fn convert_to_glb_with_assimp(
     let asset_id_owned = asset_id.to_string();
 
     let command_output = tokio::task::spawn_blocking(move || {
-        std::process::Command::new(assimp_binary)
+        let mut command = std::process::Command::new(assimp_binary);
+        command
             .arg("export")
             .arg(&source_path_owned)
             .arg(&output_glb_path_clone)
             .arg("-fglb2")
             .output()
-            .map_err(AppError::Io)
+            .map_err(|error| {
+                crate::processing::transcoding::launch_error(command.get_program(), error)
+            })
     })
     .await
     .map_err(|_| AppError::ExtractionProcessTimeout)??;

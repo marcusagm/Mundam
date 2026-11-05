@@ -35,6 +35,46 @@ const state = (): ProcessingClientState => ({
 afterEach(cleanup);
 
 describe('processing statusbar controls', () => {
+    it('separates unavailable optional tools from blocked work and acknowledges checks inline', () => {
+        const initial = state();
+        initial.snapshot!.tools = [{ tool: 'ffmpeg', state: 'unavailable', checked_at: 1 }];
+        expect(processingIndicator(initial, false)).toBe('idle');
+        initial.snapshot!.workers[0].blocked = 2;
+        expect(processingIndicator(initial, false)).toBe('warning');
+        const [current, setCurrent] = createSignal(initial);
+        const check = vi.fn();
+        const view = render(() => (
+            <ProcessingActivityPanel
+                state={current()}
+                indexing={null}
+                onPause={vi.fn()}
+                onCheckTools={check}
+            />
+        ));
+        expect(view.getByText('Waiting for extraction tools')).toBeTruthy();
+        const button = view.getByRole('button', {
+            name: 'Check extraction tools'
+        }) as HTMLButtonElement;
+        fireEvent.click(button);
+        expect(check).toHaveBeenCalledTimes(1);
+        button.focus();
+        setCurrent(previous => ({ ...previous, checkingTools: true }));
+        expect(button.disabled).toBe(true);
+        expect(button.getAttribute('aria-busy')).toBe('true');
+        setCurrent(previous => ({
+            ...previous,
+            checkingTools: false,
+            snapshot: {
+                ...previous.snapshot!,
+                sequence: 2,
+                tools: [{ tool: 'ffmpeg', state: 'available', checked_at: 2 }]
+            }
+        }));
+        expect(button.disabled).toBe(false);
+        expect(view.getByLabelText('Extraction tools').textContent).toContain('Available');
+        expect(view.getByRole('button', { name: 'Check extraction tools' })).toBe(button);
+    });
+
     it('reactively reports effective capacity while a reduced limit drains active operations', () => {
         const initial = state();
         initial.snapshot!.capacity = { limit: 1, active: 3, waiting: 2, thumbnail_limit: 1 };

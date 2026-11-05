@@ -8,6 +8,7 @@ import type {
 } from '../store/processing/types';
 
 const client = new ProcessingClient({
+    checkTools: () => invoke<ProcessingSnapshot>('check_processing_tools'),
     retry: (worker, scope) =>
         invoke<ProcessingRetryAcknowledgement>('retry_processing_worker', { worker, scope }),
     snapshot: () => invoke<ProcessingSnapshot>('get_processing_snapshot'),
@@ -30,6 +31,8 @@ export function useProcessing() {
     return {
         /** Last snapshot, query errors and pending controls. */
         state,
+        /** Rechecks extraction dependencies without changing pause intent. */
+        checkTools: () => client.checkTools(),
         /** Queues terminal outcomes after an explicit user action. */
         retry: client.retry.bind(client),
         /** Requests reconciliation after an explicit user action. */

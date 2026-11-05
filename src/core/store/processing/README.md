@@ -14,3 +14,5 @@ import type { ProcessingSnapshot } from './types';
 ```
 
 O protocolo não depende de eventos por asset para recuperar progresso ou resultados perdidos. A descrição completa está em [organização dos módulos](../../../../docs/backend/worker-module-organization.md).
+
+A [disponibilidade de ferramentas](../../../../docs/backend/worker-tool-availability.md) usa o mesmo snapshot e transporte, com recheck explícito e tarefas bloqueadas por dependência. O cliente de thumbnails mantém polling para `blocked`, exibindo um ícone estável até a recuperação.

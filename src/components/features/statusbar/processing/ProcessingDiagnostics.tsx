@@ -8,9 +8,9 @@ const messages: Record<string, string> = {
     capability_missing:
         'The format has no supported extraction capability. Update extractors and restart before trying again.',
     tool_unavailable: 'A required extraction tool is unavailable. Restore it, then retry.',
-    ffmpeg_unavailable: 'FFmpeg is unavailable. Restore the tool, then retry.',
-    ffprobe_unavailable: 'FFprobe is unavailable. Restore the tool, then retry.',
-    assimp_unavailable: 'Assimp is unavailable. Restore the tool, then retry.',
+    ffmpeg_unavailable: 'FFmpeg is unavailable. Restore the tool, then check extraction tools.',
+    ffprobe_unavailable: 'FFprobe is unavailable. Restore the tool, then check extraction tools.',
+    assimp_unavailable: 'Assimp is unavailable. Restore the tool, then check extraction tools.',
     input_unavailable:
         'An input file or cached thumbnail is unavailable. Check its location and access, then retry.',
     invalid_output:
@@ -26,7 +26,8 @@ const messages: Record<string, string> = {
 const outcomeLabels: Record<ProcessingDiagnostic['state'], string> = {
     failed: 'Failed',
     retry_wait: 'Waiting to retry',
-    skipped: 'Unsupported'
+    skipped: 'Unsupported',
+    blocked: 'Waiting for tools'
 };
 
 /** Collapsed diagnostics keep the activity panel compact and polling quiet. */

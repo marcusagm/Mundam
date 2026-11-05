@@ -7,6 +7,7 @@ Este diretório concentra os executores de segundo plano iniciados por [`bootstr
 | `ThumbnailWorker` | [`thumbnails/mod.rs`](thumbnails/mod.rs) | Thumbnails, metadados técnicos e prioridade do viewport |
 | `ColorWorker` | [`colors/mod.rs`](colors/mod.rs) | Extração de paletas a partir das thumbnails |
 | `DuplicateWorker` | [`duplicates/mod.rs`](duplicates/mod.rs) | Fingerprints automáticos e agendamento de comparações de duplicados |
+| Verificação de ferramentas | [`tools/mod.rs`](tools/mod.rs) | Probes limitados de FFmpeg, FFprobe e Assimp, com recuperação de tarefas dependentes |
 | `AutoEmptyTrashWorker` | [`trash/mod.rs`](trash/mod.rs) | Manutenção periódica da lixeira conforme as configurações existentes |
 
 ## Padrão de organização
@@ -37,3 +38,5 @@ O cálculo automático e manual de fingerprints usa o mesmo [`FingerprintProcess
 Os três processadores usam reservas persistentes com heartbeat e publicação transacional pelo Ledger. Thumbnails e previews produzidos pelo worker têm nomes por tentativa. Os contratos, a recuperação e os limites estão em [Reservas persistentes e publicação transacional](../../../../docs/backend/processing-leases.md). Comparações exatas e visuais também usam [jobs persistidos](../../../../docs/backend/duplicate-matching-jobs.md), com snapshot da política, publicação por fase e recuperação após crash. A capacidade de thumbnails, cores, fingerprints e comparações é compartilhada pelo [orçamento de operações](../../../../docs/backend/worker-resource-budget.md). Os limites de mídia aplicam sem reinício, com drenagem das operações admitidas e admissão antes das reservas persistentes.
 
 O progresso de scans manuais alimenta o snapshot por um canal de último valor, sem eventos por asset. A comparação prepara variantes de hashes por snapshot e evita subgrades de crop sem corroboração. Medições por fase, benchmark reproduzível e o escopo da evolução incremental estão em [Progresso e custo do matching](../../../../docs/backend/worker-progress-matching-performance.md).
+
+A [disponibilidade de ferramentas](../../../../docs/backend/worker-tool-availability.md) é uma manutenção de baixa frequência. Não recebe controle de pausa próprio nem altera pausas dos três workers de extração.

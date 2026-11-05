@@ -40,3 +40,13 @@ pub async fn retry_processing_worker(
 ) -> AppResult<crate::feature::processing::control::ProcessingRetryAcknowledgement> {
     service.retry(worker, scope).await
 }
+
+/// Checks known extraction dependencies without changing worker pause intent.
+/// # Errors
+/// Propagates bounded probe and snapshot failures.
+#[tauri::command]
+pub async fn check_processing_tools(
+    service: State<'_, Arc<ProcessingControlService>>,
+) -> AppResult<ProcessingSnapshot> {
+    service.check_tools().await
+}

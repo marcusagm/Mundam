@@ -7,7 +7,7 @@ export type ProcessingRetryScope = 'failed' | 'unsupported';
 /** Safe grouped causes; raw logs and paths never cross this contract. */
 export interface ProcessingDiagnostic {
     issue: string;
-    state: 'failed' | 'retry_wait' | 'skipped';
+    state: 'failed' | 'retry_wait' | 'skipped' | 'blocked';
     count: number;
 }
 
@@ -38,6 +38,8 @@ export interface WorkerSnapshot {
     pending: number;
     /** Assets awaiting bounded retry backoff. */
     retry_wait: number;
+    /** Suspended until the required extraction tool becomes available. */
+    blocked?: number;
     /** Exhausted attempts for the current source generation. */
     failed: number;
     /** Unsupported operations for the current source generation. */
@@ -48,6 +50,8 @@ export interface WorkerSnapshot {
 
 /** Full replacement read model; no library invalidation is implied. */
 export interface ProcessingSnapshot {
+    /** Optional tools do not imply that all assets require them. */
+    tools?: ExtractionToolStatus[];
     /** Operation limits, distinct from native extractor thread counts. */
     capacity?: { limit: number; active: number; waiting: number; thumbnail_limit: number };
     /** Persisted comparison outcomes, separate from the per-asset queue. */
@@ -74,6 +78,8 @@ export interface ProcessingSnapshot {
 
 /** Shared statusbar transport state. */
 export interface ProcessingClientState {
+    /** Bounded capability check awaiting acknowledgement. */
+    checkingTools?: boolean;
     /** Most recent explicit action acknowledgement per worker. */
     feedback?: Partial<Record<WorkerKind, string>>;
     /** Last authoritative snapshot, retained during temporary transport failures. */
@@ -82,4 +88,11 @@ export interface ProcessingClientState {
     error: string | null;
     /** Controls awaiting backend acknowledgement. */
     pending: ReadonlySet<WorkerKind>;
+}
+
+/** Safe inventory without executable paths or process output. */
+export interface ExtractionToolStatus {
+    tool: 'ffmpeg' | 'ffprobe' | 'assimp';
+    state: 'unknown' | 'available' | 'unavailable';
+    checked_at: number | null;
 }

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
-use tauri::Manager;
+pub mod binaries;
 use wait_timeout::ChildExt;
 
 static H264_ENCODERS: OnceLock<Mutex<HashMap<PathBuf, &'static str>>> = OnceLock::new();
@@ -96,106 +96,38 @@ pub fn resolve_transcoding_tools<R: tauri::Runtime>(
     })
 }
 
-/// Tenta encontrar um binário específico no sistema.
 fn find_binary<R: tauri::Runtime>(
-    app_handle: Option<&tauri::AppHandle<R>>,
+    handle: Option<&tauri::AppHandle<R>>,
     name: &str,
 ) -> Option<PathBuf> {
-    let binary_name = if cfg!(target_os = "windows") {
-        format!("{}.exe", name)
-    } else {
-        name.to_string()
-    };
+    binaries::resolve(handle, name)
+}
 
-    let platform_dir = if cfg!(target_os = "macos") {
-        "macos"
-    } else if cfg!(target_os = "windows") {
-        "windows-x64" // Default para x64, pode ser refinado
-    } else {
-        "linux"
-    };
+/// Resolves one independent extraction dependency, without requiring unrelated tools.
+/// # Errors
+/// Returns a typed unavailability error if discovery or a recent probe rejected the tool.
+pub fn require_extraction_tool(
+    tool: crate::core::processing::tools::ExtractionTool,
+) -> AppResult<PathBuf> {
+    find_binary::<tauri::Wry>(None, tool.as_str())
+        .ok_or_else(|| AppError::ToolUnavailable(tool.as_str().into()))
+}
 
-    // 1. Tenta via diretório de recursos do Tauri ou configurado no bootstrap.
-    let mut resource_dirs = Vec::new();
-    if let Some(handle) = app_handle {
-        if let Ok(resource_dir) = handle.path().resource_dir() {
-            resource_dirs.push(resource_dir);
+/// Classifies missing or non-executable known binaries independently of asset corruption.
+pub(crate) fn launch_error(program: &std::ffi::OsStr, error: std::io::Error) -> AppError {
+    let name = std::path::Path::new(program)
+        .file_stem()
+        .and_then(|name| name.to_str());
+    if matches!(
+        error.kind(),
+        std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
+    ) {
+        if let Some(name @ ("ffmpeg" | "ffprobe" | "assimp")) = name {
+            binaries::unavailable(name);
+            return AppError::ToolUnavailable(name.into());
         }
     }
-    if let Some(resource_dir) = std::env::var_os("MUNDAM_RESOURCE_DIR") {
-        resource_dirs.push(PathBuf::from(resource_dir));
-    }
-
-    for resource_dir in resource_dirs {
-        let resource_dir = resource_dir.join("resources");
-        let direct_path = resource_dir.join(name).join(&binary_name);
-        if direct_path.exists() {
-            return Some(direct_path);
-        }
-
-        let platform_path = resource_dir
-            .join(name)
-            .join(platform_dir)
-            .join(&binary_name);
-        if platform_path.exists() {
-            return Some(platform_path);
-        }
-
-        let bin_path = resource_dir
-            .join(name)
-            .join(platform_dir)
-            .join("bin")
-            .join(&binary_name);
-        if bin_path.exists() {
-            return Some(bin_path);
-        }
-    }
-
-    // 2. Tenta os recursos do projeto em builds de desenvolvimento.
-    #[cfg(debug_assertions)]
-    {
-        let resource_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
-        let direct_path = resource_dir.join(name).join(&binary_name);
-        if direct_path.exists() {
-            return Some(direct_path);
-        }
-
-        let platform_path = resource_dir
-            .join(name)
-            .join(platform_dir)
-            .join(&binary_name);
-        if platform_path.exists() {
-            return Some(platform_path);
-        }
-
-        let bin_path = resource_dir
-            .join(name)
-            .join(platform_dir)
-            .join("bin")
-            .join(&binary_name);
-        if bin_path.exists() {
-            return Some(bin_path);
-        }
-    }
-
-    // 3. Tenta via PATH global do sistema
-    let mut probe_cmd = Command::new(name);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        probe_cmd.creation_flags(0x08000000);
-    }
-    if probe_cmd
-        .arg("-version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-    {
-        return Some(PathBuf::from(name));
-    }
-    None
+    AppError::Io(error)
 }
 
 /// Executa um comando com um timeout rigoroso.
@@ -221,7 +153,7 @@ pub fn run_command_with_timeout(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| AppError::Transcoding(format!("Failed to spawn process: {}", error)))?;
+        .map_err(|error| launch_error(command.get_program(), error))?;
 
     let mut stdout_pipe = child_process
         .stdout
@@ -270,6 +202,7 @@ pub fn run_command_with_timeout(
         None => {
             // Process timed out. Kill it to prevent zombies.
             child_process.kill().ok();
+            let _ = child_process.wait();
             let _ = stdout_join_handle.join();
             let _ = stderr_join_handle.join();
             Err(AppError::Transcoding(format!(

@@ -1,6 +1,8 @@
 .processing-activity {
     width: calc(var(--p-space-xl) * 11);
     max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
     font-size: var(--p-font-size-xs);
 }
 .processing-activity h3 {
@@ -40,11 +42,13 @@
 }
 .processing-worker-counts {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--p-space-s);
     margin: var(--p-space-s) 0 0;
 }
 .processing-worker-counts div {
-    flex: 1;
+    flex: 1 1 calc(30% - var(--p-space-s));
+    min-width: 0;
 }
 .processing-worker-counts dt {
     color: var(--text-secondary);

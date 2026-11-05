@@ -22,6 +22,17 @@ impl SqliteProcessingRepository {
 
 #[async_trait]
 impl ProcessingRepository for SqliteProcessingRepository {
+    async fn tool_statuses(
+        &self,
+    ) -> AppResult<Vec<crate::core::processing::tools::ExtractionToolStatus>> {
+        queries::tools::statuses(&self.pool).await
+    }
+    async fn record_tool_checks(
+        &self,
+        checks: Vec<crate::core::processing::tools::ExtractionToolCheck>,
+    ) -> AppResult<()> {
+        handlers::tools::record(&self.pool, checks).await
+    }
     async fn diagnostics(
         &self,
         kind: ProcessingKind,

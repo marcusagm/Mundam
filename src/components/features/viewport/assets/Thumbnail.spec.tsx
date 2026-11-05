@@ -61,7 +61,7 @@ describe('thumbnail extraction outcomes', () => {
         vi.restoreAllMocks();
     });
 
-    it.each(['skipped', 'failed'] as const)(
+    it.each(['skipped', 'failed', 'blocked'] as const)(
         'shows an explained file icon for %s while AssetState is Indexed',
         async state => {
             outcome(state, state);
@@ -225,6 +225,28 @@ describe('thumbnail extraction outcomes', () => {
         await vi.advanceTimersByTimeAsync(2000);
         expect(view.container.querySelector('.asset-placeholder')).toBeNull();
         expect(view.container.querySelector('.thumbnail-file-fallback')).not.toBeNull();
+    });
+
+    it('keeps a tool-blocked icon stable and recovers through polling', async () => {
+        outcome('tool', 'blocked');
+        const view = render(() => (
+            <Thumbnail id="tool" src="/file.heic" alt="file.heic" thumbnail={null} />
+        ));
+        await vi.advanceTimersByTimeAsync(35);
+        const icon = view.container.querySelector('.thumbnail-file-fallback');
+        expect(icon).not.toBeNull();
+        await vi.advanceTimersByTimeAsync(6000);
+        expect(view.container.querySelector('.thumbnail-file-fallback')).toBe(icon);
+        expect(view.container.querySelector('.asset-placeholder')).toBeNull();
+        outcome('tool', 'pending');
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(view.container.querySelector('.asset-placeholder')).not.toBeNull();
+        expect(view.container.querySelector('.thumbnail-file-fallback')).toBeNull();
+        outcome('tool', 'succeeded', 'tool.webp');
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(view.container.querySelector('img')?.getAttribute('src')).toContain(
+            '/tool?type=thumb'
+        );
     });
 
     it('preserves the generation cache key while a ready event refreshes the status', async () => {

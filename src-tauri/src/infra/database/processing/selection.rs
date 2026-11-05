@@ -7,6 +7,11 @@ pub(crate) const SOURCE_STAMP: &str =
 pub(crate) const ACTIVE_ASSET: &str =
     "a.deleted_at IS NULL AND LOWER(a.state) NOT IN ('trashed', 'offline')";
 
+/// Known dependency failures are recoverable without consuming extraction retries.
+pub(crate) const TOOL_WAIT: &str = "(task.state = 'retry_wait' AND task.issue_code IN ('ffmpeg_unavailable','ffprobe_unavailable','assimp_unavailable'))";
+/// The same availability fact gates admission, counts and thumbnail presentation.
+pub(crate) const TOOL_READY: &str = "EXISTS (SELECT 1 FROM processing_tool_health health WHERE health.state = 'available' AND health.tool = CASE task.issue_code WHEN 'ffmpeg_unavailable' THEN 'ffmpeg' WHEN 'ffprobe_unavailable' THEN 'ffprobe' WHEN 'assimp_unavailable' THEN 'assimp' END)";
+
 pub(crate) fn pending_selection(kind: ProcessingKind) -> String {
     let missing_result = missing_result(kind);
     let dependency = dependency(kind);
@@ -19,7 +24,7 @@ pub(crate) fn pending_selection(kind: ProcessingKind) -> String {
          AND (task.asset_id IS NULL OR task.source_stamp != ({SOURCE_STAMP})
               OR task.state = 'pending'
               OR (task.state = 'succeeded' AND {missing_result})
-              OR (task.state = 'retry_wait' AND task.next_attempt_at <= unixepoch()))
+              OR (task.state = 'retry_wait' AND (({TOOL_WAIT} AND {TOOL_READY}) OR (NOT {TOOL_WAIT} AND task.next_attempt_at <= unixepoch()))))
          AND (task.lease_id IS NULL OR task.lease_expires_at <= unixepoch()
               OR task.source_stamp != ({SOURCE_STAMP}))"
     )

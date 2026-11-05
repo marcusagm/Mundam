@@ -5,3 +5,5 @@ mod diagnostics;
 mod leases;
 mod queue;
 mod thumbnail_status;
+
+mod tools;

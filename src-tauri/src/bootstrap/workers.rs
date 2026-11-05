@@ -52,6 +52,15 @@ pub fn init(app: &AppHandle) {
         .inner()
         .clone();
 
+    let tool_token = lifecycle.child_token();
+    let tool_handle = crate::processing::workers::tools::start(
+        app.state::<Arc<crate::feature::processing::tools::ProcessingToolService>>()
+            .inner()
+            .clone(),
+        tool_token.clone(),
+    );
+    lifecycle.register("processing_tool_checker".into(), tool_token, tool_handle);
+
     // Start Thumbnail Worker (Hybrid Queue)
     let thumbnail_token = lifecycle.child_token();
     let thumbnail_worker = ThumbnailWorker::new(

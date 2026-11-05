@@ -60,13 +60,18 @@ pub(crate) async fn finish(
         }
         ProcessingOutcome::Failed(error) => ("retry_wait", Some(error), Some("unknown_failure")),
     };
+    let blocked_tool = if state == "retry_wait" {
+        issue.and_then(crate::core::processing::tools::ExtractionTool::from_issue)
+    } else {
+        None
+    };
     let statement = format!("UPDATE processing_tasks SET
-        state = CASE WHEN ?6 = 'retry_wait' AND attempts + 1 >= 3 THEN 'failed' ELSE ?6 END,
-        attempts = attempts + (?6 = 'retry_wait'),
-        next_attempt_at = CASE WHEN ?6 = 'retry_wait' THEN unixepoch() + CASE attempts WHEN 0 THEN 5 WHEN 1 THEN 30 ELSE 120 END ELSE NULL END,
+        state = CASE WHEN ?6 = 'retry_wait' AND ?9 = 0 AND attempts + 1 >= 3 THEN 'failed' ELSE ?6 END,
+        attempts = attempts + (?6 = 'retry_wait' AND ?9 = 0),
+        next_attempt_at = CASE WHEN ?9 = 1 THEN unixepoch() + 60 WHEN ?6 = 'retry_wait' THEN unixepoch() + CASE attempts WHEN 0 THEN 5 WHEN 1 THEN 30 ELSE 120 END ELSE NULL END,
         last_error = ?7, issue_code = ?8, lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE {}", ownership());
-    Ok(sqlx::query(&statement)
+    let applied = sqlx::query(&statement)
         .bind(&ticket.asset_id)
         .bind(ticket.kind.as_str())
         .bind(ticket.generation)
@@ -75,10 +80,18 @@ pub(crate) async fn finish(
         .bind(state)
         .bind(error.map(|message| message.chars().take(1000).collect::<String>()))
         .bind(issue)
+        .bind(blocked_tool.is_some())
         .execute(&mut **transaction)
         .await?
         .rows_affected()
-        == 1)
+        == 1;
+    if applied {
+        if let Some(tool) = blocked_tool {
+            sqlx::query("UPDATE processing_tool_health SET state = 'unavailable', checked_at = unixepoch(), revision = revision + 1 WHERE tool = ?")
+                .bind(tool.as_str()).execute(&mut **transaction).await?;
+        }
+    }
+    Ok(applied)
 }
 
 pub(crate) async fn renew(pool: &SqlitePool, ticket: &ProcessingTicket) -> AppResult<bool> {

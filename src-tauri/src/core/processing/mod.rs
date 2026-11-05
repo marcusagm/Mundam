@@ -3,6 +3,7 @@
 pub mod budget;
 pub mod control;
 pub mod diagnostics;
+pub mod tools;
 
 use crate::core::error::AppResult;
 use async_trait::async_trait;
@@ -16,6 +17,8 @@ pub enum ThumbnailProcessingState {
     Pending,
     /// A bounded retry is deferred.
     RetryWait,
+    /// A known extraction dependency is temporarily unavailable.
+    Blocked,
     /// Automatic retry attempts are exhausted.
     Failed,
     /// The provider cannot produce a thumbnail.
@@ -124,6 +127,14 @@ impl ProcessingOutcome {
 /// concurrent executors and expire after crashes; renewal never revives an expired lease.
 #[async_trait]
 pub trait ProcessingRepository: Send + Sync {
+    /// Reads the finite tool inventory without probing.
+    /// # Errors
+    /// Propagates storage failures.
+    async fn tool_statuses(&self) -> AppResult<Vec<tools::ExtractionToolStatus>>;
+    /// Publishes probe facts only if their captured revisions remain current.
+    /// # Errors
+    /// Propagates atomic observation-write failures.
+    async fn record_tool_checks(&self, checks: Vec<tools::ExtractionToolCheck>) -> AppResult<()>;
     /// Groups current active outcomes by a finite, safe cause whitelist.
     /// # Errors
     /// Propagates storage failures instead of claiming healthy processing.

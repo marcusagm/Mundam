@@ -13,6 +13,8 @@ const MAX_RETIRED_INSTANCES = 8;
 
 /** Injectable IPC boundary used by transport tests. */
 export interface ProcessingTransport {
+    /** Rechecks known dependencies without resetting failures or resuming workers. */
+    checkTools?: () => Promise<ProcessingSnapshot>;
     /** Queues only eligible terminal work and returns its authoritative snapshot. */
     retry: (
         worker: WorkerKind,
@@ -91,6 +93,24 @@ export class ProcessingClient {
             const pending = new Set(this.state.pending);
             pending.delete(worker);
             this.publish({ ...this.state, pending });
+            this.schedule();
+        }
+    }
+
+    /** Rechecks extraction tools through the same ordered transport as worker controls. */
+    async checkTools(): Promise<void> {
+        if (this.state.checkingTools || !this.transport.checkTools) return;
+        const epoch = ++this.epoch;
+        this.publish({ ...this.state, checkingTools: true, error: null });
+        try {
+            this.accept(await withTimeout(this.transport.checkTools()), epoch);
+        } catch {
+            this.publish({
+                ...this.state,
+                error: 'Extraction tools could not be checked. Status will be refreshed.'
+            });
+        } finally {
+            this.publish({ ...this.state, checkingTools: false });
             this.schedule();
         }
     }

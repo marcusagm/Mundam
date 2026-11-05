@@ -34,6 +34,8 @@ pub struct WorkerSnapshot {
 /// Full replacement snapshot; instance and sequence fence stale frontend responses.
 #[derive(Clone, Serialize)]
 pub struct ProcessingSnapshot {
+    /// Safe capability observations; no executable paths or private process output.
+    pub tools: Vec<crate::core::processing::tools::ExtractionToolStatus>,
     /// Durable comparison work is distinct from per-asset fingerprint queues.
     pub matching: crate::core::duplicates::matching::MatchingStatus,
     /// Effective shared operation capacity, including resource waiters.
@@ -66,6 +68,7 @@ pub struct ProcessingControlService {
     manual_scan: Arc<dyn ManualScanActivity>,
     instance_id: String,
     cache: Mutex<SnapshotCache>,
+    tools: Option<Arc<super::tools::ProcessingToolService>>,
 }
 
 impl ProcessingControlService {
@@ -85,7 +88,29 @@ impl ProcessingControlService {
             manual_scan,
             instance_id: uuid::Uuid::new_v4().to_string(),
             cache: Mutex::new(SnapshotCache::default()),
+            tools: None,
         }
+    }
+
+    /// Attaches the shared capability checker without changing admission policy.
+    pub fn with_tools(mut self, tools: Arc<super::tools::ProcessingToolService>) -> Self {
+        self.tools = Some(tools);
+        self
+    }
+
+    /// Rechecks extraction dependencies and returns an ordered replacement snapshot.
+    /// # Errors
+    /// Propagates probe/storage errors or a missing bootstrap dependency.
+    pub async fn check_tools(&self) -> AppResult<ProcessingSnapshot> {
+        self.tools
+            .as_ref()
+            .ok_or_else(|| {
+                crate::core::AppError::Internal("Tool checker is not configured".into())
+            })?
+            .check()
+            .await?;
+        self.cache.lock().await.sampled = None;
+        self.snapshot().await
     }
 
     /// Reconciles durable queues while retaining a strict response order across callers.
@@ -168,6 +193,7 @@ impl ProcessingControlService {
         }
         cache.sequence += 1;
         Ok(ProcessingSnapshot {
+            tools: self.repository.tool_statuses().await?,
             capacity: self.control.budget.snapshot(),
             matching,
             instance_id: self.instance_id.clone(),

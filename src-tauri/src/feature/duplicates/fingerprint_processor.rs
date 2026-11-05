@@ -106,6 +106,11 @@ impl FingerprintProcessor {
         }
         match result {
             Ok(completed) => Ok(completed),
+            Err(error)
+                if crate::core::processing::tools::ExtractionTool::from_error(&error).is_some() =>
+            {
+                Ok(false)
+            }
             Err(error) => Err(error),
         }
     }

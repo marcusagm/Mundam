@@ -60,6 +60,7 @@ src-tauri/src/
 │   └── workers/
 │       ├── colors/
 │       ├── duplicates/
+│       ├── tools/              # Bounded extraction dependency checks
 │       ├── thumbnails/
 │       └── trash/
 ├── lib.rs
@@ -68,6 +69,8 @@ src-tauri/src/
 ```
 
 A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](worker-module-organization.md).
+
+A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](worker-tool-availability.md).
 
 ## Architeture details
 

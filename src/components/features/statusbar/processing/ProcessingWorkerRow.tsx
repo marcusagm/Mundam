@@ -67,6 +67,12 @@ export const ProcessingWorkerRow: Component<ProcessingWorkerRowProperties> = pro
                 <dt>Retries</dt>
                 <dd>{properties.worker.retry_wait}</dd>
             </div>
+            <Show when={(properties.worker.blocked ?? 0) > 0}>
+                <div>
+                    <dt>Waiting for tools</dt>
+                    <dd>{properties.worker.blocked}</dd>
+                </div>
+            </Show>
             <div>
                 <dt>Failed</dt>
                 <dd>{properties.worker.failed}</dd>

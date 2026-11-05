@@ -48,6 +48,13 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         ),
     );
     app.manage(processing_repository.clone());
+    let processing_tools = Arc::new(
+        crate::feature::processing::tools::ProcessingToolService::new(
+            processing_repository.clone(),
+            Arc::new(crate::processing::transcoding::binaries::BinaryToolProbe),
+        ),
+    );
+    app.manage(processing_tools.clone());
     let processing_control = app
         .state::<Arc<crate::core::processing::control::ProcessingControl>>()
         .inner()
@@ -140,7 +147,8 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
                 .inner()
                 .clone(),
             Arc::new(duplicates_command_service.clone()),
-        ),
+        )
+        .with_tools(processing_tools),
     ));
     app.manage(duplicates_command_service);
 

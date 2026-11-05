@@ -3,5 +3,6 @@
 pub(crate) mod attempts;
 mod queue;
 mod retry;
+pub(crate) mod tools;
 pub(crate) use queue::{begin, enqueue};
 pub(crate) use retry::retry;

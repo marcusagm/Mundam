@@ -44,6 +44,8 @@ pub struct ProcessingQueueCounts {
     pub pending: u64,
     /// Deferred by the bounded retry policy.
     pub retry_wait: u64,
+    /// Current tasks suspended on a known extraction tool.
+    pub blocked: u64,
     /// Exhausted attempts for the current source generation.
     pub failed: u64,
     /// Unsupported work for the current source generation.

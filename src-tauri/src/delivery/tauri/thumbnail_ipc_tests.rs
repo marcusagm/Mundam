@@ -7,6 +7,17 @@ use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+struct AvailableTools;
+#[async_trait::async_trait]
+impl crate::core::processing::tools::ExtractionToolProbe for AvailableTools {
+    async fn available(
+        &self,
+        _: crate::core::processing::tools::ExtractionTool,
+    ) -> crate::core::AppResult<bool> {
+        Ok(true)
+    }
+}
+
 fn invoke_processing(
     window: &tauri::WebviewWindow<tauri::test::MockRuntime>,
     command: &str,
@@ -90,7 +101,13 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             repository.clone(),
             settings,
             Arc::new(duplicates),
-        ),
+        )
+        .with_tools(Arc::new(
+            crate::feature::processing::tools::ProcessingToolService::new(
+                repository.clone(),
+                Arc::new(AvailableTools),
+            ),
+        )),
     );
     let app = tauri::test::mock_builder()
         .manage(repository)
@@ -99,7 +116,8 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             get_thumbnail_processing_status,
             crate::delivery::tauri::processing::get_processing_snapshot,
             crate::delivery::tauri::processing::set_processing_worker_paused,
-            crate::delivery::tauri::processing::retry_processing_worker
+            crate::delivery::tauri::processing::retry_processing_worker,
+            crate::delivery::tauri::processing::check_processing_tools
         ])
         .build(tauri::generate_context!())?;
     for label in ["main", "design-system", "splashscreen"] {
@@ -119,6 +137,7 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             },
         );
         if label == "splashscreen" {
+            assert!(invoke_processing(&window, "check_processing_tools", json!({})).is_err());
             assert!(invoke_processing(&window, "get_processing_snapshot", json!({})).is_err());
             assert!(invoke_processing(
                 &window,
@@ -150,6 +169,9 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             assert_eq!(status["state"], state);
             assert!(status["thumbnail_path"].is_null());
         }
+        let checked = invoke_processing(&window, "check_processing_tools", json!({}))?;
+        assert_eq!(checked["tools"].as_array().ok_or("Missing tools")?.len(), 3);
+        assert_eq!(checked["tools"][0]["state"], "available");
         let initial = invoke_processing(&window, "get_processing_snapshot", json!({}))?;
         assert_eq!(
             initial["workers"]

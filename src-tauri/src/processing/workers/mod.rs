@@ -3,6 +3,7 @@
 pub mod colors;
 pub mod duplicates;
 pub mod thumbnails;
+pub mod tools;
 pub mod trash;
 
 pub use colors::ColorWorker;

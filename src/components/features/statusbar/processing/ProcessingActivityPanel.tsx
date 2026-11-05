@@ -7,10 +7,13 @@ import type {
 import type { ProgressPayload } from '../../../../core/store/systemStore';
 import { ProcessingWorkerRow } from './ProcessingWorkerRow';
 import './processing-activity.css';
+import { ProcessingTools } from './ProcessingTools';
 import { duplicateScanPhaseLabel } from '../../../../utils/processing';
 
 /** Snapshot presentation shared by the statusbar's activity popover. */
 interface ProcessingActivityPanelProperties {
+    /** Requests a bounded extraction dependency check. */
+    onCheckTools?: () => void;
     /** Queues a user-selected terminal outcome group. */
     onRetry?: (worker: WorkerKind, scope: ProcessingRetryScope) => void;
     /** Shared transport state and errors. */
@@ -60,6 +63,11 @@ export const ProcessingActivityPanel: Component<ProcessingActivityPanelPropertie
                 </Show>
             }
         >
+            <ProcessingTools
+                tools={properties.state.snapshot?.tools ?? []}
+                checking={properties.state.checkingTools ?? false}
+                onCheck={properties.onCheckTools}
+            />
             <Index each={properties.state.snapshot?.workers}>
                 {worker => (
                     <ProcessingWorkerRow

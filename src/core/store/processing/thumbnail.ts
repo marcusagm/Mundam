@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 export type ThumbnailProcessingState =
     | 'pending'
     | 'retry_wait'
+    | 'blocked'
     | 'failed'
     | 'skipped'
     | 'succeeded'
@@ -95,7 +96,9 @@ export class ThumbnailProcessingClient {
     private isPolling(entry: Subscription): boolean {
         return (
             entry.refreshFailed ||
-            ['pending', 'retry_wait', 'unknown'].includes(entry.snapshot?.state || 'pending')
+            ['pending', 'retry_wait', 'blocked', 'unknown'].includes(
+                entry.snapshot?.state || 'pending'
+            )
         );
     }
 

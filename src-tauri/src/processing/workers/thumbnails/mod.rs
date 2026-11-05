@@ -245,7 +245,11 @@ impl ThumbnailWorker {
                 self.processing
                     .finish(&ticket, ProcessingOutcome::failure(&error))
                     .await?;
-                Err(error)
+                if crate::core::processing::tools::ExtractionTool::from_error(&error).is_some() {
+                    Ok(())
+                } else {
+                    Err(error)
+                }
             }
         };
         self.processing.release(&ticket).await?;

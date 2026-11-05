@@ -44,6 +44,55 @@ describe('global processing transport', () => {
         vi.useRealTimers();
     });
 
+    it('coalesces tool checks, retains pause and rejects older snapshots', async () => {
+        const check = deferred<ProcessingSnapshot>();
+        const transport = {
+            snapshot: async () => snapshot(1, true),
+            setPaused: vi.fn(),
+            retry: vi.fn(),
+            checkTools: vi.fn(() => check.promise)
+        };
+        const client = new ProcessingClient(transport);
+        const listener = vi.fn();
+        release.push(client.subscribe(listener));
+        await vi.advanceTimersByTimeAsync(0);
+        const action = client.checkTools();
+        await client.checkTools();
+        expect(transport.checkTools).toHaveBeenCalledTimes(1);
+        expect(listener.mock.lastCall?.[0].checkingTools).toBe(true);
+        check.resolve({
+            ...snapshot(3, true),
+            tools: [{ tool: 'ffmpeg', state: 'available', checked_at: 1 }]
+        });
+        await action;
+        await client.refresh();
+        const current = listener.mock.lastCall?.[0] as ProcessingClientState;
+        expect(current.checkingTools).toBe(false);
+        expect(current.snapshot?.sequence).toBe(3);
+        expect(current.snapshot?.workers[0].paused).toBe(true);
+        expect(current.snapshot?.tools?.[0].state).toBe('available');
+    });
+
+    it('reports a failed tool check inline and releases its control', async () => {
+        const client = new ProcessingClient({
+            snapshot: async () => snapshot(),
+            setPaused: vi.fn(),
+            retry: vi.fn(),
+            checkTools: async () => {
+                throw new Error('private binary path');
+            }
+        });
+        const listener = vi.fn();
+        release.push(client.subscribe(listener));
+        await vi.advanceTimersByTimeAsync(0);
+        await client.checkTools();
+        const current = listener.mock.lastCall?.[0] as ProcessingClientState;
+        expect(current.error).toContain('Extraction tools could not be checked');
+        expect(current.error).not.toContain('private');
+        expect(current.checkingTools).toBe(false);
+        expect(current.snapshot?.sequence).toBe(1);
+    });
+
     it('acknowledges retry counts without clearing failures optimistically or changing pause', async () => {
         const initial = snapshot(1, true);
         initial.workers[0].failed = 2;

@@ -25,3 +25,6 @@ pub async fn thumbnail_statuses(
 
 /// Global worker activity and explicit user controls.
 pub mod control;
+
+/// External extraction dependency observations.
+pub mod tools;

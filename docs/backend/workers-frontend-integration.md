@@ -49,8 +49,8 @@ As seções iniciais de [Workers: diagnóstico e proposta](workers-processing-co
 | Entregue | Coalescência de progresso manual e otimização do matching orientada por benchmark | [Progresso e custo do matching](worker-progress-matching-performance.md) remove eventos de progresso por asset, prepara variantes uma vez e evita crops sem corroboração. |
 | Evolução condicionada a medições | Matching incremental persistente | O matching continua global; índices de relações e invalidação de anchors exigem política própria para preservar grupos e decisões. Usar medições por fase e cargas representativas para decidir o investimento. |
 | Confirmado pelo usuário | Funcionamento e boa performance em uso no Windows e no macOS | Confirmação recebida em 4 de novembro de 2026 para as entregas anteriores. As medições controladas de carga são registradas separadamente. |
-| Validação de carga | CPU, memória, I/O, espera e IPC em cargas representativas nas duas plataformas | Há benchmark sintético de pares no Windows; carga ponta a ponta e benchmark no macOS continuam pendentes. |
-| Ainda planejado | Bloqueio temporário e probes de extratores indisponíveis | Diagnósticos e retry explícito foram entregues; não há circuit breaker por ferramenta. |
+| Validação de carga | CPU, memória, I/O, espera e IPC em cargas representativas nas duas plataformas | Há benchmark sintético de pares no Windows e no macOS, com resultados equivalentes. Carga ponta a ponta permanece pendente. |
+| Entregue | Suspensão por ferramenta e probes limitados | [Disponibilidade de ferramentas](worker-tool-availability.md) suspende tarefas dependentes sem consumir tentativas, verifica a cada minuto e oferece recheck na statusbar. |
 
 Persistência da pausa, separação entre pausa de fundo e prioridade do viewport, identidade por execução do indexer e snapshot físico atômico da origem também permanecem evoluções separadas. A interface atual explica a política suportada: pausa inclui thumbnails visíveis, drena operações admitidas e reinicia com a aplicação.
 

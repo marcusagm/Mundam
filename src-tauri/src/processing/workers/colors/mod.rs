@@ -110,7 +110,10 @@ impl ColorWorker {
             let outcome = match result {
                 Ok(outcome) => outcome,
                 Err(error) => {
-                    warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
+                    if crate::core::processing::tools::ExtractionTool::from_error(&error).is_none()
+                    {
+                        warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
+                    }
                     ProcessingOutcome::failure(&error)
                 }
             };
