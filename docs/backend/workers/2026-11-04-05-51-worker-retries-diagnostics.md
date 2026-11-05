@@ -1,6 +1,6 @@
 # Retry por worker e diagnóstico de extração
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 **Implementação:** 4 de novembro de 2026.
@@ -63,7 +63,7 @@ Enquanto uma ação está pendente, os controles daquele worker ficam desabilita
 
 Não há instalação de extratores pela interface, lista de caminhos dos arquivos afetados ou inferência retroativa de erros antigos. Indexação e limpeza automática da lixeira conservam seus controles próprios. Esta etapa não muda concorrência ou interrompe tarefas nativas em andamento.
 
-A entrega posterior [Orçamento compartilhado dos workers](2026-11-04-22-16-worker-resource-budget.md) aplica limites de operações em tempo de execução. Otimização orientada por medição e testes de carga permanecem como próxima etapa. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
+A entrega posterior [Orçamento compartilhado dos workers](2026-11-04-14-09-worker-resource-budget.md) aplica limites de operações em tempo de execução. Otimização orientada por medição e testes de carga permanecem como próxima etapa. Probes de capacidades e suspensão temporária de uma ferramenta indisponível exigem uma política adicional, além do diagnóstico de resultados entregue aqui.
 
 ## Validação
 

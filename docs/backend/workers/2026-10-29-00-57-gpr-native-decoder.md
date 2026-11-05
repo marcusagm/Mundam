@@ -1,6 +1,6 @@
 # Native GoPro RAW Decoder
 
-> Related implementation record. See the [workers closure](2026-11-04-22-16-workers-closure.md) for the accepted scope and the [separate future evolutions](2026-11-04-22-16-workers-future-evolutions.md). Validation statements below retain their original scope.
+> Related implementation record. See the [workers closure](2026-11-04-22-18-workers-closure.md) for the accepted scope and the [separate future evolutions](2026-11-04-22-18-workers-future-evolutions.md). Validation statements below retain their original scope.
 
 
 ## Goal

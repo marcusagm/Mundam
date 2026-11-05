@@ -12,7 +12,7 @@ Os benchmarks sintéticos de avaliação de pares foram executados anteriormente
 
 Matching incremental persistente foi explicitamente adiado. As comparações continuam globais, com as otimizações e as proteções de publicação entregues. Não há implementação incremental anunciada nem pendência desse recurso para este encerramento.
 
-As evoluções técnicas foram separadas em [Evoluções futuras](2026-11-04-22-16-workers-future-evolutions.md), com explicação do problema, motivo, benefício e critérios para uma eventual implementação. Não são compromissos de uma próxima entrega.
+As evoluções técnicas foram separadas em [Evoluções futuras](2026-11-04-22-18-workers-future-evolutions.md), com explicação do problema, motivo, benefício e critérios para uma eventual implementação. Não são compromissos de uma próxima entrega.
 
 ## Resultado entregue
 
@@ -41,9 +41,9 @@ Os limites continuam explícitos: pausas são da sessão e incluem prioridade do
 
 ## Organização e nomes dos arquivos
 
-Os documentos e relatórios deste ciclo estão agrupados em `docs/backend/workers/`, com as medições na subpasta `benchmarks/`. O prefixo `2026-11-04-22-16` identifica o horário registrado no início desta consolidação, no fuso America/Sao_Paulo; não pretende reconstruir o horário exato de início de cada implementação histórica. Datas das entregas e `measuredAt` dos benchmarks permanecem preservados.
+Os documentos e relatórios deste ciclo estão agrupados em `docs/backend/workers/`, com as medições na subpasta `benchmarks/`. Cada arquivo recebe como prefixo a data e hora da sua primeira criação local, no fuso America/Sao_Paulo, usada por escolha do usuário como referência da etapa histórica. Esse dado foi capturado antes das renomeações e não representa um horário de início de implementação comprovado pelo Git. As datas das entregas e os campos `measuredAt` dos benchmarks permanecem preservados. Os documentos novos de encerramento e evoluções futuras usam suas próprias datas de criação.
 
-A convenção é `yyyy-mm-dd-hh-ii-nome-do-arquivo.md` para documentos. Relatórios estruturados mantêm `.json` e tabelas mantêm `.tsv`, com o mesmo prefixo, preservando seus formatos e conteúdos. O runner de benchmarks passa a gerar arquivos datados na pasta agrupada, usando o início de cada nova execução e o horário local do processo; `startedAt` e `measuredAt` nos novos metadados usam ISO UTC.
+A convenção é `yyyy-mm-dd-hh-ii-nome-do-arquivo.md` para documentos. Relatórios estruturados mantêm `.json` e tabelas mantêm `.tsv`, também com o prefixo de sua primeira criação local, preservando seus formatos e conteúdos. O runner de benchmarks passa a gerar arquivos datados na pasta agrupada, usando o início de cada nova execução e o horário local do processo; `startedAt` e `measuredAt` nos novos metadados usam ISO UTC.
 
 ## Índice do ciclo
 
@@ -51,20 +51,20 @@ Os documentos detalhados preservam o histórico e os limites de cada entrega. De
 
 | Documento | Conteúdo |
 | --- | --- |
-| [Diagnóstico e proposta](2026-11-04-22-16-workers-processing-control.md) | Problemas iniciais, plano e acompanhamento das entregas. |
-| [Controles na statusbar](2026-11-04-22-16-worker-statusbar-controls.md) | Snapshot, atividade e política de pausa/retomada. |
-| [Fingerprints compartilhados](2026-11-04-22-16-fingerprint-processing.md) | Pipeline comum ao scan manual e automático. |
-| [Reservas e publicação](2026-11-04-22-16-processing-leases.md) | Propriedade, expiração, heartbeat, artefatos e commits. |
-| [Integração com o frontend](2026-11-04-22-16-workers-frontend-integration.md) | Configurações, finder, statusbar e aceite final. |
-| [Comparações persistentes](2026-11-04-22-16-duplicate-matching-jobs.md) | Jobs, revisão de política e recuperação das comparações. |
-| [Retries e diagnósticos](2026-11-04-22-16-worker-retries-diagnostics.md) | Ações por etapa e causas seguras. |
-| [Orçamento de recursos](2026-11-04-22-16-worker-resource-budget.md) | Limites dinâmicos e capacidade compartilhada. |
-| [Progresso e performance](2026-11-04-22-16-worker-progress-matching-performance.md) | Coalescência, otimizações e benchmarks sintéticos. |
-| [Organização e auditoria](2026-11-04-22-16-worker-module-organization.md) | Divisão dos módulos e revisão do plano. |
-| [Disponibilidade de ferramentas](2026-11-04-22-16-worker-tool-availability.md) | Suspensão, probes, recuperação e interface. |
-| [Decodificador GPR](2026-11-04-22-16-gpr-native-decoder.md) | Registro técnico relacionado de extração nativa. |
-| [Auditoria de arquivos](2026-11-04-22-16-source-file-audit.json) | Relatório estruturado de alcançabilidade de arquivos. |
+| [Diagnóstico e proposta](2026-10-30-05-17-workers-processing-control.md) | Problemas iniciais, plano e acompanhamento das entregas. |
+| [Controles na statusbar](2026-11-03-09-01-worker-statusbar-controls.md) | Snapshot, atividade e política de pausa/retomada. |
+| [Fingerprints compartilhados](2026-11-03-20-35-fingerprint-processing.md) | Pipeline comum ao scan manual e automático. |
+| [Reservas e publicação](2026-11-03-23-32-processing-leases.md) | Propriedade, expiração, heartbeat, artefatos e commits. |
+| [Integração com o frontend](2026-11-04-00-36-workers-frontend-integration.md) | Configurações, finder, statusbar e aceite final. |
+| [Comparações persistentes](2026-11-04-03-46-duplicate-matching-jobs.md) | Jobs, revisão de política e recuperação das comparações. |
+| [Retries e diagnósticos](2026-11-04-05-51-worker-retries-diagnostics.md) | Ações por etapa e causas seguras. |
+| [Orçamento de recursos](2026-11-04-14-09-worker-resource-budget.md) | Limites dinâmicos e capacidade compartilhada. |
+| [Progresso e performance](2026-11-04-15-47-worker-progress-matching-performance.md) | Coalescência, otimizações e benchmarks sintéticos. |
+| [Organização e auditoria](2026-11-04-19-02-worker-module-organization.md) | Divisão dos módulos e revisão do plano. |
+| [Disponibilidade de ferramentas](2026-11-04-21-32-worker-tool-availability.md) | Suspensão, probes, recuperação e interface. |
+| [Decodificador GPR](2026-10-29-00-57-gpr-native-decoder.md) | Registro técnico relacionado de extração nativa. |
+| [Auditoria de arquivos](2026-11-04-19-13-source-file-audit.json) | Relatório estruturado de alcançabilidade de arquivos. |
 | [Benchmarks](benchmarks/) | TSVs e metadados das medições históricas. |
-| [Evoluções futuras](2026-11-04-22-16-workers-future-evolutions.md) | Possibilidades separadas do escopo concluído. |
+| [Evoluções futuras](2026-11-04-22-18-workers-future-evolutions.md) | Possibilidades separadas do escopo concluído. |
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` permanece inalterado. Esta consolidação reorganiza documentação e o destino de relatórios; não altera o comportamento da aplicação.

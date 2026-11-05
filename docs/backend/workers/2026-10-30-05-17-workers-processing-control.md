@@ -1,10 +1,10 @@
 # Workers: diagnóstico e proposta de controle do processamento
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 **Data:** 30 de outubro de 2026.  
-**Estado:** registro histórico de diagnóstico e implementação; ciclo encerrado conforme o aceite consolidado. As seções 2–4 registram a situação anterior à primeira entrega; as seções posteriores acompanham as entregas até o encerramento. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](2026-11-04-22-16-worker-statusbar-controls.md).
+**Estado:** registro histórico de diagnóstico e implementação; ciclo encerrado conforme o aceite consolidado. As seções 2–4 registram a situação anterior à primeira entrega; as seções posteriores acompanham as entregas até o encerramento. O estado global e os controles da statusbar são descritos em [Estado global e pausa dos workers](2026-11-03-09-01-worker-statusbar-controls.md).
 **Escopo:** thumbnails/metadados, cores, fingerprints e comparação de duplicados, lifecycle e integração com a interface.
 
 O documento histórico `docs/report/backend-architeture/definition/modules/05-job-scheduler-workers.md` foi consultado como contexto e permanece inalterado. Esta análise usa a implementação atual como fonte de verdade.
@@ -392,7 +392,7 @@ Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` conclui
 
 ## 14. Estado global e controles na statusbar
 
-A etapa de snapshots globais e pausa/retomada foi implementada em 3 de novembro de 2026. A especificação do comportamento, os contratos, a integração com scans manuais e os limites da entrega estão em [Estado global e pausa dos workers](2026-11-04-22-16-worker-statusbar-controls.md). O documento histórico do scheduler permanece inalterado.
+A etapa de snapshots globais e pausa/retomada foi implementada em 3 de novembro de 2026. A especificação do comportamento, os contratos, a integração com scans manuais e os limites da entrega estão em [Estado global e pausa dos workers](2026-11-03-09-01-worker-statusbar-controls.md). O documento histórico do scheduler permanece inalterado.
 
 ## 15. Centralização dos executores
 
@@ -410,7 +410,7 @@ O scan manual e o `DuplicateWorker` agora delegam ao mesmo `FingerprintProcessor
 
 Os dois caminhos usam a mesma elegibilidade, retries limitados, cancelamento e verificação da origem antes de salvar. A classificação usa família e formato do asset; um hash exato válido sem representação visual é um resultado concluído. O rebuild explícito limpa também as tentativas de fingerprints, sem reiniciar cores ou thumbnails. Os contratos IPC e controles da statusbar permanecem compatíveis.
 
-Comportamento, compatibilidade dos hashes v5, exemplos e limites estão em [Processamento compartilhado de fingerprints](2026-11-04-22-16-fingerprint-processing.md). Reservas persistentes e fencing transacional continuam pendentes.
+Comportamento, compatibilidade dos hashes v5, exemplos e limites estão em [Processamento compartilhado de fingerprints](2026-11-03-20-35-fingerprint-processing.md). Reservas persistentes e fencing transacional continuam pendentes.
 
 Validação no Windows: `./scripts/test-backend-windows.ps1 processing_` concluiu com **37 testes aprovados**, incluindo equivalência entre scans manual e automático, cancelamento durante leitura, fallback por providers, origem alterada, elegibilidade, retries e rebuild. Não houve execução no macOS nesta etapa. O documento histórico `05-job-scheduler-workers.md` permaneceu inalterado.
 
@@ -420,7 +420,7 @@ Thumbnails, cores e fingerprints agora reservam `(asset_id, kind)` no banco, com
 
 O Ledger valida propriedade, origem e geração na transação que salva o resultado e conclui a tentativa. Eventos são publicados após commit; uma conclusão rejeitada não altera dados ou emite sucesso. Thumbnails e previews 3D usam arquivos por tentativa, com ponteiros publicados atomicamente e reconciliação do cache.
 
-Os contratos, exemplos, recuperação após crash e limites estão em [Reservas persistentes e publicação transacional](2026-11-04-22-16-processing-leases.md). Comparações persistidas de duplicados, orçamento global e snapshot físico da origem continuam fora desta etapa. O documento histórico do scheduler permanece inalterado.
+Os contratos, exemplos, recuperação após crash e limites estão em [Reservas persistentes e publicação transacional](2026-11-03-23-32-processing-leases.md). Comparações persistidas de duplicados, orçamento global e snapshot físico da origem continuam fora desta etapa. O documento histórico do scheduler permanece inalterado.
 
 Validação no Windows: **45 testes de processamento**, **16 regressões de pastas** e **três testes de parsing de URIs** aprovados. A limpeza normal consulta diretamente os nomes da tentativa; a coleta geral ocorre no início do loop de thumbnails e em intervalos de 60 segundos conforme o ciclo avança. `git diff --check` e links locais da documentação passaram. Não houve validação visual ou execução no macOS nesta etapa.
 
@@ -428,7 +428,7 @@ Validação no Windows: **45 testes de processamento**, **16 regressões de past
 
 Configurações, regras e finder passaram a compartilhar admissão local e snapshot de scans com a statusbar. A interface distingue preparação, hashing, matching e cancelamento; permite retomada nas configurações, confirma rebuild e bloqueia ações incompatíveis com pausa, indisponibilidade ou execução em andamento. Os textos refletem automação em segundo plano, limites de retries e concorrência aplicada após reinício.
 
-Comportamento, validação e próximos itens priorizados estão em [Integração dos workers com a interface](2026-11-04-22-16-workers-frontend-integration.md). Matching persistido, retry global por estágio, diagnóstico de capacidades, limites dinâmicos e otimização medida continuam planejados. O relatório histórico do scheduler permanece inalterado.
+Comportamento, validação e próximos itens priorizados estão em [Integração dos workers com a interface](2026-11-04-00-36-workers-frontend-integration.md). Matching persistido, retry global por estágio, diagnóstico de capacidades, limites dinâmicos e otimização medida continuam planejados. O relatório histórico do scheduler permanece inalterado.
 
 Validação: **34 testes frontend aprovados**, typecheck, lint sem warnings nos arquivos alterados, Prettier e build de produção com carregador nativo da configuração. Não houve validação visual da aplicação nem execução no macOS nesta revisão.
 
@@ -438,7 +438,7 @@ Matching exato e visual passaram a consumir dois jobs coalescidos persistidos. R
 
 O frontend apresenta recuperação, espera por retry e contagens de comparações separadas das filas de assets. Uma sequência persistida de publicação recupera invalidações perdidas sem consultar grupos a cada polling. Grupos protegidos e escolhas dos usuários são preservados nas comparações repetidas.
 
-Arquitetura, exemplos e limites estão em [Comparações de duplicados persistentes](2026-11-04-22-16-duplicate-matching-jobs.md). Retry por estágio e diagnóstico de capacidades são a próxima entrega funcional; limites dinâmicos e otimização medida continuam planejados. O documento histórico do scheduler permanece inalterado.
+Arquitetura, exemplos e limites estão em [Comparações de duplicados persistentes](2026-11-04-03-46-duplicate-matching-jobs.md). Retry por estágio e diagnóstico de capacidades são a próxima entrega funcional; limites dinâmicos e otimização medida continuam planejados. O documento histórico do scheduler permanece inalterado.
 
 Validação no Windows: **57 testes de processamento**, **16 regressões de pastas**, **29 testes do matcher** e **40 testes frontend** aprovados. Typecheck, lint sem warnings, Prettier, build de produção com carregador nativo, whitespace e links da documentação passaram. Validação visual, carga e execução no macOS permanecem pendentes.
 
@@ -448,7 +448,7 @@ O painel de atividade oferece `Retry failures` e `Recheck unsupported`, com quan
 
 O snapshot acrescenta causas tipadas e agrupadas por estágio. Logs antigos ou códigos desconhecidos recebem descrições seguras; caminhos e stderr não são enviados à interface. O novo comando tem ACL própria e a splashscreen permanece sem acesso. O frontend também rejeita confirmações atrasadas de uma instância substituída.
 
-Contratos, regras de seleção e limites estão em [Retry por worker e diagnóstico](2026-11-04-22-16-worker-retries-diagnostics.md). A próxima entrega planejada é concorrência efetiva em tempo de execução e orçamento compartilhado, com otimização orientada por medição.
+Contratos, regras de seleção e limites estão em [Retry por worker e diagnóstico](2026-11-04-05-51-worker-retries-diagnostics.md). A próxima entrega planejada é concorrência efetiva em tempo de execução e orçamento compartilhado, com otimização orientada por medição.
 
 Validação: **62 testes de processamento** e **45 testes frontend** aprovados, incluindo o novo IPC com permissões reais, rollback e privacidade. O documento histórico do scheduler foi preservado.
 
@@ -456,13 +456,13 @@ Validação: **62 testes de processamento** e **45 testes frontend** aprovados, 
 
 Thumbnails, cores, fingerprints e comparações compartilham capacidade de operações com admissão justa entre solicitações elegíveis. Os limites compartilhado e de thumbnails aplicam após salvar, sem reiniciar, preservando a drenagem das operações atuais. Esperas por capacidade não mantêm leases nem consomem tentativas. A configuração do indexer conserva o requisito de reinício.
 
-A statusbar mostra capacidade efetiva, ocupação e solicitações em espera. Configurações de mídia só mudam no store após confirmação da gravação. Contratos, limites e validação estão em [Orçamento compartilhado dos workers](2026-11-04-22-16-worker-resource-budget.md). Medição de carga nas plataformas e otimização orientada por resultados são os próximos itens. O documento histórico do scheduler permanece inalterado.
+A statusbar mostra capacidade efetiva, ocupação e solicitações em espera. Configurações de mídia só mudam no store após confirmação da gravação. Contratos, limites e validação estão em [Orçamento compartilhado dos workers](2026-11-04-14-09-worker-resource-budget.md). Medição de carga nas plataformas e otimização orientada por resultados são os próximos itens. O documento histórico do scheduler permanece inalterado.
 
 ## 22. Progresso coalescido e otimização medida
 
 O scan manual substitui o canal ilimitado e eventos por asset por um canal de último valor, reconciliado ao snapshot global com fencing de run e drenagem final. O matching prepara variantes de hashes uma vez por snapshot e calcula subgrades somente quando a corroboração existente permite aceitar crop. As regras e a publicação transacional são preservadas.
 
-O benchmark reproduzível compara o avaliador do commit anterior com o atual e valida checksums. Logs agregados por fase distinguem captura, comparação e publicação. Contratos, resultados e limites estão em [Progresso e custo do matching](2026-11-04-22-16-worker-progress-matching-performance.md). O matching incremental persistente continua uma evolução condicionada a medições de carga, não é apresentado como concluído.
+O benchmark reproduzível compara o avaliador do commit anterior com o atual e valida checksums. Logs agregados por fase distinguem captura, comparação e publicação. Contratos, resultados e limites estão em [Progresso e custo do matching](2026-11-04-15-47-worker-progress-matching-performance.md). O matching incremental persistente continua uma evolução condicionada a medições de carga, não é apresentado como concluído.
 
 O usuário confirmou funcionamento correto e boa performance das entregas anteriores no Windows e no macOS em 4 de novembro de 2026. A confirmação em uso foi separada de benchmarks controlados no plano de integração. O documento histórico do scheduler permanece inalterado.
 
@@ -472,14 +472,14 @@ Validação desta entrega no Windows: **106 testes backend** (77 de processament
 
 Contratos de processamento, matching, lixeira, fachadas SQLite, queries, handlers e workers passaram a ter pastas próprias de responsabilidade. O frontend agrupa estado compartilhado de processamento e apresentação da statusbar; o tracker de matching pertence à feature de duplicados. A auditoria removeu nove arquivos sem consumidores e manteve fachadas públicas e providers de entrada ainda não ativados devidamente classificados.
 
-A [revisão de organização e pendências](2026-11-04-22-16-worker-module-organization.md) lista o que permanece planejado: matching incremental, bloqueio temporário de extratores, medições completas de carga, identidade de execução do indexer e validação física/versionamento uniforme da origem. APIs ilustrativas e opções futuras são distinguidas de lacunas funcionais.
+A [revisão de organização e pendências](2026-11-04-19-02-worker-module-organization.md) lista o que permanece planejado: matching incremental, bloqueio temporário de extratores, medições completas de carga, identidade de execução do indexer e validação física/versionamento uniforme da origem. APIs ilustrativas e opções futuras são distinguidas de lacunas funcionais.
 
 Validação da reorganização no Windows: **219 testes backend** e **116 testes frontend** aprovados, além de TypeScript, lint e build. O relatório histórico do scheduler permanece preservado.
 
 ## 24. Suspensão temporária por ferramenta
 
-FFmpeg, FFprobe e Assimp passaram a ter probes limitados e fatos de disponibilidade protegidos por revisão. Falhas tipadas suspendem somente as tarefas dependentes, sem consumir tentativas. A statusbar apresenta o inventário e permite recheck; thumbnails bloqueadas mantêm fallback estável e recuperam por polling. A implementação e seus limites estão em [Disponibilidade de ferramentas](2026-11-04-22-16-worker-tool-availability.md).
+FFmpeg, FFprobe e Assimp passaram a ter probes limitados e fatos de disponibilidade protegidos por revisão. Falhas tipadas suspendem somente as tarefas dependentes, sem consumir tentativas. A statusbar apresenta o inventário e permite recheck; thumbnails bloqueadas mantêm fallback estável e recuperam por polling. A implementação e seus limites estão em [Disponibilidade de ferramentas](2026-11-04-21-32-worker-tool-availability.md).
 
 ## 25. Encerramento aceito pelo usuário
 
-O usuário confirmou o funcionamento da última entrega em Windows/macOS e o bom desempenho do processamento completo em bibliotecas representativas. Benchmarks ponta a ponta adicionais foram dispensados para o aceite, e matching incremental foi adiado explicitamente. O [encerramento](2026-11-04-22-16-workers-closure.md) consolida as entregas, evidências e índice dos documentos. As [evoluções técnicas futuras](2026-11-04-22-16-workers-future-evolutions.md) estão separadas e não são pendências do ciclo concluído.
+O usuário confirmou o funcionamento da última entrega em Windows/macOS e o bom desempenho do processamento completo em bibliotecas representativas. Benchmarks ponta a ponta adicionais foram dispensados para o aceite, e matching incremental foi adiado explicitamente. O [encerramento](2026-11-04-22-18-workers-closure.md) consolida as entregas, evidências e índice dos documentos. As [evoluções técnicas futuras](2026-11-04-22-18-workers-future-evolutions.md) estão separadas e não são pendências do ciclo concluído.

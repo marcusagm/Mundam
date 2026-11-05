@@ -1,7 +1,7 @@
 # Evoluções técnicas futuras do processamento
 
 **Estado:** propostas fora do escopo encerrado; sem implementação neste ciclo.  
-**Contexto:** o usuário confirmou funcionamento e bom desempenho em Windows/macOS, dispensou benchmarks ponta a ponta para o encerramento e adiou matching incremental. O [encerramento](2026-11-04-22-16-workers-closure.md) registra o aceite.
+**Contexto:** o usuário confirmou funcionamento e bom desempenho em Windows/macOS, dispensou benchmarks ponta a ponta para o encerramento e adiou matching incremental. O [encerramento](2026-11-04-22-18-workers-closure.md) registra o aceite.
 
 ## 1. Identidade por execução do indexer
 

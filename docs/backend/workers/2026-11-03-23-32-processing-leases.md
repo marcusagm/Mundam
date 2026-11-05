@@ -1,6 +1,6 @@
 # Reservas persistentes e publicação transacional
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 **Implementação:** 3 de novembro de 2026.
@@ -66,7 +66,7 @@ Um crash pode deixar arquivos não publicados até a reconciliação seguinte; e
 
 - A revisão da origem usa os dados do catálogo: caminho, tamanho e `modified_at`. Não fornece snapshot físico atômico do arquivo durante a leitura.
 - Os arquivos são gravados antes de seus ponteiros. SQLite e filesystem não compartilham transação; arquivos não publicados podem permanecer após crash e ser recolhidos na reconciliação.
-- As comparações e sua recuperação após crash foram implementadas na etapa posterior de [comparações persistentes](2026-11-04-22-16-duplicate-matching-jobs.md). Orçamento global de recursos e preferência de pausa persistente continuam fora desta entrega. O coordenador local permanece, acompanhado de reservas de comparação entre processos.
+- As comparações e sua recuperação após crash foram implementadas na etapa posterior de [comparações persistentes](2026-11-04-03-46-duplicate-matching-jobs.md). Orçamento global de recursos e preferência de pausa persistente continuam fora desta entrega. O coordenador local permanece, acompanhado de reservas de comparação entre processos.
 - A expiração usa o relógio do SQLite. Não há interrupção forçada de extratores ou garantia de processamento físico exatamente uma vez; há exclusividade de publicação sob a propriedade válida.
 
 ## Validação

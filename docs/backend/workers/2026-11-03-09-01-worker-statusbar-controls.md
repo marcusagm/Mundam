@@ -1,6 +1,6 @@
 # Estado global e pausa dos workers
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 **Data:** 3 de novembro de 2026.  
@@ -80,11 +80,11 @@ Atualizações periódicas preservam os elementos das linhas e o foco dos contro
 
 ## Limites desta etapa
 
-O retry de falhas e a reavaliação explícita de resultados sem suporte foram acrescentados em [Retry por worker e diagnóstico](2026-11-04-22-16-worker-retries-diagnostics.md), com causas agrupadas e feedback de enfileiramento. A etapa de [Orçamento dos workers](2026-11-04-22-16-worker-resource-budget.md) acrescenta limites dinâmicos de operações e capacidade efetiva na statusbar. Os limites descritos abaixo registram o alcance original dos controles da sessão.
+O retry de falhas e a reavaliação explícita de resultados sem suporte foram acrescentados em [Retry por worker e diagnóstico](2026-11-04-05-51-worker-retries-diagnostics.md), com causas agrupadas e feedback de enfileiramento. A etapa de [Orçamento dos workers](2026-11-04-14-09-worker-resource-budget.md) acrescenta limites dinâmicos de operações e capacidade efetiva na statusbar. Os limites descritos abaixo registram o alcance original dos controles da sessão.
 
-A revisão posterior das configurações e do finder está em [Integração dos workers com a interface](2026-11-04-22-16-workers-frontend-integration.md). Ela compartilha admissão e progresso manual com a statusbar, corrige as fases exibidas e relaciona as pendências atuais do plano.
+A revisão posterior das configurações e do finder está em [Integração dos workers com a interface](2026-11-04-00-36-workers-frontend-integration.md). Ela compartilha admissão e progresso manual com a statusbar, corrige as fases exibidas e relaciona as pendências atuais do plano.
 
-O controle da pausa e a atividade exibida são locais à instância. Não implementam persistência da pausa, interrupção imediata de operações nativas, alteração dinâmica dos limites de concorrência ou repetição global de falhas. Essas partes continuam no plano de [padronização dos workers](2026-11-04-22-16-workers-processing-control.md). O cálculo manual e automático foi unificado em [Processamento compartilhado de fingerprints](2026-11-04-22-16-fingerprint-processing.md); a execução por asset passou a usar [reservas persistentes e publicação transacional](2026-11-04-22-16-processing-leases.md). Reservas válidas ficam fora da contagem de pendências, sem transformar o painel em um monitor de atividade de outros processos.
+O controle da pausa e a atividade exibida são locais à instância. Não implementam persistência da pausa, interrupção imediata de operações nativas, alteração dinâmica dos limites de concorrência ou repetição global de falhas. Essas partes continuam no plano de [padronização dos workers](2026-10-30-05-17-workers-processing-control.md). O cálculo manual e automático foi unificado em [Processamento compartilhado de fingerprints](2026-11-03-20-35-fingerprint-processing.md); a execução por asset passou a usar [reservas persistentes e publicação transacional](2026-11-03-23-32-processing-leases.md). Reservas válidas ficam fora da contagem de pendências, sem transformar o painel em um monitor de atividade de outros processos.
 
 ## Validação executada
 

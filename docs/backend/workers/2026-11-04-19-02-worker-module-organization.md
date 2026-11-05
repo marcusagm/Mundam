@@ -1,6 +1,6 @@
 # Organização dos módulos e revisão de pendências
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 Revisão de 4 de novembro de 2026. A visão geral atualizada está em [overview.md](../overview.md). O caminho informado como `overview/.md` corresponde ao arquivo existente `docs/backend/overview.md`.
@@ -47,7 +47,7 @@ Imports de código, mocks e testes foram atualizados. A reorganização não alt
 node scripts/audit-source-files.mjs --strict
 ```
 
-O script segue entradas HTML, imports/exports estáticos e dinâmicos, imports de workers do Vite, URLs de workers, CSS e testes. No Rust, percorre módulos da biblioteca/binário e módulos com `#[path]`, incluindo testes condicionais. O [relatório desta revisão](2026-11-04-22-16-source-file-audit.json) registra, após a entrega de disponibilidade de ferramentas, 638 arquivos frontend e 355 arquivos Rust, sem candidatos órfãos ou referências não resolvidas no escopo do script. O resultado é uma auditoria conservadora de arquivos, sem afirmar que todos os exports de um arquivo são executados em runtime. Declarações ambientes e quatro fachadas públicas são classificadas separadamente.
+O script segue entradas HTML, imports/exports estáticos e dinâmicos, imports de workers do Vite, URLs de workers, CSS e testes. No Rust, percorre módulos da biblioteca/binário e módulos com `#[path]`, incluindo testes condicionais. O [relatório desta revisão](2026-11-04-19-13-source-file-audit.json) registra, após a entrega de disponibilidade de ferramentas, 638 arquivos frontend e 355 arquivos Rust, sem candidatos órfãos ou referências não resolvidas no escopo do script. O resultado é uma auditoria conservadora de arquivos, sem afirmar que todos os exports de um arquivo são executados em runtime. Declarações ambientes e quatro fachadas públicas são classificadas separadamente.
 
 Foram removidos oito arquivos frontend sem importadores de aplicação, testes ou ferramentas:
 
@@ -77,7 +77,7 @@ O usuário confirmou a validação funcional das entregas em Windows/macOS e bom
 | Validação funcional e de desempenho em uso | Aceita pelo usuário nas duas plataformas. Sem benchmark ponta a ponta adicional. |
 | Matching incremental persistente | Adiado explicitamente; fora do escopo concluído. |
 
-Identidade de execução do indexer, verificação física da origem, versionamento por algoritmo e opções adicionais estão nas [evoluções futuras](2026-11-04-22-16-workers-future-evolutions.md), com seus motivos, benefícios e limites. Não são pendências para encerrar este ciclo. O [registro de encerramento](2026-11-04-22-16-workers-closure.md) distingue aceite do usuário, evidência automatizada e medições históricas.
+Identidade de execução do indexer, verificação física da origem, versionamento por algoritmo e opções adicionais estão nas [evoluções futuras](2026-11-04-22-18-workers-future-evolutions.md), com seus motivos, benefícios e limites. Não são pendências para encerrar este ciclo. O [registro de encerramento](2026-11-04-22-18-workers-closure.md) distingue aceite do usuário, evidência automatizada e medições históricas.
 
 ## Validação da reorganização
 

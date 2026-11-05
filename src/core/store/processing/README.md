@@ -13,6 +13,6 @@ Exemplo de importação:
 import type { ProcessingSnapshot } from './types';
 ```
 
-O protocolo não depende de eventos por asset para recuperar progresso ou resultados perdidos. A descrição completa está em [organização dos módulos](../../../../docs/backend/workers/2026-11-04-22-16-worker-module-organization.md).
+O protocolo não depende de eventos por asset para recuperar progresso ou resultados perdidos. A descrição completa está em [organização dos módulos](../../../../docs/backend/workers/2026-11-04-19-02-worker-module-organization.md).
 
-A [disponibilidade de ferramentas](../../../../docs/backend/workers/2026-11-04-22-16-worker-tool-availability.md) usa o mesmo snapshot e transporte, com recheck explícito e tarefas bloqueadas por dependência. O cliente de thumbnails mantém polling para `blocked`, exibindo um ícone estável até a recuperação.
+A [disponibilidade de ferramentas](../../../../docs/backend/workers/2026-11-04-21-32-worker-tool-availability.md) usa o mesmo snapshot e transporte, com recheck explícito e tarefas bloqueadas por dependência. O cliente de thumbnails mantém polling para `blocked`, exibindo um ícone estável até a recuperação.

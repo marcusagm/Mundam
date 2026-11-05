@@ -1,6 +1,6 @@
 # Integração dos workers com a interface
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
 **Revisão:** 4 de novembro de 2026.
@@ -53,7 +53,7 @@ A integração com configurações, Duplicate Finder, viewport e statusbar está
 | Suspensão por ferramenta e recheck na statusbar | Entregues e validados. |
 | Matching incremental persistente | Adiado por decisão do usuário; comparações permanecem globais. |
 
-O [encerramento](2026-11-04-22-16-workers-closure.md) consolida o aceite e os limites. As [evoluções técnicas](2026-11-04-22-16-workers-future-evolutions.md) ficam em documento próprio e não constituem uma próxima entrega obrigatória.
+O [encerramento](2026-11-04-22-18-workers-closure.md) consolida o aceite e os limites. As [evoluções técnicas](2026-11-04-22-18-workers-future-evolutions.md) ficam em documento próprio e não constituem uma próxima entrega obrigatória.
 
 ## Validação desta revisão
 

@@ -1,9 +1,9 @@
 # Orçamento compartilhado dos workers
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
-Entrega de 4 de novembro de 2026, após [retries e diagnósticos](2026-11-04-22-16-worker-retries-diagnostics.md).
+Entrega de 4 de novembro de 2026, após [retries e diagnósticos](2026-11-04-05-51-worker-retries-diagnostics.md).
 
 ## Comportamento
 
@@ -41,7 +41,7 @@ Não há migration de banco. Arquivos antigos de configurações recebem `proces
 
 O orçamento limita **operações**, não threads nativas, memória ou percentuais de CPU/I/O. FFmpeg, codecs e bibliotecas de imagem podem criar várias threads dentro de uma operação. Todas as operações têm peso unitário; não há ajuste adaptativo por telemetria, classes por custo ou quotas distintas para disco e CPU. O matching global conserva seu algoritmo atual, inclusive o custo quadrático da comparação visual em grandes bibliotecas.
 
-A etapa posterior [Progresso e custo do matching](2026-11-04-22-16-worker-progress-matching-performance.md) remove o canal ilimitado de progresso e registra uma primeira otimização com benchmark sintético. Medições ponta a ponta de cargas representativas continuam necessárias antes de introduzir pesos, índices persistentes ou políticas específicas por tipo de operação.
+A etapa posterior [Progresso e custo do matching](2026-11-04-15-47-worker-progress-matching-performance.md) remove o canal ilimitado de progresso e registra uma primeira otimização com benchmark sintético. Medições ponta a ponta de cargas representativas continuam necessárias antes de introduzir pesos, índices persistentes ou políticas específicas por tipo de operação.
 
 ## Validação
 

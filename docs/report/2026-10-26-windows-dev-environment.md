@@ -217,7 +217,7 @@ Para garantir estabilidade a longo prazo, redução drástica no tempo de compil
 
 ### 6.2. Dependência Problemática 2: `gpr_sdk` (resolvida)
 
-O diagnóstico acima descreve a dependência presente quando este relatório foi escrito. Em 29 de outubro de 2026, o SDK e seu submódulo foram removidos. A aplicação usa FlashRaw `0.1.1` (`MIT OR Apache-2.0`), um decoder Rust com suporte declarado a GoPro GPR/VC-5. O caminho atual está documentado em [`docs/backend/workers/2026-11-04-22-16-gpr-native-decoder.md`](../backend/workers/2026-11-04-22-16-gpr-native-decoder.md). O FFmpeg não é usado para decodificar GPR.
+O diagnóstico acima descreve a dependência presente quando este relatório foi escrito. Em 29 de outubro de 2026, o SDK e seu submódulo foram removidos. A aplicação usa FlashRaw `0.1.1` (`MIT OR Apache-2.0`), um decoder Rust com suporte declarado a GoPro GPR/VC-5. O caminho atual está documentado em [`docs/backend/workers/2026-10-29-00-57-gpr-native-decoder.md`](../backend/workers/2026-10-29-00-57-gpr-native-decoder.md). O FFmpeg não é usado para decodificar GPR.
 
 ---
 

@@ -67,7 +67,7 @@ A reconciliação de publicações exclusiva de duplicados fica em `components/f
 
 A subseção de processamento da statusbar fica em `components/features/statusbar/processing/`, com componentes, apresentação, CSS e testes juntos. Configurações de performance continuam na feature `settings`.
 
-A auditoria de módulos, limpeza e pendências do plano está em [Organização dos módulos](../backend/workers/2026-11-04-22-16-worker-module-organization.md).
+A auditoria de módulos, limpeza e pendências do plano está em [Organização dos módulos](../backend/workers/2026-11-04-19-02-worker-module-organization.md).
 
 ### Layouts
 

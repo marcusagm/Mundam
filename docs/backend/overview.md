@@ -68,11 +68,11 @@ src-tauri/src/
 └── main.rs
 ```
 
-A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](workers/2026-11-04-22-16-worker-module-organization.md).
+A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](workers/2026-11-04-19-02-worker-module-organization.md).
 
-A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](workers/2026-11-04-22-16-worker-tool-availability.md).
+A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](workers/2026-11-04-21-32-worker-tool-availability.md).
 
-O ciclo de padronização dos workers está concluído e validado pelo usuário em Windows/macOS. O [encerramento](workers/2026-11-04-22-16-workers-closure.md) reúne o aceite, os limites e o índice dos documentos. As [evoluções técnicas futuras](workers/2026-11-04-22-16-workers-future-evolutions.md) são propostas separadas; matching incremental foi adiado e benchmarks ponta a ponta adicionais foram dispensados para este encerramento.
+O ciclo de padronização dos workers está concluído e validado pelo usuário em Windows/macOS. O [encerramento](workers/2026-11-04-22-18-workers-closure.md) reúne o aceite, os limites e o índice dos documentos. As [evoluções técnicas futuras](workers/2026-11-04-22-18-workers-future-evolutions.md) são propostas separadas; matching incremental foi adiado e benchmarks ponta a ponta adicionais foram dispensados para este encerramento.
 
 ## Architeture details
 

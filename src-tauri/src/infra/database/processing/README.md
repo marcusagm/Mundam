@@ -15,4 +15,4 @@ Exemplo de composição:
 use crate::infra::database::processing::SqliteProcessingRepository;
 ```
 
-O domínio não depende deste adaptador. Consulte [organização e pendências](../../../../../docs/backend/workers/2026-11-04-22-16-worker-module-organization.md) antes de acrescentar queries ou handlers.
+O domínio não depende deste adaptador. Consulte [organização e pendências](../../../../../docs/backend/workers/2026-11-04-19-02-worker-module-organization.md) antes de acrescentar queries ou handlers.

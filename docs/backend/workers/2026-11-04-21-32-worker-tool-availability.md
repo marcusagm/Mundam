@@ -1,9 +1,9 @@
 # Disponibilidade de ferramentas dos workers
 
-> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-16-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-16-workers-future-evolutions.md).
+> **Estado consolidado:** ciclo encerrado e validado pelo usuário em Windows/macOS. Este documento preserva o relato de sua etapa; referências a próximas entregas e validações pendentes devem ser lidas nesse contexto histórico. Consulte o [encerramento](2026-11-04-22-18-workers-closure.md) e as [evoluções futuras separadas](2026-11-04-22-18-workers-future-evolutions.md).
 
 
-Esta entrega distingue falha do arquivo de indisponibilidade temporária de **FFmpeg, FFprobe e Assimp**. O [benchmark de matching](2026-11-04-22-16-worker-progress-matching-performance.md), agora com resultados Windows e macOS fornecidos pelo usuário, preserva as medições históricas; matching incremental persistente foi adiado pelo usuário no encerramento. A matemática e os critérios de agrupamento não mudam nesta entrega.
+Esta entrega distingue falha do arquivo de indisponibilidade temporária de **FFmpeg, FFprobe e Assimp**. O [benchmark de matching](2026-11-04-15-47-worker-progress-matching-performance.md), agora com resultados Windows e macOS fornecidos pelo usuário, preserva as medições históricas; matching incremental persistente foi adiado pelo usuário no encerramento. A matemática e os critérios de agrupamento não mudam nesta entrega.
 
 ## Comportamento
 
