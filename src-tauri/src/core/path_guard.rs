@@ -46,7 +46,18 @@ impl LedgerPathGuard {
         self.entries.insert(normalized_key(path), Instant::now());
     }
 
-    /// Returns `true` if the path was registered within the suppression window.
+    /// Returns `true` only if this exact path was registered, ignoring ancestors.
+    ///
+    /// Newly created files inside a freshly renamed or moved folder are not
+    /// ledger-owned and must remain visible to the indexer.
+    pub fn is_exactly_marked(&self, path: &Path) -> bool {
+        self.entries
+            .get(&normalized_key(path))
+            .map(|marked_at| marked_at.elapsed() < SUPPRESSION_WINDOW)
+            .unwrap_or(false)
+    }
+
+    /// Returns `true` if the path or an ancestor was registered within the suppression window.
     pub fn is_marked(&self, path: &Path) -> bool {
         path.ancestors().any(|ancestor| {
             self.entries
@@ -70,6 +81,15 @@ mod tests {
         guard.mark(&path);
         assert!(guard.is_marked(&path));
         assert!(!guard.is_marked(Path::new("/library/other.png")));
+    }
+
+    #[test]
+    fn exact_check_ignores_marked_ancestors() {
+        let guard = LedgerPathGuard::new();
+        guard.mark(Path::new("/library/folder"));
+        assert!(guard.is_marked(Path::new("/library/folder/new.png")));
+        assert!(!guard.is_exactly_marked(Path::new("/library/folder/new.png")));
+        assert!(guard.is_exactly_marked(Path::new("/library/folder")));
     }
 
     #[test]

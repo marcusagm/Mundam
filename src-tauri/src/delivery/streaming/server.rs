@@ -787,6 +787,16 @@ mod tests {
         assert_eq!(strip_unc_prefix(network), Path::new(r"\\server\share\file.mp4"));
     }
 
+    #[cfg(not(windows))]
+    #[test]
+    fn test_is_subpath_unix() {
+        let parent = Path::new("/library/folder");
+        assert!(is_subpath(Path::new("/library/folder/video.mp4"), parent));
+        assert!(!is_subpath(Path::new("/library/folder-other/video.mp4"), parent));
+        assert!(!is_subpath(Path::new("/LIBRARY/folder/video.mp4"), parent));
+    }
+
+    #[cfg(windows)]
     #[test]
     fn test_is_subpath() {
         // Windows UNC canonicalized child vs standard root

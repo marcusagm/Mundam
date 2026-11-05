@@ -11,6 +11,7 @@ struct Fixture {
     directory: tempfile::TempDir,
     pool: SqlitePool,
     ledger: SqliteAssetLedger,
+    guard: Arc<LedgerPathGuard>,
 }
 
 impl Fixture {
@@ -21,16 +22,18 @@ impl Fixture {
             .connect("sqlite::memory:")
             .await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
+        let guard = Arc::new(LedgerPathGuard::new());
         let ledger = SqliteAssetLedger::new(
             pool.clone(),
             Arc::new(TokioEventBus::new()),
             directory.path().join("app"),
-            Arc::new(LedgerPathGuard::new()),
+            guard.clone(),
         );
         Ok(Self {
             directory,
             pool,
             ledger,
+            guard,
         })
     }
 
@@ -402,5 +405,21 @@ async fn undo_collision_preserves_the_recovery_copy_and_allows_retry() -> TestRe
     fixture
         .run(LibraryOperation::RestoreFolder { folder_id: child })
         .await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn created_folder_does_not_suppress_files_copied_into_it() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let root = fixture.folder("root", None).await?;
+    let created = fixture
+        .run(LibraryOperation::CreateFolder {
+            parent_id: root,
+            name: "child".into(),
+        })
+        .await?;
+    assert!(!fixture
+        .guard
+        .is_marked(&PathBuf::from(&created.path).join("copied.png")));
     Ok(())
 }

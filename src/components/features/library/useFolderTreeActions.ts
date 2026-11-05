@@ -18,6 +18,7 @@ export function useFolderTreeActions() {
     const [editingId, setEditingId] = createSignal<string | null>(null);
     let isRenaming = false;
     let isCreating = false;
+    let pendingCreationId: string | null = null;
 
     /** Creates a uniquely named child and enters the same inline editor as rename. */
     const handleCreateChild = async (parentId: string): Promise<void> => {
@@ -37,6 +38,7 @@ export function useFolderTreeActions() {
         try {
             const result = await executeLibraryOperation({ kind: 'createFolder', parentId, name });
             tree.setExpanded('folder-' + parentId, true);
+            pendingCreationId = result.id;
             setEditingId('folder-' + result.id);
         } catch {
             notification.error('Failed to Create Folder');
@@ -47,9 +49,11 @@ export function useFolderTreeActions() {
 
     /** Persists the inline edit and keeps the editor available when saving fails. */
     const handleRename = async (node: TreeNode, newName: string): Promise<void> => {
-        if (isRenaming) return;
+        // A blur fired while the editor closes (Escape) must not commit a stale edit.
+        if (isRenaming || editingId() !== String(node.id)) return;
         const name = newName.trim();
         if (!name || name === node.label) {
+            pendingCreationId = null;
             setEditingId(null);
             return;
         }
@@ -60,6 +64,7 @@ export function useFolderTreeActions() {
                 folderId: folderIdentifier(node.id),
                 name
             });
+            pendingCreationId = null;
             setEditingId(null);
             if (result.warning) notification.warning('Folder monitoring', result.warning);
             notification.success('Folder Renamed', `Changed “${node.label}” to “${name}”`);
@@ -67,6 +72,19 @@ export function useFolderTreeActions() {
             notification.error('Failed to Rename Folder');
         } finally {
             isRenaming = false;
+        }
+    };
+
+    /** Leaves rename untouched, but discards a folder created moments ago and never confirmed. */
+    const handleEditCancel = async (): Promise<void> => {
+        const abandonedId = pendingCreationId;
+        pendingCreationId = null;
+        setEditingId(null);
+        if (!abandonedId) return;
+        try {
+            await executeLibraryOperation({ kind: 'deleteFolder', folderId: abandonedId });
+        } catch {
+            notification.error('Failed to Cancel Folder Creation');
         }
     };
 
@@ -111,5 +129,13 @@ export function useFolderTreeActions() {
         }
     };
 
-    return { editingId, setEditingId, handleCreateChild, handleRename, isValidDrop, handleDrop };
+    return {
+        editingId,
+        setEditingId,
+        handleCreateChild,
+        handleRename,
+        handleEditCancel,
+        isValidDrop,
+        handleDrop
+    };
 }

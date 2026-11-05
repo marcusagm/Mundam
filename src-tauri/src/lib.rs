@@ -11,6 +11,12 @@ pub mod processing;
 use crate::lifecycle::LifecycleRegistry;
 use tauri::Manager;
 
+/// Single expansion of the Tauri context; a second `generate_context!` in the same
+/// test binary redefines `_EMBED_INFO_PLIST` on macOS.
+pub(crate) fn application_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 /// Runs the application.
 #[allow(clippy::expect_used)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -147,7 +153,7 @@ pub fn run() {
             delivery::tauri::commands::streaming::cleanup_cache_streaming,
             delivery::tauri::commands::streaming::clear_cache_streaming
         ])
-        .build(tauri::generate_context!())
+        .build(application_context())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::WindowEvent {

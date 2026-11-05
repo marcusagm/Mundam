@@ -50,7 +50,7 @@ pub(super) async fn execute(
         completed.push((source.clone(), destination.clone()));
     }
     if let Some(path) = &changes.create {
-        guard.mark(path);
+        // An empty new folder has no watcher noise; marking it would hide files copied in.
         tokio::fs::create_dir(path).await?;
     }
     if let Err(error) = transaction.commit().await {

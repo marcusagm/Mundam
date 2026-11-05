@@ -102,7 +102,9 @@ impl LibraryIndexer {
     async fn handle_file_discovered(&self, path: String) {
         let entry_path = PathBuf::from(&path);
 
-        if self.path_guard.is_marked(&entry_path) {
+        // Only the exact path is ledger-owned: files copied into a just-renamed folder are new,
+        // and files already moved with it are skipped by the database check in creation.
+        if self.path_guard.is_exactly_marked(&entry_path) {
             debug!("Indexer: Ignoring ledger-initiated create for {}", path);
             return;
         }

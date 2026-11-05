@@ -116,7 +116,57 @@ são limpos após o commit, sem tratar falhas de limpeza como perda dos originai
 - A compensação cobre erros reportados durante a execução. Ainda não existe um
   journal durável que conclua ou reverta automaticamente uma operação interrompida
   por encerramento forçado ou queda de energia entre o movimento e o commit.
-- macOS e Linux têm implementação própria; a validação local foi feita no Windows.
+- macOS e Linux têm implementação própria; a validação inicial foi feita no Windows
+  e complementada no macOS (veja abaixo).
+
+## Correções encontradas no macOS
+
+- **Copiar caminho sem efeito:** o menu de pastas usa `writeText` do plugin
+  `clipboard-manager`, cujo conjunto `clipboard-manager:default` não concede
+  escrita. A capability `default.json` agora inclui
+  `clipboard-manager:allow-write-text`. O Windows funcionava porque a falha não era
+  visível no fluxo testado; a permissão é necessária em todas as plataformas.
+- **Asset copiado para pasta nova não era indexado:** o `LedgerPathGuard` ignora
+  eventos do watcher para um caminho marcado **e todos os seus descendentes** por
+  15 segundos. A criação de pasta marcava o diretório novo, então arquivos copiados
+  para ele nesse intervalo eram descartados e nenhum novo evento os reapresentava.
+  A criação não marca mais o caminho: o registro já existe no banco antes de o
+  evento de diretório chegar ao indexer (`handle_directory_discovered` o ignora).
+  Movimentos e renames continuam marcados. O teste
+  `created_folder_does_not_suppress_files_copied_into_it` cobre esse caso.
+- **Arquivo copiado logo após criar/renomear a pasta:** o fluxo normal cria
+  “New Folder” e em seguida a renomeia no editor inline; o rename marca origem e
+  destino, e `is_marked` considera ancestrais, então qualquer arquivo novo dentro da
+  pasta era ignorado por 15 s (a reindexação no boot o encontrava). O criador de
+  arquivos agora usa `LedgerPathGuard::is_exactly_marked` (apenas o caminho exato) em
+  `handle_file_discovered`. Arquivos que já foram movidos junto com uma subárvore
+  continuam sem duplicar porque `handle_file_creation` consulta o banco antes de
+  criar. Eventos de remoção e rename seguem usando a supressão por ancestral. O
+  teste `exact_check_ignores_marked_ancestors` cobre a diferença entre os dois
+  métodos. Na prática, o problema aparecia apenas quando o arquivo era copiado em
+  poucos segundos; após a janela de 15 s tudo funcionava, e o scan do boot sempre
+  recuperava o arquivo.
+- **Esc mantinha “New Folder”:** a pasta é criada em disco antes da edição inline.
+  `useFolderTreeActions` memoriza a pasta pendente; cancelar com Esc executa
+  `deleteFolder` (recuperável) para descartá-la, enquanto confirmar, mesmo mantendo
+  o nome padrão, a preserva. Um `blur` posterior ao fechamento do editor é ignorado
+  para não confirmar uma edição obsoleta.
+- **Testes Rust no macOS:** `cargo test --lib` falhava com
+  `symbol _EMBED_INFO_PLIST is already defined` porque `lib.rs` e
+  `thumbnail_ipc_tests.rs` expandiam `tauri::generate_context!` no mesmo binário de
+  teste. A expansão agora existe só em `application_context::<R>()` (`lib.rs`),
+  reutilizada pelo teste com `MockRuntime`, mantendo a validação da ACL real.
+- **Testes específicos do Windows:** dois testes assumiam Windows e falhavam no macOS
+  sem indicar bug do produto. `test_is_subpath` verifica separadores `\\`, letras de
+  unidade e comparação sem diferenciar maiúsculas, e agora é `#[cfg(windows)]`, com
+  `test_is_subpath_unix` cobrindo fronteira de componente e diferenciação de
+  maiúsculas. O teste de IPC de thumbnails usava a origem `http://tauri.localhost`;
+  fora do Windows a origem local é `tauri://localhost`, então a ACL rejeitava a
+  janela `main`. A origem agora é escolhida por plataforma (`LOCAL_APP_URL`), o que
+  também faz as rejeições da splashscreen validarem a ACL, e não apenas a origem
+  errada.
+
+Validação no macOS: `cargo test --lib` passa por completo (240 testes).
 
 ## Melhorias adicionais avaliadas
 
@@ -165,4 +215,4 @@ ESLint também passaram. `cargo check --tests --offline -j 2` com Windows GNU
 compilou o backend e os testes, incluindo roundtrip de restauração de arquivos e
 metadados, colisão seguida de retry e reset de cor de tags. Os testes nativos não
 foram executados nesta revisão; a limitação de runtime descrita acima permanece
-separada da compilação aprovada. A validação de execução no macOS ainda é necessária.
+separada da compilação aprovada. A execução no macOS foi validada depois (veja “Correções encontradas no macOS”).

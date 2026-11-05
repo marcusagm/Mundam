@@ -105,4 +105,34 @@ describe('folder tree actions', () => {
             }
         });
     });
+    it('deletes a just-created folder when its editor is cancelled', async () => {
+        actions.execute.mockResolvedValueOnce({ id: 'created', path: '/source/New Folder' });
+        await createRoot(async dispose => {
+            try {
+                const tree = useFolderTreeActions();
+                await tree.handleCreateChild('source');
+                await tree.handleEditCancel();
+                expect(tree.editingId()).toBeNull();
+                expect(actions.execute).toHaveBeenLastCalledWith({
+                    kind: 'deleteFolder',
+                    folderId: 'created'
+                });
+                await tree.handleEditCancel();
+                expect(actions.execute).toHaveBeenCalledTimes(2);
+            } finally {
+                dispose();
+            }
+        });
+    });
+    it('keeps a renamed folder when editing is cancelled afterwards and ignores stale blurs', async () => {
+        await createRoot(async dispose => {
+            try {
+                const tree = useFolderTreeActions();
+                await tree.handleRename({ id: 'folder-child', label: 'Child' }, 'Renamed');
+                expect(actions.execute).not.toHaveBeenCalled();
+            } finally {
+                dispose();
+            }
+        });
+    });
 });

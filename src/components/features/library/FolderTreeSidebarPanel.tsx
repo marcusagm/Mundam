@@ -179,7 +179,7 @@ export const FolderTreeSidebarPanel: Component = () => {
                         onToggle={tree.toggle}
                         editingId={actions.editingId()}
                         onRename={actions.handleRename}
-                        onEditCancel={() => actions.setEditingId(null)}
+                        onEditCancel={() => void actions.handleEditCancel()}
                         draggable={true}
                         dragType="FOLDER"
                         dropMode="inside"

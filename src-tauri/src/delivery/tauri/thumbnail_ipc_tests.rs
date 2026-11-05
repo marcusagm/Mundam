@@ -18,6 +18,12 @@ impl crate::core::processing::tools::ExtractionToolProbe for AvailableTools {
     }
 }
 
+/// Tauri serves the local app from a platform-specific origin that capabilities match as `local`.
+#[cfg(windows)]
+const LOCAL_APP_URL: &str = "http://tauri.localhost";
+#[cfg(not(windows))]
+const LOCAL_APP_URL: &str = "tauri://localhost";
+
 fn invoke_processing(
     window: &tauri::WebviewWindow<tauri::test::MockRuntime>,
     command: &str,
@@ -29,7 +35,7 @@ fn invoke_processing(
             cmd: command.into(),
             callback: tauri::ipc::CallbackFn(0),
             error: tauri::ipc::CallbackFn(1),
-            url: "http://tauri.localhost"
+            url: LOCAL_APP_URL
                 .parse()
                 .map_err(|error| format!("{error}"))?,
             body: tauri::ipc::InvokeBody::Json(body),
@@ -119,7 +125,7 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
             crate::delivery::tauri::processing::retry_processing_worker,
             crate::delivery::tauri::processing::check_processing_tools
         ])
-        .build(tauri::generate_context!())?;
+        .build(crate::application_context::<tauri::test::MockRuntime>())?;
     for label in ["main", "design-system", "splashscreen"] {
         let window = tauri::WebviewWindowBuilder::new(&app, label, Default::default()).build()?;
         let response = tauri::test::get_ipc_response(
@@ -128,7 +134,7 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
                 cmd: "get_thumbnail_processing_status".into(),
                 callback: tauri::ipc::CallbackFn(0),
                 error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse()?,
+                url: LOCAL_APP_URL.parse()?,
                 body: tauri::ipc::InvokeBody::Json(
                     json!({ "assetIds": ["failed-heic", "queued"] }),
                 ),
