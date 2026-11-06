@@ -216,3 +216,282 @@ compilou o backend e os testes, incluindo roundtrip de restauração de arquivos
 metadados, colisão seguida de retry e reset de cor de tags. Os testes nativos não
 foram executados nesta revisão; a limitação de runtime descrita acima permanece
 separada da compilação aprovada. A execução no macOS foi validada depois (veja “Correções encontradas no macOS”).
+
+## Checagem de conclusão — 2026-11-06
+
+### Base, alcance e parecer
+
+Revisão do commit `2c7569db4ecf96407ed4c38d7db8a47631f5f9c7`, confrontando
+os fluxos de biblioteca, integração com watcher, recuperação, DnD, componentes
+compartilhados e menus de tags com os guias de backend, frontend e documentação.
+A árvore de trabalho estava limpa no início da revisão. Esta seção registra
+achados e ações propostas; não implementa refatorações nem correções do produto.
+
+Os testes funcionais relatados no Windows e as correções/testes no macOS são uma
+boa base de conclusão funcional. O registro acima informa `cargo test --lib`
+aprovado no macOS com 240 testes; essa execução é evidência do relato de validação,
+não uma execução repetida nesta revisão Windows. Não se deve interpretar os testes
+aprovados como cobertura de crash, falha na compensação ou concorrência externa.
+
+**Parecer:** a funcionalidade está implementada e os fluxos relatados estão
+validados, mas a conformidade arquitetural, documental e de resiliência é
+**parcial**. Não é adequado encerrar o trabalho afirmando que todos os padrões
+estão atendidos ou que disco e SQLite formam uma transação ACID única. Os itens P1
+abaixo devem ser tratados antes de declarar a etapa de endurecimento concluída.
+
+Checagens locais adicionais, sem alteração do código de aplicação:
+
+- `npm run typecheck`: aprovado.
+- ESLint em 33 arquivos do recorte de biblioteca, menus, TreeView e contratos:
+  **0 erros e 420 avisos**. Destes, **418** são `prettier/prettier` por finais de
+  linha, **1** é `solid/reactivity` e **1** é `complexity`.
+- A complexidade de `handleDragOver` em
+  [`useTreeDragDrop.ts`](../../src/components/ui/TreeView/hooks/useTreeDragDrop.ts#L151)
+  é **13**, acima do limite **10**. Ambos os limites de complexidade e tamanho de
+  arquivo estão configurados como avisos no ESLint; “lint sem erros” não significa
+  conformidade integral com os guias.
+- `.editorconfig` e `.prettierrc` exigem LF; os atributos Git `text`/`eol` não estão
+  definidos para o arquivo de TreeView consultado, e `core.autocrlf` local é
+  `false`. A revisão não atribui os avisos automaticamente ao checkout ou ao commit:
+  é necessário alinhar a política de EOL entre Git, editor e CI.
+- Não foram repetidos build, testes frontend ou testes Rust nesta revisão de
+  documentação; seus resultados anteriores continuam discriminados nas seções
+  de validação. A inspeção estática identifica riscos, mas não substitui os testes
+  de falha e concorrência propostos abaixo.
+
+### Organização dos arquivos e limites de responsabilidade
+
+| Área | Avaliação | Ajuste proposto |
+| --- | --- | --- |
+| `delivery/tauri/commands/library.rs` | Adequado: extrai estado e delega ao handler, sem SQL ou regra de negócio. | Preservar o adaptador fino e os testes de registro/permissões. |
+| `core/ledger/library_operation.rs` | Adequado: contrato de intenções separado dos eventos de observação. | Manter essa distinção ao extrair políticas e tipar os resultados. |
+| `infra/database/query_handlers/folder_queries.rs` | Consultas de leitura no lugar correto, sem mutações implícitas. | Preservar a separação e revisar a identidade dos caminhos. |
+| `infra/database/library_operations/` | Localização geral compatível com um adaptador composto, mas `planning.rs` mistura validação pura, consultas transacionais, escrita SQL e inspeção/criação de diretórios. | Extrair SQL e efeitos catalográficos para `infra/database/handlers/library/`; manter ali as leituras que precisam da mesma transação. Não transferir essas validações para consultas independentes fora da transação. |
+| `feature/library/operations.rs` | Orquestração no lugar certo, mas depende concretamente de `processing::watcher::WatcherService` e de `infra::filesystem::folder_recovery`. | Introduzir portas de observação de raízes e armazenamento de recuperação no Core; adaptar as implementações e conectá-las no bootstrap. Isso permite testar falhas sem iniciar sensores nativos. |
+| `infra/filesystem/exclusive_move.rs` | Adequado: FFI e diferenças de plataforma isoladas, com `spawn_blocking`. | Manter o contrato de não substituição; ampliar testes de plataforma e concorrência. |
+| `components/features/library/useFolderTreeActions.ts` | Hook específico da feature corretamente colocalizado. Não precisa ir para `core/hooks` só por ser um hook. | Extrair sua máquina de estados quando tratar cancelamento e concorrência; preservar a colocalização da parte visual. |
+| `folderPresentation.ts`, sidebar e seletor de destino | Helpers específicos podem permanecer na feature. Entretanto, ancestralidade também é regra de validação, e a construção da hierarquia está duplicada. | Separar hierarquia/políticas de apresentação e compartilhar um construtor puro local. Promover ao Core apenas o contrato efetivamente compartilhado com outras features. |
+| `ui/TreeView/utils/createTreeDragItem.ts` | O nome sugere utilitário genérico de UI, mas a função conhece os domínios `TAG`, `ASSET` e `FOLDER`. | Receber uma fábrica de payload pela API da árvore e manter o adaptador de domínio em `core/dnd` ou na feature. Não levar o algoritmo para `src/utils` indiscriminadamente. |
+| `ui/ContextMenu/ContextMenuCheckboxItem.tsx` | Reuso correto de `Checkbox`, sem regra de biblioteca embutida. | Extrair uma interface documentada em `types.ts` e atualizar a documentação pública do módulo. |
+| `core/store/library/folderActions.ts` e `folderDeletionUndo.ts` | Separação adequada: IPC/reconciliação no store, toast/ação visual na feature. | Manter notificações fora do store e fortalecer os tipos de comando e resultado. |
+
+Os locais propostos são uma organização alvo, não uma exigência de criar uma pasta
+por função. O objetivo é separar políticas puras, mutações transacionais, efeitos
+nativos e apresentação, preservando a atomicidade das consultas de validação.
+
+### Pendências de resiliência e integridade
+
+**P1 — Recuperação durável de operações interrompidas.**
+[`library_operations.rs`](../../src-tauri/src/infra/database/library_operations.rs)
+prepara alterações no SQLite, executa movimentos e depois confirma a transação.
+Uma queda entre movimento e commit pode deixar disco e catálogo divergentes;
+o snapshot de exclusão participa da mesma transação e também pode não sobreviver
+ao rollback do banco. Implementar um journal versionado com ID de operação,
+origem/destino, fases duráveis e recuperação idempotente no boot. Validar com
+interrupções reais em cada fase. A garantia desejada é coerência recuperável,
+não uma promessa de atomicidade distribuída inexistente entre SQLite e filesystem.
+
+**P1 — Compensação deve tentar todos os movimentos e preservar o diagnóstico.**
+[`compensate`](../../src-tauri/src/infra/database/library_operations.rs#L89)
+retorna na primeira falha, por causa de `?` dentro do loop reverso. Em uma seleção
+com vários movimentos, uma única origem ocupada durante o rollback deixa os
+demais movimentos sem tentativa de compensação. O erro inicial também é
+substituído pelo erro de compensação. Agregar falhas, continuar os passos
+independentes, registrar o estado de cada caminho e disponibilizar reparo. O teste
+atual de falha parcial cobre compensação bem-sucedida, não falha na própria
+compensação nem falha no commit. Esses cenários precisam de injeção de falhas.
+Isso indica risco de divergência, não comprova apagamento físico de arquivos.
+
+**P1 — Fechar o caminho de erro da correlação delete/create do watcher.**
+No fluxo adjacente de
+[`event_handler.rs`](../../src-tauri/src/feature/library/event_handler.rs#L102),
+`handle_path_deleted` guarda uma entrada em `recent_removals` e despacha
+`DeleteAsset` com `physical_delete: false`. Esse comando ainda remove a linha do
+catálogo em `asset_handler.rs`. Se a descoberta seguinte entrar no ramo
+**Fast Match**, ela tenta `UpdateAsset` pelo caminho antigo, descarta o resultado
+e retorna sem executar a criação normal. Há, portanto, um caminho em que o
+registro antigo já não existe e a descoberta pode terminar sem indexar o novo
+arquivo. É uma pendência do fluxo existente, não uma regressão atribuída às
+correções do macOS. Reproduzir com eventos delete/create separados e preservar a
+identidade durante a janela de correlação, ou usar tombstone reversível. Tratar
+explicitamente `NotFound` e outras falhas; testar também arquivos distintos com
+mesmo tamanho/data, para não transferir metadados por uma heurística ambígua.
+
+**P2 — Supressão do watcher precisa de reconciliação, não só TTL.**
+A correção de `is_exactly_marked` para criação é pertinente e deve ser preservada.
+Contudo, remoção e rename ainda consultam `is_marked` por ancestral em
+`event_handler.rs`: uma alteração externa legítima dentro de uma pasta recém
+movida pode ser descartada durante 15 segundos. O relógio também pode expirar
+antes de um evento atrasado. Associar a supressão aos efeitos esperados da
+operação e reconciliar caminhos ao concluir/expirar a janela. Testar criação,
+remoção e segundo rename externo imediatamente após um movimento do Mundam.
+
+**P2 — Reconfiguração de observação deve ser serializada e recuperável.**
+[`feature/library/operations.rs`](../../src-tauri/src/feature/library/operations.rs#L34)
+lê o caminho anterior antes da transação do Ledger e reconfigura o watcher depois
+do commit. Operações concorrentes podem trabalhar com uma origem anterior
+obsoleta. Além disso, `WatcherService::unwatch` remove os registros internos e
+somente registra um warning se o sensor nativo falhar, retornando `Ok(())`.
+Isso impede o chamador de detectar todas as falhas de reconfiguração. Retornar
+origem/destino efetivamente confirmados, reconciliar o conjunto desejado de raízes
+e registrar retry durável/outbox para efeitos pós-commit. Não sinalizar falha de
+escrita depois de um commit bem-sucedido. Testar dois renames concorrentes,
+falha de unwatch/watch e reinício durante a reconfiguração.
+
+**P2 — Tornar a identidade de caminhos coerente com o volume.**
+`COLLATE NOCASE` é usado em `planning.rs`, `recovery.rs`, `folder_handler.rs` e
+resolvers compartilhados independentemente da sensibilidade do filesystem.
+Em volume sensível a maiúsculas, diretórios `A` e `a` podem existir, mas a busca
+do pai por caminho pode selecionar o ID errado. Em NTFS/APFS sem diferenciação,
+o pré-check de destino existente também impede rename apenas de capitalização.
+Definir uma política compartilhada para identidade, Unicode e separadores;
+distinguir colisão real de referência ao próprio arquivo. Cobrir APFS sensível
+e não sensível, Windows, NFC/NFD e rename apenas de capitalização. A solução deve
+manter a proteção contra substituição; não basta retirar o pré-check.
+
+**P2 — Cancelar criação deve ser uma transição explícita e segura.**
+[`useFolderTreeActions.ts`](../../src/components/features/library/useFolderTreeActions.ts#L79)
+descarta o rascunho com uma exclusão recursiva recuperável. Se um arquivo for
+copiado para a pasta enquanto o editor está aberto, Esc também arquiva esse
+conteúdo, sem a notificação de Undo do fluxo normal. A cópia continua preservada,
+mas o efeito ultrapassa simplesmente cancelar uma pasta vazia. Também é preciso
+coordenar Esc com rename em andamento, troca de nó e falha no descarte, pois
+`pendingCreationId` é limpo antes do resultado. Modelar estados de criação,
+edição, confirmação e cancelamento, com identidade da operação; descartar
+automaticamente apenas um rascunho ainda vazio e pertencente à criação atual.
+Adicionar testes com arquivo externo, cancelamento durante RPC e falha seguida
+de nova tentativa, além dos casos de blur obsoleto já cobertos.
+
+**P2 — Versionar e validar os snapshots de Undo.**
+[`snapshot.rs`](../../src-tauri/src/infra/database/library_operations/snapshot.rs#L86)
+exige igualdade de ordem/tabela/colunas com o schema atual. Uma migração futura
+pode tornar snapshots persistidos irrestauráveis. Há ainda extrações com
+`unwrap_or_default` para IDs/caminhos/formato e restauração de associações que
+podem conflitar com tags removidas depois da exclusão. Adicionar versão do
+formato, validação dos campos obrigatórios, conversão entre versões suportadas
+e política explícita para referências ausentes. Diferenciar erro transitório de
+incompatibilidade permanente no retry. Testar snapshot corrompido, upgrade do
+schema, pai/tag removidos e falha após restaurar parte das tabelas, sempre
+preservando o arquivo de recuperação e o rollback do catálogo.
+
+**P2 — Cor de pasta deve ser uma mutação própria.**
+O ramo `FolderColor` de
+[`planning.rs`](../../src-tauri/src/infra/database/library_operations/planning.rs#L187)
+faz um `UPDATE` e depois chama `handle_create_folder` para produzir o retorno.
+Essa chamada também adota filhos órfãos e registra `CREATE_FOLDER`; além disso,
+o helper de validação exige a pasta presente no disco. Uma preferência visual
+fica acoplada a existência física, reconstrução de hierarquia e auditoria de
+outra intenção. Criar um handler específico, sem upsert/adoption incidental,
+com resultado e evento de atualização de cor. Definir e testar a edição de cor
+de uma pasta offline e garantir que apenas os campos esperados sejam alterados.
+
+**P2 — Dimensionar transações, memória e efeitos pós-commit.**
+O snapshot mantém todas as linhas e múltiplas representações JSON em memória;
+o rename de subárvore faz consultas por pasta e updates por asset, mantendo o
+`BEGIN IMMEDIATE` aberto durante a preparação e os movimentos. A limpeza de
+cache pós-commit espera o scan dos diretórios e, se falhar, só produz log.
+Medir bibliotecas grandes, estabelecer limites e paginação/lotes, reduzir
+roundtrips e manter tarefas de limpeza com retry. Não fragmentar a transação
+de forma a perder garantias sem um protocolo de operação recuperável. O uso de
+`std::fs::metadata` em handlers assíncronos do watcher também merece conversão
+para Tokio ou execução bloqueante isolada, conforme o guia Rust.
+
+**P2 — Validar o payload efetivo de DnD em todos os caminhos.**
+[`useTreeDragDrop.ts`](../../src/components/ui/TreeView/hooks/useTreeDragDrop.ts)
+valida o estado global de drag antes de ler `dataTransfer`; depois usa
+`JSON.parse` como `DragItem` sem validar a forma do objeto decodificado. O grupo
+de `TreeViewItem` tem outra leitura de JSON sem `try/catch`, e o drop de raiz tem
+uma terceira política. Centralizar parsing de `unknown`, validação do discriminante
+e campos e validação de domínio sobre o item realmente recebido. Aceitar `Promise`
+no contrato e tratar rejeições do callback, em vez de depender de todo consumidor
+capturá-las. O backend continua sendo a barreira de integridade, mas isso não
+substitui o tratamento consistente dos eventos de UI. Testar JSON inválido,
+payload incompleto, drag externo sem estado global e callback rejeitado.
+
+### Qualidade, contratos, nomes e documentação
+
+- **P2 — Contratos tipados por intenção.** `LibraryOperationOutcome` ainda
+  encapsula um `Asset` fictício para operações de pasta. Evoluir para resultados
+  próprios com ID de operação, entidade e efeitos confirmados; manter os tipos
+  TS/Rust sincronizados por geração ou testes de serialização. Transformar
+  `FolderDialogTarget` em união discriminada com IDs obrigatórios por ação,
+  eliminando fallbacks `''` e o `default` que transforma ação ausente em exclusão.
+  Substituir a sequência de parâmetros posicionais de `updateTag`, ampliada com
+  `resetColor`, por um objeto de intenção documentado.
+- **P2 — Reatividade e complexidade.** Investigar o aviso em
+  `FolderContextMenu.tsx:40`, onde a fábrica `action` captura propriedades
+  reativas; não presumir bug funcional apenas pelo warning. Extrair validação,
+  cálculo de posição e feedback visual de `handleDragOver` para reduzir sua
+  complexidade de 13 a no máximo 10. Manter a diferenciação entre nesting de
+  pastas e reorder de tags, com os testes existentes.
+- **P3 — Nomes e responsabilidades menores.** Ainda aparecem `tx`, `op_payload`,
+  `path_str`, `folder_id_ref` e closures `e` em `folder_handler.rs`, e `a`/`b` na
+  ordenação de `FolderTreeSidebarPanel.tsx`. Preferir `transaction`,
+  `operation_payload`, `folder_path`, `folder_identifier`, `error`, `firstNode`
+  e `secondNode`, conforme o contexto. Parte dessa nomenclatura é dívida de
+  funções preexistentes que foram reutilizadas; não é toda uma regressão nova.
+  `planning.rs` tem 309 linhas e um dispatcher com várias responsabilidades:
+  dividir por operação é recomendável por SRP, sem aplicar a ele indevidamente
+  o limite de 300 linhas que o guia declara para o frontend.
+- **P3 — TSDoc incompleto.** Há sumários, mas os exports inspecionados de
+  `useFolderTreeActions`, `FolderDestinationPicker`, `FolderActionsDialog`,
+  `folderActions`, `ContextMenuCheckboxItem` e `createTreeDragItem` não possuem
+  tags TSDoc. Completar parâmetros, retornos e erros relevantes, documentar os
+  campos e expor interfaces nomeadas de propriedades em `types.ts` nos componentes
+  compartilhados. Incluir exemplos compiláveis onde o guia os exige. Descrever
+  corretamente a semântica de “retorno confirmado com warning” e falha de refresh.
+- **P3 — Rustdoc incompleto ou desatualizado.** Os três handlers públicos de
+  `folder_handler.rs`, além de `available` e `prepare` do planner, não têm a
+  documentação exigida por item. `folder_queries.rs` usa seções `Returns` com
+  exemplos de erro em vez do `# Errors` obrigatório. Documentar invariantes,
+  efeitos e limites de cada operação, incluindo argumentos não óbvios. Corrigir
+  o cabeçalho de `infra/filesystem/mod.rs`, que ainda afirma excluir mídia
+  original, embora `exclusive_move` a manipule; atualizar o contexto de
+  `core/path_guard.rs` para refletir operações antes do commit e supressão exata
+  versus por ancestral.
+- **P3 — Exemplos e comentários precisam acompanhar a API.** O exemplo de
+  `ui/ContextMenu/index.ts` usa `onClick` e omite o discriminante `type`, enquanto
+  a API real usa `type: 'item'` e `action`; é documentação preexistente que
+  permaneceu desatualizada. Documentar também o novo checkbox exportado. Remover
+  comentários de fases/seções ou descrições mecânicas, substituindo-os por
+  funções com responsabilidade clara quando necessário. Em `folderDeletionUndo`,
+  “durable undo action” deve distinguir o snapshot persistido da ação em toast,
+  que não sobrevive a restart/dismiss.
+- **P3 — Escalabilidade da árvore e do Undo.** As buscas repetidas por `find`
+  para ancestralidade/cores e a construção duplicada das árvores podem ser
+  substituídas por um índice `Map` por revisão de metadados. Acrescentar uma lista
+  persistente de exclusões/restaurações e política de espaço/retenção para os
+  snapshots e arquivos arquivados. Hoje a ação Undo depende do toast em memória,
+  embora o snapshot permaneça no banco; acesso pelo explorador não restaura os
+  metadados do catálogo.
+- **P3 — Observabilidade e cobertura orientadas a falha.** Adicionar ID de
+  operação e spans às intenções de usuário, correlacionando fases, compensação,
+  avisos do watcher e limpeza. Revisar nomes de testes para corresponderem às
+  asserções: o teste de blur obsoleto do hook não prova sozinho rename confirmado
+  seguido de cancelamento; o teste de rename cujo nome menciona tags não verifica
+  associações nessa função específica. Não confundir mocks de IPC/UI com testes
+  reais de disco, transação e sensor nativo.
+
+### Ordem proposta para fechamento
+
+1. Corrigir o ramo de correlação do watcher e testar sua preservação de identidade;
+   completar a compensação com diagnóstico de falhas múltiplas. Nenhum caminho
+   de erro deve encerrar a descoberta silenciosamente ou ocultar movimentos que
+   ainda exigem reparo.
+2. Definir e implementar journal/recuperação e efeitos pós-commit idempotentes;
+   validar crash e reconfiguração concorrente de raízes. Avisos operacionais devem
+   ser rastreáveis e reparáveis, sem repetir uma escrita já confirmada.
+3. Fortalecer snapshots, identidade de caminhos e a máquina de estados de criação;
+   executar a matriz Windows/macOS, incluindo APFS sensível a maiúsculas e eventos
+   externos dentro da janela de supressão. Explicitar a política de volumes distintos.
+4. Extrair políticas e handlers, introduzir portas onde há dependência concreta,
+   remover o acoplamento de domínio do construtor de payload da UI e dedicar um
+   handler à cor. Preservar leituras transacionais e comportamento já validado.
+5. Completar Rustdoc/TSDoc, exemplos e nomes; resolver os avisos do recorte e
+   adicionar checks de formatação, complexidade e documentação à CI. Reexecutar
+   testes após as correções, registrando plataforma, commit e limites de cobertura.
+
+O encerramento funcional pode ser registrado com as evidências já relatadas.
+O encerramento de resiliência e conformidade integral deve permanecer condicionado
+aos itens acima, com prioridade explícita para P1. Esta revisão alterou somente
+esta documentação e não afirma que as pendências levantadas já foram corrigidas.

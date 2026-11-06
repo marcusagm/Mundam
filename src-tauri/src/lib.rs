@@ -1,6 +1,11 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 
+// Unit tests are library targets, so Cargo's link-arg-tests does not cover them.
+#[cfg(all(test, target_os = "windows"))]
+#[link(name = "resource", kind = "static")]
+extern "C" {}
+
 pub mod bootstrap;
 pub mod core;
 pub mod delivery;

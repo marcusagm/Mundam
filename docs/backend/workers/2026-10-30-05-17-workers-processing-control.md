@@ -382,7 +382,7 @@ Foi adicionada a permissão específica `allow-get-thumbnail-processing-status` 
 
 A regressão em `delivery/tauri/thumbnail_ipc_tests.rs` usa a configuração real de capabilities com o runtime de testes do Tauri. Ela envia a mesma chamada IPC do frontend (`assetIds`), verifica os resultados `failed` e `pending` nas janelas da biblioteca e rejeição na splashscreen. Esse teste cobre a autorização ausente nas verificações anteriores de repository e nos testes frontend com `invoke` simulado.
 
-No Windows, testes que instanciam o runtime desktop exigem o manifesto de Common Controls v6, ausente no executável de testes gerado inicialmente. Esse problema de carregamento é documentado pelo [projeto Tauri](https://github.com/tauri-apps/tauri/issues/11028). O executor `scripts/test-backend-windows.ps1` compila a biblioteca com `--no-run`, identifica o executável pelo JSON de artifacts do Cargo, incorpora `scripts/windows-tests.manifest.xml` usando `mt.exe` do Windows SDK e executa o filtro solicitado. Ele modifica apenas o artefato de teste e não o executável da aplicação.
+No Windows, testes que instanciam o runtime desktop exigem o manifesto de Common Controls v6, ausente no executável de testes gerado inicialmente. Esse problema de carregamento é documentado pelo [projeto Tauri](https://github.com/tauri-apps/tauri/issues/11028). Anteriormente, `scripts/test-backend-windows.ps1` incorporava o manifesto após a compilação. Agora o build vincula o recurso do Tauri aos testes, permitindo também executar `cargo test --lib` diretamente; o script continua disponível como atalho para testes MSVC filtrados.
 
 ```powershell
 ./scripts/test-backend-windows.ps1 processing_

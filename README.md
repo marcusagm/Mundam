@@ -106,7 +106,21 @@ Use `scripts/setup.sh` or `scripts/setup-windows.ps1` to prepare these dependenc
     ```bash
     npm run tauri build
     ```
-    macOS and Linux use Cargo's normal `src-tauri/target/` directory. On Windows, `scripts/tauri.cjs` selects the GNU toolchain and a no-space Cargo target directory only for that process, so the shared Cargo configuration stays portable.
+    macOS and Linux use Cargo's normal `src-tauri/target/` directory. On Windows, `scripts/tauri.cjs` selects the MSVC toolchain for that process.
+
+### Backend tests
+
+Run the library tests from `src-tauri`:
+
+```bash
+cargo test --lib
+```
+
+On Windows, the build links Tauri's Common Controls v6 manifest into the test
+executable as well as the application, so the tests can start normally. The
+optional `scripts\test-backend-windows.ps1` runs the MSVC library tests with
+the default `processing_` filter; pass a different test filter to select other
+tests.
 
 ---
 
