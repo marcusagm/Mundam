@@ -1,8 +1,17 @@
-import type { DragItem } from '../../../../core/dnd/dnd-core';
-import type { TreeNode } from '../types';
+import type { DragItem } from './dnd-core';
+interface DragNode {
+    id: string | number;
+    label: string;
+    data?: unknown;
+}
 
-/** Builds typed tree payloads without treating folders as assets. */
-export function createTreeDragItem(dragType: string, node: TreeNode): DragItem | null {
+/** Adapts navigation nodes to validated domain payloads.
+ * @param dragType - Closed domain discriminant.
+ * @param node - Display node with optional domain metadata.
+ * @returns Domain payload or null for unsupported types.
+ * @example createTreeDragItem('TAG', { id: 'tag', label: 'Tag' });
+ */
+export function createTreeDragItem(dragType: string, node: DragNode): DragItem | null {
     const data = node.data as { path?: string; parent_id?: string | null } | undefined;
     const identifier = String(node.id);
     switch (dragType) {

@@ -15,7 +15,7 @@ use super::shared;
 
 /// Handles the creation of a new asset.
 ///
-/// Executes an UPSERT operation for the asset and resolves move signatures.
+/// Executes an UPSERT operation for the asset and recovers moves only by persisted native file identity.
 ///
 /// # Arguments
 ///
@@ -27,8 +27,35 @@ use super::shared;
 /// Returns `AppError` if validation fails or the database query encounters an error.
 pub async fn handle_create(
     transaction: &mut Transaction<'_, Sqlite>,
-    payload: CreateAssetPayload,
+    mut payload: CreateAssetPayload,
 ) -> AppResult<Asset> {
+    if let Some(parent_id) = &payload.folder_id {
+        let parent: String = sqlx::query_scalar("SELECT path FROM folders WHERE id = ?")
+            .bind(parent_id)
+            .fetch_optional(&mut **transaction)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Observation parent no longer exists".into()))?;
+        let filename = payload
+            .path
+            .file_name()
+            .ok_or_else(|| AppError::ValidationFailed("Invalid file name".into()))?;
+        let canonical = std::path::Path::new(&parent).join(filename);
+        if canonical != payload.path
+            && !crate::infra::filesystem::identity::same(&payload.path, &canonical).await?
+        {
+            return Err(AppError::ValidationFailed(
+                "Observation does not belong to its catalog parent".into(),
+            ));
+        }
+        payload.path = canonical;
+    }
+    if let Some(identifier) = shared::resolve_asset_id_robust(transaction, &payload.path).await? {
+        payload.path = sqlx::query_scalar::<_, String>("SELECT path FROM assets WHERE id = ?")
+            .bind(identifier)
+            .fetch_one(&mut **transaction)
+            .await?
+            .into();
+    }
     let asset_id = Uuid::new_v4().to_string();
     let now = Utc::now();
     let name = payload
@@ -36,10 +63,7 @@ pub async fn handle_create(
         .file_name()
         .and_then(|file_name_os| file_name_os.to_str())
         .ok_or_else(|| AppError::ValidationFailed("Invalid file path".to_string()))?;
-    let path_string = {
-        use unicode_normalization::UnicodeNormalization;
-        payload.path.to_string_lossy().nfc().collect::<String>()
-    };
+    let path_string = payload.path.to_string_lossy().to_string();
     let state_string = payload.state_init.to_string();
     let file_size_i64 = payload.file_size as i64;
 
@@ -47,54 +71,23 @@ pub async fn handle_create(
     let modified_at_val = payload.modified_at.unwrap_or(now);
     let added_at_val = now;
 
-    if let Some(filesystem_created_at) = payload.created_at {
-        let move_candidates: Vec<(String, String, String)> = sqlx::query_as(
-            "SELECT id, folder_id, path FROM assets WHERE file_size = ? AND created_at = ?",
-        )
-        .bind(file_size_i64)
-        .bind(filesystem_created_at)
-        .fetch_all(&mut **transaction)
-        .await?;
-
-        for (existing_asset_id, _old_folder_id, old_path_string) in &move_candidates {
-            if !std::path::Path::new(old_path_string).exists() && old_path_string != &path_string {
-                tracing::info!(
-                    "Ledger: MOVE DETECTED (V1 recovery). Updating asset {} from '{}' to '{}'",
-                    existing_asset_id,
-                    old_path_string,
-                    path_string
-                );
-
-                let folder_id_for_update = payload.folder_id.as_deref();
-                sqlx::query!(
-                    "UPDATE assets SET path = ?, name = ?, folder_id = ?, modified_at = ?, updated_at = ?, state = ? WHERE id = ?",
-                    path_string,
-                    name,
-                    folder_id_for_update,
-                    modified_at_val,
-                    now,
-                    state_string,
-                    existing_asset_id
-                )
-                .execute(&mut **transaction)
-                .await?;
-
-                shared::log_operation(
-                    transaction,
-                    "CREATE_ASSET_MOVE_RECOVERY",
-                    existing_asset_id,
-                    serde_json::json!({
-                        "old_path": old_path_string,
-                        "new_path": path_string,
-                        "recovery_type": "signature_match"
-                    }),
-                    "COMPLETED",
-                    None,
-                )
-                .await?;
-
-                return shared::fetch_asset_by_id(transaction, existing_asset_id).await;
+    let identity = crate::infra::filesystem::identity::read(&payload.path).await?;
+    if identity.birth.is_some() {
+        let candidates: Vec<(String, String)> = sqlx::query_as(
+            "SELECT assets.id, assets.path FROM assets JOIN library_file_identities ON assets.id = library_file_identities.asset_id WHERE device = ? AND object = ? AND birth = ? AND assets.deleted_at IS NULL")
+            .bind(identity.device.to_string()).bind(identity.object.to_string()).bind(identity.birth.map(|birth| birth.to_string())).fetch_all(&mut **transaction).await?;
+        let mut missing = Vec::new();
+        for candidate in candidates {
+            if candidate.1 != path_string && !tokio::fs::try_exists(&candidate.1).await? {
+                missing.push(candidate);
             }
+        }
+        if missing.len() == 1 {
+            let (identifier, _) = &missing[0];
+            sqlx::query("UPDATE assets SET path = ?, name = ?, folder_id = ?, modified_at = ?, updated_at = ? WHERE id = ?")
+                .bind(&path_string).bind(name).bind(&payload.folder_id).bind(modified_at_val).bind(now).bind(identifier)
+                .execute(&mut **transaction).await?;
+            return shared::fetch_asset_by_id(transaction, identifier).await;
         }
     }
 
@@ -133,6 +126,13 @@ pub async fn handle_create(
     .await?;
 
     let asset_id_final = row.id.to_string();
+    if crate::infra::filesystem::identity::read(&payload.path).await? != identity {
+        return Err(AppError::ValidationFailed(
+            "File identity changed during discovery; retry indexing".into(),
+        ));
+    }
+    sqlx::query("INSERT INTO library_file_identities(asset_id, device, object, birth) VALUES (?,?,?,?) ON CONFLICT(asset_id) DO UPDATE SET device=excluded.device, object=excluded.object, birth=excluded.birth")
+        .bind(&asset_id_final).bind(identity.device.to_string()).bind(identity.object.to_string()).bind(identity.birth.map(|birth| birth.to_string())).execute(&mut **transaction).await?;
 
     let operation_payload = serde_json::to_value(&payload)
         .map_err(|error| AppError::Internal(format!("Failed to serialize payload: {}", error)))?;
@@ -192,105 +192,14 @@ pub async fn handle_batch_create(
     transaction: &mut Transaction<'_, Sqlite>,
     payloads: Vec<CreateAssetPayload>,
 ) -> AppResult<Asset> {
-    let mut created_assets = Vec::new();
-
+    let mut first = None;
     for payload in payloads {
-        let asset_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
-        let name = payload
-            .path
-            .file_name()
-            .and_then(|file_name_os| file_name_os.to_str())
-            .ok_or_else(|| AppError::ValidationFailed("Invalid file path".to_string()))?;
-        let state_string = payload.state_init.to_string();
-        let path_string = payload.path.to_string_lossy().to_string();
-        let file_size_i64 = payload.file_size as i64;
-
-        let created_at_val = payload.created_at.unwrap_or(now);
-        let modified_at_val = payload.modified_at.unwrap_or(now);
-        let added_at_val = now;
-
-        let path_reference = &path_string;
-        let state_reference = &state_string;
-        let format_type_reference = &payload.format_type;
-        let family_reference = &payload.family;
-        let folder_id_reference = payload.folder_id.as_deref();
-        let asset_id_reference = &asset_id;
-
-        let row = sqlx::query!(
-            r#"
-            INSERT INTO assets (
-                id, name, path, state, format_type, family, file_size,
-                created_at, modified_at, added_at, updated_at, folder_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                updated_at = excluded.updated_at
-            RETURNING id as "id!"
-            "#,
-            asset_id_reference,
-            name,
-            path_reference,
-            state_reference,
-            format_type_reference,
-            family_reference,
-            file_size_i64,
-            created_at_val,
-            modified_at_val,
-            added_at_val,
-            now,
-            folder_id_reference
-        )
-        .fetch_one(&mut **transaction)
-        .await?;
-
-        let asset_id = row.id;
-
-        let operation_payload = serde_json::to_value(&payload).map_err(|error| {
-            AppError::Internal(format!("Failed to serialize payload: {}", error))
-        })?;
-
-        shared::log_operation(
-            transaction,
-            "CREATE_ASSET_BATCH_MEMBER",
-            &asset_id,
-            operation_payload,
-            "COMPLETED",
-            None,
-        )
-        .await?;
-
-        created_assets.push(Asset {
-            id: asset_id.clone(),
-            name: name.to_string(),
-            path: payload.path.clone(),
-            state: payload.state_init,
-            format_type: payload.format_type.clone(),
-            family: payload.family.clone(),
-            file_size: payload.file_size,
-            created_at: Some(created_at_val),
-            modified_at: Some(modified_at_val),
-            added_at: Some(added_at_val),
-            updated_at: Some(now),
-            width: None,
-            height: None,
-            duration_secs: None,
-            technical_payload: None,
-            semantic_payload: None,
-            dominant_color: None,
-            folder_id: payload.folder_id.clone(),
-            thumbnail_path: None,
-            rating: None,
-            notes: None,
-            is_favorite: false,
-            deleted_at: None,
-        });
+        let asset = handle_create(transaction, payload).await?;
+        if first.is_none() {
+            first = Some(asset);
+        }
     }
-
-    created_assets
-        .into_iter()
-        .next()
-        .ok_or_else(|| AppError::ValidationFailed("Empty batch".to_string()))
+    first.ok_or_else(|| AppError::ValidationFailed("Empty batch".into()))
 }
 
 /// Handles the deletion of an asset.
@@ -355,6 +264,20 @@ pub async fn handle_delete_asset(
         }
     };
 
+    if !physical_delete {
+        let current: Option<String> = sqlx::query_scalar("SELECT path FROM assets WHERE id = ?")
+            .bind(&resolved_id)
+            .fetch_optional(&mut **transaction)
+            .await?;
+        if path
+            .as_ref()
+            .is_some_and(|expected| current.as_deref() != Some(expected.to_string_lossy().as_ref()))
+        {
+            return Err(AppError::NotFound(
+                "Asset moved since the deletion event".into(),
+            ));
+        }
+    }
     let pre_delete_row = sqlx::query!(
         r#"SELECT folder_id as "folder_id?", name as "name!", deleted_at as "deleted_at?: chrono::DateTime<chrono::Utc>" FROM assets WHERE id = ?"#,
         resolved_id
@@ -364,8 +287,14 @@ pub async fn handle_delete_asset(
 
     if let Some(row) = &pre_delete_row {
         if row.deleted_at.is_some() && !physical_delete {
-            tracing::info!("Ledger: DeleteAsset IGNORED - Asset {} is already in trash", resolved_id);
-            return Err(AppError::NotFound(format!("Asset {} is already in trash", resolved_id)));
+            tracing::info!(
+                "Ledger: DeleteAsset IGNORED - Asset {} is already in trash",
+                resolved_id
+            );
+            return Err(AppError::NotFound(format!(
+                "Asset {} is already in trash",
+                resolved_id
+            )));
         }
     }
 
@@ -381,7 +310,8 @@ pub async fn handle_delete_asset(
         "Ledger: DeleteAsset executing DELETE for ID {}",
         resolved_id
     );
-    let affected_groups = super::duplicate_removal::collect_asset_groups(transaction, &resolved_id).await?;
+    let affected_groups =
+        super::duplicate_removal::collect_asset_groups(transaction, &resolved_id).await?;
     sqlx::query!("DELETE FROM assets WHERE id = ?", resolved_id)
         .execute(&mut **transaction)
         .await?;
@@ -434,9 +364,8 @@ pub async fn handle_delete_asset(
 /// Handles updating an asset's path and name after a rename or move operation.
 ///
 /// Performs robust asset ID resolution via both direct path match and the
-/// NFC/NFD-aware fallback strategy. Includes a safety DELETE to prevent
-/// UNIQUE constraint violations when the new path already exists as a
-/// different record (stale ghost from a previous incomplete operation).
+/// native-identity alias strategy. Existing destination records are never deleted;
+/// collisions reject the operation while preserving both identities.
 ///
 /// # Arguments
 ///
@@ -449,8 +378,21 @@ pub async fn handle_delete_asset(
 /// Returns `AppError::ValidationFailed` if neither `asset_id` nor `old_path` is provided.
 pub async fn handle_update_asset(
     transaction: &mut Transaction<'_, Sqlite>,
-    payload: UpdateAssetPayload,
+    mut payload: UpdateAssetPayload,
 ) -> AppResult<Asset> {
+    if let Some(parent) = payload.new_path.parent() {
+        if let Some(identifier) = shared::resolve_folder_id_robust(transaction, parent).await? {
+            let canonical: String = sqlx::query_scalar("SELECT path FROM folders WHERE id = ?")
+                .bind(identifier)
+                .fetch_one(&mut **transaction)
+                .await?;
+            let filename = payload
+                .new_path
+                .file_name()
+                .ok_or_else(|| AppError::ValidationFailed("Invalid asset name".into()))?;
+            payload.new_path = std::path::Path::new(&canonical).join(filename);
+        }
+    }
     let now = Utc::now();
     let old_path_string = payload
         .old_path
@@ -497,6 +439,20 @@ pub async fn handle_update_asset(
         }
     };
 
+    if payload.asset_id.is_none()
+        && !crate::infra::database::query_handlers::library_identity::matches_destination(
+            transaction,
+            crate::core::library::LibraryEntity::Asset,
+            &asset_id,
+            &payload.new_path,
+        )
+        .await?
+    {
+        return Err(AppError::ValidationFailed(
+            "Observed rename does not match the original file identity".into(),
+        ));
+    }
+
     let new_name = payload
         .new_path
         .file_name()
@@ -504,25 +460,35 @@ pub async fn handle_update_asset(
         .ok_or_else(|| AppError::ValidationFailed("Invalid new file path".to_string()))?;
     let new_path_str = payload.new_path.to_string_lossy().to_string();
 
-    let collision: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assets WHERE path = ? AND id != ?")
-        .bind(&new_path_str).bind(&asset_id).fetch_one(&mut **transaction).await?;
+    let collision: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM assets WHERE path = ? AND id != ?")
+            .bind(&new_path_str)
+            .bind(&asset_id)
+            .fetch_one(&mut **transaction)
+            .await?;
     if collision > 0 {
-        return Err(AppError::ValidationFailed("Destination already belongs to another asset".into()));
+        return Err(AppError::ValidationFailed(
+            "Destination already belongs to another asset".into(),
+        ));
     }
 
     info!(
         "Ledger: UpdateAsset executing UPDATE for ID {} to NEW path '{}'",
         asset_id, new_path_str
     );
-    sqlx::query!(
-        "UPDATE assets SET path = ?, name = ?, updated_at = ? WHERE id = ?",
-        new_path_str,
-        new_name,
-        now,
-        asset_id
-    )
-    .execute(&mut **transaction)
-    .await?;
+    let parent_id = if let Some(parent) = payload.new_path.parent() {
+        shared::resolve_folder_id_robust(transaction, parent).await?
+    } else {
+        None
+    };
+    sqlx::query("UPDATE assets SET path = ?, name = ?, updated_at = ?, folder_id = ? WHERE id = ?")
+        .bind(&new_path_str)
+        .bind(new_name)
+        .bind(now)
+        .bind(parent_id)
+        .bind(&asset_id)
+        .execute(&mut **transaction)
+        .await?;
 
     let operation_payload = serde_json::to_value(&payload)
         .map_err(|error| AppError::Internal(format!("Failed to serialize payload: {}", error)))?;
@@ -624,16 +590,16 @@ pub async fn handle_set_asset_folder(
 }
 
 /// Moves an asset to the trash by setting deleted_at.
-/// 
+///
 /// This creates a soft delete record without immediately removing the file.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `tx` - The active database transaction.
 /// * `payload` - The payload containing the target asset_id.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns `AppError` if the database update fails or the asset is not found.
 pub async fn handle_move_to_trash(
     tx: &mut Transaction<'_, Sqlite>,
@@ -663,16 +629,16 @@ pub async fn handle_move_to_trash(
 }
 
 /// Restores an asset from the trash by clearing deleted_at.
-/// 
+///
 /// Re-activates a soft deleted item, bringing it back to the library view.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `tx` - The active database transaction.
 /// * `payload` - The payload containing the target asset_id.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns `AppError` if the database update fails or the asset is not found.
 pub async fn handle_restore_from_trash(
     tx: &mut Transaction<'_, Sqlite>,

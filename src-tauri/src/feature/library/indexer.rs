@@ -10,7 +10,7 @@
 //!   missing format types or thumbnails.
 //!
 //! Real-time filesystem event handling lives in the sibling `event_handler` module,
-//! and pure file classification logic lives in the `classifier` module.
+//! and stateless asynchronous file classification lives in the `classifier` module.
 
 use crate::core::error::AppResult;
 use crate::core::events::AppEventBus;
@@ -22,12 +22,12 @@ use dashmap::DashMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock, Semaphore};
+use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, instrument, warn};
 use walkdir::WalkDir;
 
-use super::classifier::{classify_file_entry, nfc_path, AssetDiscoveryResult};
+use super::classifier::{catalog_path, classify_file_entry, AssetDiscoveryResult};
 
 /// Service responsible for indexing library folders using a parallel
 /// producer-consumer pipeline.
@@ -47,13 +47,9 @@ pub struct LibraryIndexer {
     pub(crate) registry: Arc<crate::core::formats::registry::FormatRegistry>,
     /// Maximum number of concurrent file-processing tasks.
     pub(crate) concurrency_limit: usize,
-    /// Cache of recently removed files metadata to support "Implicit Rename" recovery.
-    ///
-    /// Keeps track of removals for a short window so that a subsequent file discovery
-    /// with matching size + created_at can be paired as a move instead of delete+create.
-    /// Tuple: (removal_timestamp, file_size, created_at_from_db)
-    pub(crate) recent_removals: Arc<DashMap<PathBuf, (DateTime<Utc>, u64, Option<DateTime<Utc>>)>>,
-    /// Paths being moved by the Ledger itself (trash/restore); watcher events on them are ignored.
+    /// Generation tokens fence deferred deletions; native identities perform move correlation.
+    pub(crate) pending_removals: Arc<DashMap<PathBuf, uuid::Uuid>>,
+    /// Shared compatibility hints; catalog reconciliation decides whether an observation is stale.
     pub(crate) path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
 }
 
@@ -78,20 +74,23 @@ impl LibraryIndexer {
             event_bus,
             registry,
             concurrency_limit: 200,
-            recent_removals: Arc::new(DashMap::new()),
+            pending_removals: Arc::new(DashMap::new()),
             path_guard: Arc::new(crate::core::path_guard::LedgerPathGuard::new()),
         }
     }
 
-    /// Shares the Ledger's path guard so its own file moves are not re-indexed.
-    pub fn with_path_guard(mut self, path_guard: Arc<crate::core::path_guard::LedgerPathGuard>) -> Self {
+    /// Shares compatibility hints while preserving external observations.
+    pub fn with_path_guard(
+        mut self,
+        path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
+    ) -> Self {
         self.path_guard = path_guard;
         self
     }
 
     /// Sets a custom concurrency limit, clamped to [10, 500].
     pub fn with_concurrency_limit(mut self, limit: usize) -> Self {
-        self.concurrency_limit = limit.max(10).min(500);
+        self.concurrency_limit = limit.clamp(10, 500);
         self
     }
 
@@ -101,7 +100,7 @@ impl LibraryIndexer {
     /// 1. Single `spawn_blocking` walk → collect all entries
     /// 2. Process folders hierarchically (sequential, before fan-out)
     /// 3. Load comparison cache for differential check
-    /// 4. Fan-out file classification via `JoinSet` + `Semaphore`
+    /// 4. Bounded fan-out file classification via a producer and `JoinSet`
     /// 5. Consumer serializes persistence via `Ledger.BatchCreate`
     /// 6. Prune stale assets and folders not found on disk
     ///
@@ -111,7 +110,7 @@ impl LibraryIndexer {
     #[instrument(skip(self), fields(path = %path.display()))]
     pub async fn scan_directory(&self, path: PathBuf, folder_id: Option<String>) -> AppResult<()> {
         let scan_start_time = std::time::Instant::now();
-        let path = nfc_path(&path);
+        let path = catalog_path(&path);
         let root_str = path.to_string_lossy().to_string();
         info!(
             "▶ Scan STARTED for: {} (concurrency_limit={})",
@@ -137,12 +136,16 @@ impl LibraryIndexer {
         let all_entries: Vec<walkdir::DirEntry> = tokio::task::spawn_blocking(move || {
             WalkDir::new(&walk_path)
                 .into_iter()
-                .filter_map(|entry| entry.ok())
-                .collect()
+                .collect::<Result<Vec<_>, _>>()
         })
         .await
         .map_err(|join_error| {
             crate::core::error::AppError::Internal(format!("WalkDir join failed: {}", join_error))
+        })?
+        .map_err(|error| {
+            crate::core::error::AppError::Internal(format!(
+                "Incomplete filesystem walk; catalog pruning cancelled: {error}"
+            ))
         })?;
 
         let mut directory_entries: Vec<walkdir::DirEntry> = Vec::new();
@@ -189,12 +192,12 @@ impl LibraryIndexer {
 
         let verified_file_paths: std::collections::HashSet<String> = file_entries
             .iter()
-            .map(|entry| nfc_path(entry.path()).to_string_lossy().to_string())
+            .map(|entry| catalog_path(entry.path()).to_string_lossy().to_string())
             .collect();
 
         let verified_folder_paths: std::collections::HashSet<String> = directory_entries
             .iter()
-            .map(|entry| nfc_path(entry.path()).to_string_lossy().to_string())
+            .map(|entry| catalog_path(entry.path()).to_string_lossy().to_string())
             .collect();
 
         let (discovered_count, unchanged_count, error_count) = self
@@ -206,6 +209,10 @@ impl LibraryIndexer {
                 total_files,
             )
             .await;
+
+        self.ledger
+            .observe_file_identities(verified_file_paths.iter().map(PathBuf::from).collect())
+            .await?;
 
         let existing_folders = self.query_handler.list_all_subfolders().await?;
         let (pruned_files_count, pruned_folders_count) = self
@@ -236,18 +243,18 @@ impl LibraryIndexer {
     /// Builds the folder hierarchy cache, creating missing folders in depth order.
     async fn build_folder_cache(
         &self,
-        root_path: &PathBuf,
+        root_path: &std::path::Path,
         current_root_id: &Option<String>,
-        directory_entries: &mut Vec<walkdir::DirEntry>,
+        directory_entries: &mut [walkdir::DirEntry],
     ) -> AppResult<Arc<RwLock<HashMap<PathBuf, String>>>> {
         let existing_folders = self.query_handler.list_all_subfolders().await?;
         let folder_cache: Arc<RwLock<HashMap<PathBuf, String>>> = Arc::new(RwLock::new({
             let mut map = HashMap::new();
             for folder in &existing_folders {
-                map.insert(nfc_path(&folder.path), folder.id.clone());
+                map.insert(catalog_path(&folder.path), folder.id.clone());
             }
             if let Some(ref root_id) = current_root_id {
-                map.insert(root_path.clone(), root_id.clone());
+                map.insert(root_path.to_path_buf(), root_id.clone());
             }
             map
         }));
@@ -255,7 +262,7 @@ impl LibraryIndexer {
         directory_entries.sort_by_key(|entry| entry.path().components().count());
 
         for dir_entry in directory_entries.iter() {
-            let dir_path = nfc_path(dir_entry.path());
+            let dir_path = catalog_path(dir_entry.path());
             let dir_path_str = dir_path.to_string_lossy().to_string();
 
             {
@@ -319,40 +326,41 @@ impl LibraryIndexer {
         total_files: usize,
     ) -> (u64, u64, u64) {
         let (result_sender, mut result_receiver) = mpsc::channel::<AssetDiscoveryResult>(2000);
-        let mut producer_join_set = JoinSet::new();
-        let concurrency_semaphore = Arc::new(Semaphore::new(self.concurrency_limit));
-
         let shared_comparison_cache = Arc::new(comparison_cache.clone());
         let shared_folder_cache = folder_cache.clone();
         let shared_registry = self.registry.clone();
-
-        for file_entry in file_entries {
-            let sender_clone = result_sender.clone();
-            let semaphore_clone = concurrency_semaphore.clone();
-            let cache_clone = shared_comparison_cache.clone();
-            let folder_cache_clone = shared_folder_cache.clone();
-            let registry_clone = shared_registry.clone();
-            let root_id_clone = current_root_id.clone();
-
-            producer_join_set.spawn(async move {
-                let _permit = match semaphore_clone.acquire().await {
-                    Ok(permit) => permit,
-                    Err(_) => return,
-                };
-
-                let result = classify_file_entry(
-                    &file_entry,
-                    &cache_clone,
-                    &folder_cache_clone,
-                    &registry_clone,
-                    &root_id_clone,
-                )
-                .await;
-
-                let _ = sender_clone.send(result).await;
-            });
-        }
-        drop(result_sender);
+        let current_root_id = current_root_id.clone();
+        let concurrency_limit = self.concurrency_limit;
+        let producer = tokio::spawn(async move {
+            let mut pending = JoinSet::new();
+            for file_entry in file_entries {
+                if pending.len() >= concurrency_limit {
+                    if let Some(Err(error)) = pending.join_next().await {
+                        let _ = result_sender
+                            .send(AssetDiscoveryResult::Error(error.to_string()))
+                            .await;
+                    }
+                }
+                let sender = result_sender.clone();
+                let comparison = shared_comparison_cache.clone();
+                let folders = shared_folder_cache.clone();
+                let registry = shared_registry.clone();
+                let root = current_root_id.clone();
+                pending.spawn(async move {
+                    let result =
+                        classify_file_entry(&file_entry, &comparison, &folders, &registry, &root)
+                            .await;
+                    let _ = sender.send(result).await;
+                });
+            }
+            while let Some(result) = pending.join_next().await {
+                if let Err(error) = result {
+                    let _ = result_sender
+                        .send(AssetDiscoveryResult::Error(error.to_string()))
+                        .await;
+                }
+            }
+        });
 
         let mut batch_payloads: Vec<CreateAssetPayload> = Vec::new();
         let mut discovered_count: u64 = 0;
@@ -390,7 +398,7 @@ impl LibraryIndexer {
                 }
             }
 
-            if processed_count.is_multiple_of(100) || processed_count == total_files as u64 {
+            if processed_count % 100 == 0 || processed_count == total_files as u64 {
                 let _ = self
                     .event_bus
                     .publish(crate::core::events::DomainEvent::ScanProgress {
@@ -411,7 +419,10 @@ impl LibraryIndexer {
             }
         }
 
-        while producer_join_set.join_next().await.is_some() {}
+        if let Err(error) = producer.await {
+            error!(%error, "Classification producer failed");
+            error_count += 1;
+        }
 
         (discovered_count, unchanged_count, error_count)
     }
@@ -431,7 +442,9 @@ impl LibraryIndexer {
         let mut pruned_folders_count: u64 = 0;
 
         for cached_path in comparison_cache.keys() {
-            if !verified_file_paths.contains(cached_path) {
+            if !verified_file_paths.contains(cached_path)
+                && !tokio::fs::try_exists(cached_path).await.unwrap_or(true)
+            {
                 if let Err(error) = self
                     .ledger
                     .execute(LedgerCommand::DeleteAsset {
@@ -449,7 +462,7 @@ impl LibraryIndexer {
         }
 
         for folder in existing_folders {
-            let folder_path_str = nfc_path(&folder.path).to_string_lossy().to_string();
+            let folder_path_str = catalog_path(&folder.path).to_string_lossy().to_string();
 
             if folder_path_str.starts_with(root_str)
                 && folder_path_str != root_str
@@ -459,6 +472,7 @@ impl LibraryIndexer {
                     .ledger
                     .execute(LedgerCommand::RemoveFolder(
                         crate::core::ledger::command::RemoveFolderPayload {
+                            expected_path: Some(folder.path.clone()),
                             folder_id: folder.id.clone(),
                         },
                     ))

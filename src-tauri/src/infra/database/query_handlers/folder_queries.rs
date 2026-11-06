@@ -8,10 +8,9 @@ use sqlx::SqlitePool;
 ///
 /// * `parent_id` - The ID of the parent folder.
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Vec<Folder>)` if the folders were found successfully.
-/// * `Err(sqlx::Error)` if the folders could not be found.
+/// Returns database query failures; absent entities are returned without an error.
 pub async fn list_folders(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
@@ -36,10 +35,9 @@ pub async fn list_folders(
 ///
 /// * `id` - The ID of the folder to retrieve.
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Option<Folder>)` if the folder was found successfully.
-/// * `Err(sqlx::Error)` if the folder could not be found.
+/// Returns database query failures; absent entities are returned without an error.
 pub async fn get_folder_by_id(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
@@ -54,10 +52,9 @@ pub async fn get_folder_by_id(
 
 /// Lists all folders (entire hierarchy).
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Vec<Folder>)` if the folders were found successfully.
-/// * `Err(sqlx::Error)` if the folders could not be found.
+/// Returns database query failures; absent entities are returned without an error.
 pub async fn list_all_subfolders(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
@@ -71,10 +68,9 @@ pub async fn list_all_subfolders(
 
 /// Returns the asset counts for all folders (recursive).
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Vec<(String, i64)>)` if the counts were found successfully.
-/// * `Err(sqlx::Error)` if the counts could not be found.
+/// Returns database query failures; absent entities are returned without an error.
 pub async fn get_subfolder_asset_counts(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
@@ -106,10 +102,9 @@ pub async fn get_subfolder_asset_counts(
 
 /// Returns the asset counts for root locations.
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Vec<(String, i64)>)` if the counts were found successfully.
-/// * `Err(sqlx::Error)` if the counts could not be found.
+/// Returns database query failures; absent entities are returned without an error.
 pub async fn get_location_root_counts(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
@@ -139,17 +134,15 @@ pub async fn get_location_root_counts(
     Ok(rows.into_iter().map(|r| (r.folder_id, r.count)).collect())
 }
 
+/// Resolves exact paths and verified live aliases without assuming case-insensitive volumes.
+///
+/// # Errors
+/// Returns catalog query failures; absent paths return None.
 pub async fn find_folder_by_path(
     pool: &SqlitePool,
     _registry: &crate::core::formats::registry::FormatRegistry,
     path: &str,
 ) -> AppResult<Option<String>> {
-    let row = sqlx::query!(
-        r#"SELECT id as "id!" FROM folders WHERE path = ? COLLATE NOCASE"#,
-        path
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(row.map(|r| r.id))
+    let mut connection = pool.acquire().await?;
+    super::path_identity::resolve(&mut connection, "folders", std::path::Path::new(path)).await
 }

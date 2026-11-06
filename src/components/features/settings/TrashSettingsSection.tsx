@@ -5,6 +5,7 @@ import { useNotification, useMetadata } from '../../../core/hooks';
 import { invokeCommand } from '../../../lib/api';
 import { TrashEmptyModal } from './TrashEmptyModal';
 import { openPath } from '@tauri-apps/plugin-opener';
+import { FolderRecoverySettings } from './FolderRecoverySettings';
 
 /**
  * Self-contained settings section for Trash management.
@@ -140,6 +141,7 @@ export const TrashSettingsSection: Component = () => {
                     Undo. Folder recovery is separate from asset trash auto-empty.
                 </p>
             </div>
+            <FolderRecoverySettings />
             <TrashEmptyModal
                 isOpen={isTrashModalOpen()}
                 onClose={() => setIsTrashModalOpen(false)}

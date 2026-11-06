@@ -1,5 +1,5 @@
 import { metadataState, setMetadataState } from './metadataState';
-import { Tag, tagService } from '../../../lib/tags';
+import { Tag, tagService, type UpdateTagOptions } from '../../../lib/tags';
 import { parseTagMarkdown } from '../../../lib/tagMarkdown';
 import { ActionResult, ErrorCode } from '../../types/actions';
 import { eventBus } from '../../utils/eventBus';
@@ -83,30 +83,10 @@ export const tagActions = {
     /**
      * Updates an existing tag and refreshes metadata.
      */
-    updateTag: async (
-        itemId: string,
-        name?: string | null,
-        color?: string | null,
-        parentId?: string | null,
-        orderIndex?: number | null,
-        inheritsColor?: boolean,
-        resetColor?: boolean
-    ): Promise<ActionResult> => {
+    updateTag: async (itemId: string, options: UpdateTagOptions): Promise<ActionResult> => {
+        const { parentId, orderIndex } = options;
         try {
-            const finalName = name === null ? undefined : name;
-            const finalColor = color === null ? undefined : color;
-            const finalParentId = parentId === null ? undefined : parentId;
-            const finalOrderIndex = orderIndex === null ? undefined : orderIndex;
-
-            await tagService.updateTag(
-                itemId,
-                finalName,
-                finalColor,
-                finalParentId,
-                finalOrderIndex,
-                inheritsColor,
-                resetColor
-            );
+            await tagService.updateTag(itemId, options);
 
             await tagActions.loadTags(true);
             tagActions.notifyTagUpdate({
@@ -164,7 +144,7 @@ export const tagActions = {
         try {
             // Apply updates sequentially to the DB
             await Promise.all(
-                updates.map(u => tagService.updateTag(u.id, null, null, undefined, u.order))
+                updates.map(update => tagService.updateTag(update.id, { orderIndex: update.order }))
             );
             await tagActions.loadTags();
             return { success: true, data: undefined };
@@ -235,13 +215,10 @@ export const tagActions = {
                 // NOTE: We pass "0" for newParentId if it's null, as the Rust backend
                 // normalizes "0" or "" as NULL in the database.
                 if (isDragged || tag.order_index !== newOrder) {
-                    return tagService.updateTag(
-                        tag.id,
-                        null,
-                        null,
-                        isDragged ? (newParentId ?? '0') : tag.parent_id,
-                        newOrder
-                    );
+                    return tagService.updateTag(tag.id, {
+                        parentId: isDragged ? (newParentId ?? '0') : tag.parent_id,
+                        orderIndex: newOrder
+                    });
                 }
                 return Promise.resolve();
             });

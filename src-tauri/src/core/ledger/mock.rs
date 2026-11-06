@@ -83,8 +83,8 @@ impl TransactionalAssetLedger for MockAssetLedger {
                     thumbnail_path: None,
                     rating: None,
                     notes: None,
-                is_favorite: false,
-                deleted_at: None,
+                    is_favorite: false,
+                    deleted_at: None,
                 };
 
                 // Store in memory
@@ -152,8 +152,8 @@ impl TransactionalAssetLedger for MockAssetLedger {
                     thumbnail_path: None,
                     rating: None,
                     notes: None,
-                is_favorite: false,
-                deleted_at: None,
+                    is_favorite: false,
+                    deleted_at: None,
                 })
             }
             _ => Err(AppError::Internal(

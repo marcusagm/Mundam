@@ -70,21 +70,38 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     let path_guard = Arc::new(crate::core::path_guard::LedgerPathGuard::new());
     app.manage(path_guard.clone());
 
-    let asset_ledger_impl = Arc::new(crate::infra::database::ledger::SqliteAssetLedger::new(
-        db_manager.pool().clone(),
-        event_bus.clone(),
-        dirs.app_data.clone(),
-        path_guard,
-    ));
+    let asset_ledger_impl = Arc::new(
+        crate::infra::database::ledger::SqliteAssetLedger::new(
+            db_manager.pool().clone(),
+            event_bus.clone(),
+            dirs.app_data.clone(),
+            path_guard,
+        )
+        .with_settings_repository(
+            app.state::<Arc<dyn crate::core::settings::SettingsRepository>>()
+                .inner()
+                .clone(),
+        ),
+    );
 
-    // Run database path normalization cleanup (one-time logic)
-    let normalization_pool = db_manager.pool().clone();
+    crate::infra::database::library_operations::journal::recover(db_manager.pool(), &dirs.app_data)
+        .await?;
+    crate::infra::database::handlers::shared::normalize_database_paths(db_manager.pool()).await?;
+    crate::infra::database::handlers::library::identities::seed_missing(db_manager.pool()).await?;
+    let cleanup_pool = db_manager.pool().clone();
+    let cleanup_directory = dirs.app_data.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(error) =
-            crate::infra::database::handlers::shared::normalize_database_paths(&normalization_pool)
-                .await
-        {
-            tracing::error!("Failed to normalize database paths: {}", error);
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            if let Err(error) = crate::infra::database::library_operations::retry_cleanup(
+                &cleanup_pool,
+                &cleanup_directory,
+            )
+            .await
+            {
+                tracing::warn!(%error, "Library cleanup remains pending");
+            }
         }
     });
 

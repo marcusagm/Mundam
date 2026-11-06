@@ -37,7 +37,11 @@ pub fn decode_uri_path(uri: &str, scheme: &str) -> String {
         .into_owned();
 
     // On Windows, if a path starts with "/C:/" or "/C:\", strip the leading slash
-    if cfg!(windows) && decoded.starts_with('/') && decoded.len() > 2 && decoded.as_bytes()[2] == b':' {
+    if cfg!(windows)
+        && decoded.starts_with('/')
+        && decoded.len() > 2
+        && decoded.as_bytes()[2] == b':'
+    {
         decoded[1..].to_string()
     } else {
         decoded
@@ -216,7 +220,8 @@ mod tests {
         let decoded = decode_uri_path("http://video.localhost/Movies/sample.mp4", "video");
         assert_eq!(decoded, "Movies/sample.mp4");
 
-        let decoded_audio = decode_uri_path("http://audio.localhost/Music/song.mp3?query=1", "audio");
+        let decoded_audio =
+            decode_uri_path("http://audio.localhost/Music/song.mp3?query=1", "audio");
         assert_eq!(decoded_audio, "Music/song.mp3");
     }
 }

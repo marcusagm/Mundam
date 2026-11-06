@@ -1,3 +1,4 @@
+import { createTreeDragItem } from '../../../core/dnd/createTreeDragItem';
 import { Button } from '../../ui';
 import { Component, createMemo, createSignal, untrack } from 'solid-js';
 import { Bookmark, Plus, ListPlus } from 'lucide-solid';
@@ -156,7 +157,7 @@ export const TagTreeSidebarPanel: Component = () => {
         const oldName = node.label;
         const isPlaceholder = /^New Tag( \(\d+\))?$/.test(oldName);
 
-        const result = await metadata.updateTag(String(node.id), normalized);
+        const result = await metadata.updateTag(String(node.id), { name: normalized });
 
         if (result.success) {
             if (isPlaceholder) {
@@ -293,6 +294,7 @@ export const TagTreeSidebarPanel: Component = () => {
                 onToggle={tree.toggle}
                 draggable={true}
                 dragType="TAG"
+                createDragItem={node => createTreeDragItem('TAG', node)}
                 acceptedDragTypes={['TAG', 'ASSET']}
                 isValidDrop={isValidTagDrop}
                 onDrop={(item, targetId, position) => handleDrop(item, targetId, 'TAG', position)}

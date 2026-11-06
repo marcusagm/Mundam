@@ -8,9 +8,19 @@ use std::{io, path::Path};
 pub async fn move_path(source: &Path, destination: &Path) -> io::Result<()> {
     let source = source.to_path_buf();
     let destination = destination.to_path_buf();
-    tokio::task::spawn_blocking(move || rename_exclusive(&source, &destination))
-        .await
-        .map_err(io::Error::other)?
+    tokio::task::spawn_blocking(move || {
+        rename_exclusive(&source, &destination)?;
+        #[cfg(unix)]
+        for parent in [source.parent(), destination.parent()]
+            .into_iter()
+            .flatten()
+        {
+            std::fs::File::open(parent)?.sync_all()?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(io::Error::other)?
 }
 
 #[cfg(windows)]
@@ -26,8 +36,9 @@ fn rename_exclusive(source: &Path, destination: &Path) -> io::Result<()> {
         .encode_wide()
         .chain(Some(0))
         .collect();
-    // Both buffers are terminated and live through the call; flags=0 forbids replacement.
-    if unsafe { MoveFileExW(source.as_ptr(), destination.as_ptr(), 0) } == 0 {
+    // WRITE_THROUGH requests durable completion; REPLACE_EXISTING is deliberately absent.
+    // Both terminated buffers remain alive throughout the native call.
+    if unsafe { MoveFileExW(source.as_ptr(), destination.as_ptr(), 0x8) } == 0 {
         return Err(io::Error::last_os_error());
     }
     Ok(())

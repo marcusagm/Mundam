@@ -14,18 +14,30 @@ import './folder-actions-dialog.css';
 export type FolderDialogAction = 'moveFolder' | 'deleteFolder' | 'moveAssets' | 'renameAsset';
 
 /** Dialog target is captured before the context menu closes. */
-export interface FolderDialogTarget {
-    action: FolderDialogAction;
-    folderId?: string;
-    assetIds?: string[];
-    initialName?: string;
+export type FolderDialogTarget =
+    | {
+          action: 'moveFolder' | 'deleteFolder';
+          folderId: string;
+          assetIds?: never;
+          initialName?: never;
+      }
+    | { action: 'moveAssets'; assetIds: string[]; folderId?: never; initialName?: never }
+    | { action: 'renameAsset'; assetIds: [string]; initialName: string; folderId?: never };
+
+/** Controls one explicit managed-library intention. */
+export interface FolderActionsDialogProps {
+    /** Null closes the dialog; each action requires its relevant identifiers. */
+    target: FolderDialogTarget | null;
+    /** Runs after commit or explicit cancellation. */
+    onClose: () => void;
 }
 
-/** Collects and validates user input while keeping failed operations reviewable. */
-export const FolderActionsDialog: Component<{
-    target: FolderDialogTarget | null;
-    onClose: () => void;
-}> = props => {
+/** Collects input while keeping failed operations reviewable.
+ * @param props - Discriminated target and close callback.
+ * @returns Shared modal with destination tree or rename input.
+ * @example <FolderActionsDialog target={null} onClose={() => {}} />
+ */
+export const FolderActionsDialog: Component<FolderActionsDialogProps> = props => {
     const metadata = useMetadata();
     const [name, setName] = createSignal('');
     const [destinationId, setDestinationId] = createSignal('');
@@ -52,24 +64,25 @@ export const FolderActionsDialog: Component<{
 
     /** Builds the explicit backend intention from the currently visible controls. */
     const operation = (): LibraryOperation => {
-        const folderId = props.target?.folderId || '';
-        switch (action()) {
+        const target = props.target;
+        if (!target) throw new Error('No active library operation');
+        switch (target.action) {
             case 'renameAsset':
-                return {
-                    kind: 'renameAsset',
-                    assetId: props.target?.assetIds?.[0] || '',
-                    name: name()
-                };
+                return { kind: 'renameAsset', assetId: target.assetIds[0], name: name() };
             case 'moveFolder':
-                return { kind: 'moveFolder', folderId, destinationId: destinationId() };
+                return {
+                    kind: 'moveFolder',
+                    folderId: target.folderId,
+                    destinationId: destinationId()
+                };
             case 'moveAssets':
                 return {
                     kind: 'moveAssets',
-                    assetIds: props.target?.assetIds || [],
+                    assetIds: target.assetIds,
                     destinationId: destinationId()
                 };
-            default:
-                return { kind: 'deleteFolder', folderId };
+            case 'deleteFolder':
+                return { kind: 'deleteFolder', folderId: target.folderId };
         }
     };
 

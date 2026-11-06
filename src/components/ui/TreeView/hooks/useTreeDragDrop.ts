@@ -1,7 +1,7 @@
 import { createSignal, createMemo } from 'solid-js';
 import { currentDragItem, setDragItem, DragItem } from '../../../../core/dnd';
 import { TreeNode, TreeDropPosition } from '../types';
-import { createTreeDragItem } from '../utils/createTreeDragItem';
+import { readDragItem } from '../../../../core/dnd/parseDragItem';
 
 /**
  * Options for configuring the drag-and-drop behavior for a tree node.
@@ -9,6 +9,8 @@ import { createTreeDragItem } from '../utils/createTreeDragItem';
 interface TreeDragDropOptions {
     /** Accessor function that returns the node currently being targeted for drag/drop operations. */
     node: () => TreeNode<unknown>;
+    /** Domain adapter supplied by the tree consumer. */
+    createDragItem?: (node: TreeNode) => DragItem | null;
     /** Accessor function that returns whether drag-and-drop interactions are enabled for this node. */
     isEnabled: () => boolean;
     /** Accessor function that returns whether the node is in rename/edit mode, which disables dragging. */
@@ -24,7 +26,11 @@ interface TreeDragDropOptions {
     /** Function to perform custom business logic validation for a specific drop operation. */
     isValidDrop: (dragged: DragItem, target: TreeNode<unknown>) => boolean;
     /** Callback function invoked when a drop operation is completed. */
-    onDrop?: (item: DragItem, targetId: string | number, position: TreeDropPosition) => void;
+    onDrop?: (
+        item: DragItem,
+        targetId: string | number,
+        position: TreeDropPosition
+    ) => unknown | Promise<unknown>;
 }
 
 /**
@@ -46,8 +52,7 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
      *
      * @returns {Object} An object containing the current validation status.
      */
-    const validationStatus = createMemo(() => {
-        const draggingItem = currentDragItem();
+    const validateItem = (draggingItem: DragItem | null) => {
         if (!draggingItem) {
             return { isValid: true };
         }
@@ -78,7 +83,8 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
         }
 
         return { isValid: true };
-    });
+    };
+    const validationStatus = createMemo(() => validateItem(currentDragItem()));
 
     /**
      * Accessor function that determines if the node managed by this hook is the current source of a drag operation.
@@ -120,7 +126,7 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
 
         event.stopPropagation();
         if (event.dataTransfer) {
-            const currentDragData = createTreeDragItem(selfDragType, dragDropOptions.node());
+            const currentDragData = dragDropOptions.createDragItem?.(dragDropOptions.node());
             if (!currentDragData) {
                 event.preventDefault();
                 return;
@@ -141,28 +147,11 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
         setDropPosition(null);
     };
 
-    /**
-     * Event handler for the 'dragover' event.
-     * Calculates the exact drop position ('before', 'after', or 'inside') based on mouse coordinates.
-     * Also updates the native 'dropEffect' based on whether it's an internal move or external copy.
-     *
-     * @param {DragEvent} event - The native browser drag event.
+    /** Computes nesting/reorder feedback from row geometry.
+     * @param event - Pointer position relative to the row.
+     * @returns A position allowed by the destination mode.
      */
-    const handleDragOver = (event: DragEvent) => {
-        event.preventDefault();
-
-        const acceptsExternalDrops = (dragDropOptions.acceptedDragTypes()?.length ?? 0) > 0;
-        if (
-            (!dragDropOptions.isEnabled() && !acceptsExternalDrops) ||
-            !validationStatus().isValid
-        ) {
-            if (event.dataTransfer) {
-                event.dataTransfer.dropEffect = 'none';
-            }
-            setDropPosition(null);
-            return;
-        }
-
+    const calculatePosition = (event: DragEvent): TreeDropPosition => {
         const boundingClientRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
         const mouseYPosition = event.clientY - boundingClientRect.top;
         const totalElementHeight = boundingClientRect.height;
@@ -183,6 +172,27 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
             }
         }
 
+        return calculatedDropPosition;
+    };
+
+    /** Updates drop feedback while the browser withholds external payload data. */
+    const handleDragOver = (event: DragEvent) => {
+        event.preventDefault();
+
+        const acceptsExternalDrops = (dragDropOptions.acceptedDragTypes()?.length ?? 0) > 0;
+        if (
+            (!dragDropOptions.isEnabled() && !acceptsExternalDrops) ||
+            !validationStatus().isValid
+        ) {
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'none';
+            }
+            setDropPosition(null);
+            return;
+        }
+
+        const calculatedDropPosition = calculatePosition(event);
+        const isSiblingDragMatch = currentDragItem()?.type === dragDropOptions.dragType();
         setDropPosition(calculatedDropPosition);
         if (event.dataTransfer) {
             event.dataTransfer.dropEffect =
@@ -205,36 +215,20 @@ export const useTreeDragDrop = (dragDropOptions: TreeDragDropOptions) => {
      *
      * @param {DragEvent} event - The native browser drop event.
      */
-    const handleDrop = async (event: DragEvent) => {
+    const handleDrop = async (event: DragEvent, forcedPosition?: TreeDropPosition) => {
         event.preventDefault();
         event.stopPropagation();
 
         const finalDropPosition = dropPosition();
         setDropPosition(null);
 
-        if (!validationStatus().isValid) {
-            return;
-        }
-
         try {
-            let droppedItem: DragItem | null = null;
-            const rawJsonData = event.dataTransfer?.getData('application/json');
-            if (rawJsonData) {
-                try {
-                    droppedItem = JSON.parse(rawJsonData);
-                } catch {
-                    // ignore JSON parse error
-                }
-            }
-            if (!droppedItem) {
-                droppedItem = currentDragItem();
-            }
-
-            if (droppedItem && dragDropOptions.onDrop) {
-                dragDropOptions.onDrop(
+            const droppedItem = readDragItem(event.dataTransfer);
+            if (droppedItem && validateItem(droppedItem).isValid && dragDropOptions.onDrop) {
+                await dragDropOptions.onDrop(
                     droppedItem,
                     dragDropOptions.node().id,
-                    finalDropPosition || 'inside'
+                    forcedPosition ?? finalDropPosition ?? 'inside'
                 );
             }
         } catch (error) {

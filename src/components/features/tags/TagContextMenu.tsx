@@ -29,11 +29,11 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
     /**
      * Updates a tag's color and refreshes the metadata.
      *
-     * @param {number} tagId - The unique identifier of the tag.
+     * @param {string} tagId - The unique identifier of the tag.
      * @param {string} newColor - The new hexadecimal color code.
      */
     const handleColorChange = async (tagId: string, newColor: string) => {
-        await metadata.updateTag(tagId, null, newColor);
+        await metadata.updateTag(tagId, { color: newColor });
     };
 
     const contextMenuItems = createMemo<ContextMenuItem[]>(() => {
@@ -50,14 +50,10 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
                               label="Use Parent Color"
                               checked={tag.inherits_color ?? true}
                               onCheckedChange={checked => {
-                                  void metadata.updateTag(
-                                      tag.id,
-                                      null,
-                                      tag.color,
-                                      undefined,
-                                      undefined,
-                                      checked
-                                  );
+                                  void metadata.updateTag(tag.id, {
+                                      color: tag.color,
+                                      inheritsColor: checked
+                                  });
                               }}
                               onClose={properties.onClose}
                           />
@@ -104,15 +100,10 @@ export const TagContextMenu: Component<TagContextMenuProps> = properties => {
                           label: 'Reset Color',
                           icon: Palette,
                           action: () => {
-                              void metadata.updateTag(
-                                  tag.id,
-                                  null,
-                                  null,
-                                  undefined,
-                                  undefined,
-                                  false,
-                                  true
-                              );
+                              void metadata.updateTag(tag.id, {
+                                  inheritsColor: false,
+                                  resetColor: true
+                              });
                           }
                       }
                   ]

@@ -15,6 +15,7 @@
     "tauri": "node scripts/tauri.cjs",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "check:library": "node scripts/check-library-quality.mjs",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky"
   },

@@ -1,43 +1,49 @@
+import { buildFolderHierarchy, isFolderDescendant } from './folderHierarchy';
 import { Component, createMemo, createSignal } from 'solid-js';
 import { Folder } from 'lucide-solid';
-import { TreeView, type TreeNode } from '../../ui/TreeView';
+import { TreeView } from '../../ui/TreeView';
 import { useMetadata } from '../../../core/hooks';
-import { isFolderDescendant, resolveFolderColor } from './folderPresentation';
+import { resolveFolderColor } from './folderPresentation';
 
-/** Selects an indexed destination using the existing accessible folder tree. */
-export const FolderDestinationPicker: Component<{
+/** Controlled destination picker properties. */
+export interface FolderDestinationPickerProps {
+    /** Selected catalog ID. */
     value: string;
+    /** Subtree that must not be offered as a destination. */
     excludedFolderId?: string;
+    /** Blocks selection while an operation is pending. */
     isDisabled: boolean;
+    /** Receives the selected catalog ID. */
     onSelect: (identifier: string) => void;
-}> = props => {
+}
+
+/** Selects a destination using the accessible shared tree.
+ * @param props - Selection, subtree exclusion and interaction state.
+ * @returns Folder tree excluding recursive destinations.
+ * @example <FolderDestinationPicker value="" isDisabled={false} onSelect={() => {}} />
+ */
+export const FolderDestinationPicker: Component<FolderDestinationPickerProps> = props => {
     const metadata = useMetadata();
     const [expanded, setExpanded] = createSignal<Set<string | number>>(
         new Set(metadata.locations.filter(folder => !folder.parent_id).map(folder => folder.id))
+    );
+    const folderIndex = createMemo(
+        () => new Map(metadata.locations.map(folder => [folder.id, folder]))
     );
     const nodes = createMemo(() => {
         const folders = metadata.locations.filter(
             folder =>
                 !props.excludedFolderId ||
-                !isFolderDescendant(folder.id, props.excludedFolderId, metadata.locations)
+                !isFolderDescendant(folder.id, props.excludedFolderId, folderIndex())
         );
-        const nodeMap = new Map<string, TreeNode>();
-        const roots: TreeNode[] = [];
-        for (const folder of folders)
-            nodeMap.set(folder.id, {
-                id: folder.id,
-                label: folder.name,
-                icon: Folder,
-                iconColor: resolveFolderColor(folder.id, metadata.locations),
-                children: []
-            });
-        for (const folder of folders) {
-            const node = nodeMap.get(folder.id)!;
-            const parent = folder.parent_id && nodeMap.get(folder.parent_id);
-            if (parent) parent.children!.push(node);
-            else roots.push(node);
-        }
-        return roots;
+        const index = folderIndex();
+        return buildFolderHierarchy(folders, folder => ({
+            id: folder.id,
+            label: folder.name,
+            icon: Folder,
+            iconColor: resolveFolderColor(folder.id, index),
+            children: []
+        }));
     });
     return (
         <div role="group" aria-label="Destination folder" aria-disabled={props.isDisabled}>

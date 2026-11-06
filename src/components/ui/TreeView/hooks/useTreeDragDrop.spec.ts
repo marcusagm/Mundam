@@ -1,3 +1,5 @@
+import type { TreeNode } from '../types';
+import { createTreeDragItem } from '../../../../core/dnd/createTreeDragItem';
 import { createRoot } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { currentDragItem, setDragItem } from '../../../../core/dnd/dnd-core';
@@ -13,6 +15,7 @@ describe('tree drop targets', () => {
                     isEnabled: () => true,
                     isEditing: () => false,
                     dragType: () => 'TAG',
+                    createDragItem: (node: TreeNode) => createTreeDragItem('TAG', node),
                     acceptedDragTypes: () => ['TAG'],
                     isValidDrop: () => true
                 };
@@ -57,6 +60,7 @@ describe('tree drop targets', () => {
                     isEnabled: () => true,
                     isEditing: () => false,
                     dragType: () => 'FOLDER',
+                    createDragItem: (node: TreeNode) => createTreeDragItem('FOLDER', node),
                     acceptedDragTypes: () => ['FOLDER'],
                     isValidDrop: () => true
                 });
@@ -139,6 +143,40 @@ describe('tree drop targets', () => {
                 expect(event.preventDefault).toHaveBeenCalled();
             } finally {
                 dispose();
+            }
+        });
+    });
+    it('validates the decoded item rather than stale global state and awaits failures', async () => {
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const failure = new Error('Rejected movement');
+        const onDrop = vi.fn().mockRejectedValue(failure);
+        setDragItem({ type: 'TAG', payload: { id: 'stale', name: 'Stale' } });
+        const item = { type: 'FOLDER', payload: { id: 'source', name: 'Source', path: '/source' } };
+        await createRoot(async dispose => {
+            try {
+                const target = useTreeDragDrop({
+                    node: () => ({ id: 'target', label: 'Target' }),
+                    isEnabled: () => true,
+                    isEditing: () => false,
+                    dragType: () => 'FOLDER',
+                    acceptedDragTypes: () => ['FOLDER'],
+                    isValidDrop: () => true,
+                    onDrop
+                });
+                await target.handleDrop(
+                    {
+                        preventDefault: vi.fn(),
+                        stopPropagation: vi.fn(),
+                        dataTransfer: { getData: () => JSON.stringify(item) }
+                    } as unknown as DragEvent,
+                    'inside'
+                );
+                expect(onDrop).toHaveBeenCalledWith(item, 'target', 'inside');
+                expect(log).toHaveBeenCalledWith('Hierarchical drop operation failed:', failure);
+                expect(currentDragItem()).toBeNull();
+            } finally {
+                dispose();
+                log.mockRestore();
             }
         });
     });

@@ -11,6 +11,11 @@ use serde::{Deserialize, Serialize};
 pub enum LibraryOperation {
     /// Create an on-disk child folder.
     CreateFolder { parent_id: String, name: String },
+    /// Discard only an empty folder still owned by the specified creation receipt.
+    CancelFolderDraft {
+        folder_id: String,
+        creation_operation_id: String,
+    },
     /// Rename a folder while preserving its identity.
     RenameFolder { folder_id: String, name: String },
     /// Move a subtree into an indexed folder.
@@ -35,4 +40,21 @@ pub enum LibraryOperation {
         asset_ids: Vec<String>,
         destination_id: String,
     },
+}
+
+impl LibraryOperation {
+    /// Stable intent name for receipts and spans, without logging selection payloads.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::CreateFolder { .. } => "createFolder",
+            Self::CancelFolderDraft { .. } => "cancelFolderDraft",
+            Self::RenameFolder { .. } => "renameFolder",
+            Self::MoveFolder { .. } => "moveFolder",
+            Self::DeleteFolder { .. } => "deleteFolder",
+            Self::RestoreFolder { .. } => "restoreFolder",
+            Self::FolderColor { .. } => "folderColor",
+            Self::RenameAsset { .. } => "renameAsset",
+            Self::MoveAssets { .. } => "moveAssets",
+        }
+    }
 }

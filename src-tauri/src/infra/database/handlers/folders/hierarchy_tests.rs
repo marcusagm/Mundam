@@ -22,6 +22,10 @@ async fn database() -> Result<SqlitePool, sqlx::Error> {
         CREATE TABLE asset_operations_log (
             id TEXT PRIMARY KEY, operation_type TEXT, asset_id TEXT,
             payload TEXT, status TEXT, error_note TEXT, created_at TEXT
+        );
+        CREATE TABLE library_folder_identities (
+            folder_id TEXT PRIMARY KEY REFERENCES folders(id),
+            device TEXT NOT NULL, object TEXT NOT NULL, birth TEXT
         );",
     )
     .execute(&pool)
@@ -137,7 +141,7 @@ async fn adoption_rolls_back_with_folder_creation() -> TestResult {
 
 #[cfg(windows)]
 #[tokio::test]
-async fn windows_accepts_mixed_separators_drive_roots_and_unc_paths() -> TestResult {
+async fn windows_adoption_accepts_mixed_separators_drive_roots_and_unc_paths() -> TestResult {
     let pool = database().await?;
     for (parent_path, child_path) in [
         (r"C:\Library", "c:/Library/Photos"),
@@ -145,8 +149,14 @@ async fn windows_accepts_mixed_separators_drive_roots_and_unc_paths() -> TestRes
         (r"\\server\share\Library\", "//server/share/Library/Photos"),
         (r"\\?\E:\Library", r"\\?\E:\Library\Photos"),
     ] {
-        let child_id = register(&pool, Path::new(child_path)).await?;
-        let parent_id = register(&pool, Path::new(parent_path)).await?;
+        let child_id = uuid::Uuid::new_v4().to_string();
+        let parent_id = uuid::Uuid::new_v4().to_string();
+        // Lexical adoption must not depend on access to fictional drives or UNC servers.
+        for (folder_id, folder_path) in [(&child_id, child_path), (&parent_id, parent_path)] {
+            sqlx::query("INSERT INTO folders(id,name,path,created_at,updated_at) VALUES (?,?,?,'2026-11-06','2026-11-06')")
+                .bind(folder_id).bind(folder_path).bind(folder_path).execute(&pool).await?;
+        }
+        adopt_orphaned_children(&pool, &parent_id, parent_path).await?;
         assert_eq!(parent(&pool, &child_id).await?, Some(parent_id));
     }
     Ok(())

@@ -59,6 +59,7 @@ async fn asset(
 
 fn removal(folder_id: &str) -> LedgerCommand {
     LedgerCommand::RemoveFolder(RemoveFolderPayload {
+        expected_path: None,
         folder_id: folder_id.to_owned(),
     })
 }

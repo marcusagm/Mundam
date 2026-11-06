@@ -18,3 +18,5 @@ pub mod trash;
 pub mod workflows;
 
 pub use ledger::{LedgerCommand, TransactionalAssetLedger};
+
+pub mod library;

@@ -435,63 +435,16 @@ pub async fn find_asset_by_path(
     _registry: &crate::core::formats::registry::FormatRegistry,
     path: &str,
 ) -> AppResult<Option<Asset>> {
-    let row = sqlx::query!(
-        r#"
-        SELECT
-            a.id as "id!", a.name as "name!", a.path as "path!", a.state as "state!",
-            a.format_type as "format_type!", a.family as "family!", a.file_size as "file_size!",
-            a.created_at as "created_at: DateTime<Utc>",
-            a.modified_at as "modified_at: DateTime<Utc>",
-            a.added_at as "added_at: DateTime<Utc>",
-            a.updated_at as "updated_at: DateTime<Utc>",
-            a.folder_id as "folder_id?",
-            a.thumbnail_path as "thumbnail_path?",
-            a.rating as "rating: i64",
-            a.notes as "notes?",
-            a.is_favorite as "is_favorite: bool",
-            a.deleted_at as "deleted_at?: DateTime<Utc>",
-            m.width as "width: i64",
-            m.height as "height: i64",
-            m.duration_secs as "duration_secs: f64",
-            m.technical_payload as "technical_payload: serde_json::Value",
-            m.semantic_payload as "semantic_payload: serde_json::Value",
-            a.dominant_color as "dominant_color: serde_json::Value"
-        FROM assets a
-        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id
-        WHERE a.path = ? COLLATE NOCASE
-        "#,
-        path
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(row
-        .map(|r| crate::infra::database::models::AssetDb {
-            id: r.id,
-            name: r.name,
-            path: r.path,
-            state: r.state,
-            format_type: r.format_type,
-            family: r.family,
-            file_size: r.file_size,
-            created_at: r.created_at,
-            modified_at: r.modified_at,
-            added_at: r.added_at,
-            updated_at: r.updated_at,
-            folder_id: r.folder_id,
-            thumbnail_path: r.thumbnail_path,
-            rating: r.rating,
-            notes: r.notes,
-            is_favorite: r.is_favorite,
-            deleted_at: r.deleted_at,
-            width: r.width,
-            height: r.height,
-            duration_secs: r.duration_secs,
-            technical_payload: r.technical_payload,
-            semantic_payload: r.semantic_payload,
-            dominant_color: r.dominant_color,
-        })
-        .map(Into::into))
+    let identifier = {
+        let mut connection = pool.acquire().await?;
+        super::path_identity::resolve(&mut connection, "assets", std::path::Path::new(path)).await?
+    };
+    let Some(identifier) = identifier else {
+        return Ok(None);
+    };
+    let asset: Option<crate::infra::database::models::AssetDb> = sqlx::query_as("SELECT a.*, m.width, m.height, m.duration_secs, m.technical_payload, m.semantic_payload FROM assets a LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id WHERE a.id = ?")
+        .bind(identifier).fetch_optional(pool).await?;
+    Ok(asset.map(Into::into))
 }
 
 pub async fn find_assets_by_size(
@@ -916,5 +869,24 @@ mod tests {
             retrieved_assets.into_iter().map(|asset| asset.id).collect();
         assert!(returned_asset_identifiers.contains(&"test-asset-identifier-1".to_string()));
         assert!(returned_asset_identifiers.contains(&"test-asset-identifier-2".to_string()));
+    }
+}
+
+/// Reads one missing cleanup candidate without applying its unproven spelling alias to mutations.
+///
+/// # Errors
+/// Returns query failures; live and ambiguous paths are retained.
+pub async fn find_deleted_asset(
+    pool: &SqlitePool,
+    registry: &crate::core::formats::FormatRegistry,
+    path: &str,
+) -> AppResult<Option<Asset>> {
+    let identifier = {
+        let mut connection = pool.acquire().await?;
+        super::path_identity::missing_asset(&mut connection, std::path::Path::new(path)).await?
+    };
+    match identifier {
+        Some(identifier) => get_by_id(pool, registry, &identifier).await,
+        None => Ok(None),
     }
 }

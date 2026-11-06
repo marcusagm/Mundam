@@ -31,20 +31,34 @@ pub fn run() {
 
     let builder = tauri::Builder::default().plugin(tauri_plugin_clipboard_manager::init());
     builder
-        .register_asynchronous_uri_scheme_protocol("thumb", move |protocol_context, request, responder| {
-            let application_handle = protocol_context.app_handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let response = crate::delivery::protocols::asset::handler_async(&application_handle, &request).await;
-                responder.respond(response);
-            });
-        })
-        .register_asynchronous_uri_scheme_protocol("asset", move |protocol_context, request, responder| {
-            let application_handle = protocol_context.app_handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let response = crate::delivery::protocols::asset::handler_async(&application_handle, &request).await;
-                responder.respond(response);
-            });
-        })
+        .register_asynchronous_uri_scheme_protocol(
+            "thumb",
+            move |protocol_context, request, responder| {
+                let application_handle = protocol_context.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let response = crate::delivery::protocols::asset::handler_async(
+                        &application_handle,
+                        &request,
+                    )
+                    .await;
+                    responder.respond(response);
+                });
+            },
+        )
+        .register_asynchronous_uri_scheme_protocol(
+            "asset",
+            move |protocol_context, request, responder| {
+                let application_handle = protocol_context.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let response = crate::delivery::protocols::asset::handler_async(
+                        &application_handle,
+                        &request,
+                    )
+                    .await;
+                    responder.respond(response);
+                });
+            },
+        )
         .register_uri_scheme_protocol("video", move |protocol_context, request| {
             crate::delivery::protocols::video::handler(protocol_context.app_handle(), &request)
         })
@@ -113,7 +127,6 @@ pub fn run() {
             delivery::tauri::commands::mutations::verify_thumbnails,
             delivery::tauri::commands::mutations::cleanup_cache,
             delivery::tauri::commands::mutations::clear_cache,
-            
             // Duplicates
             delivery::tauri::commands::duplicates::get_duplicate_groups,
             delivery::tauri::commands::duplicates::get_duplicate_candidates,
@@ -129,6 +142,7 @@ pub fn run() {
             delivery::tauri::commands::mutations::copy_files_to_clipboard,
             delivery::tauri::commands::library::library_operation,
             delivery::tauri::commands::library::folder_recovery_directory,
+            delivery::tauri::commands::library::folder_recovery_history,
             delivery::tauri::commands::mutations::toggle_favorite,
             delivery::tauri::commands::mutations::move_to_trash,
             delivery::tauri::commands::mutations::restore_from_trash,

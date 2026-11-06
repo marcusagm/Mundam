@@ -70,10 +70,7 @@ impl FormatRegistry {
     /// # Arguments
     ///
     /// * `providers` - An iterable of providers to register.
-    pub fn register_batch(
-        &mut self,
-        providers: impl IntoIterator<Item = Arc<dyn FormatProvider>>,
-    ) {
+    pub fn register_batch(&mut self, providers: impl IntoIterator<Item = Arc<dyn FormatProvider>>) {
         for provider in providers {
             self.register(provider);
         }

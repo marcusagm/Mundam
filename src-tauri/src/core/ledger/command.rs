@@ -61,7 +61,11 @@ pub struct CreateFolderPayload {
 /// Payload for removing a folder.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveFolderPayload {
+    /// Folder identity to remove.
     pub folder_id: String,
+    /// Observation fence; absent for explicit unlink/deletion intentions.
+    #[serde(default)]
+    pub expected_path: Option<PathBuf>,
 }
 
 /// Payload for renaming/moving a folder and its contents.

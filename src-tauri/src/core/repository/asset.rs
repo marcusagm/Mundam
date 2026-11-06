@@ -9,6 +9,46 @@ use std::collections::HashMap;
 /// Port for read-only asset operations.
 #[async_trait]
 pub trait AssetQueryHandler: Send + Sync {
+    /// Resolves a missing observation for deferred cleanup, never for path mutation or creation.
+    ///
+    /// # Errors
+    /// Returns catalog/native read failures; ambiguous missing aliases remain unresolved.
+    async fn find_deleted_asset(&self, path: &str) -> AppResult<Option<Asset>> {
+        self.find_asset_by_path(path).await
+    }
+    /// Lists a bounded recovery page independently of transient notifications.
+    ///
+    /// # Errors
+    /// Returns catalog read failures.
+    async fn folder_recovery_page(
+        &self,
+        _offset: u32,
+    ) -> AppResult<Vec<crate::core::library::FolderRecoveryEntry>> {
+        Ok(Vec::new())
+    }
+
+    /// Recovers a missing folder from one unambiguous native destination identity.
+    ///
+    /// # Errors
+    /// Returns catalog/native read failures; unsupported adapters and ambiguous matches return None.
+    async fn find_missing_folder_at_destination(
+        &self,
+        _path: &std::path::Path,
+    ) -> AppResult<Option<String>> {
+        Ok(None)
+    }
+
+    /// Loads the last observed native identity, if it has been recorded.
+    ///
+    /// # Errors
+    /// Returns storage errors; absence is not evidence of an implicit rename.
+    async fn file_identity(
+        &self,
+        _asset_id: &str,
+    ) -> AppResult<Option<crate::core::library::FileIdentity>> {
+        Ok(None)
+    }
+
     /// Retrieves a list of all assets in the library.
     /// Obsolete: use list_paginated for better performance.
     ///

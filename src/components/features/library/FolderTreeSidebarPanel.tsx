@@ -1,3 +1,5 @@
+import { buildFolderHierarchy } from './folderHierarchy';
+import { createTreeDragItem } from '../../../core/dnd/createTreeDragItem';
 import { Button } from '../../ui';
 import { Component, createMemo, createSignal, untrack } from 'solid-js';
 import { Folder as FolderIcon, Plus } from 'lucide-solid';
@@ -46,6 +48,9 @@ export const FolderTreeSidebarPanel: Component = () => {
     });
     const [contextMenuNode, setContextMenuNode] = createSignal<TreeNode | null>(null);
 
+    const folderIndex = createMemo(
+        () => new Map(metadata.locations.map(folder => [folder.id, folder]))
+    );
     const folderTreeStructure = createMemo(() =>
         JSON.stringify(metadata.locations.map(folder => [folder.id, folder.parent_id, folder.name]))
     );
@@ -54,57 +59,35 @@ export const FolderTreeSidebarPanel: Component = () => {
         return untrack(() => {
             const allFolders = metadata.locations || [];
 
-            const nodeMap = new Map<string, TreeNode>();
-            const rootNodes: TreeNode[] = [];
-
-            // Phase 1: Create all nodes
-            for (const folder of allFolders) {
-                nodeMap.set(folder.id, {
-                    id: `folder-${folder.id}`,
-                    label: folder.name,
-                    children: [],
-                    data: {
-                        folderIdentifier: folder.id,
-                        path: folder.path,
-                        name: folder.name,
-                        isRoot: folder.is_root
-                    } as FolderNodeData,
-                    icon: FolderIcon,
-                    get iconColor() {
-                        return resolveFolderColor(folder.id, metadata.locations);
-                    },
-                    get badge() {
-                        return (
-                            <CountBadge
-                                showZero={true}
-                                count={
-                                    (filters.folderRecursiveView
-                                        ? metadata.stats.folder_counts_recursive
-                                        : metadata.stats.folder_counts
-                                    ).get(folder.id) || 0
-                                }
-                                variant="secondary"
-                            />
-                        );
-                    }
-                });
-            }
-
-            // Phase 2: Build hierarchy
-            for (const folder of allFolders) {
-                const node = nodeMap.get(folder.id);
-                if (!node) {
-                    continue;
+            return buildFolderHierarchy(allFolders, folder => ({
+                id: `folder-${folder.id}`,
+                label: folder.name,
+                children: [],
+                data: {
+                    folderIdentifier: folder.id,
+                    path: folder.path,
+                    name: folder.name,
+                    isRoot: folder.is_root
+                } as FolderNodeData,
+                icon: FolderIcon,
+                get iconColor() {
+                    return resolveFolderColor(folder.id, folderIndex());
+                },
+                get badge() {
+                    return (
+                        <CountBadge
+                            showZero={true}
+                            count={
+                                (filters.folderRecursiveView
+                                    ? metadata.stats.folder_counts_recursive
+                                    : metadata.stats.folder_counts
+                                ).get(folder.id) || 0
+                            }
+                            variant="secondary"
+                        />
+                    );
                 }
-
-                if (folder.parent_id && nodeMap.has(folder.parent_id)) {
-                    nodeMap.get(folder.parent_id)!.children!.push(node);
-                } else {
-                    rootNodes.push(node);
-                }
-            }
-
-            return rootNodes.sort((a, b) => a.label.localeCompare(b.label));
+            }));
         });
     });
 
@@ -182,6 +165,7 @@ export const FolderTreeSidebarPanel: Component = () => {
                         onEditCancel={() => void actions.handleEditCancel()}
                         draggable={true}
                         dragType="FOLDER"
+                        createDragItem={node => createTreeDragItem('FOLDER', node)}
                         dropMode="inside"
                         dropEffect="move"
                         acceptedDragTypes={['ASSET', 'FOLDER']}

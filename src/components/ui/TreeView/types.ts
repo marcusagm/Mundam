@@ -67,6 +67,8 @@ export interface TreeViewProps<T = unknown> {
     draggable?: boolean;
     /** The specific drag-and-drop type identifier used for the nodes of this tree (e.g., 'TAG'). */
     dragType?: string;
+    /** Domain-specific payload factory; UI never invents asset/tag/folder fields. */
+    createDragItem?: (node: TreeNode<T>) => DragItem | null;
     /** Restrict all node drops to nesting, without sibling reorder indicators. */
     dropMode?: 'inside' | 'reorder';
     /** Override the cursor to reflect physical moves or logical assignments. */
@@ -90,7 +92,7 @@ export interface TreeViewProps<T = unknown> {
         item: DragItem,
         targetId: string | number | 'root',
         position: TreeDropPosition
-    ) => void;
+    ) => unknown | Promise<unknown>;
     /** Optional custom validation function to determine if a specific drop operation is valid. */
     isValidDrop?: (dragged: DragItem, target: TreeNode<T>) => boolean;
 }

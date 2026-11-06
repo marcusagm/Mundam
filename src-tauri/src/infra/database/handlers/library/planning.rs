@@ -1,5 +1,5 @@
 //! Validates user intentions and prepares transactional read-model mutations.
-use super::DiskChanges;
+use super::plan::DiskChanges;
 use crate::core::{
     error::{AppError, AppResult},
     ledger::{
@@ -14,74 +14,8 @@ use crate::infra::database::handlers::{asset_handler, folder_handler, shared};
 use sqlx::{Sqlite, Transaction};
 use std::path::{Path, PathBuf};
 
-fn invalid(message: &str) -> AppError {
-    AppError::ValidationFailed(message.into())
-}
-
-fn validate_name(name: &str) -> AppResult<()> {
-    let stem = name
-        .split('.')
-        .next()
-        .unwrap_or_default()
-        .to_ascii_uppercase();
-    if name.trim().is_empty()
-        || name == "."
-        || name == ".."
-        || name.ends_with([' ', '.'])
-        || name
-            .chars()
-            .any(|character| character.is_control() || "<>:\"/\\|?*".contains(character))
-        || [
-            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-            "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-        ]
-        .contains(&stem.as_str())
-    {
-        return Err(invalid(
-            "Use a valid file or folder name without path separators",
-        ));
-    }
-    Ok(())
-}
-
-async fn folder(
-    transaction: &mut Transaction<'_, Sqlite>,
-    identifier: &str,
-) -> AppResult<(PathBuf, Option<String>)> {
-    let (path, parent): (String, Option<String>) =
-        sqlx::query_as("SELECT path, parent_id FROM folders WHERE id = ?")
-            .bind(identifier)
-            .fetch_optional(&mut **transaction)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Folder not found".into()))?;
-    let path = PathBuf::from(path);
-    let metadata = tokio::fs::symlink_metadata(&path).await?;
-    if !metadata.is_dir() || metadata.file_type().is_symlink() {
-        return Err(invalid("Folder is unavailable or is a symbolic link"));
-    }
-    Ok((path, parent))
-}
-
-pub(super) async fn available(
-    transaction: &mut Transaction<'_, Sqlite>,
-    path: &Path,
-) -> AppResult<()> {
-    match tokio::fs::symlink_metadata(path).await {
-        Ok(_) => {
-            return Err(invalid(
-                "A file or folder already exists at the destination",
-            ))
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error.into()),
-    }
-    let occupied: i64 = sqlx::query_scalar("SELECT (SELECT COUNT(*) FROM assets WHERE path = ? COLLATE NOCASE) + (SELECT COUNT(*) FROM folders WHERE path = ? COLLATE NOCASE)")
-        .bind(path.to_string_lossy().as_ref()).bind(path.to_string_lossy().as_ref()).fetch_one(&mut **transaction).await?;
-    if occupied > 0 {
-        return Err(invalid("Destination is already registered in the library"));
-    }
-    Ok(())
-}
+use super::validation::{available, folder, invalid};
+use crate::core::library::policy::validate_name;
 
 async fn rename_asset(
     transaction: &mut Transaction<'_, Sqlite>,
@@ -93,25 +27,36 @@ async fn rename_asset(
     if asset.deleted_at.is_some() {
         return Err(invalid("Restore the asset before moving or renaming it"));
     }
-    if destination == asset.path {
-        return Ok(asset);
-    }
-    available(transaction, &destination).await?;
-    if changes.moves.iter().any(|(_, other)| {
-        other.to_string_lossy().to_lowercase() == destination.to_string_lossy().to_lowercase()
-    }) {
-        return Err(invalid("Selected assets have conflicting names"));
-    }
     let parent = destination
         .parent()
-        .ok_or_else(|| invalid("Missing destination folder"))?
-        .to_string_lossy()
-        .to_string();
-    let folder_id: String =
-        sqlx::query_scalar("SELECT id FROM folders WHERE path = ? COLLATE NOCASE")
-            .bind(parent)
-            .fetch_one(&mut **transaction)
-            .await?;
+        .ok_or_else(|| invalid("Missing destination folder"))?;
+    let folder_id = shared::resolve_folder_id_robust(transaction, parent)
+        .await?
+        .ok_or_else(|| invalid("Destination parent is not indexed"))?;
+    let canonical_parent: String = sqlx::query_scalar("SELECT path FROM folders WHERE id = ?")
+        .bind(&folder_id)
+        .fetch_one(&mut **transaction)
+        .await?;
+    let destination = Path::new(&canonical_parent).join(
+        destination
+            .file_name()
+            .ok_or_else(|| invalid("Invalid destination name"))?,
+    );
+    if destination == asset.path {
+        if asset.folder_id.as_deref() != Some(&folder_id) {
+            asset_handler::handle_set_asset_folder(transaction, identifier, Some(&folder_id))
+                .await?;
+            return shared::fetch_asset_by_id(transaction, identifier).await;
+        }
+        return Ok(asset);
+    }
+    let same_object = crate::infra::filesystem::identity::same(&asset.path, &destination).await?;
+    if !same_object {
+        available(transaction, &destination).await?;
+    }
+    if changes.moves.iter().any(|(_, other)| other == &destination) {
+        return Err(invalid("Selected assets have conflicting names"));
+    }
     let result = asset_handler::handle_update_asset(
         transaction,
         UpdateAssetPayload {
@@ -121,12 +66,15 @@ async fn rename_asset(
         },
     )
     .await?;
-    asset_handler::handle_set_asset_folder(transaction, identifier, Some(&folder_id)).await?;
-    changes.moves.push((asset.path, destination));
+    stage_move(changes, asset.path, destination, same_object);
     Ok(result)
 }
 
-pub(super) async fn prepare(
+/// Prepares catalog mutations and the recoverable native-effect plan.
+///
+/// # Errors
+/// Returns invalid intentions and storage failures before any planned movement.
+pub(crate) async fn prepare(
     transaction: &mut Transaction<'_, Sqlite>,
     app_data: &Path,
     operation: LibraryOperation,
@@ -149,6 +97,10 @@ pub(super) async fn prepare(
             )
             .await
         }
+        LibraryOperation::CancelFolderDraft {
+            folder_id,
+            creation_operation_id,
+        } => super::draft::cancel(transaction, folder_id, creation_operation_id, changes).await,
         LibraryOperation::RenameAsset { asset_id, name } => {
             validate_name(&name)?;
             let asset = shared::fetch_asset_by_id(transaction, &asset_id).await?;
@@ -166,6 +118,13 @@ pub(super) async fn prepare(
             asset_ids,
             destination_id,
         } => {
+            if asset_ids.is_empty()
+                || asset_ids.len() > crate::core::library::policy::MAX_MOVE_SELECTION
+            {
+                return Err(invalid(
+                    "Select between 1 and 5000 assets; move a whole folder for larger subtrees",
+                ));
+            }
             let (destination, _) = folder(transaction, &destination_id).await?;
             let mut result = None;
             let mut unique = std::collections::HashSet::new();
@@ -188,39 +147,7 @@ pub(super) async fn prepare(
             folder_id,
             color,
             inherits_color,
-        } => {
-            if let Some(value) = &color {
-                if value.len() != 7
-                    || !value.starts_with('#')
-                    || !value[1..]
-                        .chars()
-                        .all(|character| character.is_ascii_hexdigit())
-                {
-                    return Err(invalid("Use a hexadecimal color such as #5588cc"));
-                }
-            }
-            let (path, parent_id) = folder(transaction, &folder_id).await?;
-            sqlx::query("UPDATE folders SET color = ?, inherits_color = ? WHERE id = ?")
-                .bind(color)
-                .bind(inherits_color)
-                .bind(&folder_id)
-                .execute(&mut **transaction)
-                .await?;
-            let name = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            folder_handler::handle_create_folder(
-                transaction,
-                CreateFolderPayload {
-                    parent_id,
-                    name,
-                    path,
-                },
-            )
-            .await
-        }
+        } => super::color::update(transaction, folder_id, color, inherits_color).await,
         LibraryOperation::RenameFolder { folder_id, name } => {
             validate_name(&name)?;
             let (source, _) = folder(transaction, &folder_id).await?;
@@ -233,6 +160,12 @@ pub(super) async fn prepare(
         } => {
             let (source, _) = folder(transaction, &folder_id).await?;
             let (destination, _) = folder(transaction, &destination_id).await?;
+            let creates_cycle: bool = sqlx::query_scalar("WITH RECURSIVE subtree(id) AS (SELECT id FROM folders WHERE id = ? UNION SELECT folders.id FROM folders JOIN subtree ON folders.parent_id = subtree.id) SELECT EXISTS(SELECT 1 FROM subtree WHERE id = ?)").bind(&folder_id).bind(&destination_id).fetch_one(&mut **transaction).await?;
+            if creates_cycle {
+                return Err(invalid(
+                    "A folder cannot be moved into its catalog descendant",
+                ));
+            }
             let canonical_source = tokio::fs::canonicalize(&source).await?;
             if tokio::fs::canonicalize(&destination)
                 .await?
@@ -263,7 +196,17 @@ pub(super) async fn prepare(
                 uuid::Uuid::new_v4(),
                 source.file_name().unwrap_or_default().to_string_lossy()
             ));
-            super::recovery::capture(transaction, &folder_id, &source, &destination).await?;
+            super::recovery::capture(
+                transaction,
+                &folder_id,
+                &source,
+                &destination,
+                changes
+                    .archive_bytes
+                    .ok_or_else(|| AppError::Internal("Missing recovery inventory".into()))?,
+                changes.archive_budget,
+            )
+            .await?;
             changes.removed_asset_ids.extend(
                 crate::infra::database::handlers::folder_removal::collect_assets(
                     transaction,
@@ -276,7 +219,10 @@ pub(super) async fn prepare(
             changes.moves.push((source, destination.clone()));
             let mut result = folder_handler::handle_remove_folder(
                 transaction,
-                RemoveFolderPayload { folder_id },
+                RemoveFolderPayload {
+                    folder_id,
+                    expected_path: None,
+                },
             )
             .await?;
             result.path = destination;
@@ -293,8 +239,11 @@ async fn move_folder(
     changes: &mut DiskChanges,
 ) -> AppResult<Asset> {
     if source != destination {
-        available(transaction, &destination).await?;
-        changes.moves.push((source.clone(), destination.clone()));
+        let same_object = crate::infra::filesystem::identity::same(&source, &destination).await?;
+        if !same_object {
+            available(transaction, &destination).await?;
+        }
+        stage_move(changes, source.clone(), destination.clone(), same_object);
     }
     folder_handler::handle_rename_folder(
         transaction,
@@ -305,4 +254,14 @@ async fn move_folder(
         },
     )
     .await
+}
+
+fn stage_move(changes: &mut DiskChanges, source: PathBuf, destination: PathBuf, same_object: bool) {
+    if same_object {
+        let temporary = source.with_file_name(format!(".mundam-{}", uuid::Uuid::new_v4()));
+        changes.moves.push((source, temporary.clone()));
+        changes.moves.push((temporary, destination));
+    } else {
+        changes.moves.push((source, destination));
+    }
 }

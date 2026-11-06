@@ -1,10 +1,7 @@
-//! Registry of filesystem paths currently being modified by the application itself.
+//! Short-lived hints for Ledger-owned paths during pre-commit moves and post-commit sagas.
 //!
-//! The Ledger performs physical file moves (trash / restore) as post-commit
-//! Saga steps. The filesystem watcher cannot tell those moves apart from
-//! external changes and would report them later (after its debounce delay) as
-//! deletions or creations, racing with the already-committed database state.
-//! Paths registered here are ignored by the watcher-driven indexer.
+//! Exact and ancestor lookups serve different consumers. Hints are not ownership proofs:
+//! the library indexer reconciles catalog state instead of discarding external events by TTL.
 
 use dashmap::DashMap;
 use std::path::Path;

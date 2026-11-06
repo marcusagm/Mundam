@@ -30,7 +30,11 @@ beforeEach(() => {
 
 describe('folder tree actions', () => {
     it('creates a child and opens its inline editor after the authoritative refresh', async () => {
-        actions.execute.mockResolvedValueOnce({ id: 'created', path: '/source/New Folder' });
+        actions.execute.mockResolvedValueOnce({
+            id: 'created',
+            operationId: 'receipt',
+            path: '/source/New Folder'
+        });
         await createRoot(async dispose => {
             try {
                 const tree = useFolderTreeActions();
@@ -106,7 +110,11 @@ describe('folder tree actions', () => {
         });
     });
     it('deletes a just-created folder when its editor is cancelled', async () => {
-        actions.execute.mockResolvedValueOnce({ id: 'created', path: '/source/New Folder' });
+        actions.execute.mockResolvedValueOnce({
+            id: 'created',
+            operationId: 'receipt',
+            path: '/source/New Folder'
+        });
         await createRoot(async dispose => {
             try {
                 const tree = useFolderTreeActions();
@@ -114,8 +122,9 @@ describe('folder tree actions', () => {
                 await tree.handleEditCancel();
                 expect(tree.editingId()).toBeNull();
                 expect(actions.execute).toHaveBeenLastCalledWith({
-                    kind: 'deleteFolder',
-                    folderId: 'created'
+                    kind: 'cancelFolderDraft',
+                    folderId: 'created',
+                    creationOperationId: 'receipt'
                 });
                 await tree.handleEditCancel();
                 expect(actions.execute).toHaveBeenCalledTimes(2);
@@ -124,12 +133,50 @@ describe('folder tree actions', () => {
             }
         });
     });
-    it('keeps a renamed folder when editing is cancelled afterwards and ignores stale blurs', async () => {
+    it('ignores stale blur when no editor is active', async () => {
         await createRoot(async dispose => {
             try {
                 const tree = useFolderTreeActions();
                 await tree.handleRename({ id: 'folder-child', label: 'Child' }, 'Renamed');
                 expect(actions.execute).not.toHaveBeenCalled();
+            } finally {
+                dispose();
+            }
+        });
+    });
+    it('retains a failed draft cancellation for retry and blocks cancellation during rename', async () => {
+        await createRoot(async dispose => {
+            try {
+                const tree = useFolderTreeActions();
+                actions.execute.mockResolvedValueOnce({
+                    id: 'created',
+                    operationId: 'receipt',
+                    path: '/draft'
+                });
+                await tree.handleCreateChild('source');
+                actions.execute.mockRejectedValueOnce(new Error('Folder contains files'));
+                await tree.handleEditCancel();
+                expect(tree.editingId()).toBe('folder-created');
+                tree.setEditingId('folder-child');
+                expect(tree.editingId()).toBe('folder-created');
+                let finish!: (value: object) => void;
+                actions.execute.mockImplementationOnce(
+                    () =>
+                        new Promise(resolve => {
+                            finish = resolve;
+                        })
+                );
+                const save = tree.handleRename(
+                    { id: 'folder-created', label: 'New Folder' },
+                    'Confirmed'
+                );
+                await tree.handleEditCancel();
+                expect(actions.execute).toHaveBeenCalledTimes(3);
+                finish({ id: 'created' });
+                await save;
+                await tree.handleEditCancel();
+                expect(actions.execute).toHaveBeenCalledTimes(3);
+                expect(tree.editingId()).toBeNull();
             } finally {
                 dispose();
             }

@@ -4,269 +4,272 @@
  */
 
 .ui-tree {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  flex: 1;
-  min-height: 1.25rem; /* Ensure at least one row's worth of drop space if empty */
-  padding: 0 0 5px 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    flex: 1;
+    min-height: 1.25rem; /* Ensure at least one row's worth of drop space if empty */
+    padding: 0 0 5px 0;
 }
 
 .ui-tree:focus-visible {
-  outline: var(--p-space-xxs) solid var(--action-primary-bg);
-  outline-offset: var(--p-space-xxs);
-  border-radius: var(--radius-s);
+    outline: var(--p-space-xxs) solid var(--action-primary-bg);
+    outline-offset: var(--p-space-xxs);
+    border-radius: var(--radius-s);
 }
 
 /* Item container - holds the item and its children */
 .ui-tree-item-container {
-  display: flex;
-  flex-direction: column;
-  position: relative;
+    display: flex;
+    flex-direction: column;
+    position: relative;
 }
 
 /* --- Hierarchy Lines (Pseudo-elements) --- */
 
 /* Vertical Guide Line (Parent to Sibling connector) */
 .ui-tree-has-guide::before {
-  content: "";
-  position: absolute;
-  left: var(--guide-pos);
-  top: 0;
-  bottom: 0; /* Extends fully for standard items */
-  width: 1px;
-  background-color: var(--border-subtle);
-  pointer-events: none;
-  z-index: 0;
+    content: '';
+    position: absolute;
+    left: var(--guide-pos);
+    top: 0;
+    bottom: 0; /* Extends fully for standard items */
+    width: 1px;
+    background-color: var(--border-subtle);
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* Stop visual line at row center for the Last Item */
 .ui-tree-last-item::before {
-  height: 0.875rem; /* Half of row height (28px) */
-  bottom: auto;
+    height: 0.875rem; /* Half of row height (28px) */
+    bottom: auto;
 }
 
 /* Horizontal Connector Line (Guide to Item) */
 .ui-tree-has-guide::after {
-  content: "";
-  position: absolute;
-  left: calc(var(--guide-pos) + 1px);
-  top: 0.875rem; /* Center of row */
-  width: calc(var(--tree-indent) - var(--guide-pos) - 1px); /* Span from guide to content start */
-  height: 1px;
-  background-color: var(--border-subtle);
-  pointer-events: none;
-  z-index: 0;
+    content: '';
+    position: absolute;
+    left: calc(var(--guide-pos) + 1px);
+    top: 0.875rem; /* Center of row */
+    width: calc(var(--tree-indent) - var(--guide-pos) - 1px); /* Span from guide to content start */
+    height: 1px;
+    background-color: var(--border-subtle);
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* --- Item Row --- */
 
 .ui-tree-item {
-  display: flex;
-  align-items: center;
-  /* Row itself has no background/hover now */
-  min-height: 1.75rem;
-  position: relative;
-  color: var(--text-primary);
-  outline: none; /* Focus handled on content or custom */
+    display: flex;
+    align-items: center;
+    /* Row itself has no background/hover now */
+    min-height: 1.75rem;
+    position: relative;
+    color: var(--text-primary);
+    outline: none; /* Focus handled on content or custom */
 }
 
 /* Focus on the item moves to content usually, or we style content based on container focus */
 .ui-tree-item:focus-visible .ui-tree-item-content {
-  outline: var(--p-space-xxs) solid var(--action-primary-bg);
-  outline-offset: -var(--p-space-xxs);
+    outline: var(--p-space-xxs) solid var(--action-primary-bg);
+    outline-offset: -var(--p-space-xxs);
 }
 
 /* --- Item Content (The visible part) --- */
 
 .ui-tree-item-content {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  height: 1.75rem;
-  border-radius: var(--radius-s);
-  padding: 0 var(--p-space-xs); /* Padding for right edge comfort */
-  transition: background-color 0.1s ease;
-  position: relative;
-  z-index: 1; /* Above guide lines */
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 1.75rem;
+    border-radius: var(--radius-s);
+    padding: 0 var(--p-space-xs); /* Padding for right edge comfort */
+    transition: background-color 0.1s ease;
+    position: relative;
+    z-index: 1; /* Above guide lines */
 }
 
 /* Hover Effect - Scoped to content width */
 .ui-tree-item-content:hover {
-  background-color: var(--bg-surface-3);
+    background-color: var(--bg-surface-3);
 }
 
 /* Selected State */
 .ui-tree-item-selected .ui-tree-item-content {
-  background-color: var(--bg-surface-3);
+    background-color: var(--bg-surface-3);
 }
 
 .ui-tree-item-selected .ui-tree-item-content:hover {
-  background-color: var(--bg-surface-active);
+    background-color: var(--bg-surface-active);
 }
 
 /* Toggle button */
 .ui-tree-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.125rem;
-  height: 1.125rem;
-  margin-right: var(--p-space-xxs);
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-s);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  opacity: 0.6;
-  transition: opacity 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-right: var(--p-space-xxs);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-s);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition:
+        opacity 0.1s ease,
+        background-color 0.1s ease,
+        color 0.1s ease;
 }
 
 .ui-tree-toggle:hover {
-  background-color: var(--bg-surface-active);
-  opacity: 1;
-  color: var(--text-primary);
+    background-color: var(--bg-surface-active);
+    opacity: 1;
+    color: var(--text-primary);
 }
 
 .ui-tree-item:hover .ui-tree-toggle {
-  opacity: 1;
+    opacity: 1;
 }
 
 .ui-tree-toggle-spacer {
-  width: 1.125rem;
-  height: 1.125rem;
-  margin-right: var(--p-space-xxs);
-  flex-shrink: 0;
-  position: relative;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-right: var(--p-space-xxs);
+    flex-shrink: 0;
+    position: relative;
 }
 .ui-tree-has-guide .ui-tree-toggle-spacer::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--p-space-xs) * -1);
-  top: 50%;
-  width: 1.125rem;
-  height: 1px;
-  background-color: var(--border-subtle);
+    content: '';
+    position: absolute;
+    left: calc(var(--p-space-xs) * -1);
+    top: 50%;
+    width: 1.125rem;
+    height: 1px;
+    background-color: var(--border-subtle);
 }
 
 /* Icon */
 .ui-tree-icon {
-  display: flex;
-  align-items: center;
-  margin-right:  0.375rem;
-  flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    margin-right: 0.375rem;
+    flex-shrink: 0;
 }
 
 /* Label */
 .ui-tree-label {
-  flex: 1;
-  font-size: var(--p-font-size-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
+    flex: 1;
+    font-size: var(--p-font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 /* Badge */
 .ui-tree-badge {
-  margin-left: auto;
-  padding-left: var(--p-space-s);
-  flex-shrink: 0;
+    margin-left: auto;
+    padding-left: var(--p-space-s);
+    flex-shrink: 0;
 }
 
 /* Edit input */
 .ui-tree-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--p-space-l);
-  padding: 0 var(--p-space-xs);
-  background-color: var(--bg-surface-2);
-  border: 1px solid var(--action-primary-bg);
-  border-radius: var(--radius-s);
-  font-family: inherit;
-  font-size: var(--p-font-size-xs);
-  color: var(--text-primary);
-  outline: none;
+    flex: 1;
+    min-width: 0;
+    height: var(--p-space-l);
+    padding: 0 var(--p-space-xs);
+    background-color: var(--bg-surface-2);
+    border: 1px solid var(--action-primary-bg);
+    border-radius: var(--radius-s);
+    font-family: inherit;
+    font-size: var(--p-font-size-xs);
+    color: var(--text-primary);
+    outline: none;
 }
 
 /* Drag & Drop States */
 .ui-tree-item-drop-target .ui-tree-item-content {
-  background-color: var(--bg-surface-active);
-  outline: var(--p-space-xxs) dashed var(--action-primary-bg);
-  outline-offset: -var(--p-space-xxs);
+    background-color: var(--bg-surface-active);
+    outline: var(--p-space-xxs) dashed var(--action-primary-bg);
+    outline-offset: -var(--p-space-xxs);
 }
 
 .ui-tree-item-drop-disabled .ui-tree-item-content {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background-color: transparent !important;
-  outline: none !important;
+    opacity: 0.4;
+    cursor: not-allowed;
+    background-color: transparent !important;
+    outline: none !important;
 }
 
 .ui-tree-item-dragging .ui-tree-item-content {
-  opacity: 0.3;
+    opacity: 0.3;
 }
 
 .ui-tree-root-drop-active {
-  box-shadow: inset 0 0 0 var(--p-space-xxs) var(--action-primary-bg);
-  border-radius: var(--radius-s);
+    box-shadow: inset 0 0 0 var(--p-space-xxs) var(--action-primary-bg);
+    border-radius: var(--radius-s);
 }
 
 /* Drop indicator lines - Positioned on the Container now? No, kept on Item row */
 .ui-tree-drop-line {
-  position: absolute;
-  right: var(--p-space-xs);
-  height: var(--p-space-xxs);
-  background-color: var(--action-primary-bg);
-  z-index: 10;
-  pointer-events: none;
-  border-radius: 1px;
+    position: absolute;
+    right: var(--p-space-xs);
+    height: var(--p-space-xxs);
+    background-color: var(--action-primary-bg);
+    z-index: 10;
+    pointer-events: none;
+    border-radius: 1px;
 }
 
 .ui-tree-drop-line::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width:  0.375rem;
-  height:  0.375rem;
-  background-color: var(--action-primary-bg);
-  border-radius: 50%;
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.375rem;
+    height: 0.375rem;
+    background-color: var(--action-primary-bg);
+    border-radius: 50%;
 }
 
 .ui-tree-drop-line-before {
-  top: 0;
+    top: 0;
 }
 
 .ui-tree-drop-line-after {
-  bottom: 0;
+    bottom: 0;
 }
 
 /* Children group animation */
 .ui-tree-group {
-  animation: ui-tree-expand 0.15s ease-out;
+    animation: ui-tree-expand 0.15s ease-out;
 }
 
 @keyframes ui-tree-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
-  .ui-tree-has-guide .ui-tree-toggle-spacer::before,
-  .ui-tree-has-guide::before,
-  .ui-tree-has-guide::after {
-    background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible in dark */
-  }
+    .ui-tree-has-guide .ui-tree-toggle-spacer::before,
+    .ui-tree-has-guide::before,
+    .ui-tree-has-guide::after {
+        background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible in dark */
+    }
 }

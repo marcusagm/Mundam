@@ -7,10 +7,10 @@
 
 pub mod database;
 pub mod library;
+pub mod startup;
 pub mod streaming;
 pub mod system;
 pub mod workers;
-pub mod startup;
 
 /// Central data structure containing all core filesystem paths resolved
 /// exactly once during application boot.

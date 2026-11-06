@@ -259,7 +259,7 @@ pub async fn remove_location(
     folder_id: String,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     queries: State<'_, Arc<dyn crate::core::repository::AssetQueryHandler>>,
-    watcher: State<'_, Arc<WatcherService>>,
+    watcher: State<'_, Arc<dyn crate::core::library::RootObservation>>,
 ) -> AppResult<()> {
     crate::feature::library::remove_location::execute(
         &folder_id,
@@ -685,9 +685,7 @@ pub async fn move_to_trash(
 ) -> AppResult<Asset> {
     ledger
         .execute(LedgerCommand::MoveToTrash(
-            crate::core::ledger::command::MoveToTrashPayload {
-                asset_id,
-            },
+            crate::core::ledger::command::MoveToTrashPayload { asset_id },
         ))
         .await
 }
@@ -714,9 +712,7 @@ pub async fn restore_from_trash(
 ) -> AppResult<Asset> {
     ledger
         .execute(LedgerCommand::RestoreFromTrash(
-            crate::core::ledger::command::RestoreFromTrashPayload {
-                asset_id,
-            },
+            crate::core::ledger::command::RestoreFromTrashPayload { asset_id },
         ))
         .await
 }
@@ -768,11 +764,13 @@ pub async fn empty_trash(
             record.deleted_at.as_ref(),
         );
 
-        let _ = ledger.execute(LedgerCommand::DeleteAsset {
-            asset_id: Some(record.id.clone()),
-            path: Some(resolved_trash_path),
-            physical_delete: true,
-        }).await;
+        let _ = ledger
+            .execute(LedgerCommand::DeleteAsset {
+                asset_id: Some(record.id.clone()),
+                path: Some(resolved_trash_path),
+                physical_delete: true,
+            })
+            .await;
         deleted_count += 1;
     }
 

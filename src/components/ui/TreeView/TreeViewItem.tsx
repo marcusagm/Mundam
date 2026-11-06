@@ -156,6 +156,7 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
         isEnabled: () => props.draggable ?? false,
         isEditing,
         dragType: () => props.dragType,
+        createDragItem: (node: TreeNode) => props.createDragItem?.(node) ?? null,
         dropMode: () => props.dropMode,
         dropEffect: () => props.dropEffect,
         acceptedDragTypes: () => props.acceptedDragTypes,
@@ -231,22 +232,7 @@ export const TreeViewItem: Component<TreeViewItemProps<unknown>> = props => {
                         }
                     }}
                     onDrop={event => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        /**
-                         * Dropping on the group container itself (not a specific child row)
-                         * is interpreted as a request to move the item INSIDE this parent node.
-                         */
-                        const rawJsonData = event.dataTransfer?.getData('application/json');
-                        if (rawJsonData && props.onDrop) {
-                            const droppedItem: DragItem = JSON.parse(rawJsonData);
-                            if (
-                                (props.acceptedDragTypes?.includes(droppedItem.type) ?? true) &&
-                                (props.isValidDrop?.(droppedItem, props.node) ?? true)
-                            ) {
-                                props.onDrop(droppedItem, props.node.id, 'inside');
-                            }
-                        }
+                        void dragDrop.handleDrop(event, 'inside');
                     }}
                 >
                     <For each={props.node.children}>

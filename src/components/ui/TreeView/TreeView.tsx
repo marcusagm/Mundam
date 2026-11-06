@@ -1,7 +1,8 @@
+import { readDragItem } from '../../../core/dnd/parseDragItem';
 import { Component, createSignal, splitProps, For, createEffect } from 'solid-js';
 import { cn } from '../../../lib/utils';
 import { createId } from '../../../lib/primitives/createId';
-import { currentDragItem, DragItem } from '../../../core/dnd';
+import { currentDragItem, setDragItem } from '../../../core/dnd';
 import { TreeViewProps } from './types';
 import { TreeViewItem } from './TreeViewItem';
 import './tree-view.css';
@@ -71,20 +72,18 @@ export const TreeView: Component<TreeViewProps<unknown>> = props => {
         setIsRootDragOverActive(false);
 
         try {
-            const rawJsonData = event.dataTransfer?.getData('application/json');
-            if (rawJsonData) {
-                const droppedItem: DragItem = JSON.parse(rawJsonData);
-
-                // Check if this type is accepted at the root
-                const isAccepted =
-                    localProperties.acceptedDragTypes?.includes(droppedItem.type) ?? true;
-
-                if (isAccepted && props.onDrop) {
-                    props.onDrop(droppedItem, 'root', 'inside');
-                }
-            }
+            const droppedItem = readDragItem(event.dataTransfer);
+            if (
+                !droppedItem ||
+                !(localProperties.acceptedDragTypes?.includes(droppedItem.type) ?? true)
+            )
+                return;
+            if (!(props.isValidDrop?.(droppedItem, { id: 'root', label: '' }) ?? true)) return;
+            await props.onDrop?.(droppedItem, 'root', 'inside');
         } catch (error) {
             console.error('Tree root drop operation failed:', error);
+        } finally {
+            setDragItem(null);
         }
     };
 
@@ -108,7 +107,9 @@ export const TreeView: Component<TreeViewProps<unknown>> = props => {
             (localProperties.acceptedDragTypes?.includes(activeDragSource.type) ?? true);
 
         // Accept drops on the background area of the tree
-        const isValidRootTarget = isTypeAccepted;
+        const isValidRootTarget =
+            isTypeAccepted &&
+            (props.isValidDrop?.(activeDragSource, { id: 'root', label: '' }) ?? true);
 
         if (isValidRootTarget) {
             setIsRootDragOverActive(true);

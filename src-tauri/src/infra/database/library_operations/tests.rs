@@ -1,11 +1,14 @@
-//! Regression coverage uses real files and the migrated SQLite schema.
 use super::*;
 use crate::core::ledger::{
     command::{CreateFolderPayload, LedgerCommand},
     port::TransactionalAssetLedger,
 };
 use crate::infra::{database::ledger::SqliteAssetLedger, events::TokioEventBus};
+use std::path::PathBuf;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+#[path = "regression_tests.rs"]
+mod regression;
 
 struct Fixture {
     directory: tempfile::TempDir,
@@ -71,7 +74,7 @@ impl Fixture {
 }
 
 #[tokio::test]
-async fn rename_preserves_bytes_identity_tags_and_extension() -> TestResult {
+async fn rename_preserves_bytes_identity_notes_rating_and_extension() -> TestResult {
     let fixture = Fixture::new().await?;
     let root = fixture.folder("root", None).await?;
     fixture.asset("asset", "root/before.png", &root).await?;
@@ -179,7 +182,7 @@ async fn subtree_move_updates_exact_paths_and_parent_without_touching_similar_na
 }
 
 #[tokio::test]
-async fn failed_batch_compensates_completed_moves_and_rolls_back_database() -> TestResult {
+async fn missing_source_rejects_batch_before_any_move_and_rolls_back_database() -> TestResult {
     let fixture = Fixture::new().await?;
     let root = fixture.folder("root", None).await?;
     let target = fixture.folder("root/target", Some(&root)).await?;
@@ -421,5 +424,146 @@ async fn created_folder_does_not_suppress_files_copied_into_it() -> TestResult {
     assert!(!fixture
         .guard
         .is_marked(&PathBuf::from(&created.path).join("copied.png")));
+    Ok(())
+}
+
+#[tokio::test]
+async fn boot_recovery_reverses_uncommitted_disk_moves_idempotently() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let source = fixture.directory.path().join("source");
+    let destination = fixture.directory.path().join("destination");
+    tokio::fs::write(&source, b"original").await?;
+    let changes = DiskChanges {
+        moves: vec![(source.clone(), destination.clone())],
+        ..Default::default()
+    };
+    let app_data = fixture.directory.path().join("app");
+    let _journal = journal::Journal::prepare(&app_data, &changes).await?;
+    move_without_replace(&source, &destination).await?;
+    journal::recover(&fixture.pool, &app_data).await?;
+    journal::recover(&fixture.pool, &app_data).await?;
+    assert_eq!(tokio::fs::read(&source).await?, b"original");
+    assert!(!destination.exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn rollback_attempts_independent_moves_after_conflict_and_retains_repair_manifest(
+) -> TestResult {
+    let fixture = Fixture::new().await?;
+    let app_data = fixture.directory.path().join("app");
+    let mut changes = DiskChanges::default();
+    for name in ["first", "second", "third"] {
+        let source = fixture.directory.path().join(name);
+        tokio::fs::write(&source, name.as_bytes()).await?;
+        changes.moves.push((
+            source,
+            fixture.directory.path().join(format!("moved-{name}")),
+        ));
+    }
+    let journal = journal::Journal::prepare(&app_data, &changes).await?;
+    for (source, destination) in &changes.moves {
+        move_without_replace(source, destination).await?;
+    }
+    tokio::fs::write(&changes.moves[1].0, b"external").await?;
+    let error = journal
+        .rollback()
+        .await
+        .err()
+        .ok_or("Expected repair conflict")?;
+    assert!(error.to_string().contains("second"));
+    assert_eq!(tokio::fs::read(&changes.moves[0].0).await?, b"first");
+    assert_eq!(tokio::fs::read(&changes.moves[2].0).await?, b"third");
+    assert_eq!(tokio::fs::read(&changes.moves[1].0).await?, b"external");
+    assert_eq!(tokio::fs::read(&changes.moves[1].1).await?, b"second");
+    assert!(app_data
+        .join("library-journal")
+        .join(format!("{}.json", journal.operation_id))
+        .exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn folder_color_works_offline_without_adopting_children() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let root = fixture.folder("root", None).await?;
+    tokio::fs::remove_dir(fixture.directory.path().join("root")).await?;
+    fixture
+        .run(LibraryOperation::FolderColor {
+            folder_id: root.clone(),
+            color: Some("#123abc".into()),
+            inherits_color: false,
+        })
+        .await?;
+    let color: String = sqlx::query_scalar("SELECT color FROM folders WHERE id = ?")
+        .bind(root)
+        .fetch_one(&fixture.pool)
+        .await?;
+    assert_eq!(color, "#123abc");
+    assert!(!fixture.directory.path().join("root").exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn draft_cancel_rejects_external_content_and_preserves_receipt_for_retry() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let root = fixture.folder("root", None).await?;
+    let receipt = fixture
+        .ledger
+        .execute_library(LibraryOperation::CreateFolder {
+            parent_id: root,
+            name: "draft".into(),
+        })
+        .await?;
+    let contents = receipt.path.join("external.txt");
+    tokio::fs::write(&contents, b"keep").await?;
+    let cancel = LibraryOperation::CancelFolderDraft {
+        folder_id: receipt.id.clone(),
+        creation_operation_id: receipt.operation_id,
+    };
+    assert!(fixture.run(cancel.clone()).await.is_err());
+    assert_eq!(tokio::fs::read(&contents).await?, b"keep");
+    tokio::fs::remove_file(contents).await?;
+    fixture.run(cancel).await?;
+    assert!(!receipt.path.exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn native_identity_recovers_move_but_never_transfers_metadata_to_same_sized_file(
+) -> TestResult {
+    use crate::core::{ledger::command::CreateAssetPayload, models::asset::AssetState};
+    let fixture = Fixture::new().await?;
+    let root = fixture.folder("root", None).await?;
+    fixture.asset("stable", "root/old.png", &root).await?;
+    let old = fixture.directory.path().join("root/old.png");
+    fixture
+        .ledger
+        .observe_file_identities(vec![old.clone()])
+        .await?;
+    let moved = old.with_file_name("moved.png");
+    tokio::fs::rename(&old, &moved).await?;
+    let payload = |path| CreateAssetPayload {
+        path,
+        file_size: 6,
+        format_type: "png".into(),
+        family: "IMAGE".into(),
+        state_init: AssetState::Indexed,
+        folder_id: Some(root.clone()),
+        created_at: None,
+        modified_at: None,
+    };
+    let recovered = fixture
+        .ledger
+        .execute(LedgerCommand::CreateAsset(payload(moved)))
+        .await?;
+    assert_eq!(recovered.id, "stable");
+    let unrelated = old.with_file_name("other.png");
+    tokio::fs::write(&unrelated, b"stable").await?;
+    let created = fixture
+        .ledger
+        .execute(LedgerCommand::CreateAsset(payload(unrelated)))
+        .await?;
+    assert_ne!(created.id, "stable");
     Ok(())
 }

@@ -1,3 +1,19 @@
+/** Optional fields of one tag-edit intention; null means unchanged unless resetColor is true. */
+export interface UpdateTagOptions {
+    /** New display label. */
+    name?: string | null;
+    /** Explicit hexadecimal color. */
+    color?: string | null;
+    /** Parent identifier; use '0' to move to the root. */
+    parentId?: string | null;
+    /** Sibling sort key. */
+    orderIndex?: number | null;
+    /** Resolve the parent color dynamically. */
+    inheritsColor?: boolean;
+    /** Clear the custom color instead of leaving it unchanged. */
+    resetColor?: boolean;
+}
+
 import { invokeCommand as invoke } from './api';
 import type { TagOutlineEntry } from './tagMarkdown';
 import {
@@ -100,24 +116,13 @@ export const tagService = {
         return await invoke('create_tag', { name, parentId, color });
     },
 
-    updateTag: async (
-        id: string,
-        name?: string | null,
-        color?: string | null,
-        parentId?: string | null,
-        orderIndex?: number | null,
-        inheritsColor?: boolean,
-        resetColor?: boolean
-    ): Promise<void> => {
-        return await invoke('update_tag', {
-            id,
-            name,
-            color,
-            parentId,
-            orderIndex,
-            inheritsColor,
-            resetColor
-        });
+    /** Updates only supplied fields.
+     * @param id - Stable tag identifier.
+     * @param options - Changes to commit.
+     * @returns Completion of the IPC write.
+     */
+    updateTag: async (id: string, options: UpdateTagOptions): Promise<void> => {
+        return await invoke('update_tag', { id, ...options });
     },
 
     deleteTag: async (id: string): Promise<void> => {

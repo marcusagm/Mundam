@@ -1,5 +1,7 @@
 use crate::core::error::AppResult;
-use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction, MetadataMergePayload};
+use crate::core::models::{
+    DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction, MetadataMergePayload,
+};
 use crate::feature::duplicates::commands::{DuplicateCommandService, DuplicateScanStatus};
 use crate::feature::duplicates::queries::DuplicateQueryService;
 use tauri::State;
@@ -46,8 +48,9 @@ pub async fn resolve_duplicate_group(
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
     use std::str::FromStr;
-    let parsed_action = DuplicateResolutionAction::from_str(&action)
-        .map_err(|_| crate::core::error::AppError::ValidationFailed(format!("Invalid action: {}", action)))?;
+    let parsed_action = DuplicateResolutionAction::from_str(&action).map_err(|_| {
+        crate::core::error::AppError::ValidationFailed(format!("Invalid action: {}", action))
+    })?;
 
     command_service
         .resolve_group(&group_id, parsed_action, kept_asset_ids)
@@ -166,5 +169,3 @@ pub async fn rebuild_duplicate_index(
 ) -> AppResult<()> {
     command_service.rebuild_duplicate_index().await
 }
-
-

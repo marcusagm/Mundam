@@ -30,6 +30,29 @@ impl SqliteAssetQueries {
 
 #[async_trait]
 impl AssetQueryHandler for SqliteAssetQueries {
+    async fn folder_recovery_page(
+        &self,
+        offset: u32,
+    ) -> AppResult<Vec<crate::core::library::FolderRecoveryEntry>> {
+        super::query_handlers::library_recovery::page(&self.pool, offset).await
+    }
+    async fn find_deleted_asset(&self, path: &str) -> AppResult<Option<Asset>> {
+        super::query_handlers::asset_queries::find_deleted_asset(&self.pool, &self.registry, path)
+            .await
+    }
+    async fn find_missing_folder_at_destination(
+        &self,
+        path: &std::path::Path,
+    ) -> AppResult<Option<String>> {
+        super::query_handlers::library_identity::folder_at_destination(&self.pool, path).await
+    }
+    async fn file_identity(
+        &self,
+        asset_id: &str,
+    ) -> AppResult<Option<crate::core::library::FileIdentity>> {
+        crate::infra::database::query_handlers::library_identity::get(&self.pool, asset_id).await
+    }
+
     async fn find_all(&self) -> AppResult<Vec<Asset>> {
         crate::infra::database::query_handlers::asset_queries::find_all(&self.pool, &self.registry)
             .await

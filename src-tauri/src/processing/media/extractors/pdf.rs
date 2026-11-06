@@ -199,10 +199,7 @@ fn find_pdfium_library_path() -> Option<PathBuf> {
                 return Some(macos_resources_path);
             }
 
-            let bundled_path = path
-                .join("resources")
-                .join("pdfium")
-                .join(library_filename);
+            let bundled_path = path.join("resources").join("pdfium").join(library_filename);
             if bundled_path.exists() {
                 return Some(bundled_path);
             }
@@ -219,10 +216,7 @@ fn find_pdfium_library_path() -> Option<PathBuf> {
     if let Ok(current_working_directory) = std::env::current_dir() {
         let mut current_directory = Some(current_working_directory.as_path());
         while let Some(path) = current_directory {
-            let bundled_path = path
-                .join("resources")
-                .join("pdfium")
-                .join(library_filename);
+            let bundled_path = path.join("resources").join("pdfium").join(library_filename);
             if bundled_path.exists() {
                 return Some(bundled_path);
             }

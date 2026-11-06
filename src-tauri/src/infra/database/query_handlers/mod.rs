@@ -9,3 +9,11 @@ pub mod tags_queries;
 pub(crate) mod duplicate_policy;
 pub(crate) mod matching;
 pub(crate) mod processing;
+
+pub(crate) mod library_identity;
+
+pub(crate) mod path_identity;
+
+pub(crate) mod library_recovery;
+
+pub(crate) mod library_receipts;

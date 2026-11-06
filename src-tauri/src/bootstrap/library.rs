@@ -72,13 +72,48 @@ pub async fn init(app: &AppHandle) {
     let indexer_handle = indexer
         .clone()
         .start_event_listener(event_bus.clone(), indexer_token.clone());
-    lifecycle.register("indexer_event_listener".to_string(), indexer_token, indexer_handle);
+    lifecycle.register(
+        "indexer_event_listener".to_string(),
+        indexer_token,
+        indexer_handle,
+    );
 
     // Initialize Watcher Service
     let watcher = Arc::new(crate::processing::watcher::WatcherService::new(
         event_bus.clone(),
     ));
     app.manage(watcher.clone());
+
+    let observer: Arc<dyn crate::core::library::RootObservation> = watcher.clone();
+    app.manage(observer.clone());
+    let directories = app.state::<crate::bootstrap::AppDirectories>();
+    let storage: Arc<dyn crate::core::library::RecoveryStorage> = Arc::new(
+        crate::infra::filesystem::folder_recovery::FolderRecoveryStorage(
+            directories.app_data.clone(),
+        ),
+    );
+    app.manage(storage);
+    let observation_queries = asset_query_handler.clone();
+    let observation_token = lifecycle.child_token();
+    let retry_token = observation_token.clone();
+    let observation_handle = tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+        loop {
+            tokio::select! {
+                _ = retry_token.cancelled() => break,
+                _ = interval.tick() => {
+                    if let Err(error) = crate::feature::library::operations::reconcile(observation_queries.as_ref(), observer.as_ref()).await {
+                        tracing::warn!(%error, "Root observation will retry");
+                    }
+                }
+            }
+        }
+    });
+    lifecycle.register(
+        "library_observation".into(),
+        observation_token,
+        observation_handle,
+    );
 
     // Start Watchers + Boot Scan for Existing Roots
     if let Ok(roots) = asset_query_handler.list_folders(None).await {

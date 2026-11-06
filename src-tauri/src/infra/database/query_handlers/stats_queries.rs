@@ -7,7 +7,10 @@ use sqlx::SqlitePool;
 ///
 /// * `Ok(LibraryStats)` with aggregated data.
 /// * `Err(sqlx::Error)` on query failure.
-pub async fn get_library_stats(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<crate::core::models::LibraryStats> {
+pub async fn get_library_stats(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<crate::core::models::LibraryStats> {
     let stats_row = sqlx::query!(
         r#"
         SELECT 
@@ -67,10 +70,9 @@ pub async fn get_library_stats(pool: &SqlitePool, _registry: &crate::core::forma
         .collect();
 
     // Calculate recursive counts in-memory instead of slow recursive CTE
-    let all_folders =
-        sqlx::query!(r#"SELECT id as "id!", parent_id as "parent_id?" FROM folders"#)
-            .fetch_all(pool)
-            .await?;
+    let all_folders = sqlx::query!(r#"SELECT id as "id!", parent_id as "parent_id?" FROM folders"#)
+        .fetch_all(pool)
+        .await?;
 
     let mut parent_map: std::collections::HashMap<String, Option<String>> =
         std::collections::HashMap::new();

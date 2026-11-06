@@ -3,27 +3,39 @@ import { useMetadata, useNotification, useTree } from '../../../core/hooks';
 import { executeLibraryOperation } from '../../../core/store/library/folderActions';
 import type { DragItem } from '../../../core/dnd/dnd-core';
 import type { TreeNode } from '../../ui/TreeView';
-import { isFolderDescendant } from './folderPresentation';
+import { isFolderDescendant } from './folderHierarchy';
 
-/** Converts the tree namespace into a database identifier. */
+/** Converts the tree namespace into a database identifier.
+ * @param identifier - Tree node ID.
+ * @returns Catalog ID without the display namespace.
+ * @example folderIdentifier('folder-example');
+ */
 export function folderIdentifier(identifier: string | number): string {
     return String(identifier).replace(/^folder-/, '');
 }
 
-/** Orchestrates inline folder editing and physical subtree drops. */
+/** Coordinates exclusive edit transitions and physical subtree drops.
+ * @returns Reactive editor state and asynchronous command handlers; failed drafts remain editable.
+ * @example const actions = useFolderTreeActions();
+ */
 export function useFolderTreeActions() {
     const metadata = useMetadata();
     const notification = useNotification();
     const tree = useTree('folders');
     const [editingId, setEditingId] = createSignal<string | null>(null);
-    let isRenaming = false;
-    let isCreating = false;
-    let pendingCreationId: string | null = null;
+    type EditPhase = 'idle' | 'creating' | 'editing' | 'saving' | 'cancelling';
+    const [phase, setPhase] = createSignal<EditPhase>('idle');
+    let draft: { id: string; operationId: string } | null = null;
+    const beginEdit = (identifier: string | null): void => {
+        if (phase() !== 'idle') return;
+        setEditingId(identifier);
+        setPhase(identifier ? 'editing' : 'idle');
+    };
 
     /** Creates a uniquely named child and enters the same inline editor as rename. */
     const handleCreateChild = async (parentId: string): Promise<void> => {
-        if (isCreating || editingId() !== null) return;
-        isCreating = true;
+        if (phase() !== 'idle') return;
+        setPhase('creating');
         let name = 'New Folder';
         let suffix = 1;
         while (
@@ -38,58 +50,77 @@ export function useFolderTreeActions() {
         try {
             const result = await executeLibraryOperation({ kind: 'createFolder', parentId, name });
             tree.setExpanded('folder-' + parentId, true);
-            pendingCreationId = result.id;
+            draft = { id: result.id, operationId: result.operationId };
             setEditingId('folder-' + result.id);
+            setPhase('editing');
+            if (result.warning) notification.warning('Folder Created', result.warning);
         } catch {
             notification.error('Failed to Create Folder');
         } finally {
-            isCreating = false;
+            if (phase() === 'creating') setPhase('idle');
         }
     };
 
     /** Persists the inline edit and keeps the editor available when saving fails. */
     const handleRename = async (node: TreeNode, newName: string): Promise<void> => {
         // A blur fired while the editor closes (Escape) must not commit a stale edit.
-        if (isRenaming || editingId() !== String(node.id)) return;
+        if (phase() !== 'editing' || editingId() !== String(node.id)) return;
         const name = newName.trim();
         if (!name || name === node.label) {
-            pendingCreationId = null;
+            draft = null;
+            setPhase('idle');
             setEditingId(null);
             return;
         }
-        isRenaming = true;
+        setPhase('saving');
         try {
             const result = await executeLibraryOperation({
                 kind: 'renameFolder',
                 folderId: folderIdentifier(node.id),
                 name
             });
-            pendingCreationId = null;
+            draft = null;
+            setPhase('idle');
             setEditingId(null);
             if (result.warning) notification.warning('Folder monitoring', result.warning);
             notification.success('Folder Renamed', `Changed “${node.label}” to “${name}”`);
         } catch {
             notification.error('Failed to Rename Folder');
         } finally {
-            isRenaming = false;
+            if (phase() === 'saving') setPhase('editing');
         }
     };
 
     /** Leaves rename untouched, but discards a folder created moments ago and never confirmed. */
     const handleEditCancel = async (): Promise<void> => {
-        const abandonedId = pendingCreationId;
-        pendingCreationId = null;
-        setEditingId(null);
-        if (!abandonedId) return;
+        if (phase() !== 'editing') return;
+        if (!draft) {
+            setEditingId(null);
+            setPhase('idle');
+            return;
+        }
+        setPhase('cancelling');
         try {
-            await executeLibraryOperation({ kind: 'deleteFolder', folderId: abandonedId });
+            await executeLibraryOperation({
+                kind: 'cancelFolderDraft',
+                folderId: draft.id,
+                creationOperationId: draft.operationId
+            });
+            draft = null;
+            setEditingId(null);
+            setPhase('idle');
         } catch {
-            notification.error('Failed to Cancel Folder Creation');
+            setPhase('editing');
+            notification.error(
+                'Folder Kept',
+                'The folder could not be discarded safely. Confirm its name or retry.'
+            );
         }
     };
 
     /** Rejects recursive destinations before any filesystem operation is requested. */
     const isValidDrop = (item: DragItem, target: TreeNode): boolean => {
+        if (target.id === 'root') return false;
         if (item.type === 'ASSET') return true;
         if (item.type !== 'FOLDER') return false;
         const sourceId = folderIdentifier(item.payload.id);
@@ -131,7 +162,7 @@ export function useFolderTreeActions() {
 
     return {
         editingId,
-        setEditingId,
+        setEditingId: beginEdit,
         handleCreateChild,
         handleRename,
         handleEditCancel,

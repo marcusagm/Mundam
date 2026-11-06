@@ -28,6 +28,7 @@ use crate::core::models::asset::Asset;
 /// contains no SQL queries or business rules itself.
 pub struct SqliteAssetLedger {
     pool: SqlitePool,
+    settings_repository: Option<Arc<dyn crate::core::settings::SettingsRepository>>,
     event_bus: Arc<dyn AppEventBus>,
     /// Root directory for app-local data. Used by post-commit Saga steps
     /// to resolve trash file paths without leaking infrastructure concerns
@@ -56,10 +57,51 @@ impl SqliteAssetLedger {
     ) -> Self {
         Self {
             pool,
+            settings_repository: None,
             event_bus,
             app_data_directory,
             path_guard,
         }
+    }
+    /// Connects trusted runtime preferences while preserving standalone adapter defaults.
+    pub fn with_settings_repository(
+        mut self,
+        repository: Arc<dyn crate::core::settings::SettingsRepository>,
+    ) -> Self {
+        self.settings_repository = Some(repository);
+        self
+    }
+
+    async fn library_record(
+        &self,
+        operation: crate::core::ledger::library_operation::LibraryOperation,
+    ) -> AppResult<(Asset, crate::core::library::LibraryOperationResult)> {
+        let budget = if matches!(
+            operation,
+            crate::core::ledger::library_operation::LibraryOperation::DeleteFolder { .. }
+        ) {
+            match &self.settings_repository {
+                Some(repository) => crate::core::library::policy::recovery_budget(
+                    repository
+                        .load()
+                        .await?
+                        .extra
+                        .get("folder_recovery_max_bytes"),
+                )?,
+                None => crate::core::library::policy::DEFAULT_RECOVERY_BUDGET,
+            }
+        } else {
+            crate::core::library::policy::DEFAULT_RECOVERY_BUDGET
+        };
+        super::library_operations::execute_record(
+            &self.pool,
+            self.event_bus.as_ref(),
+            &self.path_guard,
+            &self.app_data_directory,
+            operation,
+            budget,
+        )
+        .await
     }
 }
 
@@ -111,11 +153,41 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
         Ok(true)
     }
 
+    async fn execute_library(
+        &self,
+        operation: crate::core::ledger::library_operation::LibraryOperation,
+    ) -> AppResult<crate::core::library::LibraryOperationResult> {
+        Ok(self.library_record(operation).await?.1)
+    }
+
+    async fn observe_file_identities(&self, paths: Vec<PathBuf>) -> AppResult<()> {
+        for batch in paths.chunks(256) {
+            let mut identities = Vec::new();
+            for path in batch {
+                if let Ok(identity) = crate::infra::filesystem::identity::read(path).await {
+                    identities.push((path.clone(), identity));
+                }
+            }
+            self.remember_file_identities(identities).await?;
+        }
+        Ok(())
+    }
+
+    async fn remember_file_identities(
+        &self,
+        identities: Vec<(PathBuf, crate::core::library::FileIdentity)>,
+    ) -> AppResult<()> {
+        crate::infra::database::handlers::library::identities::remember(&self.pool, identities)
+            .await
+    }
+
     /// Executes a command that modifies the state of the asset ledger.
     async fn execute(&self, command: LedgerCommand) -> AppResult<Asset> {
         if let LedgerCommand::LibraryOperation(operation) = command {
-            return super::library_operations::execute(&self.pool, self.event_bus.as_ref(), &self.path_guard, &self.app_data_directory, operation).await;
+            return Ok(self.library_record(operation).await?.0);
         }
+        let _library_operation = super::library_operations::LIBRARY_GATE.lock().await;
+        super::library_operations::journal::recover(&self.pool, &self.app_data_directory).await?;
         let mut tx = self.pool.begin().await?;
 
         // 1. Resolve and expand commands (Handle Batch expansion but NOT BatchCreate)
@@ -284,7 +356,9 @@ impl SqliteAssetLedger {
                 })?;
             }
             LedgerCommand::ImportTags(_) => {
-                self.event_bus.publish(DomainEvent::TagUpdated { id: asset.id.clone() })?;
+                self.event_bus.publish(DomainEvent::TagUpdated {
+                    id: asset.id.clone(),
+                })?;
             }
             LedgerCommand::UpdateTag(tag_payload) => {
                 self.event_bus.publish(DomainEvent::TagUpdated {
@@ -386,7 +460,9 @@ impl SqliteAssetLedger {
         };
 
         match command {
-            LedgerCommand::LibraryOperation(_) => Err(AppError::ValidationFailed("Managed operations cannot be nested in batches".into())),
+            LedgerCommand::LibraryOperation(_) => Err(AppError::ValidationFailed(
+                "Managed operations cannot be nested in batches".into(),
+            )),
             LedgerCommand::CreateAsset(payload) => asset_handler::handle_create(tx, payload).await,
             LedgerCommand::BatchCreate(payloads) => {
                 asset_handler::handle_batch_create(tx, payloads).await
@@ -409,7 +485,9 @@ impl SqliteAssetLedger {
             LedgerCommand::UpdateTags(payload) => {
                 tags_handler::handle_update_tags(tx, payload).await
             }
-            LedgerCommand::ImportTags(payload) => crate::infra::database::handlers::tag_import::handle_import(tx, payload).await,
+            LedgerCommand::ImportTags(payload) => {
+                crate::infra::database::handlers::tag_import::handle_import(tx, payload).await
+            }
             LedgerCommand::CreateTag(payload) => tags_handler::handle_create_tag(tx, payload).await,
             LedgerCommand::UpdateTag(payload) => tags_handler::handle_update_tag(tx, payload).await,
             LedgerCommand::DeleteTag { id } => tags_handler::handle_delete_tag(tx, id).await,

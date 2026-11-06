@@ -78,7 +78,11 @@ pub async fn handler_async<R: tauri::Runtime>(
             )
         }
         Err(database_error) => {
-            tracing::error!("Database error fetching asset {}: {:?}", asset_id, database_error);
+            tracing::error!(
+                "Database error fetching asset {}: {:?}",
+                asset_id,
+                database_error
+            );
             return error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 b"Database error".to_vec(),
@@ -107,9 +111,12 @@ pub async fn handler_async<R: tauri::Runtime>(
                 )
             }
         };
-        let Some(filename) = asset.thumbnail_path.as_deref().filter(|filename|
-            Path::new(filename).file_name().and_then(|name| name.to_str()) == Some(*filename)
-        ) else {
+        let Some(filename) = asset.thumbnail_path.as_deref().filter(|filename| {
+            Path::new(filename)
+                .file_name()
+                .and_then(|name| name.to_str())
+                == Some(*filename)
+        }) else {
             return error_response(StatusCode::NOT_FOUND, b"No committed thumbnail".to_vec());
         };
         physical_path = app_data.join("thumbnails").join(filename);
@@ -127,18 +134,31 @@ pub async fn handler_async<R: tauri::Runtime>(
                 }
             };
             let committed_preview = if let Some(repository) = application_handle
-                .try_state::<Arc<dyn crate::core::processing::ProcessingRepository>>() {
+                .try_state::<Arc<dyn crate::core::processing::ProcessingRepository>>()
+            {
                 match repository.preview_path(&asset.id).await {
                     Ok(path) => path,
                     Err(error) => {
                         tracing::warn!(%error, "Could not resolve committed model preview");
-                        return error_response(StatusCode::INTERNAL_SERVER_ERROR, b"Preview unavailable".to_vec());
+                        return error_response(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            b"Preview unavailable".to_vec(),
+                        );
                     }
                 }
-            } else { None };
+            } else {
+                None
+            };
             let filename = committed_preview.unwrap_or_else(|| format!("{}.glb", asset.id));
-            if Path::new(&filename).file_name().and_then(|name| name.to_str()) != Some(filename.as_str()) {
-                return error_response(StatusCode::NOT_FOUND, b"Invalid preview cache path".to_vec());
+            if Path::new(&filename)
+                .file_name()
+                .and_then(|name| name.to_str())
+                != Some(filename.as_str())
+            {
+                return error_response(
+                    StatusCode::NOT_FOUND,
+                    b"Invalid preview cache path".to_vec(),
+                );
             }
             physical_path = app_data.join("thumbnails").join(filename);
         }
@@ -202,8 +222,7 @@ pub async fn handler_async<R: tauri::Runtime>(
                         let _ = std::fs::create_dir_all(&preview_cache_directory);
                         let cached_output_path = preview_cache_directory
                             .join(format!("{}.{}", asset.id, cache_extension));
-                        if let Err(cache_write_error) = std::fs::write(&cached_output_path, &data)
-                        {
+                        if let Err(cache_write_error) = std::fs::write(&cached_output_path, &data) {
                             tracing::warn!(
                                 "Failed to cache preview for {}: {}",
                                 asset.id,

@@ -1,7 +1,5 @@
 use crate::core::error::AppResult;
-use crate::core::models::{
-    AssetSummaryDto, PageParams,
-};
+use crate::core::models::{AssetSummaryDto, PageParams};
 use crate::infra::database::models::AssetSummaryDb;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
@@ -92,7 +90,10 @@ pub async fn get_search_count(
 ///
 /// * `Ok(Vec<SmartFolder>)` if successful.
 /// * `Err(sqlx::Error)` on query failure.
-pub async fn list_smart_folders(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry) -> AppResult<Vec<crate::core::models::SmartFolder>> {
+pub async fn list_smart_folders(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+) -> AppResult<Vec<crate::core::models::SmartFolder>> {
     let rows = sqlx::query!(
         r#"SELECT id as "id!", name as "name!", query_json as "query_json!", created_at as "created_at?: chrono::DateTime<chrono::Utc>", updated_at as "updated_at?: chrono::DateTime<chrono::Utc>" FROM smart_folders ORDER BY name ASC"#
     )
@@ -112,4 +113,3 @@ pub async fn list_smart_folders(pool: &SqlitePool, _registry: &crate::core::form
 
     Ok(folders)
 }
-

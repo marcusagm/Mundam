@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isFolderDescendant, resolveFolderColor } from './folderPresentation';
+import { resolveFolderColor } from './folderPresentation';
+import { isFolderDescendant } from './folderHierarchy';
 
 describe('folder presentation', () => {
     const folders = [

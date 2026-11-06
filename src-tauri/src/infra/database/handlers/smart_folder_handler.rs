@@ -3,12 +3,12 @@
 //! Encapsulates SQL mutations for saved search (SmartFolder) CRUD operations.
 //! Smart folders store a JSON query expression and are not backed by a real
 //! filesystem directory.
+use super::shared;
 use crate::core::error::{AppError, AppResult};
 use crate::core::ledger::command::{
     CreateSmartFolderPayload, DeleteSmartFolderPayload, UpdateSmartFolderPayload,
 };
 use crate::core::models::asset::{Asset, AssetState};
-use super::shared;
 use chrono::Utc;
 use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
@@ -66,8 +66,8 @@ pub async fn handle_create_smart_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }
 
@@ -122,8 +122,8 @@ pub async fn handle_update_smart_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }
 
@@ -170,7 +170,7 @@ pub async fn handle_delete_smart_folder(
         thumbnail_path: None,
         rating: None,
         notes: None,
-    is_favorite: false,
-    deleted_at: None,
+        is_favorite: false,
+        deleted_at: None,
     })
 }

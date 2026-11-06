@@ -1,4 +1,4 @@
-//! Pure file classification for the fan-out producer pipeline.
+//! Stateless asynchronous metadata classification for the bounded fan-out pipeline.
 //!
 //! This module contains the stateless classification function used by
 //! `scan_directory` to determine whether a filesystem entry needs indexing.
@@ -12,12 +12,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use unicode_normalization::UnicodeNormalization;
 use walkdir::DirEntry;
 
-/// Normalizes a path to NFC; macOS may report NFD while the database stores NFC.
-pub fn nfc_path(path: &std::path::Path) -> PathBuf {
-    PathBuf::from(path.to_string_lossy().nfc().collect::<String>())
+/// Preserves the native path spelling; only verified catalog aliases may be normalized.
+pub fn catalog_path(path: &std::path::Path) -> PathBuf {
+    path.to_path_buf()
 }
 
 /// Intermediate result produced by each fan-out producer task.
@@ -30,7 +29,7 @@ pub enum AssetDiscoveryResult {
     Error(String),
 }
 
-/// Pure classification function executed by each producer task.
+/// Classifies one observed entry without mutating the catalog.
 ///
 /// Reads the filesystem metadata and compares with the comparison cache
 /// to decide if a file needs indexing. This function is entirely stateless
@@ -54,10 +53,10 @@ pub async fn classify_file_entry(
     registry: &crate::core::formats::registry::FormatRegistry,
     root_folder_id: &Option<String>,
 ) -> AssetDiscoveryResult {
-    let entry_path = nfc_path(entry.path());
-    let path_str = entry_path.to_string_lossy().to_string();
+    let entry_path = catalog_path(entry.path());
+    let entry_path_string = entry_path.to_string_lossy().to_string();
 
-    let metadata = match entry.metadata() {
+    let metadata = match tokio::fs::metadata(entry.path()).await {
         Ok(metadata) => metadata,
         Err(error) => {
             return AssetDiscoveryResult::Error(format!(
@@ -75,16 +74,17 @@ pub async fn classify_file_entry(
         .unwrap_or_else(Utc::now);
     let disk_created_time: Option<DateTime<Utc>> = metadata.created().ok().map(|time| time.into());
 
-    let needs_indexing =
-        if let Some((cached_size, cached_modified_time)) = comparison_cache.get(&path_str) {
-            disk_size != *cached_size
-                || (disk_modified_time - *cached_modified_time)
-                    .num_seconds()
-                    .abs()
-                    >= 1
-        } else {
-            true
-        };
+    let needs_indexing = if let Some((cached_size, cached_modified_time)) =
+        comparison_cache.get(&entry_path_string)
+    {
+        disk_size != *cached_size
+            || (disk_modified_time - *cached_modified_time)
+                .num_seconds()
+                .abs()
+                >= 1
+    } else {
+        true
+    };
 
     if !needs_indexing {
         return AssetDiscoveryResult::ExistingAsset;

@@ -1,6 +1,6 @@
+use crate::core::error::AppResult;
 use crate::core::models::{DuplicateCandidate, DuplicateGroup, DuplicateRuleSet};
 use crate::core::repository::DuplicatesRepository;
-use crate::core::error::AppResult;
 use std::sync::Arc;
 
 /// Service handler for duplicates-related queries.

@@ -5,7 +5,7 @@
  * @description
  * The ContextMenu component is a coordinate-based menu triggered by right-clicks.
  * It provides a menu that appears at the mouse position when the user right-clicks on the trigger element.
- * Supports submenus and keyboard navigation.
+ * Supports submenus, keyboard navigation and shared ContextMenuCheckboxItem preference rows.
  *
  * @example
  * ```tsx
@@ -17,11 +17,11 @@
  *   items={[
  *     {
  *       label: 'Item 1',
- *       onClick: () => {},
+ *       type: 'item', action: () => {},
  *     },
  *     {
  *       label: 'Item 2',
- *       onClick: () => {},
+ *       type: 'item', action: () => {},
  *     },
  *   ]}
  *   isOpen={true}

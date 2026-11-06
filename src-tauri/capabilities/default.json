@@ -40,6 +40,7 @@
     "allow-copy-files-to-clipboard",
     "allow-library-operation",
     "allow-folder-recovery-directory",
+    "allow-folder-recovery-history",
     "allow-toggle-favorite",
     "allow-move-to-trash",
     "allow-restore-from-trash",

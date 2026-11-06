@@ -26,6 +26,9 @@ jobs:
             - name: Lint Code
               run: npm run lint
 
+            - name: Audited Library Quality
+              run: npm run check:library
+
             - name: Typecheck
               run: npm run typecheck
 

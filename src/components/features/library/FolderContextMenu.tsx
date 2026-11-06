@@ -20,7 +20,10 @@ export const FolderContextMenu: Component<{
     onDelete: (node: TreeNode) => void;
     onRename: (id: string) => void;
     onAddChild: (id: string) => void;
-    onAction: (action: FolderDialogAction, folderId: string) => void;
+    onAction: (
+        action: Extract<FolderDialogAction, 'moveFolder' | 'deleteFolder'>,
+        folderId: string
+    ) => void;
 }> = props => {
     const filters = useFilters();
     const metadata = useMetadata();
@@ -37,8 +40,9 @@ export const FolderContextMenu: Component<{
                 inheritsColor
             }).catch(() => undefined);
         };
-        const action = (kind: FolderDialogAction) => () =>
-            props.onAction(kind, data.folderIdentifier);
+        const onAction = props.onAction;
+        const action = (kind: Extract<FolderDialogAction, 'moveFolder' | 'deleteFolder'>) => () =>
+            onAction(kind, data.folderIdentifier);
         const result: ContextMenuItem[] = [
             {
                 type: 'item',

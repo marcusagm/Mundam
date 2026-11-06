@@ -13,10 +13,13 @@ use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
-use unicode_normalization::UnicodeNormalization;
+use tracing::{error, info, warn};
 
 use super::indexer::LibraryIndexer;
+
+#[cfg(test)]
+#[path = "event_handler_tests.rs"]
+mod tests;
 
 impl LibraryIndexer {
     /// Starts a background loop that listens for domain events and handles
@@ -30,7 +33,12 @@ impl LibraryIndexer {
         token: tokio_util::sync::CancellationToken,
     ) -> tauri::async_runtime::JoinHandle<()> {
         let mut receiver = event_bus.subscribe();
+        let mut repair_interval = tokio::time::interval_at(
+            tokio::time::Instant::now() + std::time::Duration::from_secs(600),
+            std::time::Duration::from_secs(600),
+        );
         tauri::async_runtime::spawn(async move {
+            let mut last_reconciliation: Option<tokio::time::Instant> = None;
             info!("IndexerEventListener: started and listening for filesystem events");
 
             loop {
@@ -41,6 +49,7 @@ impl LibraryIndexer {
                                 self.handle_single_event(event).await;
                             }
                             Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
+                                if last_reconciliation.is_none_or(|instant| instant.elapsed() >= std::time::Duration::from_secs(60)) { repair_interval.reset_immediately(); }
                                 warn!(
                                     "IndexerEventListener: lagged behind {} events, continuing",
                                     skipped_count
@@ -52,6 +61,10 @@ impl LibraryIndexer {
                             }
                         }
                     }
+                    _ = repair_interval.tick() => {
+                        self.reconcile_observed_roots(&token).await;
+                        last_reconciliation = Some(tokio::time::Instant::now());
+                    }
                     _ = token.cancelled() => {
                         info!("IndexerEventListener: cancelled, shutting down");
                         break;
@@ -59,6 +72,27 @@ impl LibraryIndexer {
                 }
             }
         })
+    }
+
+    async fn reconcile_observed_roots(&self, token: &tokio_util::sync::CancellationToken) {
+        let roots = match self.query_handler.list_folders(None).await {
+            Ok(roots) => roots,
+            Err(error) => {
+                error!(%error, "Cannot reconcile library roots");
+                return;
+            }
+        };
+        for folder in roots {
+            if token.is_cancelled() {
+                break;
+            }
+            if !tokio::fs::try_exists(&folder.path).await.unwrap_or(false) {
+                continue;
+            }
+            if let Err(error) = self.scan_directory(folder.path, Some(folder.id)).await {
+                warn!(%error, "Library reconciliation will retry");
+            }
+        }
     }
 
     /// Handle a single DomainEvent with a targeted ledger operation.
@@ -74,7 +108,11 @@ impl LibraryIndexer {
             }
 
             DomainEvent::FsPathDeleted { path } => {
-                self.handle_path_deleted(path).await;
+                match self.query_handler.find_folder_by_path(&path).await {
+                    Ok(Some(_)) => self.handle_directory_deleted(path).await,
+                    Ok(None) => self.handle_path_deleted(path).await,
+                    Err(error) => error!(%error, "Cannot classify removal observation"),
+                }
             }
 
             DomainEvent::FsPathRenamed { from, to } => {
@@ -93,83 +131,11 @@ impl LibraryIndexer {
         }
     }
 
-    /// Handles a new file discovery event, potentially recovering a rename or move.
-    ///
-    /// Uses a 500ms strategic delay to allow `handle_path_deleted` to populate
-    /// `recent_removals` first. Then attempts a "Fast Match" by fingerprinting
-    /// the new file against recently removed entries (size + created_at).
-    /// If no match is found, falls through to normal asset creation.
+    /// Discovers files using native identity recovery in the transactional creation handler.
     async fn handle_file_discovered(&self, path: String) {
-        let entry_path = PathBuf::from(&path);
-
-        // Only the exact path is ledger-owned: files copied into a just-renamed folder are new,
-        // and files already moved with it are skipped by the database check in creation.
-        if self.path_guard.is_exactly_marked(&entry_path) {
-            debug!("Indexer: Ignoring ledger-initiated create for {}", path);
-            return;
+        if let Err(error) = self.handle_file_creation(PathBuf::from(&path)).await {
+            error!(%path, %error, "File discovery failed; reconciliation can retry");
         }
-        // Strategic Delay: On macOS, a Rename is often emitted as Delete then Create.
-        // 500ms gives enough time for handle_path_deleted to populate recent_removals.
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-        let disk_metadata = std::fs::metadata(&entry_path).ok();
-        let disk_size = disk_metadata
-            .as_ref()
-            .map(|metadata| metadata.len() as i64)
-            .unwrap_or(0);
-        let disk_created_at: Option<DateTime<Utc>> = disk_metadata
-            .as_ref()
-            .and_then(|metadata| metadata.created().ok())
-            .map(DateTime::<Utc>::from);
-
-        let from_path = self
-            .recent_removals
-            .iter()
-            .find(|entry| {
-                if *entry.key() == entry_path {
-                    return false;
-                }
-
-                let (_, (_, removed_size, removed_created_at)) = entry.pair();
-                let size_matches = *removed_size as i64 == disk_size && disk_size > 0;
-                if !size_matches {
-                    return false;
-                }
-                match (removed_created_at, &disk_created_at) {
-                    (Some(database_created), Some(filesystem_created)) => {
-                        (*database_created - *filesystem_created)
-                            .num_seconds()
-                            .abs()
-                            < 2
-                    }
-                    _ => true,
-                }
-            })
-            .map(|entry| entry.key().clone());
-
-        if let Some(from_path) = from_path {
-            info!(
-                "Indexer: Fast Match (Size: {}) - Treating as Move: {} -> {}",
-                disk_size,
-                from_path.to_string_lossy(),
-                path
-            );
-
-            self.recent_removals.remove(&from_path);
-
-            let update_payload = crate::core::ledger::command::UpdateAssetPayload {
-                asset_id: None,
-                old_path: Some(from_path),
-                new_path: entry_path.clone(),
-            };
-            let _ = self
-                .ledger
-                .execute(LedgerCommand::UpdateAsset(update_payload))
-                .await;
-            return;
-        }
-
-        let _ = self.handle_file_creation(entry_path).await;
     }
 
     /// Extracts metadata and persists a new file to the ledger.
@@ -181,20 +147,18 @@ impl LibraryIndexer {
     ///
     /// Returns `AppError::Io` if filesystem metadata cannot be read.
     async fn handle_file_creation(&self, entry_path: PathBuf) -> AppResult<()> {
+        if !self.has_indexed_ancestor(&entry_path).await? {
+            return Ok(());
+        }
         let path_str = entry_path.to_string_lossy().to_string();
 
-        // The DB may hold the path in either Unicode form (accented names on macOS);
-        // checking only one form would insert a duplicate asset.
-        let nfc_path: String = path_str.nfc().collect();
-        let nfd_path: String = path_str.nfd().collect();
-        for candidate in [&path_str, &nfc_path, &nfd_path] {
-            if let Ok(Some(_)) = self.query_handler.find_asset_by_path(candidate).await {
-                debug!(
-                    "Indexer: Asset already exists for path '{}', skipping duplicate creation",
-                    entry_path.display()
-                );
-                return Ok(());
-            }
+        if self
+            .query_handler
+            .find_asset_by_path(&path_str)
+            .await?
+            .is_some()
+        {
+            return Ok(());
         }
 
         let extension = entry_path
@@ -212,7 +176,7 @@ impl LibraryIndexer {
             .map(|format| (format.name.to_string(), format.type_category.to_string()))
             .unwrap_or_else(|| ("unknown".to_string(), "unknown".to_string()));
 
-        let metadata = std::fs::metadata(&entry_path).map_err(crate::core::error::AppError::Io)?;
+        let metadata = tokio::fs::metadata(&entry_path).await?;
         let size_bytes = metadata.len();
         let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
         let modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
@@ -224,7 +188,7 @@ impl LibraryIndexer {
         };
 
         let create_payload = CreateAssetPayload {
-            path: entry_path,
+            path: entry_path.clone(),
             file_size: size_bytes,
             format_type: format_name,
             family: family_name,
@@ -240,50 +204,61 @@ impl LibraryIndexer {
         Ok(())
     }
 
-    /// Handles a path deletion event.
-    ///
-    /// The debouncer has already applied a 3-second deletion guard before emitting
-    /// `FsPathDeleted`. The indexer trusts this judgment and executes immediately,
-    /// but maintains a `recent_removals` cache so that `handle_file_discovered`
-    /// can still pair late renames/moves.
+    /// Defers catalog removal so native-identity move recovery retains user metadata.
     async fn handle_path_deleted(&self, path: String) {
         let entry_path = PathBuf::from(&path);
-
-        // A delete event for a path that is ledger-owned or exists again is stale
-        // (e.g. a trashed file that was already restored) and must not touch the DB.
-        if self.path_guard.is_marked(&entry_path) || entry_path.exists() {
-            debug!("Indexer: Ignoring stale/ledger-initiated DELETE for {}", path);
+        if tokio::fs::try_exists(&entry_path).await.unwrap_or(true) {
             return;
         }
-        info!("Indexer: Processing DELETE for: {}", path);
-
-        let mut old_size = 0;
-        let mut old_created_at: Option<DateTime<Utc>> = None;
-        if let Ok(Some(asset)) = self.query_handler.find_asset_by_path(&path).await {
-            old_size = asset.file_size;
-            old_created_at = asset.created_at;
-        }
-
-        self.recent_removals
-            .insert(entry_path.clone(), (Utc::now(), old_size, old_created_at));
-
-        let delete_command = LedgerCommand::DeleteAsset {
-            asset_id: None,
-            path: Some(entry_path.clone()),
-            physical_delete: false,
-        };
-
-        if let Err(error) = self.ledger.execute(delete_command).await {
-            if !matches!(error, crate::core::error::AppError::NotFound(_)) {
-                error!("Indexer: DELETE failed for {}: {}", path, error);
+        let asset = match self.query_handler.find_deleted_asset(&path).await {
+            Ok(Some(asset)) => asset,
+            Ok(None) => return,
+            Err(error) => {
+                error!(%error, %path, "Cannot resolve deleted asset");
+                return;
             }
-        }
-
-        let recent_removals_clone = self.recent_removals.clone();
-        let entry_path_clone = entry_path.clone();
+        };
+        let generation = uuid::Uuid::new_v4();
+        self.pending_removals.insert(entry_path.clone(), generation);
+        let removals = self.pending_removals.clone();
+        let ledger = self.ledger.clone();
+        let queries = self.query_handler.clone();
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            recent_removals_clone.remove(&entry_path_clone);
+            if removals
+                .remove_if(&entry_path, |_, current| *current == generation)
+                .is_none()
+            {
+                return;
+            }
+            if tokio::fs::try_exists(&entry_path).await.unwrap_or(true) {
+                return;
+            }
+            if !observed_root_online(queries.as_ref(), asset.folder_id.clone())
+                .await
+                .unwrap_or(false)
+            {
+                return;
+            }
+            // A recovered rename has changed this row's path; never delete it by stale ID.
+            match queries.find_deleted_asset(&path).await {
+                Ok(Some(current)) if current.id == asset.id => {
+                    if let Err(error) = ledger
+                        .execute(LedgerCommand::DeleteAsset {
+                            asset_id: Some(asset.id),
+                            path: Some(asset.path.clone()),
+                            physical_delete: false,
+                        })
+                        .await
+                    {
+                        error!(%error, %path, "Deferred deletion failed");
+                    }
+                }
+                Err(error) => {
+                    error!(%error, "Deferred deletion lookup failed");
+                }
+                _ => {}
+            }
         });
     }
 
@@ -297,14 +272,12 @@ impl LibraryIndexer {
         let from_path = PathBuf::from(&from);
         let to_path = PathBuf::from(&to);
 
-        if self.path_guard.is_marked(&from_path) || self.path_guard.is_marked(&to_path) {
-            debug!("Indexer: Ignoring ledger-initiated rename {} -> {}", from, to);
-            return;
-        }
+        self.pending_removals.remove(&from_path);
 
-        self.recent_removals.remove(&from_path);
-
-        if to_path.is_dir() {
+        if tokio::fs::metadata(&to_path)
+            .await
+            .is_ok_and(|metadata| metadata.is_dir())
+        {
             self.handle_directory_rename(from_path, to_path).await;
         } else {
             let update_result = self
@@ -318,7 +291,9 @@ impl LibraryIndexer {
                 ))
                 .await;
 
-            if let Err(crate::core::error::AppError::NotFound(_)) = update_result {
+            if let Err(error) = update_result {
+                warn!(%error, "Rename hint was not verified; reconciling separate observations");
+                self.handle_path_deleted(from).await;
                 info!(
                     "Indexer: Rename source '{}' not in DB — treating as new file creation for '{}'",
                     from_path.display(),
@@ -332,23 +307,53 @@ impl LibraryIndexer {
 
     /// Handles a directory rename, including the macOS new-folder creation flow.
     async fn handle_directory_rename(&self, from_path: PathBuf, to_path: PathBuf) {
-        let found_folder = self
+        let found_folder = match self
             .query_handler
             .find_folder_by_path(&from_path.to_string_lossy())
             .await
-            .unwrap_or(None);
+        {
+            Ok(Some(identifier)) => Some(identifier),
+            Ok(None) => match self
+                .query_handler
+                .find_missing_folder_at_destination(&to_path)
+                .await
+            {
+                Ok(identifier) => identifier,
+                Err(error) => {
+                    error!(%error, "Cannot correlate directory rename");
+                    return;
+                }
+            },
+            Err(error) => {
+                error!(%error, "Cannot resolve directory rename");
+                return;
+            }
+        };
 
         if let Some(folder_id) = found_folder {
-            let _ = self
+            let original = match self.query_handler.get_folder_by_id(&folder_id).await {
+                Ok(Some(folder)) => folder.path,
+                Ok(None) => return,
+                Err(error) => {
+                    error!(%error, "Cannot load directory rename source; reconciliation will retry");
+                    return;
+                }
+            };
+            if let Err(error) = self
                 .ledger
                 .execute(LedgerCommand::RenameFolder(
                     crate::core::ledger::command::RenameFolderPayload {
                         folder_id,
-                        old_path: from_path,
-                        new_path: to_path,
+                        old_path: original,
+                        new_path: to_path.clone(),
                     },
                 ))
-                .await;
+                .await
+            {
+                warn!(%error, "Directory rename was not verified; reconciling destination");
+                self.handle_directory_discovered(to_path.to_string_lossy().into_owned())
+                    .await;
+            }
         } else {
             info!(
                 "Indexer: Rename target '{}' not in DB — treating as new folder creation for '{}'",
@@ -377,8 +382,13 @@ impl LibraryIndexer {
         let dir_path = PathBuf::from(&path);
         let dir_path_str = dir_path.to_string_lossy().to_string();
 
-        if let Ok(Some(_)) = self.query_handler.find_folder_by_path(&dir_path_str).await {
-            return;
+        match self.query_handler.find_folder_by_path(&dir_path_str).await {
+            Ok(Some(_)) => return,
+            Ok(None) => {}
+            Err(error) => {
+                error!(%error, "Cannot resolve discovered folder; reconciliation will retry");
+                return;
+            }
         }
 
         self.create_and_scan_folder(dir_path).await;
@@ -386,11 +396,27 @@ impl LibraryIndexer {
 
     /// Handles deletion of a directory from the filesystem.
     async fn handle_directory_deleted(&self, path: String) {
+        if tokio::fs::try_exists(&path).await.unwrap_or(true) {
+            return;
+        }
         if let Ok(Some(folder_id)) = self.query_handler.find_folder_by_path(&path).await {
+            if self
+                .query_handler
+                .get_folder_by_id(&folder_id)
+                .await
+                .ok()
+                .flatten()
+                .is_none_or(|folder| folder.parent_id.is_none())
+            {
+                return;
+            }
             let _ = self
                 .ledger
                 .execute(LedgerCommand::RemoveFolder(
-                    crate::core::ledger::command::RemoveFolderPayload { folder_id },
+                    crate::core::ledger::command::RemoveFolderPayload {
+                        folder_id,
+                        expected_path: Some(PathBuf::from(&path)),
+                    },
                 ))
                 .await;
         }
@@ -402,16 +428,30 @@ impl LibraryIndexer {
     /// the Ledger, then triggers a `scan_directory` using the newly created
     /// folder's ID (not the parent's) to ensure correct asset ownership.
     async fn create_and_scan_folder(&self, folder_path: PathBuf) {
+        match self.has_indexed_ancestor(&folder_path).await {
+            Ok(true) => {}
+            Ok(false) => return,
+            Err(error) => {
+                error!(%error, "Cannot resolve folder ownership; reconciliation will retry");
+                return;
+            }
+        }
         let parent_id = if let Some(parent) = folder_path.parent() {
             let parent_str = parent.to_string_lossy().to_string();
-            self.query_handler
-                .find_folder_by_path(&parent_str)
-                .await
-                .unwrap_or(None)
+            match self.query_handler.find_folder_by_path(&parent_str).await {
+                Ok(parent) => parent,
+                Err(error) => {
+                    error!(%error, "Cannot resolve discovered folder parent; reconciliation will retry");
+                    return;
+                }
+            }
         } else {
             None
         };
 
+        if parent_id.is_none() {
+            return;
+        }
         let folder_name = folder_path
             .file_name()
             .and_then(|name| name.to_str())
@@ -427,13 +467,33 @@ impl LibraryIndexer {
             }))
             .await;
 
-        if let Ok(new_folder_asset) = create_result {
-            let _ = self
-                .scan_directory(folder_path, Some(new_folder_asset.id))
-                .await;
-        } else {
-            let _ = self.scan_directory(folder_path, parent_id).await;
+        match create_result {
+            Ok(new_folder_asset) => {
+                if let Err(error) = self
+                    .scan_directory(folder_path, Some(new_folder_asset.id))
+                    .await
+                {
+                    warn!(%error, "Discovered folder scan will retry through reconciliation");
+                }
+            }
+            Err(error) => {
+                error!(%error, "Cannot register discovered folder; reconciliation will retry");
+            }
         }
+    }
+
+    async fn has_indexed_ancestor(&self, path: &std::path::Path) -> AppResult<bool> {
+        for ancestor in path.ancestors() {
+            if self
+                .query_handler
+                .find_folder_by_path(&ancestor.to_string_lossy())
+                .await?
+                .is_some()
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Ensures that the complete folder hierarchy for a given path exists in the database.
@@ -443,8 +503,7 @@ impl LibraryIndexer {
     ///
     /// # Errors
     ///
-    /// Logs a warning and returns `Ok(None)` if a folder creation fails,
-    /// allowing the caller to proceed without a folder ID.
+    /// Returns missing ownership or persistence failures instead of creating unscoped assets.
     #[async_recursion]
     pub(crate) async fn ensure_folder_hierarchy(
         &self,
@@ -461,6 +520,11 @@ impl LibraryIndexer {
             None
         };
 
+        if parent_id.is_none() {
+            return Err(crate::core::error::AppError::NotFound(
+                "No indexed ancestor remains for this observation".into(),
+            ));
+        }
         let folder_name = path
             .file_name()
             .and_then(|name| name.to_str())
@@ -479,8 +543,28 @@ impl LibraryIndexer {
                     "Failed to ensure folder hierarchy for {:?}: {}",
                     path, error
                 );
-                Ok(None)
+                Err(error)
             }
         }
     }
+}
+
+async fn observed_root_online(
+    queries: &dyn crate::core::repository::AssetQueryHandler,
+    mut identifier: Option<String>,
+) -> AppResult<bool> {
+    let mut visited = std::collections::HashSet::new();
+    while let Some(current) = identifier {
+        if !visited.insert(current.clone()) {
+            return Ok(false);
+        }
+        let Some(folder) = queries.get_folder_by_id(&current).await? else {
+            return Ok(false);
+        };
+        if folder.parent_id.is_none() {
+            return Ok(tokio::fs::try_exists(folder.path).await?);
+        }
+        identifier = folder.parent_id;
+    }
+    Ok(false)
 }

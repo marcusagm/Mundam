@@ -21,7 +21,9 @@ pub struct DuplicateFingerprint {
 }
 
 /// Define os tipos de duplicidade que um grupo pode ter.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString,
+)]
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DuplicateGroupType {
@@ -33,7 +35,9 @@ pub enum DuplicateGroupType {
 }
 
 /// Define o status atual de um grupo de duplicados.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString,
+)]
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DuplicateGroupStatus {
@@ -68,7 +72,9 @@ pub struct DuplicateCandidate {
 }
 
 /// Define a ação tomada sobre um grupo de duplicados.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString,
+)]
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DuplicateResolutionAction {
@@ -146,4 +152,3 @@ pub struct PendingFingerprintAsset {
     pub path: String,
     pub format_type: String,
 }
-

@@ -125,14 +125,10 @@ describe.each(['folder', 'tag'] as const)('%s color context menu', kind => {
                 inheritsColor: true
             });
         else
-            expect(state.updateTag).toHaveBeenCalledWith(
-                'child',
-                null,
-                '#112233',
-                undefined,
-                undefined,
-                true
-            );
+            expect(state.updateTag).toHaveBeenCalledWith('child', {
+                color: '#112233',
+                inheritsColor: true
+            });
     });
     it('clears custom color without enabling inheritance', () => {
         showMenu(kind);
@@ -145,14 +141,9 @@ describe.each(['folder', 'tag'] as const)('%s color context menu', kind => {
                 inheritsColor: false
             });
         else
-            expect(state.updateTag).toHaveBeenCalledWith(
-                'child',
-                null,
-                null,
-                undefined,
-                undefined,
-                false,
-                true
-            );
+            expect(state.updateTag).toHaveBeenCalledWith('child', {
+                inheritsColor: false,
+                resetColor: true
+            });
     });
 });

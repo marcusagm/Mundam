@@ -39,7 +39,7 @@ comprova, por si só, qual deles causou uma perda histórica específica.
   pasta. O handler de aplicação remove registros antigos do watcher após o commit
   e volta a observar o novo caminho quando ele permanece uma raiz. Se o destino
   já está dentro de outra raiz monitorada, essa observação recursiva passa a cobrir
-  a pasta movida. Falhas de reconfiguração retornam um aviso de reinicialização,
+  a pasta movida. Falhas de reconfiguração retornam um aviso e são repetidas automaticamente,
   sem apresentar a alteração já concluída como uma falha de escrita.
 - A exclusão recuperável continua restrita às subpastas; raízes oferecem desvincular.
 
@@ -72,9 +72,10 @@ sem substituição no Windows, `renameat2(RENAME_NOREPLACE)` no Linux e
 `renamex_np(RENAME_EXCL)` no macOS. Assim, um destino criado entre a validação e o
 movimento também é protegido. Links simbólicos não são movidos diretamente.
 
-Os caminhos de origem e destino são marcados no `LedgerPathGuard`, incluindo seus
-descendentes, para evitar que eventos derivados de uma edição do Mundam concorram
-com a atualização explícita do banco. O rename de assets preserva ID, notas,
+As observações são reconciliadas com o catálogo e a identidade nativa dos arquivos.
+Eventos dentro de uma pasta recém-criada ou renomeada não são descartados por
+uma janela de supressão por ancestral. O gate do Ledger serializa as mutações
+coordenadas e as escritas de observação. O rename de assets preserva ID, notas,
 avaliação e associações; uma colisão não apaga outro registro para liberar caminho.
 As alterações de subárvores usam a hierarquia e componentes de caminho, evitando
 `LIKE`, seus curingas `%`/`_` e a dependência de separadores `/` no Windows.
@@ -113,13 +114,13 @@ são limpos após o commit, sem tratar falhas de limpeza como perda dos originai
 - Movimentos entre volumes são recusados pelo sistema operacional sem apagar a
   origem. Isso também vale para exclusão recuperável se o diretório de dados do
   aplicativo estiver em outro volume.
-- A compensação cobre erros reportados durante a execução. Ainda não existe um
-  journal durável que conclua ou reverta automaticamente uma operação interrompida
-  por encerramento forçado ou queda de energia entre o movimento e o commit.
+- O journal durável permite recuperar interrupções no boot antes de iniciar os
+  sensores. Situações cuja propriedade ou identidade não pode ser provada são
+  preservadas para reparo, em vez de sobrescrever caminhos ou apagar arquivos.
 - macOS e Linux têm implementação própria; a validação inicial foi feita no Windows
   e complementada no macOS (veja abaixo).
 
-## Correções encontradas no macOS
+## Correções encontradas no macOS — histórico anterior à checagem
 
 - **Copiar caminho sem efeito:** o menu de pastas usa `writeText` do plugin
   `clipboard-manager`, cujo conjunto `clipboard-manager:default` não concede
@@ -166,12 +167,16 @@ são limpos após o commit, sem tratar falhas de limpeza como perda dos originai
   também faz as rejeições da splashscreen validarem a ACL, e não apenas a origem
   errada.
 
-Validação no macOS: `cargo test --lib` passa por completo (240 testes).
+Validação dessa revisão no macOS: `cargo test --lib` passou por completo
+(240 testes). Os relatos de supressão e cancelamento acima descrevem a solução
+anterior; os fluxos atuais estão detalhados na seção final deste documento.
 
 ## Melhorias adicionais avaliadas
 
 Abrir no explorador, copiar caminho e resetar a cor foram incluídos por serem
-úteis no fluxo de organização. Próximas melhorias recomendadas:
+úteis no fluxo de organização. Lista registrada antes da checagem (os itens 1, 2
+e 4 foram atendidos no escopo descrito na seção final; movimento entre volumes,
+rename em lote e duplicação continuam como evolução futura):
 
 1. Histórico de operações e desfazer, com journal durável e recuperação no boot.
 2. Histórico de exclusões com lista de restauração e gestão do espaço de recuperação.
@@ -224,8 +229,10 @@ separada da compilação aprovada. A execução no macOS foi validada depois (ve
 Revisão do commit `2c7569db4ecf96407ed4c38d7db8a47631f5f9c7`, confrontando
 os fluxos de biblioteca, integração com watcher, recuperação, DnD, componentes
 compartilhados e menus de tags com os guias de backend, frontend e documentação.
-A árvore de trabalho estava limpa no início da revisão. Esta seção registra
-achados e ações propostas; não implementa refatorações nem correções do produto.
+A árvore de trabalho estava limpa no início da revisão. Esta seção preserva os
+achados históricos e as ações propostas naquele commit. A implementação posterior
+está registrada na última seção; os trechos de comportamento abaixo não descrevem
+necessariamente o código atual.
 
 Os testes funcionais relatados no Windows e as correções/testes no macOS são uma
 boa base de conclusão funcional. O registro acima informa `cargo test --lib`
@@ -363,7 +370,7 @@ Adicionar testes com arquivo externo, cancelamento durante RPC e falha seguida
 de nova tentativa, além dos casos de blur obsoleto já cobertos.
 
 **P2 — Versionar e validar os snapshots de Undo.**
-[`snapshot.rs`](../../src-tauri/src/infra/database/library_operations/snapshot.rs#L86)
+[`snapshot.rs`](../../src-tauri/src/infra/database/handlers/library/snapshot.rs)
 exige igualdade de ordem/tabela/colunas com o schema atual. Uma migração futura
 pode tornar snapshots persistidos irrestauráveis. Há ainda extrações com
 `unwrap_or_default` para IDs/caminhos/formato e restauração de associações que
@@ -376,7 +383,7 @@ preservando o arquivo de recuperação e o rollback do catálogo.
 
 **P2 — Cor de pasta deve ser uma mutação própria.**
 O ramo `FolderColor` de
-[`planning.rs`](../../src-tauri/src/infra/database/library_operations/planning.rs#L187)
+[`planning.rs`](../../src-tauri/src/infra/database/handlers/library/planning.rs)
 faz um `UPDATE` e depois chama `handle_create_folder` para produzir o retorno.
 Essa chamada também adota filhos órfãos e registra `CREATE_FOLDER`; além disso,
 o helper de validação exige a pasta presente no disco. Uma preferência visual
@@ -495,3 +502,156 @@ O encerramento funcional pode ser registrado com as evidências já relatadas.
 O encerramento de resiliência e conformidade integral deve permanecer condicionado
 aos itens acima, com prioridade explícita para P1. Esta revisão alterou somente
 esta documentação e não afirma que as pendências levantadas já foram corrigidas.
+
+## Implementação da checagem — 2026-11-06
+
+Implementação iniciada a partir de `58da94bbb0d4f74d5c5ab676d6d784a785571d2e`.
+O resultado de 240 testes Rust aprovado pelo usuário é a referência anterior a
+estas mudanças. Os achados da seção de checagem foram tratados conforme abaixo.
+
+### Responsabilidades e contratos
+
+- `core/library` contém contratos de resultado, identidade, efeitos e portas de
+  observação/armazenamento, além das políticas puras de nomes e limites. A camada
+  de aplicação coordena intenção e reconciliação por portas; comandos Tauri
+  delegam e não acessam diretamente o sensor concreto.
+- Mutações, validação transacional, snapshots, recibos, cor e rascunhos estão em
+  `infra/database/handlers/library`. Consultas de identidade, histórico e recibos
+  estão em `query_handlers`. O coordenador e seu journal ficam em
+  `infra/database/library_operations`; primitivas nativas ficam em
+  `infra/filesystem`. Leituras que dependem da mesma transação continuam nela.
+- O resultado público identifica operação, entidade, caminho anterior, efeitos
+  confirmados e avisos. Pastas não são expostas no IPC como assets fictícios.
+  Uma fixture compartilhada por testes Rust/TypeScript verifica a serialização.
+  Diálogos usam união discriminada com IDs obrigatórios; atualizações de tags
+  recebem um objeto de opções com intenção explícita de reset.
+- A construção da hierarquia usa índices `Map` compartilhados pelo seletor e
+  sidebar. A fábrica de payload de drag foi movida da UI para `core/dnd`;
+  `TreeView` recebe a fábrica do consumidor. Parsing de `unknown`, validação de
+  domínio e tratamento de callbacks assíncronos são comuns aos drops de linha,
+  grupo e raiz, inclusive quando o payload diverge do estado global de drag.
+
+### Integridade e recuperação
+
+O manifesto é persistido e sincronizado antes do primeiro efeito no disco.
+Movimentos exclusivos verificam identidade de origem e não substituem destinos;
+a transação registra um recibo durável. Na inicialização, antes dos sensores,
+o recibo decide entre finalizar uma operação confirmada e compensar uma não
+confirmada. Repetir a recuperação é idempotente. Um erro de confirmação cuja
+situação não pode ser consultada mantém o manifesto, sem adivinhar o resultado.
+
+A compensação percorre todos os movimentos reversos possíveis, agrega falhas e
+preserva diagnóstico com ID da operação e caminhos. Uma origem ocupada ou uma
+identidade divergente não é sobrescrita. A criação só é descartada quando o
+recibo, caminho e identidade provam a propriedade do rascunho e a pasta está
+vazia, inclusive no catálogo. A janela entre criar o diretório e persistir sua
+identidade é tratada como ambígua após crash, sem remoção automática insegura.
+
+O watcher não correlaciona assets por tamanho/data nem descarta eventos por TTL
+de ancestral. A identidade nativa persistida permite preservar IDs e metadados
+quando remoção/criação representam o mesmo arquivo. O debouncer não usa nome,
+extensão, tamanho ou data para inventar pares; pares nativos também passam pela
+prova transacional, sem confundir hardlinks distintos. Seu consumidor roda
+concorrentemente para evitar bloqueio do próprio canal em rajadas. Trackers
+aguardam o par até o prazo, em vez de serem descartados no primeiro tick.
+Remoções são adiadas e
+cercadas por ID/caminho atual; escritas tardias não apagam registros já movidos.
+Scans incompletos não podam o catálogo. Há reconciliação periódica a cada 600 s
+e após perda de eventos, com intervalo mínimo de 60 s para essa recuperação.
+
+Raízes desejadas vêm do banco, sob coordenação serializada. Falhas de watch/unwatch
+são propagadas, mantêm o registro ainda necessário e recebem retry a cada 5 s.
+Falhas de limpeza de cache ficam em recibos persistidos e recebem retry a cada
+60 s. Avisos de observação, limpeza ou refresh após commit não transformam a
+escrita confirmada em erro que incentive repetir a mutação.
+
+Caminhos equivalentes exigem prova nativa da mesma entrada de diretório, incluindo
+seus pais; hardlinks com nomes distintos permanecem distintos. Não há comparação
+universal sem distinguir maiúsculas ou normalização Unicode indiscriminada.
+Rename apenas de capitalização usa staging quando a identidade comprova alias.
+Links simbólicos e reparse points são recusados. Movimentos entre volumes
+continuam recusados, sem fallback de cópia/remoção.
+
+### Restauração, preferências e limites
+
+- Snapshots têm envelope de versão, validação anterior à escrita e suporte ao
+  formato legado de cinco tabelas. Campos obrigatórios inválidos interrompem a
+  restauração sem consumir o arquivo. Associações a tags removidas são ignoradas;
+  o pai original precisa estar disponível e indexado, podendo ter um novo ID no
+  mesmo caminho. Identidades ausentes em snapshots legados são lidas do arquivo
+  arquivado antes de expor a restauração aos sensores.
+- Settings → Trash oferece histórico paginado de exclusões/restaurações e retry
+  de restauração. A ação do toast é transitória; os snapshots e o histórico são
+  persistentes. O acesso ao diretório permanece uma ação avançada explícita.
+  O novo comando de histórico tem registro e permissão Tauri próprios.
+- A retenção é por tempo indeterminado até restauração. A configuração
+  `folder_recovery_max_bytes`, lida pelo repositório de settings, limita o
+  inventário lógico de recuperação a 50 GiB por padrão. Exceder a cota impede
+  novas exclusões; não purga cópias antigas automaticamente. O valor é inteiro
+  positivo em bytes; a UI permite configurá-lo em GiB.
+- Snapshots são limitados a 64 MiB e 100 mil entidades, com consultas/inserções
+  em páginas de 256. Seleções explícitas de movimento têm limite de 5 mil assets;
+  isso não fragmenta o movimento nativo de uma pasta. O inventário de recuperação
+  limita a travessia a um milhão de entradas e atualiza até 32 arquivos legados
+  por rodada; a limpeza processa até 32 recibos por rodada.
+- O inventário físico é calculado fora do writer SQLite. Rename de subárvore usa
+  updates em lote. Fanout de scan e canais têm concorrência limitada, e metadados
+  bloqueantes são executados fora dos handlers assíncronos ou por Tokio.
+- Cor de pasta tem handler próprio, funciona offline e não recria/adota pastas.
+  A edição inline usa estados explícitos e bloqueia cancelamento/troca durante
+  confirmação. Falhas de descarte mantêm a propriedade do rascunho para retry;
+  conteúdo externo impede descarte, preservando os arquivos.
+
+### Qualidade e evidências de validação
+
+Rustdoc/TSDoc, exemplos, nomes e contratos dos exports revisados foram atualizados.
+Os avisos de reatividade e complexidade do recorte foram resolvidos. A CI executa
+`npm run check:library`, com ESLint sem warnings, limite de complexidade e
+checagem de documentação dos exports selecionados. Isso verifica o recorte
+explicitado no script, não promete conformidade automática de todo o repositório.
+`.gitattributes` define LF para texto e preserva arquivos binários.
+
+Os testes novos usam disco/SQLite reais para recuperação, colisões, identidade,
+rollback, snapshots e retry. Um subprocesso termina sem executar destructors nas
+fases preparada, movida e confirmada; o processo pai reabre o banco e executa a
+recuperação duas vezes. O helper desse subprocesso é intencionalmente ignorado
+na execução direta e invocado pelo teste controlador. Isso simula encerramento
+abrupto de processo, não prova resistência a toda falha física de energia/storage.
+
+Validações concluídas nesta rodada:
+
+- Suíte frontend completa: **172 testes aprovados em 36 arquivos**; a regressão
+  de drop da raiz também foi repetida após isolar o IPC do ambiente de testes.
+- `npm run typecheck`, `npm run build`, `npm run check:library` e
+  `cargo fmt --all -- --check`: aprovados.
+- Suíte Rust final em Windows/MSVC: **257 testes aprovados, zero falhas e um
+  helper ignorado**, em 249,40 s. O helper é executado explicitamente pelo teste
+  controlador de crash. Comando: `cargo +stable-x86_64-pc-windows-msvc test --lib --locked --quiet -j 2 --manifest-path src-tauri/Cargo.toml`.
+- Clippy global com `-D warnings`: não aprovado por pendências preexistentes
+  fora das correções desta checagem, como `unwrap` em `search_builder.rs`,
+  assinaturas de streaming com argumentos excessivos e MSRV em extratores de
+  mídia. A checagem final sem testes apontou 19 diagnósticos residuais;
+  não foi suprimido lint global para produzir uma aprovação artificial. Os testes
+  preexistentes do debouncer também mantêm cinco usos de `unwrap/expect`; eles
+  estão incluídos no resultado não aprovado de Clippy com testes.
+
+Os limites e a paginação controlam os custos, mas esta rodada não mede RSS ou
+latência de uma biblioteca real com dezenas de milhares de assets. A validação
+de desempenho nessa escala e a matriz de sistemas de arquivos abaixo continuam
+necessárias antes de afirmar capacidade ou latência de produção.
+
+### Confirmação por plataforma e operação de reparo
+
+Esta rodada é executada no Windows/MSVC. A aprovação anterior de 240 testes no
+macOS não cobre estas mudanças. Revalidar no macOS os fluxos de edição e Undo,
+permissões Tauri, sincronização dos diretórios, APFS sensível/não sensível,
+NFC/NFD, rename apenas de capitalização e recusa entre volumes. Movimentos entre
+volumes, rename em lote e duplicação seguem fora do escopo funcional atual.
+
+Se a recuperação encontrar um manifesto ambíguo, a inicialização retorna um
+diagnóstico de reparo em vez de iniciar observadores sobre estado indefinido.
+Preservar manifesto e arquivos de recuperação; resolver a colisão ou divergência
+indicada sem sobrescrever conteúdo externo e reabrir o aplicativo para nova
+tentativa. Não apagar o journal ou editar o catálogo para forçar continuidade:
+isso elimina a evidência necessária à decisão segura. A falha permanece explícita
+quando a propriedade dos arquivos não pode ser comprovada.

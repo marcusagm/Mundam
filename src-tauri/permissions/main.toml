@@ -446,3 +446,8 @@ commands.allow = ["check_processing_tools"]
 identifier = "allow-folder-recovery-directory"
 description = "Enables explicit access to folder recovery from settings"
 commands.allow = ["folder_recovery_directory"]
+
+[[permission]]
+identifier = "allow-folder-recovery-history"
+description = "Lists persistent folder recovery entries in settings"
+commands.allow = ["folder_recovery_history"]

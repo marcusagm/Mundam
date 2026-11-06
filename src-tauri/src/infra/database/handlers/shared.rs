@@ -8,7 +8,6 @@ use crate::core::error::{AppError, AppResult};
 use crate::core::models::asset::Asset;
 use chrono::{DateTime, Utc};
 use sqlx::{Sqlite, Transaction};
-use tracing::{info, warn};
 use unicode_normalization::UnicodeNormalization;
 use uuid::Uuid;
 
@@ -172,208 +171,82 @@ pub async fn fetch_asset_by_id(
     Ok(asset_db.into())
 }
 
-/// Robustly resolves an asset ID from a filesystem path, handling macOS NFC/NFD
-/// Unicode normalization mismatches.
-///
-/// First attempts a direct `COLLATE NOCASE` path match. If that fails, falls back
-/// to a two-step resolution: find the parent folder by path, then find the asset
-/// by name within that folder. This guarantees correct resolution even when the OS
-/// reports paths in NFD while the database stores them in NFC (or vice-versa).
-///
-/// # Arguments
-///
-/// * `transaction` - The active database transaction.
-/// * `path` - The filesystem path to resolve.
+/// Resolves exact catalog paths before testing live native aliases.
 ///
 /// # Errors
-///
-/// Returns `AppError` only on database query failure, not on "not found" (returns `None`).
+/// Returns database lookup failures; missing aliases return None.
 pub async fn resolve_asset_id_robust(
     transaction: &mut Transaction<'_, Sqlite>,
     path: &std::path::Path,
 ) -> AppResult<Option<String>> {
-    let path_string = path.to_string_lossy().to_string();
-
-    let row = sqlx::query!(
-        r#"SELECT id as "id!" FROM assets WHERE path = ? COLLATE NOCASE"#,
-        path_string
-    )
-    .fetch_optional(&mut **transaction)
-    .await?;
-
-    if let Some(result) = row {
-        return Ok(Some(result.id));
-    }
-
-    info!(
-        "Ledger: Direct path match FAILED for '{}'. Attempting robust folder+name resolution...",
-        path_string
-    );
-
-    if let (Some(parent_path), Some(name)) = (path.parent(), path.file_name()) {
-        let name_string = name.to_string_lossy().to_string();
-
-        if let Some(folder_id) =
-            Box::pin(resolve_folder_id_robust(transaction, parent_path)).await?
-        {
-            let asset_row = sqlx::query!(
-                r#"SELECT id as "id!" FROM assets WHERE folder_id = ? AND name = ? COLLATE NOCASE"#,
-                folder_id,
-                name_string
-            )
-            .fetch_optional(&mut **transaction)
-            .await?;
-
-            if let Some(asset_result) = asset_row {
-                info!(
-                    "Ledger: Robust resolution SUCCESS. Found asset ID {} via folder {} + name '{}'",
-                    asset_result.id, folder_id, name_string
-                );
-                return Ok(Some(asset_result.id));
-            } else {
-                warn!(
-                    "Ledger: Robust resolution FAILED: Asset '{}' not found in folder ID {} (Normalization mismatch?)",
-                    name_string, folder_id
-                );
-            }
-        } else {
-            warn!(
-                "Ledger: Robust resolution FAILED: Could not resolve folder ID for path '{}'",
-                parent_path.display()
-            );
-        }
-    }
-
-    Ok(None)
+    crate::infra::database::query_handlers::path_identity::resolve(transaction, "assets", path)
+        .await
 }
 
-/// Robustly resolves a folder ID by filesystem path, handling NFC/NFD normalization.
-///
-/// Uses the same two-step strategy as `resolve_asset_id_robust`: direct path match
-/// first, then recursive parent-ID + name match as fallback. The recursion is bounded
-/// by the filesystem path depth.
-///
-/// # Arguments
-///
-/// * `transaction` - The active database transaction.
-/// * `path` - The filesystem path of the folder to resolve.
+/// Resolves folders according to the actual filesystem's identity rules.
 ///
 /// # Errors
-///
-/// Returns `AppError` only on database query failure, not on "not found" (returns `None`).
+/// Returns database lookup failures; ambiguous spellings never select an arbitrary row.
 pub async fn resolve_folder_id_robust(
     transaction: &mut Transaction<'_, Sqlite>,
     path: &std::path::Path,
 ) -> AppResult<Option<String>> {
-    let path_string = path.to_string_lossy().to_string();
-
-    let row = sqlx::query!(
-        r#"SELECT id as "id!" FROM folders WHERE path = ? COLLATE NOCASE"#,
-        path_string
-    )
-    .fetch_optional(&mut **transaction)
-    .await?;
-
-    if let Some(result) = row {
-        return Ok(Some(result.id));
-    }
-
-    if let (Some(parent_path), Some(name)) = (path.parent(), path.file_name()) {
-        let name_string = name.to_string_lossy().to_string();
-
-        if let Some(parent_id) =
-            Box::pin(resolve_folder_id_robust(transaction, parent_path)).await?
-        {
-            let folder_row = sqlx::query!(
-                r#"SELECT id as "id!" FROM folders WHERE parent_id = ? AND name = ? COLLATE NOCASE"#,
-                parent_id,
-                name_string
-            )
-            .fetch_optional(&mut **transaction)
-            .await?;
-
-            if let Some(folder_result) = folder_row {
-                info!(
-                    "Ledger: Robust folder resolution SUCCESS. Resolved '{}' -> ID {}",
-                    path_string, folder_result.id
-                );
-                return Ok(Some(folder_result.id));
-            }
-        }
-    }
-
-    Ok(None)
+    crate::infra::database::query_handlers::path_identity::resolve(transaction, "folders", path)
+        .await
 }
 
-/// Performs a one-time database-wide path normalization to NFC.
+/// Canonicalizes Unicode spellings only when the live volume proves one directory entry.
 ///
-/// Resolves legacy "ghost records" on macOS where paths were stored in NFD
-/// by the filesystem watcher before the NFC normalization was enforced.
-/// This function should be called once at startup, before any other operations.
-///
-/// # Arguments
-///
-/// * `pool` - The database connection pool.
+/// Reads and native probes precede each short write transaction. Offline paths and distinct
+/// case/Unicode-sensitive entries remain unchanged; collisions preserve all catalog rows.
 ///
 /// # Errors
-///
-/// Returns `AppError` if the database transaction or any UPDATE query fails.
+/// Returns catalog failures or ambiguous canonical-path collisions without deleting records.
 pub async fn normalize_database_paths(pool: &sqlx::SqlitePool) -> AppResult<()> {
-    let mut transaction = pool.begin().await?;
-    let now = Utc::now();
-
-    info!("Ledger: Starting database path normalization (NFC)...");
-
-    let asset_rows = sqlx::query!(r#"SELECT id, path FROM assets"#)
-        .fetch_all(&mut *transaction)
-        .await?;
-
-    let mut asset_fix_count = 0;
-    for row in asset_rows {
-        let nfc_path = row.path.nfc().collect::<String>();
-        if nfc_path != row.path {
-            sqlx::query!(
-                "UPDATE assets SET path = ?, updated_at = ? WHERE id = ?",
-                nfc_path,
-                now,
-                row.id
-            )
-            .execute(&mut *transaction)
+    for table in ["folders", "assets"] {
+        let mut offset = 0i64;
+        loop {
+            let rows: Vec<(String, String)> = sqlx::query_as(&format!(
+                "SELECT id,path FROM {table} ORDER BY rowid LIMIT 256 OFFSET ?"
+            ))
+            .bind(offset)
+            .fetch_all(pool)
             .await?;
-            asset_fix_count += 1;
+            let count = rows.len();
+            let mut changes = Vec::new();
+            for (identifier, original) in rows {
+                let normalized: String = original.nfc().collect();
+                if normalized != original
+                    && crate::infra::filesystem::identity::same(
+                        std::path::Path::new(&original),
+                        std::path::Path::new(&normalized),
+                    )
+                    .await
+                    .unwrap_or(false)
+                {
+                    changes.push((identifier, original, normalized));
+                }
+            }
+            if !changes.is_empty() {
+                let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+                for (identifier, original, normalized) in changes {
+                    sqlx::query(&format!(
+                        "UPDATE {table} SET path = ?, updated_at = ? WHERE id = ? AND path = ?"
+                    ))
+                    .bind(normalized)
+                    .bind(Utc::now())
+                    .bind(identifier)
+                    .bind(original)
+                    .execute(&mut *transaction)
+                    .await?;
+                }
+                transaction.commit().await?;
+            }
+            if count < 256 {
+                break;
+            }
+            offset += count as i64;
         }
     }
-
-    let folder_rows = sqlx::query!(r#"SELECT id, path FROM folders"#)
-        .fetch_all(&mut *transaction)
-        .await?;
-
-    let mut folder_fix_count = 0;
-    for row in folder_rows {
-        let nfc_path = row.path.nfc().collect::<String>();
-        if nfc_path != row.path {
-            sqlx::query!(
-                "UPDATE folders SET path = ?, updated_at = ? WHERE id = ?",
-                nfc_path,
-                now,
-                row.id
-            )
-            .execute(&mut *transaction)
-            .await?;
-            folder_fix_count += 1;
-        }
-    }
-
-    transaction.commit().await?;
-
-    if asset_fix_count > 0 || folder_fix_count > 0 {
-        info!(
-            "Ledger: Path normalization COMPLETED. Fixed {} assets and {} folders.",
-            asset_fix_count, folder_fix_count
-        );
-    } else {
-        info!("Ledger: Database is already normalized.");
-    }
-
     Ok(())
 }

@@ -75,3 +75,15 @@ export interface ContextMenuProps {
     /** Callback to request menu closure. */
     onClose: () => void;
 }
+
+/** Accessible preference row rendered inside a custom context-menu item. */
+export interface ContextMenuCheckboxItemProps {
+    /** Visible preference label. */
+    label: string;
+    /** Current reactive checked state. */
+    checked: boolean;
+    /** Commits the new preference before closing. */
+    onCheckedChange: (checked: boolean) => void;
+    /** Closes the enclosing menu after activation. */
+    onClose: () => void;
+}

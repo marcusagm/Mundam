@@ -35,9 +35,7 @@ fn invoke_processing(
             cmd: command.into(),
             callback: tauri::ipc::CallbackFn(0),
             error: tauri::ipc::CallbackFn(1),
-            url: LOCAL_APP_URL
-                .parse()
-                .map_err(|error| format!("{error}"))?,
+            url: LOCAL_APP_URL.parse().map_err(|error| format!("{error}"))?,
             body: tauri::ipc::InvokeBody::Json(body),
             headers: Default::default(),
             invoke_key: tauri::test::INVOKE_KEY.into(),

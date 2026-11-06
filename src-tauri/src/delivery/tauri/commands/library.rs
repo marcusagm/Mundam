@@ -15,9 +15,9 @@ use tauri::State;
 pub async fn library_operation(
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     queries: State<'_, Arc<dyn AssetQueryHandler>>,
-    watcher: State<'_, Arc<crate::processing::watcher::WatcherService>>,
+    watcher: State<'_, Arc<dyn crate::core::library::RootObservation>>,
     operation: LibraryOperation,
-) -> AppResult<crate::feature::library::operations::LibraryOperationOutcome> {
+) -> AppResult<crate::core::library::LibraryOperationResult> {
     crate::feature::library::operations::execute(
         ledger.inner().as_ref(),
         queries.inner().as_ref(),
@@ -33,7 +33,19 @@ pub async fn library_operation(
 /// Propagates storage availability errors.
 #[tauri::command]
 pub async fn folder_recovery_directory(
-    directories: State<'_, crate::bootstrap::AppDirectories>,
+    storage: State<'_, Arc<dyn crate::core::library::RecoveryStorage>>,
 ) -> AppResult<std::path::PathBuf> {
-    crate::feature::library::operations::recovery_directory(&directories.app_data).await
+    crate::feature::library::operations::recovery_directory(storage.inner().as_ref()).await
+}
+
+/// Lists persistent folder Undo entries from settings.
+///
+/// # Errors
+/// Propagates catalog read failures.
+#[tauri::command]
+pub async fn folder_recovery_history(
+    queries: State<'_, Arc<dyn AssetQueryHandler>>,
+    offset: u32,
+) -> AppResult<Vec<crate::core::library::FolderRecoveryEntry>> {
+    crate::feature::library::operations::recovery_page(queries.inner().as_ref(), offset).await
 }

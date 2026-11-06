@@ -340,7 +340,10 @@ async fn validate_path_scope(
     })?;
 
     let is_within_scope = roots.iter().any(|root| {
-        let canonical_root = root.path.canonicalize().unwrap_or_else(|_| root.path.clone());
+        let canonical_root = root
+            .path
+            .canonicalize()
+            .unwrap_or_else(|_| root.path.clone());
         is_subpath(&canonical_path, &canonical_root) || is_subpath(&canonical_path, &root.path)
     });
 
@@ -366,11 +369,11 @@ async fn resolve_and_validate_path(
             return Ok(crate::core::trash::resolve_physical_path(asset, &dir));
         }
     }
-    
+
     validate_path_scope(&state.asset_query_handler, &asset.path)
         .await
         .map_err(forbidden_response)?;
-        
+
     Ok(asset.path.clone())
 }
 
@@ -784,7 +787,10 @@ mod tests {
         assert_eq!(strip_unc_prefix(normal), Path::new(r"D:\folder\video.mp4"));
 
         let network = Path::new(r"\\?\UNC\server\share\file.mp4");
-        assert_eq!(strip_unc_prefix(network), Path::new(r"\\server\share\file.mp4"));
+        assert_eq!(
+            strip_unc_prefix(network),
+            Path::new(r"\\server\share\file.mp4")
+        );
     }
 
     #[cfg(not(windows))]
@@ -792,7 +798,10 @@ mod tests {
     fn test_is_subpath_unix() {
         let parent = Path::new("/library/folder");
         assert!(is_subpath(Path::new("/library/folder/video.mp4"), parent));
-        assert!(!is_subpath(Path::new("/library/folder-other/video.mp4"), parent));
+        assert!(!is_subpath(
+            Path::new("/library/folder-other/video.mp4"),
+            parent
+        ));
         assert!(!is_subpath(Path::new("/LIBRARY/folder/video.mp4"), parent));
     }
 
@@ -818,4 +827,3 @@ mod tests {
         assert!(!is_subpath(child_diff_drive, parent));
     }
 }
-

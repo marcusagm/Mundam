@@ -20,6 +20,7 @@ src-tauri/src/
 │   ├── events/
 │   ├── formats/
 │   ├── ledger/
+│   ├── library/               # Edit contracts, path effects, observation ports and policies
 │   ├── models/
 │   ├── processing/            # Stage contracts, budget, control and diagnostics
 │   ├── repository/
@@ -43,15 +44,17 @@ src-tauri/src/
 │   ├── database/
 │   │   ├── duplicates/        # Repository facade and integration tests
 │   │   ├── processing/        # Repository facade, shared predicates and tests
+│   │   ├── library_operations/ # Durable journal, recovery coordinator support and tests
 │   │   ├── handlers/          # SQL mutations grouped by responsibility
 │   │   │   ├── folders/
+│   │   │   ├── library/       # Transactional edit plans, receipts and versioned snapshots
 │   │   │   ├── matching/
 │   │   │   └── processing/
 │   │   └── query_handlers/    # Read-only SQL projections
 │   │       ├── matching/
 │   │       └── processing/
 │   ├── events/
-│   ├── filesystem/            # Generated artifact cache adapter
+│   ├── filesystem/            # Artifact caches, native identity and exclusive original-file moves
 │   └── telemetry.rs
 ├── processing/
 │   ├── media/
@@ -71,6 +74,11 @@ src-tauri/src/
 A revisão de organização, auditoria de arquivos e pendências do plano está em [Organização dos módulos e revisão de pendências](workers/2026-11-04-19-02-worker-module-organization.md).
 
 A disponibilidade temporária de extratores, os probes e sua apresentação na statusbar estão em [Disponibilidade de ferramentas dos workers](workers/2026-11-04-21-32-worker-tool-availability.md).
+
+Os contratos de edição da biblioteca ficam no Core; a feature coordena as portas,
+os handlers mantêm SQL e validações na mesma transação, e os adaptadores isolam
+journal e primitivas nativas. O protocolo de recuperação, seus limites e as
+evidências de validação estão em [Operações da biblioteca](library-operations.md#implementação-da-checagem--2026-11-06).
 
 O ciclo de padronização dos workers está concluído e validado pelo usuário em Windows/macOS. O [encerramento](workers/2026-11-04-22-18-workers-closure.md) reúne o aceite, os limites e o índice dos documentos. As [evoluções técnicas futuras](workers/2026-11-04-22-18-workers-future-evolutions.md) são propostas separadas; matching incremental foi adiado e benchmarks ponta a ponta adicionais foram dispensados para este encerramento.
 

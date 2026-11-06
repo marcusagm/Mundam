@@ -44,7 +44,11 @@ pub async fn get_asset_colors(
 ///
 /// * `Ok(Vec<String>)` if the thumbnails were found successfully.
 /// * `Err(sqlx::Error)` if the thumbnails could not be found.
-pub async fn get_folder_thumbnails(pool: &SqlitePool, _registry: &crate::core::formats::registry::FormatRegistry, folder_id: &str) -> AppResult<Vec<String>> {
+pub async fn get_folder_thumbnails(
+    pool: &SqlitePool,
+    _registry: &crate::core::formats::registry::FormatRegistry,
+    folder_id: &str,
+) -> AppResult<Vec<String>> {
     let rows = sqlx::query!(
         r#"
         WITH RECURSIVE family AS (
@@ -62,4 +66,3 @@ pub async fn get_folder_thumbnails(pool: &SqlitePool, _registry: &crate::core::f
 
     Ok(rows.into_iter().map(|r| r.thumbnail_path).collect())
 }
-
