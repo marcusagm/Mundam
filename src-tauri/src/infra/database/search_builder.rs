@@ -223,22 +223,22 @@ fn build_search_criterion_clause<'a>(
                         query_builder.push(" (name IN (");
                         let mut first_name = true;
                         for tag in tags {
-                            if tag.as_str().is_some() {
+                            if let Some(tag_name_or_identifier) = tag.as_str() {
                                 if !first_name {
                                     query_builder.push(", ");
                                 }
-                                query_builder.push_bind(tag.as_str().unwrap());
+                                query_builder.push_bind(tag_name_or_identifier);
                                 first_name = false;
                             }
                         }
                         query_builder.push(") OR id IN (");
                         let mut first_id = true;
                         for tag in tags {
-                            if tag.as_str().is_some() {
+                            if let Some(tag_name_or_identifier) = tag.as_str() {
                                 if !first_id {
                                     query_builder.push(", ");
                                 }
-                                query_builder.push_bind(tag.as_str().unwrap());
+                                query_builder.push_bind(tag_name_or_identifier);
                                 first_id = false;
                             }
                         }
@@ -259,22 +259,22 @@ fn build_search_criterion_clause<'a>(
                         query_builder.push(" (name IN (");
                         let mut first_name = true;
                         for tag in tags {
-                            if tag.as_str().is_some() {
+                            if let Some(tag_name_or_identifier) = tag.as_str() {
                                 if !first_name {
                                     query_builder.push(", ");
                                 }
-                                query_builder.push_bind(tag.as_str().unwrap());
+                                query_builder.push_bind(tag_name_or_identifier);
                                 first_name = false;
                             }
                         }
                         query_builder.push(") OR id IN (");
                         let mut first_id = true;
                         for tag in tags {
-                            if tag.as_str().is_some() {
+                            if let Some(tag_name_or_identifier) = tag.as_str() {
                                 if !first_id {
                                     query_builder.push(", ");
                                 }
-                                query_builder.push_bind(tag.as_str().unwrap());
+                                query_builder.push_bind(tag_name_or_identifier);
                                 first_id = false;
                             }
                         }
@@ -358,6 +358,32 @@ fn build_search_criterion_clause<'a>(
             query_builder.push(" 1=1 ");
         }
     }
+}
+
+/// Converts a hexadecimal color string to CIE-LAB components.
+///
+/// Supports formats: "#RRGGBB" and "RRGGBB".
+///
+/// # Errors
+///
+/// Returns an error if the hex string is invalid.
+fn hex_to_lab(
+    hex_color: &str,
+) -> Result<(f64, f64, f64), Box<dyn std::error::Error + Send + Sync>> {
+    let hex_trimmed = hex_color.trim_start_matches('#');
+    if hex_trimmed.len() != 6 {
+        return Err(format!("Invalid hex color length: {}", hex_color).into());
+    }
+    let red = u8::from_str_radix(&hex_trimmed[0..2], 16)?;
+    let green = u8::from_str_radix(&hex_trimmed[2..4], 16)?;
+    let blue = u8::from_str_radix(&hex_trimmed[4..6], 16)?;
+    let srgb_color = palette::Srgb::new(
+        red as f32 / 255.0,
+        green as f32 / 255.0,
+        blue as f32 / 255.0,
+    );
+    let lab_color: palette::Lab = palette::IntoColor::into_color(srgb_color);
+    Ok((lab_color.l as f64, lab_color.a as f64, lab_color.b as f64))
 }
 
 /// Tests for the search builder.
@@ -468,30 +494,4 @@ mod tests {
         ));
         assert!(sql.contains("< ?"));
     }
-}
-
-/// Converts a hexadecimal color string to CIE-LAB components.
-///
-/// Supports formats: "#RRGGBB" and "RRGGBB".
-///
-/// # Errors
-///
-/// Returns an error if the hex string is invalid.
-fn hex_to_lab(
-    hex_color: &str,
-) -> Result<(f64, f64, f64), Box<dyn std::error::Error + Send + Sync>> {
-    let hex_trimmed = hex_color.trim_start_matches('#');
-    if hex_trimmed.len() != 6 {
-        return Err(format!("Invalid hex color length: {}", hex_color).into());
-    }
-    let red = u8::from_str_radix(&hex_trimmed[0..2], 16)?;
-    let green = u8::from_str_radix(&hex_trimmed[2..4], 16)?;
-    let blue = u8::from_str_radix(&hex_trimmed[4..6], 16)?;
-    let srgb_color = palette::Srgb::new(
-        red as f32 / 255.0,
-        green as f32 / 255.0,
-        blue as f32 / 255.0,
-    );
-    let lab_color: palette::Lab = palette::IntoColor::into_color(srgb_color);
-    Ok((lab_color.l as f64, lab_color.a as f64, lab_color.b as f64))
 }

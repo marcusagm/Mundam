@@ -126,11 +126,7 @@ pub async fn create_tag(
 /// # Arguments
 ///
 /// * `ledger` - The transactional asset ledger.
-/// * `id` - The unique identifier of the tag.
-/// * `name` - Optional new display name.
-/// * `color` - Optional new hex color code.
-/// * `parent_id` - Optional new parent tag ID.
-/// * `order_index` - Optional new sorting order index.
+/// * `payload` - Typed changes, including explicit color reset and inheritance.
 ///
 /// # Errors
 ///
@@ -138,25 +134,9 @@ pub async fn create_tag(
 #[tauri::command]
 pub async fn update_tag(
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
-    id: String,
-    name: Option<String>,
-    color: Option<String>,
-    parent_id: Option<String>,
-    order_index: Option<i64>,
-    inherits_color: Option<bool>,
-    reset_color: Option<bool>,
+    payload: UpdateTagPayload,
 ) -> AppResult<()> {
-    ledger
-        .execute(LedgerCommand::UpdateTag(UpdateTagPayload {
-            reset_color: reset_color.unwrap_or(false),
-            inherits_color,
-            id,
-            name,
-            color,
-            parent_id,
-            order_index,
-        }))
-        .await?;
+    ledger.execute(LedgerCommand::UpdateTag(payload)).await?;
     Ok(())
 }
 
@@ -747,7 +727,7 @@ pub async fn empty_trash(
     )
     .fetch_all(pool)
     .await
-    .map_err(|database_error| crate::core::error::AppError::Database(database_error))?;
+    .map_err(crate::core::error::AppError::Database)?;
 
     let app_directories = app_handle.state::<crate::bootstrap::AppDirectories>();
     let mut deleted_count = 0;

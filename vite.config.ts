@@ -37,7 +37,7 @@ export default defineConfig(async () => ({
                 splashscreen: 'splashscreen.html'
             },
             output: {
-                manualChunks(id) {
+                manualChunks(id: string) {
                     if (id.includes('@google/model-viewer')) {
                         return 'vendor-model-viewer';
                     }

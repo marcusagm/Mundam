@@ -229,7 +229,7 @@ mod tests {
     use std::path::Path;
 
     #[tokio::test]
-    async fn test_sigma_raw_provider_capabilities() {
+    async fn test_sigma_raw_provider_capabilities() -> Result<(), Box<dyn std::error::Error>> {
         let provider = SigmaRawFormatProvider::new();
         assert_eq!(provider.name(), "SIGMA_RAW_PROVIDER");
         assert!(provider.supported_extensions().contains(&"x3f"));
@@ -244,7 +244,7 @@ mod tests {
                 "Metadata extraction failed: {:?}",
                 metadata_result.err()
             );
-            let metadata_value = metadata_result.unwrap();
+            let metadata_value = metadata_result?;
 
             assert!(
                 metadata_value.get("width").is_some(),
@@ -259,8 +259,12 @@ mod tests {
                 "Metadata lacks camera model"
             );
 
-            let image_width = metadata_value["width"].as_u64().unwrap();
-            let image_height = metadata_value["height"].as_u64().unwrap();
+            let image_width = metadata_value["width"]
+                .as_u64()
+                .ok_or("Expected a value in test_sigma_raw_provider_capabilities")?;
+            let image_height = metadata_value["height"]
+                .as_u64()
+                .ok_or("Expected a value in test_sigma_raw_provider_capabilities")?;
             assert_eq!(image_width, 5424);
             assert_eq!(image_height, 3616);
 
@@ -273,7 +277,7 @@ mod tests {
                 "Preview generation failed: {:?}",
                 preview_result.err()
             );
-            let (preview_bytes, mime_type) = preview_result.unwrap();
+            let (preview_bytes, mime_type) = preview_result?;
             assert_eq!(mime_type, "image/jpeg");
             assert!(
                 preview_bytes.starts_with(&[0xFF, 0xD8]),
@@ -289,8 +293,10 @@ mod tests {
                 "Thumbnail generation failed: {:?}",
                 thumbnail_result.err()
             );
-            let thumbnail_bytes = thumbnail_result.unwrap();
+            let thumbnail_bytes = thumbnail_result?;
             assert!(!thumbnail_bytes.is_empty(), "Generated thumbnail is empty");
         }
+
+        Ok(())
     }
 }

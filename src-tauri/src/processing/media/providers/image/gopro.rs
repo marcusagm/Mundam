@@ -264,11 +264,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_gopro_raw_metadata_extraction() {
+    async fn test_gopro_raw_metadata_extraction() -> Result<(), Box<dyn std::error::Error>> {
         let provider = GoproRawFormatProvider::new();
         let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
-            return;
+            return Ok(());
         }
 
         let metadata_result = provider.extract_technical(&sample_file_path).await;
@@ -277,10 +277,14 @@ mod tests {
             "Metadata extraction failed: {:?}",
             metadata_result.err()
         );
-        let metadata_value = metadata_result.unwrap();
+        let metadata_value = metadata_result?;
 
-        let image_width = metadata_value["width"].as_u64().unwrap();
-        let image_height = metadata_value["height"].as_u64().unwrap();
+        let image_width = metadata_value["width"]
+            .as_u64()
+            .ok_or("Expected a value in test_gopro_raw_metadata_extraction")?;
+        let image_height = metadata_value["height"]
+            .as_u64()
+            .ok_or("Expected a value in test_gopro_raw_metadata_extraction")?;
         assert_eq!(image_width, 5568, "GOPR0002 should be 5568px wide");
         assert_eq!(image_height, 4176, "GOPR0002 should be 4176px tall");
 
@@ -288,14 +292,16 @@ mod tests {
             metadata_value.get("Model").is_some(),
             "Metadata should contain camera Model"
         );
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_gopro_raw_thumbnail_generation() {
+    async fn test_gopro_raw_thumbnail_generation() -> Result<(), Box<dyn std::error::Error>> {
         let provider = GoproRawFormatProvider::new();
         let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
-            return;
+            return Ok(());
         }
 
         let thumbnail_result = provider
@@ -306,16 +312,18 @@ mod tests {
             "Thumbnail generation failed: {:?}",
             thumbnail_result.err()
         );
-        let thumbnail_bytes = thumbnail_result.unwrap();
+        let thumbnail_bytes = thumbnail_result?;
         assert!(!thumbnail_bytes.is_empty(), "Generated thumbnail is empty");
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_gopro_raw_preview_generation() {
+    async fn test_gopro_raw_preview_generation() -> Result<(), Box<dyn std::error::Error>> {
         let provider = GoproRawFormatProvider::new();
         let sample_file_path = gpr_sample_path();
         if !sample_file_path.exists() {
-            return;
+            return Ok(());
         }
 
         let preview_result = provider
@@ -326,7 +334,7 @@ mod tests {
             "Preview generation failed: {:?}",
             preview_result.err()
         );
-        let (preview_bytes, mime_type) = preview_result.unwrap();
+        let (preview_bytes, mime_type) = preview_result?;
         assert_eq!(mime_type, "image/jpeg");
         assert!(
             preview_bytes.starts_with(&[0xFF, 0xD8]),
@@ -337,5 +345,7 @@ mod tests {
             "Preview seems too small: {} bytes",
             preview_bytes.len()
         );
+
+        Ok(())
     }
 }

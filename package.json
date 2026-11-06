@@ -13,8 +13,8 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "node scripts/tauri.cjs",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts --max-warnings 0",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.node.json --noEmit",
     "check:library": "node scripts/check-library-quality.mjs",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky"

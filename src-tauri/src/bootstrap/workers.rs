@@ -129,12 +129,14 @@ pub fn init(app: &AppHandle) {
     let duplicate_worker_token = lifecycle.child_token();
     let duplicate_worker = DuplicateWorker::new(
         duplicates_repo.clone(),
-        asset_ledger.clone(),
         event_bus.clone(),
         settings_service,
-        format_registry.clone(),
-        processing,
-        asset_query_handler,
+        crate::feature::duplicates::fingerprint_processor::FingerprintProcessor::new(
+            asset_ledger.clone(),
+            processing,
+            asset_query_handler,
+            format_registry.clone(),
+        ),
         app.state::<Arc<crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator>>()
             .inner()
             .clone(),

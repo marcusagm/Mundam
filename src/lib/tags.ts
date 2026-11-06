@@ -122,7 +122,7 @@ export const tagService = {
      * @returns Completion of the IPC write.
      */
     updateTag: async (id: string, options: UpdateTagOptions): Promise<void> => {
-        return await invoke('update_tag', { id, ...options });
+        return await invoke('update_tag', { payload: { id, ...options } });
     },
 
     deleteTag: async (id: string): Promise<void> => {

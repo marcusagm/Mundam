@@ -57,6 +57,13 @@ jobs:
               with:
                   workspaces: 'src-tauri'
 
+            - name: Report Rust Toolchain
+              working-directory: src-tauri
+              run: |
+                  rustc --version --verbose
+                  cargo --version
+                  cargo clippy --version
+
             - name: Rustfmt Check
               working-directory: src-tauri
               run: cargo fmt --all -- --check

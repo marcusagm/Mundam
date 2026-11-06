@@ -239,15 +239,14 @@ mod tests {
     const TEST_AI_PATH: &str = "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Project/ai";
 
     #[test]
-    fn test_render_pdf_from_ai() {
+    fn test_render_pdf_from_ai() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new(TEST_AI_PATH).join("sample.ai");
         if file_path.exists() {
             let pdf_data =
-                crate::processing::media::extractors::ai::extract_ai_pdf_stream(&file_path)
-                    .expect("Failed to extract PDF stream from AI file");
+                crate::processing::media::extractors::ai::extract_ai_pdf_stream(&file_path)?;
             assert!(!pdf_data.is_empty(), "PDF stream data should not be empty");
 
-            let png_bytes = render_pdf_to_png(&pdf_data, 128).expect("Failed to render PDF to PNG");
+            let png_bytes = render_pdf_to_png(&pdf_data, 128)?;
             assert!(
                 !png_bytes.is_empty(),
                 "Rendered PNG bytes should not be empty"
@@ -258,23 +257,26 @@ mod tests {
                 "Rendered data must have PNG signature"
             );
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_extract_pdf_metadata_from_ai() {
+    fn test_extract_pdf_metadata_from_ai() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new(TEST_AI_PATH).join("sample.ai");
         if file_path.exists() {
             let pdf_data =
-                crate::processing::media::extractors::ai::extract_ai_pdf_stream(&file_path)
-                    .expect("Failed to extract PDF stream from AI file");
+                crate::processing::media::extractors::ai::extract_ai_pdf_stream(&file_path)?;
             assert!(!pdf_data.is_empty(), "PDF stream data should not be empty");
 
-            let metadata = extract_pdf_metadata(&pdf_data).expect("Failed to extract PDF metadata");
+            let metadata = extract_pdf_metadata(&pdf_data)?;
             let technical = &metadata["technical"];
             assert_eq!(technical["container"], "PDF");
             assert_eq!(technical["pages_count"], 1);
             assert!(technical["width"].as_u64().is_some());
             assert!(technical["height"].as_u64().is_some());
         }
+
+        Ok(())
     }
 }

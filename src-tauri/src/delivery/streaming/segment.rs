@@ -15,17 +15,36 @@ use crate::feature::transcoding::cache::TranscodeCache;
 use crate::feature::transcoding::detector;
 use crate::processing::transcoding::resolve_transcoding_tools;
 
-/// Get or generate a video segment
+/// Identifies one segment consistently across cache lookup and transcoding.
+#[derive(Clone, Copy)]
+pub struct SegmentRequest<'request> {
+    /// Validated physical source path.
+    pub file_path: &'request Path,
+    /// Zero-based segment number.
+    pub segment_index: u32,
+    /// Duration in seconds used to compute the seek offset.
+    pub segment_duration: f64,
+    /// Existing encoder quality preset.
+    pub quality: &'request str,
+}
+
+/// Gets a cached segment or generates it using the same request parameters.
+///
+/// # Errors
+/// Returns unavailable tools, invalid sources, failed transcoding or cache read errors.
 pub async fn get_segment(
     app_handle: &tauri::AppHandle,
     registry: &Arc<crate::core::formats::registry::FormatRegistry>,
     cache: &Arc<TranscodeCache>,
     process_manager: &Arc<RwLock<ProcessManager>>,
-    file_path: &Path,
-    segment_index: u32,
-    segment_duration: f64,
-    quality: &str,
+    request: SegmentRequest<'_>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let SegmentRequest {
+        file_path,
+        segment_index,
+        quality,
+        ..
+    } = request;
     // Check if segment is already cached
     let cache_path = get_segment_cache_path(cache, file_path, segment_index, quality);
 
@@ -45,17 +64,8 @@ pub async fn get_segment(
     }
 
     // Transcode the segment
-    let data = transcode_segment(
-        app_handle,
-        registry,
-        process_manager,
-        &segment_key,
-        file_path,
-        segment_index,
-        segment_duration,
-        quality,
-    )
-    .await?;
+    let data =
+        transcode_segment(app_handle, registry, process_manager, &segment_key, request).await?;
 
     // Cache the segment to disk
     if let Some(parent) = cache_path.parent() {
@@ -72,11 +82,14 @@ async fn transcode_segment(
     registry: &Arc<crate::core::formats::registry::FormatRegistry>,
     process_manager: &Arc<RwLock<ProcessManager>>,
     segment_key: &str,
-    file_path: &Path,
-    segment_index: u32,
-    segment_duration: f64,
-    quality: &str,
+    request: SegmentRequest<'_>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let SegmentRequest {
+        file_path,
+        segment_index,
+        segment_duration,
+        quality,
+    } = request;
     let tools = resolve_transcoding_tools(Some(app_handle))?;
     let ffmpeg_path = tools.ffmpeg;
 

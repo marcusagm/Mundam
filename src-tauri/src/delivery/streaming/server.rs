@@ -538,10 +538,12 @@ async fn segment_handler(
         &state.registry,
         &state.cache,
         &state.process_manager,
-        &file_path,
-        index,
-        SEGMENT_DURATION as f64,
-        quality,
+        segment::SegmentRequest {
+            file_path: &file_path,
+            segment_index: index,
+            segment_duration: SEGMENT_DURATION as f64,
+            quality,
+        },
     )
     .await
     {

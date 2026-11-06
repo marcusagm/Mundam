@@ -18,12 +18,15 @@ pub(crate) async fn matching_status(pool: &SqlitePool) -> AppResult<MatchingStat
     )
     .fetch_all(pool)
     .await?;
-    let mut status = MatchingStatus::default();
-    status.publication_sequence = sqlx::query_scalar::<_, i64>(
+    let publication_sequence = sqlx::query_scalar::<_, i64>(
         "SELECT publication_sequence FROM duplicate_matching_revision WHERE id = 1",
     )
     .fetch_one(pool)
     .await? as u64;
+    let mut status = MatchingStatus {
+        publication_sequence,
+        ..Default::default()
+    };
     for row in rows {
         let leased: bool = row.try_get("leased")?;
         let manual: Option<String> = row.try_get("manual_run_id")?;

@@ -179,10 +179,8 @@ pub fn init_events(app: &AppHandle) {
                                 DomainEvent::ExtractionCompleted {
                                     asset_id,
                                     capability,
-                                } => {
-                                    if capability == "COLORS" {
-                                        let _ = app_handle.emit("extraction:completed", asset_id);
-                                    }
+                                } if capability == "COLORS" => {
+                                    let _ = app_handle.emit("extraction:completed", asset_id);
                                 }
                                 _ => {}
                             }

@@ -3,7 +3,7 @@
  * Activates an input scope only while keyboard focus is inside a container.
  */
 
-import { createSignal, type Accessor } from 'solid-js';
+import { createSignal, untrack, type Accessor } from 'solid-js';
 import { createConditionalScope } from './createInputScope';
 import type { InputScopeName } from '../types';
 
@@ -25,6 +25,9 @@ interface FocusScopeHandle {
  * the returned handlers. Commands are broadcast to every subscriber, so wrap handlers
  * with `whenFocused` when several instances of the component can be mounted at once.
  *
+ * @param name - Input scope activated by focus within the container.
+ * @param priority - Optional override of the scope's default priority.
+ * @returns Focus event bindings and command guards that read focus at invocation time.
  * @example
  * const focusScope = createFocusScope('video-player');
  * useCommands({ 'video:toggle-play': focusScope.whenFocused(togglePlay) });
@@ -46,7 +49,7 @@ export function createFocusScope(name: InputScopeName, priority?: number): Focus
         whenFocused:
             handler =>
             (...handlerArguments) => {
-                if (isFocused()) handler(...handlerArguments);
+                if (untrack(isFocused)) handler(...handlerArguments);
             }
     };
 }

@@ -268,17 +268,14 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn test_get_latest_resolution_and_delete_resolution() {
-        let temporary_directory = tempdir().expect("Failed to create temporary directory");
+    async fn test_get_latest_resolution_and_delete_resolution(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let temporary_directory = tempdir()?;
         let database_file_path = temporary_directory.path().join("test_mundam.db");
-        let database_manager = DbManager::new(&database_file_path)
-            .await
-            .expect("Failed to initialize database manager");
+        let database_manager = DbManager::new(&database_file_path).await?;
 
         let non_existent_resolution =
-            get_latest_resolution(database_manager.pool(), "non-existent-group-identifier")
-                .await
-                .expect("Query for non-existent group should succeed");
+            get_latest_resolution(database_manager.pool(), "non-existent-group-identifier").await?;
         assert!(non_existent_resolution.is_none());
 
         sqlx::query(
@@ -292,7 +289,7 @@ mod tests {
         )
         .execute(database_manager.pool())
         .await
-        .expect("Insert duplicate rule set and group must succeed");
+        ?;
 
         sqlx::query(
             r#"
@@ -302,13 +299,12 @@ mod tests {
         )
         .execute(database_manager.pool())
         .await
-        .expect("Insert duplicate resolution must succeed");
+        ?;
 
         let found_resolution =
             get_latest_resolution(database_manager.pool(), "test-group-identifier-1")
-                .await
-                .expect("Query for resolved group must succeed")
-                .expect("Resolution record should be present");
+                .await?
+                .ok_or("Resolution record should be present")?;
 
         assert_eq!(found_resolution.id, "resolution-1");
         assert_eq!(found_resolution.group_id, "test-group-identifier-1");
@@ -325,13 +321,12 @@ mod tests {
             database_manager.pool(),
             "resolution-1",
         )
-        .await
-        .expect("Delete resolution must succeed");
+        .await?;
 
         let resolution_after_deletion =
-            get_latest_resolution(database_manager.pool(), "test-group-identifier-1")
-                .await
-                .expect("Query after deletion must succeed");
+            get_latest_resolution(database_manager.pool(), "test-group-identifier-1").await?;
         assert!(resolution_after_deletion.is_none());
+
+        Ok(())
     }
 }

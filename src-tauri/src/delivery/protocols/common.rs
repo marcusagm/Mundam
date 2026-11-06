@@ -13,6 +13,11 @@ pub fn error_response(status: StatusCode, body: Vec<u8>) -> Response<Vec<u8>> {
         .unwrap_or_default()
 }
 
+/// Keeps HTTP failure responses off the async result's error stack while preserving their headers.
+pub(super) fn boxed_error_response(status: StatusCode, body: Vec<u8>) -> Box<Response<Vec<u8>>> {
+    Box::new(error_response(status, body))
+}
+
 /// Helper to decode URI paths and handle potential issues
 pub fn decode_uri_path(uri: &str, scheme: &str) -> String {
     let prefixes = [
@@ -50,12 +55,15 @@ pub fn decode_uri_path(uri: &str, scheme: &str) -> String {
 
 /// Asynchronously serves a file with HTTP 206 Partial Content (Range) support.
 /// Reusable by asset://, video:// and audio:// protocols.
+///
+/// # Errors
+/// Returns a boxed HTTP response for missing files, invalid ranges or failed disk reads.
 pub async fn serve_file(
     path: &Path,
     range: Option<&header::HeaderValue>,
-) -> Result<Response<Vec<u8>>, Response<Vec<u8>>> {
+) -> Result<Response<Vec<u8>>, Box<Response<Vec<u8>>>> {
     if !path.exists() {
-        return Err(error_response(
+        return Err(boxed_error_response(
             StatusCode::NOT_FOUND,
             format!("File not found: {:?}", path).into_bytes(),
         ));
@@ -63,14 +71,14 @@ pub async fn serve_file(
 
     let mut file = File::open(path).await.map_err(|e| {
         error!("Protocol disk error: {:?}", e);
-        error_response(
+        boxed_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             b"Disk access error".to_vec(),
         )
     })?;
 
     let metadata = file.metadata().await.map_err(|_| {
-        error_response(
+        boxed_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             b"Metadata error".to_vec(),
         )
@@ -124,7 +132,7 @@ pub async fn serve_file(
                 }
 
                 if start >= file_size {
-                    return Err(error_response(
+                    return Err(boxed_error_response(
                         StatusCode::RANGE_NOT_SATISFIABLE,
                         format!("bytes */{}", file_size).into_bytes(),
                     ));
@@ -188,7 +196,7 @@ pub async fn serve_file(
     // Standard small file strategy
     let mut all_data = Vec::with_capacity(file_size as usize);
     if file.read_to_end(&mut all_data).await.is_err() {
-        return Err(error_response(
+        return Err(boxed_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             b"Read disk error".to_vec(),
         ));
@@ -205,6 +213,44 @@ pub async fn serve_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn file_responses_preserve_success_range_and_error_statuses(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("sample.txt");
+        tokio::fs::write(&path, b"01234567").await?;
+        let response = serve_file(&path, None)
+            .await
+            .map_err(|response| format!("Unexpected HTTP status: {}", response.status()))?;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.body().as_slice(), b"01234567");
+
+        let range = header::HeaderValue::from_static("bytes=2-4");
+        let response = serve_file(&path, Some(&range))
+            .await
+            .map_err(|response| format!("Unexpected HTTP status: {}", response.status()))?;
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 2-4/8");
+        assert_eq!(response.body().as_slice(), b"234");
+
+        let invalid_range = header::HeaderValue::from_static("bytes=99-100");
+        let response = serve_file(&path, Some(&invalid_range))
+            .await
+            .err()
+            .ok_or("Expected an invalid-range response")?;
+        assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        assert_eq!(response.body().as_slice(), b"bytes */8");
+
+        let response = serve_file(&directory.path().join("missing.txt"), None)
+            .await
+            .err()
+            .ok_or("Expected a missing-file response")?;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        Ok(())
+    }
 
     #[test]
     fn test_decode_uri_path_macos() {

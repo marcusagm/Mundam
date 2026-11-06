@@ -808,70 +808,6 @@ pub async fn get_by_ids(
         .collect())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::formats::registry::FormatRegistry;
-    use crate::infra::database::manager::DbManager;
-    use tempfile::tempdir;
-
-    #[tokio::test]
-    async fn test_get_by_ids_empty() {
-        let temp_directory = tempdir().expect("Failed to create temporary directory");
-        let database_path = temp_directory.path().join("test_mundam.db");
-        let database_manager = DbManager::new(&database_path)
-            .await
-            .expect("Failed to initialize DbManager");
-        let format_registry = FormatRegistry::new();
-
-        let retrieved_assets = get_by_ids(database_manager.pool(), &format_registry, &[])
-            .await
-            .expect("Query must succeed for empty identifiers");
-        assert!(retrieved_assets.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_get_by_ids_batch_fetching() {
-        let temp_directory = tempdir().expect("Failed to create temporary directory");
-        let database_path = temp_directory.path().join("test_mundam.db");
-        let database_manager = DbManager::new(&database_path)
-            .await
-            .expect("Failed to initialize DbManager");
-        let format_registry = FormatRegistry::new();
-
-        sqlx::query(
-            r#"
-            INSERT INTO assets (id, name, path, state, format_type, family, file_size)
-            VALUES
-                ('test-asset-identifier-1', 'photo1.jpg', '/test/photo1.jpg', 'Idle', 'image/jpeg', 'Image', 1024),
-                ('test-asset-identifier-2', 'photo2.jpg', '/test/photo2.jpg', 'Idle', 'image/jpeg', 'Image', 2048)
-            "#,
-        )
-        .execute(database_manager.pool())
-        .await
-        .expect("Failed to insert mock assets");
-
-        let requested_asset_identifiers = vec![
-            "test-asset-identifier-1".to_string(),
-            "test-asset-identifier-2".to_string(),
-            "non-existent-identifier".to_string(),
-        ];
-        let retrieved_assets = get_by_ids(
-            database_manager.pool(),
-            &format_registry,
-            &requested_asset_identifiers,
-        )
-        .await
-        .expect("Query must succeed");
-
-        assert_eq!(retrieved_assets.len(), 2);
-        let returned_asset_identifiers: Vec<String> =
-            retrieved_assets.into_iter().map(|asset| asset.id).collect();
-        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-1".to_string()));
-        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-2".to_string()));
-    }
-}
-
 /// Reads one missing cleanup candidate without applying its unproven spelling alias to mutations.
 ///
 /// # Errors
@@ -888,5 +824,66 @@ pub async fn find_deleted_asset(
     match identifier {
         Some(identifier) => get_by_id(pool, registry, &identifier).await,
         None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::formats::registry::FormatRegistry;
+    use crate::infra::database::manager::DbManager;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_get_by_ids_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_directory = tempdir()?;
+        let database_path = temp_directory.path().join("test_mundam.db");
+        let database_manager = DbManager::new(&database_path).await?;
+        let format_registry = FormatRegistry::new();
+
+        let retrieved_assets = get_by_ids(database_manager.pool(), &format_registry, &[]).await?;
+        assert!(retrieved_assets.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_by_ids_batch_fetching() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_directory = tempdir()?;
+        let database_path = temp_directory.path().join("test_mundam.db");
+        let database_manager = DbManager::new(&database_path).await?;
+        let format_registry = FormatRegistry::new();
+
+        sqlx::query(
+            r#"
+            INSERT INTO assets (id, name, path, state, format_type, family, file_size)
+            VALUES
+                ('test-asset-identifier-1', 'photo1.jpg', '/test/photo1.jpg', 'Idle', 'image/jpeg', 'Image', 1024),
+                ('test-asset-identifier-2', 'photo2.jpg', '/test/photo2.jpg', 'Idle', 'image/jpeg', 'Image', 2048)
+            "#,
+        )
+        .execute(database_manager.pool())
+        .await
+        ?;
+
+        let requested_asset_identifiers = vec![
+            "test-asset-identifier-1".to_string(),
+            "test-asset-identifier-2".to_string(),
+            "non-existent-identifier".to_string(),
+        ];
+        let retrieved_assets = get_by_ids(
+            database_manager.pool(),
+            &format_registry,
+            &requested_asset_identifiers,
+        )
+        .await?;
+
+        assert_eq!(retrieved_assets.len(), 2);
+        let returned_asset_identifiers: Vec<String> =
+            retrieved_assets.into_iter().map(|asset| asset.id).collect();
+        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-1".to_string()));
+        assert!(returned_asset_identifiers.contains(&"test-asset-identifier-2".to_string()));
+
+        Ok(())
     }
 }

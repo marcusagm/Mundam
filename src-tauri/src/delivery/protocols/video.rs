@@ -18,6 +18,6 @@ pub fn handler(_app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>
 
     match response {
         Ok(res) => res,
-        Err(res) => res,
+        Err(res) => *res,
     }
 }

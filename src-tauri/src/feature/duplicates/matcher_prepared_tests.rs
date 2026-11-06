@@ -75,7 +75,8 @@ fn processing_prepared_variants_preserve_scores_reasons_and_optional_evidence() 
 }
 
 #[test]
-fn processing_prepared_crop_keeps_multiscale_only_corroboration_and_sparse_rejection() {
+fn processing_prepared_crop_keeps_multiscale_only_corroboration_and_sparse_rejection(
+) -> Result<(), Box<dyn std::error::Error>> {
     let block = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
     let variants = generate_hash_variants(0x5555555555555555, false, false);
     let evaluate = |multiscale| {
@@ -102,11 +103,13 @@ fn processing_prepared_crop_keeps_multiscale_only_corroboration_and_sparse_rejec
     assert!(evaluate(None).is_none());
     let zero_multiscale = "0".repeat(64);
     assert!(evaluate(Some(&zero_multiscale)).is_none());
-    let matched = evaluate(Some(block)).unwrap();
+    let matched = evaluate(Some(block)).ok_or("Expected a value in processing_prepared_crop_keeps_multiscale_only_corroboration_and_sparse_rejection")?;
     assert_eq!(matched.match_type, DuplicateGroupType::Derived);
     assert_eq!(matched.score, 1.0);
     assert!(matched
         .reasons
         .iter()
         .any(|reason| reason == "multiscale_similarity:100%"));
+
+    Ok(())
 }

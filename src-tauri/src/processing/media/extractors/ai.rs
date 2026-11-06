@@ -199,43 +199,49 @@ mod tests {
     const TEST_DIRECTORY_PATH: &str = "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Project/ai";
 
     #[test]
-    fn test_ai_metadata_sample() {
+    fn test_ai_metadata_sample() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new(TEST_DIRECTORY_PATH).join("sample.ai");
         if file_path.exists() {
-            let metadata = extract_ai_metadata(&file_path).unwrap();
+            let metadata = extract_ai_metadata(&file_path)?;
             let technical_metadata = &metadata["technical"];
             assert_eq!(technical_metadata["width"], serde_json::json!(680));
             assert_eq!(technical_metadata["height"], serde_json::json!(680));
             assert_eq!(technical_metadata["dpi"], serde_json::json!(72));
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_ai_metadata_logo() {
+    fn test_ai_metadata_logo() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new(TEST_DIRECTORY_PATH).join("Logo.ai");
         if file_path.exists() {
-            let metadata = extract_ai_metadata(&file_path).unwrap();
+            let metadata = extract_ai_metadata(&file_path)?;
             let technical_metadata = &metadata["technical"];
             assert_eq!(technical_metadata["width"], serde_json::json!(1920));
             assert_eq!(technical_metadata["height"], serde_json::json!(4259));
             assert_eq!(technical_metadata["dpi"], serde_json::json!(72));
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_ai_preview_sample() {
+    fn test_ai_preview_sample() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new(TEST_DIRECTORY_PATH).join("sample.ai");
         if file_path.exists() {
-            let (preview_data, mime_type) = extract_ai_preview(&file_path).unwrap();
+            let (preview_data, mime_type) = extract_ai_preview(&file_path)?;
             assert!(!preview_data.is_empty(), "Preview data should not be empty");
             assert_eq!(mime_type, "application/pdf");
         }
+
+        Ok(())
     }
 
     #[test]
     fn test_ai_metadata_nonexistent() {
         let nonexistent_path = Path::new("nonexistent_file_path.ai");
-        let result = extract_ai_metadata(&nonexistent_path);
+        let result = extract_ai_metadata(nonexistent_path);
         assert!(result.is_err());
     }
 }

@@ -202,7 +202,7 @@ mod tests {
 
     /// Tests the creation of an asset in the MockAssetLedger.
     #[tokio::test]
-    async fn test_mock_create_asset_emits_event() {
+    async fn test_mock_create_asset_emits_event() -> Result<(), Box<dyn std::error::Error>> {
         let bus = Arc::new(TestEventBus::new());
         let mut receiver = bus.subscribe();
         let ledger = MockAssetLedger::new(bus.clone());
@@ -220,19 +220,21 @@ mod tests {
 
         let result = ledger.execute(LedgerCommand::CreateAsset(payload)).await;
         assert!(result.is_ok());
-        let asset = result.unwrap();
+        let asset = result?;
 
         // Verify state
         assert_eq!(asset.name, "test.jpg");
         assert_eq!(asset.state, AssetState::Discovered);
 
         // Verify Event
-        let event = receiver.try_recv().expect("Should have received an event");
+        let event = receiver.try_recv()?;
         if let DomainEvent::AssetCreated { asset_id, path, .. } = event {
             assert_eq!(asset_id, asset.id);
             assert_eq!(path, "/tmp/test.jpg");
         } else {
             panic!("Expected DomainEvent::AssetCreated");
         }
+
+        Ok(())
     }
 }

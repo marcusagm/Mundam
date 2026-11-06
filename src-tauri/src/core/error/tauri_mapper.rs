@@ -65,9 +65,9 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_app_error_serialization_not_found() {
+    fn test_app_error_serialization_not_found() -> Result<(), Box<dyn std::error::Error>> {
         let error = AppError::NotFound("asset_456".to_string());
-        let serialized = serde_json::to_value(&error).unwrap();
+        let serialized = serde_json::to_value(&error)?;
 
         assert_eq!(
             serialized,
@@ -76,25 +76,29 @@ mod tests {
                 "message": "asset_456"
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_app_error_serialization_database() {
+    fn test_app_error_serialization_database() -> Result<(), Box<dyn std::error::Error>> {
         // Mocking a database error is hard, but we can verify the structure
         let error = AppError::Internal("Unexpected database state".to_string());
-        let serialized = serde_json::to_value(&error).unwrap();
+        let serialized = serde_json::to_value(&error)?;
 
         assert_eq!(serialized["code"], "INTERNAL_ERROR");
         assert_eq!(
             serialized["message"],
             "Internal state error: Unexpected database state"
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_app_error_serialization_generic() {
+    fn test_app_error_serialization_generic() -> Result<(), Box<dyn std::error::Error>> {
         let error = AppError::Generic("Manual failure".to_string());
-        let serialized = serde_json::to_value(&error).unwrap();
+        let serialized = serde_json::to_value(&error)?;
 
         assert_eq!(
             serialized,
@@ -103,5 +107,7 @@ mod tests {
                 "message": "Application error: Manual failure"
             })
         );
+
+        Ok(())
     }
 }

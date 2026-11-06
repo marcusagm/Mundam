@@ -1,6 +1,6 @@
 use super::*;
 use crate::core::duplicates::matching::MatchingRepository;
-use crate::core::processing::ProcessingKind;
+use crate::core::processing::{ProcessingKind, ProcessingRepository};
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 #[tokio::test]
@@ -28,12 +28,14 @@ async fn processing_matching_worker_recovers_manual_work_with_automation_off_aft
     let worker = Arc::new(
         DuplicateWorker::new(
             repository.clone(),
-            fixture.ledger.clone(),
             fixture.event_bus.clone(),
             settings,
-            fixture.registry.clone(),
-            fixture.processing.clone(),
-            fixture.queries.clone(),
+            crate::feature::duplicates::fingerprint_processor::FingerprintProcessor::new(
+                fixture.ledger.clone(),
+                fixture.processing.clone(),
+                fixture.queries.clone(),
+                fixture.registry.clone(),
+            ),
             Arc::new(DuplicateProcessingCoordinator::default()),
         )
         .with_control(control.clone()),
@@ -132,12 +134,14 @@ async fn processing_manual_and_automatic_scans_persist_identical_fingerprints() 
     ));
     let worker = DuplicateWorker::new(
         repository.clone(),
-        fixture.ledger.clone(),
         fixture.event_bus.clone(),
         settings,
-        fixture.registry.clone(),
-        fixture.processing.clone(),
-        fixture.queries.clone(),
+        crate::feature::duplicates::fingerprint_processor::FingerprintProcessor::new(
+            fixture.ledger.clone(),
+            fixture.processing.clone(),
+            fixture.queries.clone(),
+            fixture.registry.clone(),
+        ),
         coordinator.clone(),
     )
     .with_control(control.clone());
@@ -203,12 +207,14 @@ async fn processing_scheduled_comparison_survives_pause_and_finishes_after_resum
                 fixture.pool.clone(),
             ),
         ),
-        fixture.ledger.clone(),
         fixture.event_bus.clone(),
         settings,
-        fixture.registry.clone(),
-        fixture.processing.clone(),
-        fixture.queries.clone(),
+        crate::feature::duplicates::fingerprint_processor::FingerprintProcessor::new(
+            fixture.ledger.clone(),
+            fixture.processing.clone(),
+            fixture.queries.clone(),
+            fixture.registry.clone(),
+        ),
         Arc::new(DuplicateProcessingCoordinator::default()),
     )
     .with_control(control.clone());
@@ -254,12 +260,14 @@ async fn processing_automatic_duplicates_pause_retains_hashing_and_matching_inte
                 fixture.pool.clone(),
             ),
         ),
-        fixture.ledger.clone(),
         fixture.event_bus.clone(),
         settings,
-        fixture.registry.clone(),
-        fixture.processing.clone(),
-        fixture.queries.clone(),
+        crate::feature::duplicates::fingerprint_processor::FingerprintProcessor::new(
+            fixture.ledger.clone(),
+            fixture.processing.clone(),
+            fixture.queries.clone(),
+            fixture.registry.clone(),
+        ),
         Arc::new(DuplicateProcessingCoordinator::default()),
     )
     .with_control(control.clone());

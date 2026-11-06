@@ -116,16 +116,21 @@ pub(crate) async fn prune_processing_artifacts(
     let identities = serde_json::to_string(&asset_ids)
         .map_err(|error| crate::core::AppError::Internal(error.to_string()))?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    let rows: Vec<(String, Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
+    let rows: Vec<AssetCachePin> = sqlx::query_as(
         "SELECT a.id, a.thumbnail_path, task.preview_path,
-            CASE WHEN task.lease_expires_at > unixepoch() THEN task.lease_id ELSE NULL END
+            CASE WHEN task.lease_expires_at > unixepoch() THEN task.lease_id ELSE NULL END AS active_lease
          FROM assets a LEFT JOIN processing_tasks task ON task.asset_id = a.id AND task.kind = 'thumbnail'
          WHERE a.id IN (SELECT value FROM json_each(?))",
     ).bind(identities).fetch_all(&mut *transaction).await?;
     transaction.commit().await?;
     let pins: std::collections::HashMap<_, _> = rows
         .into_iter()
-        .map(|(asset_id, thumbnail, preview, lease)| (asset_id, (thumbnail, preview, lease)))
+        .map(|row| {
+            (
+                row.id,
+                (row.thumbnail_path, row.preview_path, row.active_lease),
+            )
+        })
         .collect();
     for (asset_id, path) in candidates {
         let name = path
@@ -151,4 +156,12 @@ pub(crate) async fn prune_processing_artifacts(
         }
     }
     Ok(())
+}
+/// Snapshot of generated cache files protected by catalog references or an active lease.
+#[derive(sqlx::FromRow)]
+struct AssetCachePin {
+    id: String,
+    thumbnail_path: Option<String>,
+    preview_path: Option<String>,
+    active_lease: Option<String>,
 }

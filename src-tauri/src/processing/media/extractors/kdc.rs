@@ -62,15 +62,14 @@ pub fn extract_kdc_preview(path: &Path) -> AppResult<Vec<u8>> {
 pub fn generate_kdc_thumbnail(path: &Path, size_hint: u32) -> AppResult<Vec<u8>> {
     // Use the exact camera rendering (embedded JPEG) for thumbnails
     if let Ok((jpeg_bytes, pixel_count)) = brute_force_extract_jpeg_bytes(path) {
-        if pixel_count > 500_000 || jpeg_bytes.len() > 50_000 {
-            if is_usable_kdc_image(&jpeg_bytes) {
-                let decoded_image = image::load_from_memory(&jpeg_bytes).map_err(|error| {
-                    crate::core::error::AppError::Generic(format!(
-                        "Failed to decode Kodak embedded JPEG: {error}"
-                    ))
-                })?;
-                return process_and_encode_webp(decoded_image, size_hint);
-            }
+        if (pixel_count > 500_000 || jpeg_bytes.len() > 50_000) && is_usable_kdc_image(&jpeg_bytes)
+        {
+            let decoded_image = image::load_from_memory(&jpeg_bytes).map_err(|error| {
+                crate::core::error::AppError::Generic(format!(
+                    "Failed to decode Kodak embedded JPEG: {error}"
+                ))
+            })?;
+            return process_and_encode_webp(decoded_image, size_hint);
         }
     }
 

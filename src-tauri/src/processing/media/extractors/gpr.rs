@@ -250,13 +250,13 @@ mod tests {
     }
 
     #[test]
-    fn test_gpr_metadata_extraction() {
+    fn test_gpr_metadata_extraction() -> Result<(), Box<dyn std::error::Error>> {
         let sample_path = gpr_sample_directory().join("GOPR0002.GPR");
         if !sample_path.exists() {
-            return;
+            return Ok(());
         }
 
-        let metadata = extract_gpr_metadata(&sample_path).unwrap();
+        let metadata = extract_gpr_metadata(&sample_path)?;
         assert_eq!(metadata["width"], 5568);
         assert_eq!(metadata["height"], 4176);
         // GoPro HERO9 Black should expose model info via EXIF
@@ -264,17 +264,19 @@ mod tests {
             metadata.get("Model").is_some(),
             "Metadata should contain camera Model"
         );
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_gpr_thumbnail_generation() {
+    async fn test_gpr_thumbnail_generation() -> Result<(), Box<dyn std::error::Error>> {
         let gpr_directory = gpr_sample_directory();
         if !gpr_directory.exists() {
-            return;
+            return Ok(());
         }
 
-        for entry in std::fs::read_dir(gpr_directory).unwrap() {
-            let entry = entry.unwrap();
+        for entry in std::fs::read_dir(gpr_directory)? {
+            let entry = entry?;
             let file_path = entry.path();
             let extension = file_path
                 .extension()
@@ -285,7 +287,10 @@ mod tests {
                 continue;
             }
 
-            let filename = file_path.file_name().unwrap().to_string_lossy();
+            let filename = file_path
+                .file_name()
+                .ok_or("Expected a value in test_gpr_thumbnail_generation")?
+                .to_string_lossy();
             println!("Testing thumbnail for: {}", filename);
 
             let thumbnail_result = generate_gpr_thumbnail(&file_path, 300);
@@ -295,20 +300,22 @@ mod tests {
                 filename,
                 thumbnail_result.err()
             );
-            let thumbnail_bytes = thumbnail_result.unwrap();
+            let thumbnail_bytes = thumbnail_result?;
             assert!(
                 !thumbnail_bytes.is_empty(),
                 "Thumbnail is empty for {}",
                 filename
             );
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_gpr_preview_extraction() {
+    async fn test_gpr_preview_extraction() -> Result<(), Box<dyn std::error::Error>> {
         let sample_path = gpr_sample_directory().join("GOPR0002.GPR");
         if !sample_path.exists() {
-            return;
+            return Ok(());
         }
 
         let preview_result = extract_gpr_preview(&sample_path);
@@ -317,7 +324,7 @@ mod tests {
             "Preview extraction failed: {:?}",
             preview_result.err()
         );
-        let preview_bytes = preview_result.unwrap();
+        let preview_bytes = preview_result?;
         assert!(
             preview_bytes.starts_with(&[0xFF, 0xD8]),
             "Preview is not a valid JPEG"
@@ -327,5 +334,7 @@ mod tests {
             "Preview seems too small: {} bytes",
             preview_bytes.len()
         );
+
+        Ok(())
     }
 }

@@ -9,7 +9,6 @@ use crate::core::error::AppResult;
 use crate::core::events::AppEventBus;
 use crate::core::ledger::command::{CreateAssetPayload, CreateFolderPayload, LedgerCommand};
 use crate::core::models::asset::AssetState;
-use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -496,56 +495,55 @@ impl LibraryIndexer {
         Ok(false)
     }
 
-    /// Ensures that the complete folder hierarchy for a given path exists in the database.
+    /// Ensures the observed hierarchy belongs to an indexed ancestor before creating missing nodes.
     ///
-    /// Recursively walks up the path, creating any missing folders along the way.
-    /// Returns the ID of the leaf folder.
+    /// Walking ancestors first avoids recursive future boxing and keeps parent-before-child writes.
+    /// The returned ID identifies the requested leaf, including an already indexed folder.
     ///
     /// # Errors
-    ///
     /// Returns missing ownership or persistence failures instead of creating unscoped assets.
-    #[async_recursion]
     pub(crate) async fn ensure_folder_hierarchy(
         &self,
         path: &std::path::Path,
     ) -> AppResult<Option<String>> {
-        let path_str = path.to_string_lossy().to_string();
-        if let Some(id) = self.query_handler.find_folder_by_path(&path_str).await? {
-            return Ok(Some(id));
+        let mut missing_folders = Vec::new();
+        let mut indexed_ancestor = None;
+        for ancestor in path.ancestors() {
+            if let Some(identifier) = self
+                .query_handler
+                .find_folder_by_path(&ancestor.to_string_lossy())
+                .await?
+            {
+                indexed_ancestor = Some(identifier);
+                break;
+            }
+            missing_folders.push(ancestor.to_path_buf());
         }
-
-        let parent_id = if let Some(parent) = path.parent() {
-            self.ensure_folder_hierarchy(parent).await?
-        } else {
-            None
-        };
-
-        if parent_id.is_none() {
-            return Err(crate::core::error::AppError::NotFound(
+        let mut parent_id = indexed_ancestor.ok_or_else(|| {
+            crate::core::error::AppError::NotFound(
                 "No indexed ancestor remains for this observation".into(),
-            ));
-        }
-        let folder_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
-        let create_folder_command = LedgerCommand::CreateFolder(CreateFolderPayload {
-            parent_id,
-            name: folder_name,
-            path: path.to_path_buf(),
-        });
-
-        match self.ledger.execute(create_folder_command).await {
-            Ok(folder_asset) => Ok(Some(folder_asset.id)),
-            Err(error) => {
-                warn!(
-                    "Failed to ensure folder hierarchy for {:?}: {}",
-                    path, error
-                );
-                Err(error)
+            )
+        })?;
+        for folder_path in missing_folders.into_iter().rev() {
+            let folder_name = folder_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
+            let command = LedgerCommand::CreateFolder(CreateFolderPayload {
+                parent_id: Some(parent_id),
+                name: folder_name,
+                path: folder_path.clone(),
+            });
+            match self.ledger.execute(command).await {
+                Ok(folder) => parent_id = folder.id,
+                Err(error) => {
+                    warn!(%error, path = %folder_path.display(), "Failed to ensure folder hierarchy");
+                    return Err(error);
+                }
             }
         }
+        Ok(Some(parent_id))
     }
 }
 

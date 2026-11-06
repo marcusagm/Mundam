@@ -2,7 +2,8 @@ use super::*;
 use crate::core::models::{DuplicateFingerprint, DuplicateRuleSet};
 
 #[test]
-fn processing_prepared_matching_preserves_anchor_order_exact_exclusion_and_cancellation() {
+fn processing_prepared_matching_preserves_anchor_order_exact_exclusion_and_cancellation(
+) -> Result<(), Box<dyn std::error::Error>> {
     let now = chrono::Utc::now();
     let fingerprint = |asset: &str, content: &str, hash| DuplicateFingerprint {
         asset_id: asset.into(),
@@ -57,7 +58,7 @@ fn processing_prepared_matching_preserves_anchor_order_exact_exclusion_and_cance
         ],
     };
     let token = CancellationToken::new();
-    let groups = compare(&input, &token).unwrap();
+    let groups = compare(&input, &token).ok_or("Expected a value in processing_prepared_matching_preserves_anchor_order_exact_exclusion_and_cancellation")?;
     assert_eq!(groups.len(), 1);
     assert_eq!(groups[0].group_type, DuplicateGroupType::Visual);
     assert_eq!(
@@ -71,4 +72,6 @@ fn processing_prepared_matching_preserves_anchor_order_exact_exclusion_and_cance
     assert_eq!(groups[0].confidence, 1.0);
     token.cancel();
     assert!(compare(&input, &token).is_none());
+
+    Ok(())
 }

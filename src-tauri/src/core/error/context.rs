@@ -48,8 +48,7 @@ mod tests {
 
     #[test]
     fn test_result_context() {
-        let res: Result<i32, std::io::Error> =
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "io failure"));
+        let res: Result<i32, std::io::Error> = Err(std::io::Error::other("io failure"));
         let res_ctx = res.context("Operation failed");
 
         match res_ctx {

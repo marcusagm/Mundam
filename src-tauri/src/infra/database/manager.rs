@@ -77,25 +77,21 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn test_db_manager_initialization() {
-        let temp_dir = tempdir().expect("Failed to create temp dir");
+    async fn test_db_manager_initialization() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempdir()?;
         let db_path = temp_dir.path().join("test_mundam.db");
 
-        let manager = DbManager::new(&db_path)
-            .await
-            .expect("Failed to initialize DbManager");
+        let manager = DbManager::new(&db_path).await?;
 
         // Verify pragmas
         let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode;")
             .fetch_one(manager.pool())
-            .await
-            .expect("Failed to query journal_mode");
+            .await?;
         assert_eq!(journal_mode.to_lowercase(), "wal");
 
         let synchronous: i32 = sqlx::query_scalar("PRAGMA synchronous;")
             .fetch_one(manager.pool())
-            .await
-            .expect("Failed to query synchronous");
+            .await?;
         assert_eq!(synchronous, 1); // 1 = NORMAL
 
         // Verify migrations (one of the V2 tables should exist)
@@ -103,8 +99,9 @@ mod tests {
             "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type='table' AND name='assets')",
         )
         .fetch_one(manager.pool())
-        .await
-        .expect("Failed to check if table exists");
+        .await?;
         assert!(table_exists);
+
+        Ok(())
     }
 }

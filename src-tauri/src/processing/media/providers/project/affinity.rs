@@ -434,24 +434,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_affinity_extract_real_file() {
+    async fn test_affinity_extract_real_file() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Project/afdesign/paella_icons.afdesign");
         if path.exists() {
             let provider = AffinityFormatProvider::new();
-            let metadata = provider
-                .extract_technical(path)
-                .await
-                .expect("Failed to extract metadata");
+            let metadata = provider.extract_technical(path).await?;
             assert_eq!(metadata["format"], "Affinity");
             assert!(metadata["width"].is_number());
             assert!(metadata["height"].is_number());
 
-            let preview = provider
-                .generate_preview(path, "test_asset")
-                .await
-                .expect("Failed to generate preview");
+            let preview = provider.generate_preview(path, "test_asset").await?;
             assert!(!preview.0.is_empty());
             assert_eq!(preview.1, "image/png");
         }
+
+        Ok(())
     }
 }

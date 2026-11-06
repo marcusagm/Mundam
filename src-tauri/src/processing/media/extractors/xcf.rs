@@ -520,20 +520,50 @@ fn decode_and_composite_tile<R: Read>(
 
             // Porter-Duff "Over" blending
             let out_alpha = source_alpha + (dest_alpha * (255 - source_alpha) / 255);
-            if out_alpha > 0 {
-                canvas_data[canvas_index] = ((source_red * source_alpha
-                    + dest_red * dest_alpha * (255 - source_alpha) / 255)
-                    / out_alpha) as u8;
-                canvas_data[canvas_index + 1] = ((source_green * source_alpha
-                    + dest_green * dest_alpha * (255 - source_alpha) / 255)
-                    / out_alpha) as u8;
-                canvas_data[canvas_index + 2] = ((source_blue * source_alpha
-                    + dest_blue * dest_alpha * (255 - source_alpha) / 255)
-                    / out_alpha) as u8;
+            let blend_channel = |source_channel: u32, destination_channel: u32| {
+                (source_channel * source_alpha
+                    + destination_channel * dest_alpha * (255 - source_alpha) / 255)
+                    .checked_div(out_alpha)
+                    .map(|channel| channel as u8)
+            };
+            if let (Some(red), Some(green), Some(blue)) = (
+                blend_channel(source_red, dest_red),
+                blend_channel(source_green, dest_green),
+                blend_channel(source_blue, dest_blue),
+            ) {
+                canvas_data[canvas_index] = red;
+                canvas_data[canvas_index + 1] = green;
+                canvas_data[canvas_index + 2] = blue;
                 canvas_data[canvas_index + 3] = out_alpha as u8;
             }
         }
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_and_composite_tile;
+
+    #[test]
+    fn tile_compositing_preserves_transparency_opacity_and_integer_rounding(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for (source, destination, expected) in [
+            ([200, 100, 50, 0], [10, 20, 30, 200], [10, 20, 30, 200]),
+            ([200, 100, 50, 255], [10, 20, 30, 200], [200, 100, 50, 255]),
+            ([200, 100, 50, 128], [10, 20, 30, 0], [200, 100, 50, 128]),
+            ([200, 0, 0, 128], [0, 0, 200, 255], [100, 0, 99, 255]),
+        ] {
+            let encoded: Vec<u8> = source
+                .into_iter()
+                .flat_map(|channel| [0, channel])
+                .collect();
+            let mut reader = std::io::Cursor::new(encoded);
+            let mut canvas = destination;
+            decode_and_composite_tile(&mut reader, &mut canvas, 0, 0, 1, 1, 1, 1, 0, 0, 4)?;
+            assert_eq!(canvas, expected);
+        }
+        Ok(())
+    }
 }

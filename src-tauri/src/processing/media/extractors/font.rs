@@ -373,90 +373,138 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test_decompress_font_non_compressed() {
+    fn test_decompress_font_non_compressed() -> Result<(), Box<dyn std::error::Error>> {
         let dummy_data = vec![1, 2, 3, 4];
-        let result_data = decompress_font(&dummy_data, "ttf").unwrap();
+        let result_data = decompress_font(&dummy_data, "ttf")?;
         assert_eq!(result_data, dummy_data);
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_ttf() {
+    async fn test_font_metadata_and_thumbnail_ttf() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/ttf/Lato-Regular.ttf");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
-            assert_eq!(extracted_metadata["family"].as_str().unwrap(), "Lato");
-            assert_eq!(extracted_metadata["is_bold"].as_bool().unwrap(), false);
-            assert_eq!(extracted_metadata["is_italic"].as_bool().unwrap(), false);
+            let extracted_metadata = extract_font_metadata(file_path)?;
+            assert_eq!(
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_ttf")?,
+                "Lato"
+            );
+            assert!(!extracted_metadata["is_bold"]
+                .as_bool()
+                .ok_or("Expected a value in test_font_metadata_and_thumbnail_ttf")?);
+            assert!(!extracted_metadata["is_italic"]
+                .as_bool()
+                .ok_or("Expected a value in test_font_metadata_and_thumbnail_ttf")?);
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_symbol_ttf() {
+    async fn test_font_metadata_and_thumbnail_symbol_ttf() -> Result<(), Box<dyn std::error::Error>>
+    {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/ttf/fontawesome-webfont.ttf");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
+            let extracted_metadata = extract_font_metadata(file_path)?;
             assert_eq!(
-                extracted_metadata["family"].as_str().unwrap(),
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_symbol_ttf")?,
                 "FontAwesome"
             );
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_otf() {
+    async fn test_font_metadata_and_thumbnail_otf() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/otf/Lato-Regular.otf");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
-            assert_eq!(extracted_metadata["family"].as_str().unwrap(), "Lato");
+            let extracted_metadata = extract_font_metadata(file_path)?;
+            assert_eq!(
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_otf")?,
+                "Lato"
+            );
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_ttc() {
+    async fn test_font_metadata_and_thumbnail_ttc() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/ttc/SuperClarendon.ttc");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
+            let extracted_metadata = extract_font_metadata(file_path)?;
             assert_eq!(
-                extracted_metadata["family"].as_str().unwrap(),
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_ttc")?,
                 "Superclarendon"
             );
-            assert!(extracted_metadata["face_count"].as_u64().unwrap() > 1);
+            assert!(
+                extracted_metadata["face_count"]
+                    .as_u64()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_ttc")?
+                    > 1
+            );
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_woff() {
+    async fn test_font_metadata_and_thumbnail_woff() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/woff/Lato-Regular.woff");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
-            assert_eq!(extracted_metadata["family"].as_str().unwrap(), "Lato");
+            let extracted_metadata = extract_font_metadata(file_path)?;
+            assert_eq!(
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_woff")?,
+                "Lato"
+            );
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_font_metadata_and_thumbnail_woff2() {
+    async fn test_font_metadata_and_thumbnail_woff2() -> Result<(), Box<dyn std::error::Error>> {
         let file_path = Path::new("/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Arquivos para testes/Font/woff2/OpenSans-BoldItalic.woff2");
         if file_path.exists() {
-            let extracted_metadata = extract_font_metadata(file_path).unwrap();
-            assert_eq!(extracted_metadata["family"].as_str().unwrap(), "Open Sans");
+            let extracted_metadata = extract_font_metadata(file_path)?;
+            assert_eq!(
+                extracted_metadata["family"]
+                    .as_str()
+                    .ok_or("Expected a value in test_font_metadata_and_thumbnail_woff2")?,
+                "Open Sans"
+            );
 
-            let generated_thumbnail = generate_font_thumbnail(file_path, 256).unwrap();
+            let generated_thumbnail = generate_font_thumbnail(file_path, 256)?;
             assert!(!generated_thumbnail.is_empty());
         }
+
+        Ok(())
     }
 }

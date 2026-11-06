@@ -264,7 +264,7 @@ mod tests {
 
     /// Tests the format registry resolution.
     #[test]
-    fn test_registry_resolution() {
+    fn test_registry_resolution() -> Result<(), Box<dyn std::error::Error>> {
         let mut registry = FormatRegistry::new();
         let provider = Arc::new(MockProvider);
         registry.register(provider.clone());
@@ -273,7 +273,12 @@ mod tests {
         let path = Path::new("test.mock");
         let resolved = registry.resolve(path, &[]);
         assert!(resolved.is_some());
-        assert_eq!(resolved.unwrap().name(), "MOCK");
+        assert_eq!(
+            resolved
+                .ok_or("Expected a value in test_registry_resolution")?
+                .name(),
+            "MOCK"
+        );
 
         // Test case-insensitivity
         let path = Path::new("test.MOK");
@@ -284,17 +289,24 @@ mod tests {
         let path = Path::new("no_extension");
         let resolved = registry.resolve(path, b"MOCK_HEADER");
         assert!(resolved.is_some());
-        assert_eq!(resolved.unwrap().name(), "MOCK");
+        assert_eq!(
+            resolved
+                .ok_or("Expected a value in test_registry_resolution")?
+                .name(),
+            "MOCK"
+        );
 
         // Test failure
         let path = Path::new("test.unknown");
         let resolved = registry.resolve(path, b"RANDOM");
         assert!(resolved.is_none());
+
+        Ok(())
     }
 
     /// Tests batch registration of multiple providers.
     #[test]
-    fn test_register_batch() {
+    fn test_register_batch() -> Result<(), Box<dyn std::error::Error>> {
         let mut registry = FormatRegistry::new();
         let providers: Vec<Arc<dyn FormatProvider>> = vec![Arc::new(MockProvider)];
         registry.register_batch(providers);
@@ -302,12 +314,19 @@ mod tests {
         let path = Path::new("test.mock");
         let resolved = registry.resolve(path, &[]);
         assert!(resolved.is_some());
-        assert_eq!(resolved.unwrap().name(), "MOCK");
+        assert_eq!(
+            resolved
+                .ok_or("Expected a value in test_register_batch")?
+                .name(),
+            "MOCK"
+        );
+
+        Ok(())
     }
 
     /// Tests that register_fallback works identically to register.
     #[test]
-    fn test_register_fallback() {
+    fn test_register_fallback() -> Result<(), Box<dyn std::error::Error>> {
         let mut registry = FormatRegistry::new();
         let provider = Arc::new(MockProvider);
         registry.register_fallback(provider);
@@ -315,6 +334,13 @@ mod tests {
         let path = Path::new("test.mock");
         let resolved = registry.resolve(path, &[]);
         assert!(resolved.is_some());
-        assert_eq!(resolved.unwrap().name(), "MOCK");
+        assert_eq!(
+            resolved
+                .ok_or("Expected a value in test_register_fallback")?
+                .name(),
+            "MOCK"
+        );
+
+        Ok(())
     }
 }

@@ -149,7 +149,7 @@ mod tests {
     use chrono::TimeZone;
 
     #[test]
-    fn test_build_trash_path_creates_correct_format() {
+    fn test_build_trash_path_creates_correct_format() -> Result<(), Box<dyn std::error::Error>> {
         let app_data = PathBuf::from("/tmp/mundam_test");
         let deleted_at = chrono::Utc
             .with_ymd_and_hms(2026, 8, 12, 20, 42, 0)
@@ -163,11 +163,14 @@ mod tests {
         );
 
         assert!(result.is_some());
-        let path = result.unwrap();
+        let path =
+            result.ok_or("Expected a value in test_build_trash_path_creates_correct_format")?;
         assert_eq!(
             path,
             PathBuf::from("/tmp/mundam_test/trash/abc-123_1786567320_sunset.jpg")
         );
+
+        Ok(())
     }
 
     #[test]
@@ -212,7 +215,8 @@ mod tests {
     }
 
     #[test]
-    fn test_different_timestamps_produce_different_paths() {
+    fn test_different_timestamps_produce_different_paths() -> Result<(), Box<dyn std::error::Error>>
+    {
         let app_data = PathBuf::from("/tmp/app");
         let path = PathBuf::from("/library/photo.jpg");
 
@@ -221,32 +225,41 @@ mod tests {
             .with_ymd_and_hms(2026, 6, 15, 12, 30, 0)
             .unwrap();
 
-        let path_a = build_trash_path(&app_data, "same-id", &path, &timestamp_a).unwrap();
-        let path_b = build_trash_path(&app_data, "same-id", &path, &timestamp_b).unwrap();
+        let path_a = build_trash_path(&app_data, "same-id", &path, &timestamp_a)
+            .ok_or("Expected a value in test_different_timestamps_produce_different_paths")?;
+        let path_b = build_trash_path(&app_data, "same-id", &path, &timestamp_b)
+            .ok_or("Expected a value in test_different_timestamps_produce_different_paths")?;
 
         assert_ne!(
             path_a, path_b,
             "Different timestamps must produce different paths"
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_different_asset_ids_produce_different_paths() {
+    fn test_different_asset_ids_produce_different_paths() -> Result<(), Box<dyn std::error::Error>>
+    {
         let app_data = PathBuf::from("/tmp/app");
         let path = PathBuf::from("/library/photo.jpg");
         let deleted_at = chrono::Utc::now();
 
-        let path_a = build_trash_path(&app_data, "id-aaa", &path, &deleted_at).unwrap();
-        let path_b = build_trash_path(&app_data, "id-bbb", &path, &deleted_at).unwrap();
+        let path_a = build_trash_path(&app_data, "id-aaa", &path, &deleted_at)
+            .ok_or("Expected a value in test_different_asset_ids_produce_different_paths")?;
+        let path_b = build_trash_path(&app_data, "id-bbb", &path, &deleted_at)
+            .ok_or("Expected a value in test_different_asset_ids_produce_different_paths")?;
 
         assert_ne!(
             path_a, path_b,
             "Different asset IDs must produce different paths"
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_trash_path_preserves_file_extension() {
+    fn test_trash_path_preserves_file_extension() -> Result<(), Box<dyn std::error::Error>> {
         let app_data = PathBuf::from("/tmp/app");
         let deleted_at = chrono::Utc::now();
 
@@ -256,12 +269,14 @@ mod tests {
             &PathBuf::from("/photos/my image.png"),
             &deleted_at,
         )
-        .unwrap();
+        .ok_or("Expected a value in test_trash_path_preserves_file_extension")?;
 
         assert!(
             path.to_string_lossy().ends_with(".png"),
             "Trash path must preserve the original file extension"
         );
+
+        Ok(())
     }
 
     #[test]
@@ -342,11 +357,12 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_trash_path_detects_existing_legacy_file() {
-        let temporary_directory = tempfile::tempdir().unwrap();
+    fn test_resolve_trash_path_detects_existing_legacy_file(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let temporary_directory = tempfile::tempdir()?;
         let application_data_directory = temporary_directory.path();
         let trash_folder = application_data_directory.join("trash");
-        std::fs::create_dir_all(&trash_folder).unwrap();
+        std::fs::create_dir_all(&trash_folder)?;
 
         let asset_identifier = "asset-legacy-1";
         let original_file_path = PathBuf::from("/photos/vacation.jpg");
@@ -354,7 +370,7 @@ mod tests {
 
         // Create the legacy file on disk
         let legacy_file_path = trash_folder.join(format!("{}_vacation.jpg", asset_identifier));
-        std::fs::write(&legacy_file_path, b"test content").unwrap();
+        std::fs::write(&legacy_file_path, b"test content")?;
 
         let resolved_path = resolve_trash_path(
             application_data_directory,
@@ -364,14 +380,17 @@ mod tests {
         );
 
         assert_eq!(resolved_path, legacy_file_path);
+
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_trash_path_prefers_timestamped_file_when_both_exist() {
-        let temporary_directory = tempfile::tempdir().unwrap();
+    fn test_resolve_trash_path_prefers_timestamped_file_when_both_exist(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let temporary_directory = tempfile::tempdir()?;
         let application_data_directory = temporary_directory.path();
         let trash_folder = application_data_directory.join("trash");
-        std::fs::create_dir_all(&trash_folder).unwrap();
+        std::fs::create_dir_all(&trash_folder)?;
 
         let asset_identifier = "asset-both-1";
         let original_file_path = PathBuf::from("/photos/vacation.jpg");
@@ -379,14 +398,14 @@ mod tests {
 
         // Create both legacy and timestamped files on disk
         let legacy_file_path = trash_folder.join(format!("{}_vacation.jpg", asset_identifier));
-        std::fs::write(&legacy_file_path, b"legacy content").unwrap();
+        std::fs::write(&legacy_file_path, b"legacy content")?;
 
         let timestamped_file_path = trash_folder.join(format!(
             "{}_{}_vacation.jpg",
             asset_identifier,
             deleted_at_timestamp.timestamp()
         ));
-        std::fs::write(&timestamped_file_path, b"timestamped content").unwrap();
+        std::fs::write(&timestamped_file_path, b"timestamped content")?;
 
         let resolved_path = resolve_trash_path(
             application_data_directory,
@@ -396,5 +415,7 @@ mod tests {
         );
 
         assert_eq!(resolved_path, timestamped_file_path);
+
+        Ok(())
     }
 }

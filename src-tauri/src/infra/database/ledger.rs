@@ -742,16 +742,14 @@ impl SqliteAssetLedger {
         let trash_source_path = match std::fs::read_dir(&trash_directory) {
             Ok(entries) => {
                 let mut found_path: Option<PathBuf> = None;
-                for entry_result in entries {
-                    if let Ok(entry) = entry_result {
-                        if entry
-                            .file_name()
-                            .to_string_lossy()
-                            .starts_with(&asset_id_prefix)
-                        {
-                            found_path = Some(entry.path());
-                            break;
-                        }
+                for entry in entries.flatten() {
+                    if entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with(&asset_id_prefix)
+                    {
+                        found_path = Some(entry.path());
+                        break;
                     }
                 }
                 found_path

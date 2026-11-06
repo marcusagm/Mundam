@@ -7,6 +7,7 @@ import { ActionResult, ErrorCode } from '../../types/actions';
 import { filterState, filterActions } from '../filter';
 import { selectionState } from '../selectionStore';
 import { libraryState, libraryStateInternal } from './libraryState';
+import { planLibraryBatchUpdates } from './libraryBatchUpdates';
 import { BatchChangePayload } from './schemas';
 import { APP_CONFIG } from '../../../config/constants';
 
@@ -42,6 +43,35 @@ const mapToSearchGroup = (group: UISearchGroup): SearchGroup => ({
 });
 
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function applyLibraryBatchUpdates(updatedItems: NonNullable<BatchChangePayload['updated']>): void {
+    const view = untrack(() => ({
+        selectedFolderIds: [...filterState.selectedFolderIds],
+        recursive: filterState.folderRecursiveView,
+        locations: metadataState.locations,
+        currentItems: libraryState.items
+    }));
+    const plan = planLibraryBatchUpdates(updatedItems, view);
+    for (const item of plan.updates) {
+        setLibraryState(
+            'items',
+            currentItem => currentItem.id === item.id,
+            previousItem => ({
+                ...previousItem,
+                path: item.path,
+                filename: item.filename,
+                modified_at: item.modified_at,
+                folder_id: item.folder_id
+            })
+        );
+    }
+    if (plan.removedIds.size)
+        setLibraryState('items', items => items.filter(item => !plan.removedIds.has(item.id)));
+    if (plan.needsRefresh)
+        void libraryActions
+            .refreshAssets(false)
+            .catch(error => console.error('Library batch refresh failed:', error));
+}
 
 export const libraryActions = {
     ...itemActions,
@@ -145,72 +175,8 @@ export const libraryActions = {
             }
         }
 
-        if (payload.updated && payload.updated.length > 0) {
-            const updatedItems = payload.updated;
-            const { selectedFolderIds, recursive, locations, currentItems } = untrack(() => ({
-                selectedFolderIds: [...filterState.selectedFolderIds],
-                recursive: filterState.folderRecursiveView,
-                locations: metadataState.locations,
-                currentItems: libraryState.items
-            }));
-
-            const locationMap = new Map(locations.map(location => [location.id, location]));
-
-            const isChildOf = (childId: string, rootId: string): boolean => {
-                let current: string | null = childId;
-                let depth = 0;
-                while (current && depth < APP_CONFIG.MAX_FOLDER_DEPTH) {
-                    if (current === rootId) return true;
-                    const node = locationMap.get(current);
-                    current = node ? node.parent_id : null;
-                    depth++;
-                }
-                return false;
-            };
-
-            let someMovedIn = false;
-            const toRemoveIDs: string[] = [];
-
-            for (const item of updatedItems) {
-                const isNowInView =
-                    selectedFolderIds.length === 0 ||
-                    selectedFolderIds.some(folderId =>
-                        recursive
-                            ? isChildOf(item.folder_id, folderId)
-                            : item.folder_id === folderId
-                    );
-
-                const wasKnown = currentItems.some(i => i.id === item.id);
-
-                if (isNowInView) {
-                    if (wasKnown) {
-                        setLibraryState(
-                            'items',
-                            i => i.id === item.id,
-                            prev => ({
-                                ...prev,
-                                path: item.path,
-                                filename: item.filename,
-                                modified_at: item.modified_at,
-                                folder_id: item.folder_id
-                            })
-                        );
-                    } else {
-                        someMovedIn = true;
-                    }
-                } else if (wasKnown) {
-                    toRemoveIDs.push(item.id);
-                }
-            }
-
-            if (toRemoveIDs.length > 0) {
-                const removeSet = new Set(toRemoveIDs);
-                setLibraryState('items', items => items.filter(i => !removeSet.has(i.id)));
-            }
-
-            if (someMovedIn) {
-                libraryActions.refreshAssets(false);
-            }
+        if (payload.updated?.length) {
+            applyLibraryBatchUpdates(payload.updated);
         }
     },
 

@@ -133,6 +133,7 @@ fn parse_exif_resolution_value(resolution_string: &str) -> Option<f64> {
 ///
 /// * `AppError::Io` - If the file cannot be opened.
 /// * `AppError::Generic` - If dimension extraction fails.
+///
 /// Helper to open a raster image with limits disabled and custom extension handling (e.g. .cur).
 fn open_raster_image(path: &Path) -> AppResult<image::DynamicImage> {
     let file_extension = path

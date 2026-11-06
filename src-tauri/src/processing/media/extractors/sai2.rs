@@ -1053,41 +1053,47 @@ mod tests {
     const TEST_DIR: &str = "/Users/marcusmaia/Documents/Desenvolvimento/Mundam/file-samples/Imagens/Design/Paint tool SAI/sai2";
 
     #[test]
-    fn test_elfinha_dimensions() {
+    fn test_elfinha_dimensions() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("elfinha4.sai2");
         if path.exists() {
-            let (width, height) = extract_sai2_dimensions(&path).unwrap();
+            let (width, height) = extract_sai2_dimensions(&path)?;
             // Real canvas dimensions (not TableCount/SelectedLayer)
             assert_eq!(width, 2490);
             assert_eq!(height, 3588);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_design_dimensions() {
+    fn test_design_dimensions() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("design.sai2");
         if path.exists() {
-            let (width, height) = extract_sai2_dimensions(&path).unwrap();
+            let (width, height) = extract_sai2_dimensions(&path)?;
             assert_eq!(width, 2480);
             assert_eq!(height, 3508);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_milk_dimensions() {
+    fn test_milk_dimensions() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("Milk.sai2");
         if path.exists() {
-            let (width, height) = extract_sai2_dimensions(&path).unwrap();
+            let (width, height) = extract_sai2_dimensions(&path)?;
             assert_eq!(width, 4093);
             assert_eq!(height, 4093);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_elfinha_preview() {
+    fn test_elfinha_preview() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("elfinha4.sai2");
         if path.exists() {
-            let (data, mime) = extract_sai2_preview(&path).unwrap();
+            let (data, mime) = extract_sai2_preview(&path)?;
             assert!(!data.is_empty(), "Preview data should not be empty");
             assert!(
                 mime == "image/jpeg" || mime == "image/png",
@@ -1099,55 +1105,70 @@ mod tests {
             let output_path = Path::new(TEST_DIR).join("_test_elfinha4_preview.png");
             if mime == "image/jpeg" {
                 let output_path = Path::new(TEST_DIR).join("_test_elfinha4_preview.jpg");
-                std::fs::write(&output_path, &data).unwrap();
+                std::fs::write(&output_path, &data)?;
             } else {
-                std::fs::write(&output_path, &data).unwrap();
+                std::fs::write(&output_path, &data)?;
             }
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_design_preview() {
+    fn test_design_preview() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("design.sai2");
         if path.exists() {
-            let (data, mime) = extract_sai2_preview(&path).unwrap();
+            let (data, mime) = extract_sai2_preview(&path)?;
             assert!(!data.is_empty());
 
             let extension = if mime == "image/jpeg" { "jpg" } else { "png" };
             let output_path =
                 Path::new(TEST_DIR).join(format!("_test_design_preview.{}", extension));
-            std::fs::write(&output_path, &data).unwrap();
+            std::fs::write(&output_path, &data)?;
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_milk_preview() {
+    fn test_milk_preview() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("Milk.sai2");
         if path.exists() {
-            let (data, mime) = extract_sai2_preview(&path).unwrap();
+            let (data, mime) = extract_sai2_preview(&path)?;
             assert!(!data.is_empty());
 
             let extension = if mime == "image/jpeg" { "jpg" } else { "png" };
             let output_path = Path::new(TEST_DIR).join(format!("_test_milk_preview.{}", extension));
-            std::fs::write(&output_path, &data).unwrap();
+            std::fs::write(&output_path, &data)?;
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_all_sai2_files_extract() {
+    fn test_all_sai2_files_extract() -> Result<(), Box<dyn std::error::Error>> {
         let test_directory = Path::new(TEST_DIR);
         if !test_directory.exists() {
-            return;
+            return Ok(());
         }
-        for entry in std::fs::read_dir(test_directory).unwrap() {
-            let entry = entry.unwrap();
+        for entry in std::fs::read_dir(test_directory)? {
+            let entry = entry?;
             let path = entry.path();
             if path
                 .extension()
-                .map_or(false, |extension| extension == "sai2")
-                && !path.file_name().unwrap().to_str().unwrap().starts_with('_')
+                .is_some_and(|extension| extension == "sai2")
+                && !path
+                    .file_name()
+                    .ok_or("Expected a value in test_all_sai2_files_extract")?
+                    .to_str()
+                    .ok_or("Expected a value in test_all_sai2_files_extract")?
+                    .starts_with('_')
             {
-                let file_name = path.file_name().unwrap().to_str().unwrap();
+                let file_name = path
+                    .file_name()
+                    .ok_or("Expected a value in test_all_sai2_files_extract")?
+                    .to_str()
+                    .ok_or("Expected a value in test_all_sai2_files_extract")?;
                 match extract_sai2_preview(&path) {
                     Ok((data, mime)) => {
                         assert!(!data.is_empty(), "Empty preview for {}", file_name);
@@ -1159,22 +1180,24 @@ mod tests {
                 }
             }
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_header_parsing_consistency() {
+    fn test_header_parsing_consistency() -> Result<(), Box<dyn std::error::Error>> {
         let path = Path::new(TEST_DIR).join("elfinha4.sai2");
         if !path.exists() {
-            return;
+            return Ok(());
         }
-        let mut file = File::open(&path).unwrap();
-        let header = parse_canvas_header(&mut file).unwrap();
+        let mut file = File::open(&path)?;
+        let header = parse_canvas_header(&mut file)?;
 
         assert!(header.canvas_width > 0, "Width must be positive");
         assert!(header.canvas_height > 0, "Height must be positive");
         assert!(header.table_count > 0, "Must have at least one table entry");
 
-        let entries = parse_canvas_table(&mut file, header.table_count).unwrap();
+        let entries = parse_canvas_table(&mut file, header.table_count)?;
         assert_eq!(entries.len(), header.table_count as usize);
 
         // Verify we find thum and intg entries
@@ -1182,5 +1205,7 @@ mod tests {
         let has_intg = entries.iter().any(|entry| entry.entry_type == TAG_INTG);
         assert!(has_thum, "Should have a 'thum' entry");
         assert!(has_intg, "Should have an 'intg' entry");
+
+        Ok(())
     }
 }

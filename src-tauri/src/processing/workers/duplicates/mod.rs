@@ -1,10 +1,8 @@
 //! Automatic fingerprint processing uses one durable queue and shared scan admission.
 
 use crate::core::events::{AppEventBus, DomainEvent};
-use crate::core::formats::FormatRegistry;
 use crate::core::processing::control::{ProcessingControl, WorkerKind};
-use crate::core::processing::ProcessingRepository;
-use crate::core::repository::{AssetQueryHandler, DuplicatesRepository};
+use crate::core::repository::DuplicatesRepository;
 use crate::feature::duplicates::coordinator::DuplicateProcessingCoordinator;
 use crate::feature::duplicates::fingerprint_processor::FingerprintProcessor;
 use crate::feature::settings::SettingsService;
@@ -30,16 +28,12 @@ impl DuplicateWorker {
     /// Injects durable attempt bookkeeping and the coordinator used by manual scans.
     pub fn new(
         duplicates_repo: Arc<dyn DuplicatesRepository>,
-        ledger: Arc<dyn crate::core::ledger::port::TransactionalAssetLedger>,
         event_bus: Arc<dyn AppEventBus>,
         settings_service: SettingsService,
-        format_registry: Arc<FormatRegistry>,
-        processing: Arc<dyn ProcessingRepository>,
-        queries: Arc<dyn AssetQueryHandler>,
+        processor: FingerprintProcessor,
         coordinator: Arc<DuplicateProcessingCoordinator>,
     ) -> Self {
-        let processor = FingerprintProcessor::new(ledger, processing, queries, format_registry)
-            .with_budget(coordinator.budget.clone());
+        let processor = processor.with_budget(coordinator.budget.clone());
         Self {
             duplicates_repo,
             event_bus,

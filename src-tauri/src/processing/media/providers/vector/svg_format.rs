@@ -226,68 +226,54 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[tokio::test]
-    async fn test_svg_metadata_and_thumbnail() {
+    async fn test_svg_metadata_and_thumbnail() -> Result<(), Box<dyn std::error::Error>> {
         let svg_content = r#"<svg xmlns="http://www.w3.org/2000/svg" width="150" height="250"><rect width="150" height="250" fill="blue"/></svg>"#;
-        let mut temporary_file = NamedTempFile::new().expect("Failed to create temporary file");
-        temporary_file
-            .write_all(svg_content.as_bytes())
-            .expect("Failed to write to temporary file");
+        let mut temporary_file = NamedTempFile::new()?;
+        temporary_file.write_all(svg_content.as_bytes())?;
         let path = temporary_file.path();
 
         let provider = SvgFormatProvider::new();
 
         // Test metadata extraction
-        let metadata = provider
-            .extract_technical(path)
-            .await
-            .expect("Failed to extract metadata");
+        let metadata = provider.extract_technical(path).await?;
         assert_eq!(metadata["format"], "SVG");
         assert_eq!(metadata["width"], 150);
         assert_eq!(metadata["height"], 250);
 
         // Test thumbnail generation
-        let thumbnail = provider
-            .generate(path, "test_asset_id", 100)
-            .await
-            .expect("Failed to generate thumbnail");
+        let thumbnail = provider.generate(path, "test_asset_id", 100).await?;
         assert!(!thumbnail.is_empty(), "Thumbnail data should not be empty");
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_svgz_metadata_and_thumbnail() {
+    async fn test_svgz_metadata_and_thumbnail() -> Result<(), Box<dyn std::error::Error>> {
         use flate2::write::GzEncoder;
         use flate2::Compression;
 
         let svg_content = r#"<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><circle cx="150" cy="200" r="100" fill="green"/></svg>"#;
-        let mut temporary_file = NamedTempFile::new().expect("Failed to create temporary file");
+        let mut temporary_file = NamedTempFile::new()?;
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder
-            .write_all(svg_content.as_bytes())
-            .expect("Failed to compress SVG content");
-        let compressed_data = encoder.finish().expect("Failed to finish compression");
+        encoder.write_all(svg_content.as_bytes())?;
+        let compressed_data = encoder.finish()?;
 
-        temporary_file
-            .write_all(&compressed_data)
-            .expect("Failed to write compressed data");
+        temporary_file.write_all(&compressed_data)?;
         let path = temporary_file.path();
 
         let provider = SvgFormatProvider::new();
 
         // Test metadata extraction
-        let metadata = provider
-            .extract_technical(path)
-            .await
-            .expect("Failed to extract metadata");
+        let metadata = provider.extract_technical(path).await?;
         assert_eq!(metadata["format"], "SVG");
         assert_eq!(metadata["width"], 300);
         assert_eq!(metadata["height"], 400);
 
         // Test thumbnail generation
-        let thumbnail = provider
-            .generate(path, "test_asset_id", 100)
-            .await
-            .expect("Failed to generate thumbnail");
+        let thumbnail = provider.generate(path, "test_asset_id", 100).await?;
         assert!(!thumbnail.is_empty(), "Thumbnail data should not be empty");
+
+        Ok(())
     }
 }

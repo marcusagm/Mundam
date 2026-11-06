@@ -223,7 +223,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_event_aggregation() {
+    async fn test_event_aggregation() -> Result<(), Box<dyn std::error::Error>> {
         let (sender, mut receiver) = mpsc::channel(100);
         let mut debouncer = EventDebouncer::new(sender);
 
@@ -231,9 +231,9 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let path = temp_dir.join(format!(
             "test_event_agg_{}.txt",
-            std::time::UNIX_EPOCH.elapsed().unwrap().as_nanos()
+            std::time::UNIX_EPOCH.elapsed()?.as_nanos()
         ));
-        std::fs::write(&path, "test content").unwrap();
+        std::fs::write(&path, "test content")?;
 
         let event = Event::new(EventKind::Modify(ModifyKind::Any)).add_path(path.clone());
 
@@ -252,9 +252,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(600)).await;
         debouncer.tick(Duration::from_millis(500)).await;
 
-        let result = receiver
-            .try_recv()
-            .expect("Should have received a domain event");
+        let result = receiver.try_recv()?;
         match result {
             DomainEvent::FsFileDiscovered {
                 path: event_path, ..
@@ -266,10 +264,12 @@ mod tests {
 
         // Cleanup
         let _ = std::fs::remove_file(path);
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_rename_mode_both() {
+    async fn test_rename_mode_both() -> Result<(), Box<dyn std::error::Error>> {
         let (sender, mut receiver) = mpsc::channel(100);
         let mut debouncer = EventDebouncer::new(sender);
 
@@ -282,9 +282,7 @@ mod tests {
 
         debouncer.handle_event(event).await;
 
-        let result = receiver
-            .try_recv()
-            .expect("Should have received a rename event");
+        let result = receiver.try_recv()?;
         match result {
             DomainEvent::FsPathRenamed {
                 from: event_from,
@@ -295,10 +293,12 @@ mod tests {
             }
             _ => panic!("Expected FsPathRenamed"),
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_delayed_deletion_guard() {
+    async fn test_delayed_deletion_guard() -> Result<(), Box<dyn std::error::Error>> {
         let (sender, mut receiver) = mpsc::channel(100);
         let mut debouncer = EventDebouncer::new(sender);
 
@@ -320,14 +320,14 @@ mod tests {
         debouncer.tick(Duration::from_millis(200)).await;
 
         // Now it should emit (path doesn't exist)
-        let result = receiver
-            .try_recv()
-            .expect("Should have received a deletion event after guard");
+        let result = receiver.try_recv()?;
         match result {
             DomainEvent::FsPathDeleted { path: event_path } => {
                 assert_eq!(event_path, path.to_string_lossy().to_string());
             }
             _ => panic!("Expected FsPathDeleted"),
         }
+
+        Ok(())
     }
 }

@@ -4,7 +4,7 @@ use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
 use crate::core::repository::AssetQueryHandler;
-use crate::delivery::protocols::common::{error_response, serve_file};
+use crate::delivery::protocols::common::{boxed_error_response, error_response, serve_file};
 use percent_encoding::percent_decode_str;
 
 /// Setup the custom asset:// protocol for V2 Hexagonal Architecture
@@ -268,7 +268,7 @@ pub async fn handler_async<R: tauri::Runtime>(
 
     match response_result {
         Ok(success_response) => success_response,
-        Err(error_response_value) => error_response_value,
+        Err(error_response_value) => *error_response_value,
     }
 }
 
@@ -353,24 +353,18 @@ fn parse_asset_uri(uri: &str) -> (String, Option<String>) {
 /// * `range`: The range header to use for partial content.
 ///
 /// # Returns
-/// A `Result<Response<Vec<u8>>, Response<Vec<u8>>>` containing the file data.
+/// A `Result<Response<Vec<u8>>, Box<Response<Vec<u8>>>>` containing the file data.
 ///
-/// # Examples
-/// ```no_run
-/// use tauri::http::{Response, StatusCode};
-/// use crate::delivery::protocols::asset::serve_file_async;
-///
-/// let response = serve_file_async(&PathBuf::from("test.mkv"), None);
-/// assert_eq!(response.status(), StatusCode::OK);
-/// ```
+/// # Errors
+/// Returns a boxed HTTP failure response for inaccessible files or metadata.
 async fn serve_file_async(
     path: &Path,
     range: Option<&tauri::http::HeaderValue>,
-) -> Result<Response<Vec<u8>>, Response<Vec<u8>>> {
+) -> Result<Response<Vec<u8>>, Box<Response<Vec<u8>>>> {
     let file = match tokio::fs::File::open(path).await {
         Ok(f) => f,
         Err(e) => {
-            return Err(error_response(
+            return Err(boxed_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 e.to_string().into_bytes(),
             ))
@@ -380,7 +374,7 @@ async fn serve_file_async(
     let metadata = match file.metadata().await {
         Ok(m) => m,
         Err(_) => {
-            return Err(error_response(
+            return Err(boxed_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 b"Cannot read file metadata".to_vec(),
             ))

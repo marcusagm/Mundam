@@ -88,21 +88,23 @@ mod tests {
     ///
     /// Ok(()) if settings were persisted successfully.
     #[tokio::test]
-    async fn test_json_settings_persistence() {
-        let dir = tempdir().unwrap();
+    async fn test_json_settings_persistence() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempdir()?;
         let file_path = dir.path().join("settings.json");
         let adapter = JsonSettingsAdapter::new(file_path);
 
         // Should return default if file doesn't exist
-        let mut settings = adapter.load().await.unwrap();
-        assert_eq!(settings.worker_threads > 0, true);
+        let mut settings = adapter.load().await?;
+        assert!(settings.worker_threads > 0);
 
         // Modify and save
         settings.worker_threads = 42;
-        adapter.save(&settings).await.unwrap();
+        adapter.save(&settings).await?;
 
         // Reload and verify
-        let reloaded = adapter.load().await.unwrap();
+        let reloaded = adapter.load().await?;
         assert_eq!(reloaded.worker_threads, 42);
+
+        Ok(())
     }
 }

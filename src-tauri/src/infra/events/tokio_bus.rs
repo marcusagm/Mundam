@@ -89,7 +89,7 @@ mod tests {
 
     /// Test that the event bus can send events to multiple subscribers.
     #[tokio::test]
-    async fn test_fan_out_multiple_subscribers() {
+    async fn test_fan_out_multiple_subscribers() -> Result<(), Box<dyn std::error::Error>> {
         let event_bus = Arc::new(TokioEventBus::new());
         let mut receiver_1 = event_bus.subscribe();
         let mut receiver_2 = event_bus.subscribe();
@@ -98,10 +98,10 @@ mod tests {
             library_id: "test_lib".to_string(),
         };
 
-        event_bus.publish(event).unwrap();
+        event_bus.publish(event)?;
 
-        let received_1 = receiver_1.recv().await.unwrap();
-        let received_2 = receiver_2.recv().await.unwrap();
+        let received_1 = receiver_1.recv().await?;
+        let received_2 = receiver_2.recv().await?;
 
         match (received_1, received_2) {
             (
@@ -113,36 +113,34 @@ mod tests {
             }
             _ => panic!("Received events do not match expected events"),
         }
+
+        Ok(())
     }
 
     /// Test that the event bus can handle backpressure.
     #[tokio::test]
-    async fn test_backpressure_lagged_error() {
+    async fn test_backpressure_lagged_error() -> Result<(), Box<dyn std::error::Error>> {
         // We use a tiny capacity for the test
         let (sender, mut receiver) = broadcast::channel(1);
 
-        sender
-            .send(DomainEvent::FsPathDeleted {
-                path: "1".to_string(),
-            })
-            .unwrap();
-        sender
-            .send(DomainEvent::FsPathDeleted {
-                path: "2".to_string(),
-            })
-            .unwrap();
-        sender
-            .send(DomainEvent::FsPathDeleted {
-                path: "3".to_string(),
-            })
-            .unwrap();
+        sender.send(DomainEvent::FsPathDeleted {
+            path: "1".to_string(),
+        })?;
+        sender.send(DomainEvent::FsPathDeleted {
+            path: "2".to_string(),
+        })?;
+        sender.send(DomainEvent::FsPathDeleted {
+            path: "3".to_string(),
+        })?;
 
         // The first recv should fail with Lagged because we skipped 2 messages
         let result = receiver.recv().await;
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match result.err().ok_or("Expected an error result")? {
             broadcast::error::RecvError::Lagged(skipped) => assert_eq!(skipped, 2),
             _ => panic!("Should have returned Lagged error"),
         }
+
+        Ok(())
     }
 }

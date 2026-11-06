@@ -479,9 +479,7 @@ pub(super) fn evaluate_visual_and_crop_match_prepared(
         // require multiscale similarity >= 0.65 to ensure the match is not a low-entropy
         // artifact of matching background zeros.
         let multiscale_is_reliable = actual_multiscale_similarity
-            .map_or(true, |similarity_value| {
-                visual_similarity >= 0.85 || similarity_value >= 0.65
-            });
+            .is_none_or(|similarity_value| visual_similarity >= 0.85 || similarity_value >= 0.65);
 
         if multiscale_is_reliable {
             let mut explainable_reasons: Vec<String> = Vec::new();
@@ -832,7 +830,7 @@ mod tests {
     }
 
     #[test]
-    fn test_genuine_visual_match_is_accepted() {
+    fn test_genuine_visual_match_is_accepted() -> Result<(), Box<dyn std::error::Error>> {
         // casa1 vs casa2: identical hashes → 100% visual match
         let casa_hash: u64 = 0x4777ac2327478753;
 
@@ -855,7 +853,16 @@ mod tests {
             false,
         );
         assert!(result.is_some(), "Identical hashes should always match");
-        assert!((result.unwrap().score - 1.0).abs() < f64::EPSILON);
+        assert!(
+            (result
+                .ok_or("Expected a value in test_genuine_visual_match_is_accepted")?
+                .score
+                - 1.0)
+                .abs()
+                < f64::EPSILON
+        );
+
+        Ok(())
     }
 
     #[test]
@@ -1066,7 +1073,8 @@ mod tests {
     }
 
     #[test]
-    fn test_rotated_image_matched_via_evaluate_with_rotation() {
+    fn test_rotated_image_matched_via_evaluate_with_rotation(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let original_hash: u64 = 0x4777ac2327478753;
         let rotated_hash = rotate_dhash_180(original_hash);
 
@@ -1092,7 +1100,8 @@ mod tests {
             result.is_some(),
             "180° rotated image should be matched when rotation is enabled"
         );
-        let match_result = result.unwrap();
+        let match_result = result
+            .ok_or("Expected a value in test_rotated_image_matched_via_evaluate_with_rotation")?;
         assert!(
             (match_result.score - 1.0).abs() < f64::EPSILON,
             "Rotated match score should be 1.0"
@@ -1103,6 +1112,8 @@ mod tests {
                 .contains(&"rotation_mirroring_checked".to_string()),
             "Reasons should mention rotation/mirroring was checked"
         );
+
+        Ok(())
     }
 
     #[test]
@@ -1137,7 +1148,7 @@ mod tests {
     }
 
     #[test]
-    fn test_real_olka_sample_files() {
+    fn test_real_olka_sample_files() -> Result<(), Box<dyn std::error::Error>> {
         use crate::feature::duplicates::fingerprints::{
             compute_multiscale_dhash_256, compute_perceptual_dhash_64, compute_spatial_block_hash,
         };
@@ -1151,10 +1162,10 @@ mod tests {
                 "Sample files not found at {:?}, skipping test",
                 original_image_path
             );
-            return;
+            return Ok(());
         }
 
-        let original_image = image::open(&original_image_path).expect("Failed to open olka 2.png");
+        let original_image = image::open(&original_image_path)?;
         let original_hash = compute_perceptual_dhash_64(&original_image);
         let original_multiscale = compute_multiscale_dhash_256(&original_image);
         let original_spatial_block = compute_spatial_block_hash(&original_image);
@@ -1188,7 +1199,7 @@ mod tests {
                 continue;
             }
 
-            let sample_image = image::open(&sample_file_path).expect("Failed to open sample image");
+            let sample_image = image::open(&sample_file_path)?;
             let sample_hash = compute_perceptual_dhash_64(&sample_image);
             let sample_multiscale = compute_multiscale_dhash_256(&sample_image);
             let sample_spatial_block = compute_spatial_block_hash(&sample_image);
@@ -1281,5 +1292,7 @@ mod tests {
                 );
             }
         }
+
+        Ok(())
     }
 }

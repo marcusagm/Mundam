@@ -627,7 +627,7 @@ Validações concluídas nesta rodada:
 - Suíte Rust final em Windows/MSVC: **257 testes aprovados, zero falhas e um
   helper ignorado**, em 249,40 s. O helper é executado explicitamente pelo teste
   controlador de crash. Comando: `cargo +stable-x86_64-pc-windows-msvc test --lib --locked --quiet -j 2 --manifest-path src-tauri/Cargo.toml`.
-- Clippy global com `-D warnings`: não aprovado por pendências preexistentes
+- Clippy global com `-D warnings` nesta primeira rodada: não aprovado por pendências preexistentes
   fora das correções desta checagem, como `unwrap` em `search_builder.rs`,
   assinaturas de streaming com argumentos excessivos e MSRV em extratores de
   mídia. A checagem final sem testes apontou 19 diagnósticos residuais;
@@ -642,11 +642,12 @@ necessárias antes de afirmar capacidade ou latência de produção.
 
 ### Confirmação por plataforma e operação de reparo
 
-Esta rodada é executada no Windows/MSVC. A aprovação anterior de 240 testes no
-macOS não cobre estas mudanças. Revalidar no macOS os fluxos de edição e Undo,
-permissões Tauri, sincronização dos diretórios, APFS sensível/não sensível,
-NFC/NFD, rename apenas de capitalização e recusa entre volumes. Movimentos entre
-volumes, rename em lote e duplicação seguem fora do escopo funcional atual.
+A implementação foi inicialmente verificada pelo agente no Windows/MSVC.
+Posteriormente, o usuário confirmou que testou as operações e todos os novos
+recursos no Windows e no macOS, com funcionamento correto. Esse relato encerra
+a pendência de aceite funcional multiplataforma. Os checks executados pelo agente
+na rodada de lint estão discriminados na seção final. Movimentos entre volumes,
+rename em lote e duplicação seguem fora do escopo funcional atual.
 
 Se a recuperação encontrar um manifesto ambíguo, a inicialização retorna um
 diagnóstico de reparo em vez de iniciar observadores sobre estado indefinido.
@@ -655,3 +656,127 @@ indicada sem sobrescrever conteúdo externo e reabrir o aplicativo para nova
 tentativa. Não apagar o journal ou editar o catálogo para forçar continuidade:
 isso elimina a evidência necessária à decisão segura. A falha permanece explícita
 quando a propriedade dos arquivos não pode ser comprovada.
+
+## Encerramento do lint e aceite funcional
+
+Base desta rodada: `05c2972`, com a árvore de trabalho inicialmente limpa.
+O usuário confirmou o funcionamento das operações e dos novos recursos em Windows
+e macOS. Esta rodada trata os diagnósticos restantes de qualidade, preservando
+as regras de integridade descritas nas seções anteriores.
+
+### Frontend
+
+- `vite.config.ts`: parâmetro de `manualChunks` tipado explicitamente.
+  `tsconfig.node.json` usa target ES2020 e modo estrito, e `npm run typecheck`
+  verifica também esse projeto. A configuração do Vite deixa de depender apenas
+  da checagem do editor.
+- `libraryActions.ts`: classificação de movimentos extraída para o planejador
+  puro `libraryBatchUpdates.ts`, no mesmo módulo do store. O planejador usa
+  índices de identidades/pais e retorna patches, remoções e necessidade de refresh;
+  a aplicação ao store continua no orquestrador. Atualizações de caminho não
+  substituem notas, ratings e outros metadados autorais. Testes cobrem seleção
+  direta/recursiva, entrada/saída de assets, visualização sem filtro e ciclos.
+- `createFocusScope.ts`: o guard de comandos lê o foco atual com `untrack` no
+  momento da chamada. Isso explicita a leitura imperativa sem congelar o valor
+  inicial. O teste cobre foco, navegação entre descendentes e saída do contêiner.
+- `ImageViewer.tsx`: cursor derivado em função própria, mantendo a reatividade
+  das ferramentas e do estado de arraste, com complexidade abaixo do limite.
+- `npm run lint` inclui o Vite e falha na presença de warnings. As regras de
+  complexidade e reatividade permanecem habilitadas.
+
+### Backend e contrato IPC
+
+Os diagnósticos do Clippy foram corrigidos sem desabilitar lints. Testes falíveis
+passam a retornar `Result`, propagando falhas de IO, SQL, serde e tarefas. Valores
+opcionais obrigatórios produzem erro explícito; mutexes de fixtures propagam
+poisoning. As asserções originais, inclusive as negativas, foram preservadas.
+
+Parâmetros de segmento de vídeo foram agrupados em `SegmentRequest`. O worker de
+duplicatas recebe o `FingerprintProcessor` já composto e continua compartilhando
+o orçamento do coordenador. As referências de cache têm uma projeção nomeada
+`AssetCachePin`, com as mesmas proteções de thumbnail, preview e lease.
+Consultas de tags usam pattern matching em vez de testar e depois desembrulhar
+opções; módulos de teste foram posicionados após os itens de produção.
+As operações de divisibilidade em SAI voltaram a usar aritmética compatível com
+o MSRV declarado, sem elevar o requisito de Rust.
+
+`update_tag` recebe o `UpdateTagPayload` existente, em vez de uma lista extensa
+de argumentos. O serviço frontend envia `{ payload: { id, ...options } }`;
+campos camelCase, valores `false` e reset explícito são cobertos pelo teste de
+contrato. É necessário recompilar/reiniciar o processo Tauri para usar o backend
+e o frontend correspondentes a esse contrato; hot reload isolado não atualiza
+a assinatura do comando nativo.
+
+### Validação desta rodada
+
+- Frontend: **177 testes aprovados em 39 arquivos**.
+- `npm run lint`: aprovado, incluindo `vite.config.ts`, sem erros ou warnings.
+- `npm run typecheck`: aprovado para a aplicação e a configuração Vite em modo estrito.
+- `npm run build` e `npm run check:library`: aprovados.
+- `cargo fmt --all -- --check`: aprovado.
+- `cargo clippy --workspace --all-targets --all-features --locked -j 2 -- -D warnings`:
+  aprovado no Windows/MSVC com Rust/Clippy 1.94.0, sem suprimir as regras existentes.
+  Esse resultado não cobria a toolchain GNU 1.99.1 usada pelo comando padrão
+  do workspace; a revalidação e as correções adicionais estão na seção seguinte.
+- Suíte Rust da biblioteca no Windows/MSVC: **257 testes aprovados, zero falhas
+  e um helper ignorado**, em 358,13 s. O helper de crash é executado pelo teste
+  controlador. Comando: `cargo +stable-x86_64-pc-windows-msvc test --lib --locked --quiet -j 1 --manifest-path src-tauri/Cargo.toml`.
+
+A tentativa de executar todos os alvos com dois jobs foi interrompida para reduzir
+a pressão de memória da compilação nesta máquina de 8 GB. A validação executável
+foi retomada pela suíte da biblioteca, com um job. Os diagnósticos de extração de
+amostras em `src-tauri/tests` não foram executados nesta rodada; todos os alvos
+foram verificados pelo Clippy.
+
+A medição de RSS/latência em bibliotecas grandes continua sendo acompanhamento
+de desempenho, sem bloquear o aceite funcional informado nem justificar uma
+garantia de capacidade ainda não medida.
+
+## Revalidação do Clippy na toolchain padrão
+
+O relato de **89 erros** foi reproduzido com o comando sem override de toolchain.
+O diretório usa `stable-x86_64-pc-windows-gnu`, com Rust/Cargo 1.99.1 e
+Clippy 0.1.99. A validação anterior havia usado explicitamente
+`stable-x86_64-pc-windows-msvc`, com Rust/Clippy 1.94.0. O registro anterior
+era insuficiente para afirmar aprovação do comando padrão do usuário.
+
+A maior parte dos diagnósticos `double_must_use` vinha de atributos gerados
+pelas macros, não de atributos escritos nos métodos da aplicação. A dependência
+`async-trait` e o lockfile foram atualizados para **0.1.92**, cuja
+[expansão upstream](https://github.com/dtolnay/async-trait/blob/0.1.92/src/expand.rs)
+remove o atributo redundante. Essa versão e sua dependência `syn` 3.0.9 declaram
+MSRV 1.71, abaixo do MSRV 1.85 mantido pelo Mundam.
+
+A única utilização direta de `async-recursion` foi removida junto da dependência
+direta. `ensure_folder_hierarchy` agora encontra o ancestral indexado e cria
+os nós ausentes em ordem de pai para filho, por iteração. Não foram adicionados
+`allow`, alterados níveis de lint ou trocada a toolchain para ocultar os erros.
+
+As outras correções mantêm os efeitos existentes:
+
+- Os erros dos protocolos HTTP usam `Box<Response<Vec<u8>>>`, reduzindo o tamanho
+  de `Err`. Os handlers de assets, áudio e vídeo desempacotam a resposta na
+  fronteira; status, cabeçalhos e corpo continuam iguais.
+- A composição XCF usa divisão verificada nos canais. Foram adicionados testes
+  RLE mínimos para transparência, opacidade e arredondamento inteiro.
+- O encaminhamento de `ExtractionCompleted` usa um guard do `match` para
+  `COLORS`, preservando o filtro e os demais eventos.
+- Testes novos verificam os status HTTP 200/206/404/416 e a criação idempotente
+  da hierarquia, incluindo a recusa de caminhos sem ancestral indexado.
+
+A CI agora registra as versões de Rust, Cargo e Clippy antes dos checks, para
+que a evidência de validação identifique o ambiente utilizado.
+
+### Evidências da revalidação
+
+- **GNU / Rust 1.99.1 / Clippy 0.1.99:** o comando abaixo foi executado dentro de
+  `src-tauri` e terminou com código 0, sem warnings ou erros:
+
+  `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- **MSVC / Rust e Clippy 1.94.0:** o mesmo recorte de Clippy (workspace, todos os
+  alvos e recursos, com `-D warnings`) também terminou com código 0.
+- **Testes na MSVC 1.94.0:** `cargo test --lib --locked --quiet -j 1` aprovou
+  **260 testes**, com **zero falhas** e um helper de crash ignorado na chamada
+  direta, em 327,50 s. O helper é exercitado pelo teste controlador. Os três
+  testes adicionais de HTTP, XCF e hierarquia estão incluídos nesse total.
+- `cargo fmt --all -- --check` e `git diff --check`: aprovados.

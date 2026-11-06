@@ -164,18 +164,18 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_extract_eps_metadata() {
+    fn test_extract_eps_metadata() -> Result<(), Box<dyn std::error::Error>> {
         let eps_content = "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 10 20 410 520\n%%EOF";
-        let mut temporary_file = NamedTempFile::new().expect("Failed to create temporary file");
-        temporary_file
-            .write_all(eps_content.as_bytes())
-            .expect("Failed to write to temporary file");
+        let mut temporary_file = NamedTempFile::new()?;
+        temporary_file.write_all(eps_content.as_bytes())?;
         let path = temporary_file.path();
 
-        let metadata = extract_eps_metadata(path).expect("Failed to extract EPS metadata");
+        let metadata = extract_eps_metadata(path)?;
         let technical = &metadata["technical"];
         assert_eq!(technical["container"], "EPS/PS");
         assert_eq!(technical["width"], 400);
         assert_eq!(technical["height"], 500);
+
+        Ok(())
     }
 }

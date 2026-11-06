@@ -192,7 +192,7 @@ struct SaiPageReader<R: Read + Seek> {
 impl<R: Read + Seek> SaiPageReader<R> {
     fn new(mut reader: R) -> Result<Self, SaiError> {
         let file_size = reader.seek(SeekFrom::End(0))? as usize;
-        if !file_size.is_multiple_of(PAGE_SIZE) || file_size == 0 {
+        if file_size % PAGE_SIZE != 0 || file_size == 0 {
             return Err(SaiError::InvalidFileSize);
         }
         Ok(SaiPageReader {
@@ -249,7 +249,7 @@ impl<R: Read + Seek> SaiPageReader<R> {
     }
 
     fn fetch_page(&mut self, page_index: usize) -> Result<[u32; PAGE_U32_COUNT], SaiError> {
-        if page_index.is_multiple_of(TABLE_SPAN) {
+        if page_index % TABLE_SPAN == 0 {
             self.fetch_table_page(page_index)
         } else {
             self.fetch_data_page(page_index)
@@ -273,7 +273,7 @@ impl<R: Read + Seek> SaiPageReader<R> {
         let mut current_page_index = start_page_index;
         let mut bytes_remaining = total_size;
         while bytes_remaining > 0 && current_page_index != 0 {
-            if current_page_index.is_multiple_of(TABLE_SPAN) {
+            if current_page_index % TABLE_SPAN == 0 {
                 current_page_index += 1;
                 continue;
             }

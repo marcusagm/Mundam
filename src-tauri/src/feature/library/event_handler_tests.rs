@@ -10,6 +10,65 @@ use crate::infra::{
 };
 
 #[tokio::test]
+async fn hierarchy_creation_preserves_parent_order_and_rejects_unowned_paths(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = crate::processing::workers::test_support::ProcessingFixture::new().await?;
+    let root_path = fixture.data.path().join("indexed");
+    let leaf_path = root_path.join("parent/leaf");
+    tokio::fs::create_dir_all(&leaf_path).await?;
+    let root = fixture
+        .ledger
+        .execute(LedgerCommand::CreateFolder(CreateFolderPayload {
+            parent_id: None,
+            name: "indexed".into(),
+            path: root_path.clone(),
+        }))
+        .await?;
+    let indexer = LibraryIndexer::new(
+        fixture.queries.clone(),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.registry.clone(),
+    );
+    let leaf_id = indexer
+        .ensure_folder_hierarchy(&leaf_path)
+        .await?
+        .ok_or("Expected an indexed leaf")?;
+    let parent_id = fixture
+        .queries
+        .find_folder_by_path(&root_path.join("parent").to_string_lossy())
+        .await?
+        .ok_or("Expected an indexed parent")?;
+    let leaf = fixture
+        .queries
+        .get_folder_by_id(&leaf_id)
+        .await?
+        .ok_or("Expected leaf metadata")?;
+    assert_eq!(leaf.parent_id.as_deref(), Some(parent_id.as_str()));
+    let parent = fixture
+        .queries
+        .get_folder_by_id(&parent_id)
+        .await?
+        .ok_or("Expected parent metadata")?;
+    assert_eq!(parent.parent_id, Some(root.id));
+    let count = fixture.queries.list_all_subfolders().await?.len();
+    assert_eq!(
+        indexer.ensure_folder_hierarchy(&leaf_path).await?,
+        Some(leaf_id)
+    );
+    assert_eq!(fixture.queries.list_all_subfolders().await?.len(), count);
+
+    let unowned = fixture.data.path().join("unowned/leaf");
+    tokio::fs::create_dir_all(&unowned).await?;
+    assert!(matches!(
+        indexer.ensure_folder_hierarchy(&unowned).await,
+        Err(crate::core::AppError::NotFound(_))
+    ));
+    assert_eq!(fixture.queries.list_all_subfolders().await?.len(), count);
+    Ok(())
+}
+
+#[tokio::test]
 async fn split_delete_create_preserves_identity_and_external_changes_ignore_ancestor_hints(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;

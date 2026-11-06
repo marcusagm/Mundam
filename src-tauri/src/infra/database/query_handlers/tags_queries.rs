@@ -141,28 +141,24 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn test_get_tags_for_assets_empty() {
-        let temp_directory = tempdir().expect("Failed to create temporary directory");
+    async fn test_get_tags_for_assets_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_directory = tempdir()?;
         let database_path = temp_directory.path().join("test_mundam.db");
-        let database_manager = DbManager::new(&database_path)
-            .await
-            .expect("Failed to initialize DbManager");
+        let database_manager = DbManager::new(&database_path).await?;
         let format_registry = FormatRegistry::new();
 
         let tags_by_asset_identifier =
-            get_tags_for_assets(database_manager.pool(), &format_registry, &[])
-                .await
-                .expect("Query must succeed for empty asset list");
+            get_tags_for_assets(database_manager.pool(), &format_registry, &[]).await?;
         assert!(tags_by_asset_identifier.is_empty());
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_get_tags_for_assets_batch() {
-        let temp_directory = tempdir().expect("Failed to create temporary directory");
+    async fn test_get_tags_for_assets_batch() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_directory = tempdir()?;
         let database_path = temp_directory.path().join("test_mundam.db");
-        let database_manager = DbManager::new(&database_path)
-            .await
-            .expect("Failed to initialize DbManager");
+        let database_manager = DbManager::new(&database_path).await?;
         let format_registry = FormatRegistry::new();
 
         sqlx::query(
@@ -185,8 +181,7 @@ mod tests {
             "#,
         )
         .execute(database_manager.pool())
-        .await
-        .expect("Failed to seed tags");
+        .await?;
 
         let requested_identifiers = vec!["test-asset-1".to_string(), "test-asset-2".to_string()];
         let tags_by_asset_identifier = get_tags_for_assets(
@@ -194,17 +189,18 @@ mod tests {
             &format_registry,
             &requested_identifiers,
         )
-        .await
-        .expect("Query must succeed");
+        .await?;
 
         let asset_one_tags = tags_by_asset_identifier
             .get("test-asset-1")
-            .expect("test-asset-1 should have tags");
+            .ok_or("test-asset-1 should have tags")?;
         assert_eq!(asset_one_tags.len(), 2);
 
         let asset_two_tags = tags_by_asset_identifier
             .get("test-asset-2")
-            .expect("test-asset-2 should have tags");
+            .ok_or("test-asset-2 should have tags")?;
         assert_eq!(asset_two_tags.len(), 1);
+
+        Ok(())
     }
 }

@@ -30,6 +30,12 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
     const [startPos, setStartPos] = createSignal({ x: 0, y: 0 });
     const [startRotation, setStartRotation] = createSignal(0);
 
+    const cursor = () => {
+        if (tool() === 'select') return 'default';
+        if (tool() === 'pan') return isDragging() ? 'grabbing' : 'grab';
+        return 'crosshair';
+    };
+
     // Initial Fit Logic
     const fitToScreen = () => {
         if (!imgRef || !containerRef) return;
@@ -134,14 +140,7 @@ export const ImageViewer: Component<ImageViewerProps> = props => {
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
             style={{
-                cursor:
-                    tool() === 'select'
-                        ? 'default'
-                        : tool() === 'pan'
-                          ? isDragging()
-                              ? 'grabbing'
-                              : 'grab'
-                          : 'crosshair',
+                cursor: cursor(),
                 width: '100%',
                 height: '100%',
                 overflow: 'hidden',
