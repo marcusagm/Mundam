@@ -4,162 +4,168 @@
 
 /* Overlay */
 .ui-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  z-index: 9990;
-  animation: ui-modal-overlay-in 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  -moz-backdrop-filter: blur(8px);
-  -ms-backdrop-filter: blur(8px);
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 9990;
+    animation: ui-modal-overlay-in 0.2s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    -moz-backdrop-filter: blur(8px);
+    -ms-backdrop-filter: blur(8px);
 }
 
 @keyframes ui-modal-overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* Container */
 .ui-modal-container {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  background-color: var(--bg-surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-m);
-  box-shadow: 0 var(--p-space-m) var(--p-space-s) rgba(0, 0, 0, 0.4);
-  z-index: 9991;
-  outline: none;
-  animation: ui-modal-in 0.2s ease;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    background-color: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-m);
+    box-shadow: 0 var(--p-space-m) var(--p-space-s) rgba(0, 0, 0, 0.4);
+    z-index: 9991;
+    outline: none;
+    animation: ui-modal-in 0.2s ease;
 }
 
 @keyframes ui-modal-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -48%);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
 }
 
 /* Size variants */
 .ui-modal-sm {
-  width: 90%;
-  max-width: 400px;
+    width: 90%;
+    max-width: 400px;
 }
 
 .ui-modal-md {
-  width: 90%;
-  max-width: 550px;
+    width: 90%;
+    max-width: 550px;
 }
 
 .ui-modal-lg {
-  width: 90%;
-  max-width: 750px;
+    width: 90%;
+    max-width: 750px;
 }
 
 .ui-modal-xl {
-  width: 90%;
-  max-width: 900px;
+    width: 90%;
+    max-width: 900px;
 }
 
 .ui-modal-full {
-  width: 95%;
-  height: 90vh;
-  max-width: none;
+    width: 95%;
+    height: 90vh;
+    max-width: none;
 }
 
 /* Header */
 .ui-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--p-space-m) var(--p-space-l);
-  border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--p-space-m) var(--p-space-l);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 /*
  * macOS convention: the close button appears on the LEFT side of the header,
- * mirroring the native traffic lights. We achieve this by flipping the flex
- * order of the close button (last in DOM → first visually).
+ * mirroring the native traffic lights, with the title placed directly next to it.
  */
+.ui-modal-header--macos {
+    justify-content: flex-start;
+    gap: var(--p-space-m);
+}
+
 .ui-modal-header--macos .ui-modal-close {
-  order: -1;
+    order: -1;
 }
 
 .ui-modal-title {
-  margin: 0;
-  font-size: var(--p-font-size-l);
-  font-weight: 600;
-  color: var(--text-primary);
+    margin: 0;
+    font-size: var(--p-font-size-l);
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .ui-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--p-space-l);
-  height: var(--p-space-l);
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-s);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--p-space-l);
+    height: var(--p-space-l);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-s);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
 }
 
 .ui-modal-close:hover {
-  background-color: var(--bg-surface-2);
-  color: var(--text-primary);
+    background-color: var(--bg-surface-2);
+    color: var(--text-primary);
 }
 
 .ui-modal-close:focus-visible {
-  outline: var(--p-space-xxs) solid var(--action-primary-bg);
-  outline-offset: var(--p-space-xxs);
+    outline: var(--p-space-xxs) solid var(--action-primary-bg);
+    outline-offset: var(--p-space-xxs);
 }
 
 /* Body */
 .ui-modal-body {
-  flex: 1;
-  padding: var(--p-space-l);
-  overflow-y: auto;
-  color: var(--text-secondary);
-  font-size: var(--p-font-size-xs);
-  line-height: 1.6;
-  background-color: var(--bg-surface-1);
+    flex: 1;
+    padding: var(--p-space-l);
+    overflow-y: auto;
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+    line-height: 1.6;
+    background-color: var(--bg-surface-1);
 }
 
 .ui-modal-description {
-  margin-top: 0;
-  margin-bottom: var(--p-space-m);
-  color: var(--text-secondary);
-  font-size: var(--p-font-size-s);
-  line-height: var(--p-line-height-s);
+    margin-top: 0;
+    margin-bottom: var(--p-space-m);
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-s);
+    line-height: var(--p-line-height-s);
 }
 
 /* Footer */
 .ui-modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--p-space-s);
-  padding: var(--p-space-s);
-  border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--p-space-s);
+    padding: var(--p-space-s);
+    border-top: 1px solid var(--border-subtle);
 }
 
 /* Body scroll lock */
 body:has(.ui-modal-overlay) {
-  overflow: hidden;
+    overflow: hidden;
 }
