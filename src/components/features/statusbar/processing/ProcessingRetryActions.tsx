@@ -16,15 +16,17 @@ interface ProcessingRetryActionsProperties {
 
 /** Keeps failed retries and unsupported reevaluation as separate user decisions. */
 export const ProcessingRetryActions: Component<ProcessingRetryActionsProperties> = properties => {
-    const isDisabled = () => properties.pending || !properties.worker.online || !properties.onRetry;
-    const failed = () => properties.worker.failed + (properties.comparisonFailures ?? 0);
+    const isActionDisabled = () =>
+        properties.pending || !properties.worker.online || !properties.onRetry;
+    const totalFailedCount = () => properties.worker.failed + (properties.comparisonFailures ?? 0);
+
     return (
         <div class="processing-retry-actions">
-            <Show when={failed() > 0}>
+            <Show when={totalFailedCount() > 0}>
                 <Button
                     size="sm"
                     variant="outline"
-                    disabled={isDisabled()}
+                    disabled={isActionDisabled()}
                     onClick={() => properties.onRetry?.(properties.worker.worker, 'failed')}
                 >
                     Retry failures
@@ -34,7 +36,7 @@ export const ProcessingRetryActions: Component<ProcessingRetryActionsProperties>
                 <Button
                     size="sm"
                     variant="outline"
-                    disabled={isDisabled()}
+                    disabled={isActionDisabled()}
                     onClick={() => properties.onRetry?.(properties.worker.worker, 'unsupported')}
                 >
                     Recheck unsupported

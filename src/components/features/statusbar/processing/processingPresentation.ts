@@ -98,3 +98,54 @@ export const processingLabels: Record<ProcessingIndicator, string> = {
     warning: 'Processing needs attention',
     idle: 'Ready'
 };
+
+/** Returns semantic badge variant according to worker health and activity. */
+export function workerStatusVariant(
+    worker: WorkerSnapshot
+): 'default' | 'outline' | 'secondary' | 'success' | 'warning' | 'error' | 'info' {
+    if (!worker.online) return 'secondary';
+    if (worker.paused) return 'secondary';
+    if (worker.active > 0) return 'info';
+    if (worker.failed > 0 || (worker.blocked ?? 0) > 0) return 'warning';
+    if (worker.retry_wait > 0) return 'warning';
+    if (workerWaiting(worker)) return 'outline';
+    return 'success';
+}
+
+/** Human-friendly copy for worker status and activity. */
+export function humanWorkerPhaseLabel(phase: string | null, workerKind: WorkerKind): string {
+    if (!phase) {
+        if (workerKind === 'thumbnails') return 'Generates high-resolution previews';
+        if (workerKind === 'colors') return 'Extracts primary and palette colors';
+        if (workerKind === 'duplicates') return 'Compares image similarities';
+        return 'Processing queue';
+    }
+    const humanPhases: Record<string, string> = {
+        thumbnail: 'Generating previews',
+        colors: 'Extracting color palette',
+        fingerprinting: 'Analyzing visual similarity',
+        manual_scan: 'Scanning for duplicate media',
+        exact_matching: 'Comparing identical files',
+        visual_matching: 'Comparing similar images'
+    };
+    return humanPhases[phase] || phaseLabel(phase);
+}
+
+/** Computes aggregated items count across all active workers. */
+export function calculateTotalBacklog(workers: WorkerSnapshot[]): {
+    totalActive: number;
+    totalPending: number;
+    totalFailed: number;
+} {
+    let totalActive = 0;
+    let totalPending = 0;
+    let totalFailed = 0;
+
+    for (const worker of workers) {
+        totalActive += worker.active;
+        totalPending += worker.pending;
+        totalFailed += worker.failed;
+    }
+
+    return { totalActive, totalPending, totalFailed };
+}

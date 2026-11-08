@@ -2,7 +2,7 @@ import { For, Show, type Component } from 'solid-js';
 import type { ProcessingDiagnostic } from '../../../../core/store/processing/types';
 
 /** Presents only safe causes, never server error strings or asset paths. */
-const messages: Record<string, string> = {
+const safeDiagnosticMessages: Record<string, string> = {
     provider_missing:
         'No extractor recognizes this format. Update extractors and restart, then recheck.',
     capability_missing:
@@ -23,7 +23,8 @@ const messages: Record<string, string> = {
     unknown_unsupported:
         'An earlier attempt reported no support. Recheck after updating extractors.'
 };
-const outcomeLabels: Record<ProcessingDiagnostic['state'], string> = {
+
+const outcomeStatusLabels: Record<ProcessingDiagnostic['state'], string> = {
     failed: 'Failed',
     retry_wait: 'Waiting to retry',
     skipped: 'Unsupported',
@@ -39,13 +40,15 @@ export const ProcessingDiagnostics: Component<{
             <summary>Processing details</summary>
             <ul>
                 <For each={properties.diagnostics}>
-                    {diagnostic => (
+                    {diagnosticItem => (
                         <li>
                             <strong>
-                                {diagnostic.count} —{' '}
-                                {outcomeLabels[diagnostic.state] || 'Processing issue'}:{' '}
+                                {diagnosticItem.count} —{' '}
+                                {outcomeStatusLabels[diagnosticItem.state] || 'Processing issue'}
+                                :{' '}
                             </strong>
-                            {messages[diagnostic.issue] || messages.unknown_failure}
+                            {safeDiagnosticMessages[diagnosticItem.issue] ||
+                                safeDiagnosticMessages.unknown_failure}
                         </li>
                     )}
                 </For>

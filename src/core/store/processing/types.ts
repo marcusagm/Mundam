@@ -48,12 +48,20 @@ export interface WorkerSnapshot {
     automatic_enabled: boolean;
 }
 
+/** Operation limits, distinct from native extractor thread counts. */
+export interface ProcessingCapacity {
+    limit: number;
+    active: number;
+    waiting: number;
+    thumbnail_limit: number;
+}
+
 /** Full replacement read model; no library invalidation is implied. */
 export interface ProcessingSnapshot {
     /** Optional tools do not imply that all assets require them. */
     tools?: ExtractionToolStatus[];
     /** Operation limits, distinct from native extractor thread counts. */
-    capacity?: { limit: number; active: number; waiting: number; thumbnail_limit: number };
+    capacity?: ProcessingCapacity;
     /** Persisted comparison outcomes, separate from the per-asset queue. */
     matching?: {
         publication_sequence: number;

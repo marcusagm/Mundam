@@ -1,4 +1,4 @@
-import { Button, SectionGroup } from '../../ui';
+import { Button, SectionGroup, Switch } from '../../ui';
 import { Component, createSignal, onMount } from 'solid-js';
 import { Select } from '../../ui/Select';
 import { Input } from '../../ui/Input';
@@ -93,6 +93,15 @@ export const GeneralPanel: Component = () => {
         notification.success('Default quality updated.');
     };
 
+    const handleDeveloperModeChange = async (checked: boolean): Promise<void> => {
+        const updateResult = await settings.updateSettings({ developerMode: checked });
+        if (updateResult.success) {
+            notification.success('Settings Saved', 'Developer mode preference updated.');
+        } else {
+            notification.error('Error', updateResult.error.message);
+        }
+    };
+
     return (
         <div class="settings-panel-content general-panel">
             <h2 class="settings-panel-title">General</h2>
@@ -174,6 +183,37 @@ export const GeneralPanel: Component = () => {
             </SectionGroup>
 
             <TrashSettingsSection />
+
+            <SectionGroup
+                title="Developer Mode"
+                description="Configure diagnostic tools and advanced system telemetry."
+            >
+                <div class="general-setting-row">
+                    <div
+                        style={{
+                            display: 'flex',
+                            'flex-direction': 'column',
+                            gap: 'var(--p-space-xxs)'
+                        }}
+                    >
+                        <span class="setting-label">Enable Developer Diagnostics</span>
+                        <span
+                            style={{
+                                'font-size': 'var(--p-font-size-xxs)',
+                                color: 'var(--text-tertiary)'
+                            }}
+                        >
+                            Show Tokio concurrency slots, extraction tool status, and raw worker
+                            queues in the statusbar.
+                        </span>
+                    </div>
+                    <Switch
+                        aria-label="Enable Developer Diagnostics"
+                        checked={settings.developerMode()}
+                        onCheckedChange={handleDeveloperModeChange}
+                    />
+                </div>
+            </SectionGroup>
 
             <SectionGroup
                 title="Library Maintenance"

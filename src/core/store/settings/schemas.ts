@@ -37,7 +37,8 @@ export const SettingsPayloadSchema = z.object({
     cacheRetentionDays: z.number().min(1).max(365).optional(),
     historyLimit: z.number().min(1).max(1000).optional(),
     indexerConcurrencyLimit: z.number().min(10).max(500).optional(),
-    autoDetectDuplicates: z.boolean().optional()
+    autoDetectDuplicates: z.boolean().optional(),
+    developerMode: z.boolean().optional()
 });
 
 export type SettingsPayload = z.infer<typeof SettingsPayloadSchema>;

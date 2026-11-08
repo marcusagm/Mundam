@@ -4,6 +4,7 @@ import {
     cacheRetentionDays,
     indexerConcurrencyLimit,
     autoDetectDuplicates,
+    developerMode,
     cacheStats,
     settingsActions
 } from '../store/settingsStore';
@@ -26,6 +27,8 @@ export const useSettings = () => {
         indexerConcurrencyLimit,
         /** Whether automatic duplicate detection is triggered upon asset import */
         autoDetectDuplicates,
+        /** Whether developer diagnostics and telemetry are enabled in statusbar and views */
+        developerMode,
         /** Current cache usage statistics */
         cacheStats,
 

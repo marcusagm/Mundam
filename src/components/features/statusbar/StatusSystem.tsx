@@ -3,7 +3,7 @@ import { CircleCheck, CircleHelp, PaintRoller, Pause, Settings, TriangleAlert } 
 import { Button } from '../../ui/Button';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { Loader } from '../../ui/Loader';
-import { useSystem } from '../../../core/hooks';
+import { useSystem, useSettings } from '../../../core/hooks';
 import { useProcessing } from '../../../core/hooks/useProcessing';
 import { ProcessingActivityPanel } from './processing/ProcessingActivityPanel';
 import { processingIndicator, processingLabels } from './processing/processingPresentation';
@@ -12,6 +12,7 @@ import { isMac } from '../../../core/input/utils/platform';
 /** Displays authoritative activity and acknowledged session pause controls. */
 export const StatusSystem: Component = () => {
     const system = useSystem();
+    const settings = useSettings();
     const processing = useProcessing();
     const [isOpen, setIsOpen] = createSignal(false);
     const indicator = createMemo(() =>
@@ -54,6 +55,7 @@ export const StatusSystem: Component = () => {
                         onPause={processing.setPaused}
                         onRetry={processing.retry}
                         onCheckTools={processing.checkTools}
+                        isDeveloperMode={settings.developerMode()}
                     />
                 </PopoverContent>
             </PopoverRoot>
