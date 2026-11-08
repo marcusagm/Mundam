@@ -1,0 +1,69 @@
+/**
+ * Storage & Maintenance Panel Styles
+ */
+
+.storage-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.storage-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--p-space-m);
+    padding: var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.storage-stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+    padding: var(--p-space-s) var(--p-space-m);
+    background-color: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-s);
+}
+
+.storage-stat-label {
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.storage-stat-value {
+    font-size: var(--p-font-size-l);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.storage-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.storage-setting-row:last-child {
+    border-bottom: none;
+}
+
+.storage-control-container {
+    width: 240px;
+    max-width: 100%;
+}
+
+.storage-actions-row {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-s);
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+}
+

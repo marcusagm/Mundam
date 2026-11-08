@@ -97,10 +97,24 @@ function createShortcutStore() {
         register: (definition: ShortcutDefinition, handler?: ShortcutDefinition['handler']) => {
             const registered = createRegisteredShortcut(definition, handler);
 
-            setShortcuts(previous => {
-                const next = new Map(previous);
-                next.set(registered.id, registered);
-                return next;
+            setShortcuts(previousShortcuts => {
+                const nextShortcuts = new Map(previousShortcuts);
+                if (registered.command) {
+                    for (const [
+                        existingIdentifier,
+                        existingShortcut
+                    ] of previousShortcuts.entries()) {
+                        if (
+                            existingIdentifier !== registered.id &&
+                            existingShortcut.command === registered.command &&
+                            existingShortcut.scope === registered.scope
+                        ) {
+                            nextShortcuts.delete(existingIdentifier);
+                        }
+                    }
+                }
+                nextShortcuts.set(registered.id, registered);
+                return nextShortcuts;
             });
 
             return registered.id;

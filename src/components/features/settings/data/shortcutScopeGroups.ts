@@ -32,8 +32,19 @@ export function groupShortcutsByScope(
     shortcuts: RegisteredShortcut[]
 ): Map<string, RegisteredShortcut[]> {
     const groups = new Map<string, RegisteredShortcut[]>();
+    const seenShortcutKeys = new Set<string>();
+
     for (const shortcut of shortcuts) {
         const scope = shortcut.scope || 'global';
+        const uniquenessKey = shortcut.command
+            ? `${shortcut.command}::${scope}`
+            : `${shortcut.name}::${scope}`;
+
+        if (seenShortcutKeys.has(uniquenessKey)) {
+            continue;
+        }
+        seenShortcutKeys.add(uniquenessKey);
+
         if (!groups.has(scope)) {
             groups.set(scope, []);
         }

@@ -26,12 +26,32 @@
 
 /* Sidebar */
 .settings-sidebar {
-  width: 200px;
+  width: 210px;
   flex-shrink: 0;
   padding: 0.75rem;
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-default);
   overflow-y: auto;
+}
+
+.settings-sidebar-category {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-xxs);
+  margin-bottom: var(--p-space-m);
+}
+
+.settings-sidebar-category:last-child {
+  margin-bottom: 0;
+}
+
+.settings-sidebar-category-header {
+  padding: 0 0.75rem var(--p-space-xxs);
+  font-size: var(--p-font-size-xxs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
 }
 
 .settings-sidebar-list {

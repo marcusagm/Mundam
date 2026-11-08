@@ -1,62 +1,12 @@
-import { Component, Show } from 'solid-js';
+import { Component } from 'solid-js';
 import { Select } from '../../ui/Select';
-import { Slider } from '../../ui/Slider';
 import { Switch } from '../../ui/Switch';
 import { Alert } from '../../ui/Alert';
-import { DuplicateRuleProfile } from './types';
+import { DuplicateRulesFormProperties } from './types';
+import { DuplicateSimilaritySliders } from './DuplicateSimilaritySliders';
 import './duplicate-rules-modal.css';
 
-/**
- * Properties for the DuplicateRulesForm component.
- */
-export interface DuplicateRulesFormProperties {
-    /** Currently selected profile identifier ('exact-match', 'visual-match', 'aggressive', 'custom') */
-    selectedProfile: DuplicateRuleProfile;
-    /** Whether block-level SHA-256 exact matching is active */
-    considerExactMatch: boolean;
-    /** Whether perceptual gradient visual matching is active */
-    considerVisualMatch: boolean;
-    /** Whether 4x4 spatial block hash crop matching is active */
-    considerCropMatch: boolean;
-    /** Whether resolution differences are ignored */
-    ignoreResolutionDifference: boolean;
-    /** Whether format recompressions are ignored */
-    ignoreRecompression: boolean;
-    /** Whether rotated (90°/180°/270°) hash variants are tested */
-    allowRotation: boolean;
-    /** Whether horizontally mirrored hash variants are tested */
-    allowMirroring: boolean;
-    /** Current shared similarity threshold (0.50 to 1.00) */
-    minimumScore: number;
-    /** Current visual match threshold (0.50 to 1.00) */
-    minimumVisualScore: number;
-    /** Current crop match threshold (0.50 to 1.00) */
-    minimumCropScore: number;
-    /** Whether controls are disabled */
-    isDisabled?: boolean;
-    /** Callback when profile changes */
-    onProfileChange: (profileIdentifier: string) => void;
-    /** Callback when exact match toggle changes */
-    onConsiderExactMatchChange: (checked: boolean) => void;
-    /** Callback when visual match toggle changes */
-    onConsiderVisualMatchChange: (checked: boolean) => void;
-    /** Callback when crop match toggle changes */
-    onConsiderCropMatchChange: (checked: boolean) => void;
-    /** Callback when ignore resolution toggle changes */
-    onIgnoreResolutionDifferenceChange: (checked: boolean) => void;
-    /** Callback when ignore recompression toggle changes */
-    onIgnoreRecompressionChange: (checked: boolean) => void;
-    /** Callback when rotation toggle changes */
-    onAllowRotationChange: (checked: boolean) => void;
-    /** Callback when mirroring toggle changes */
-    onAllowMirroringChange: (checked: boolean) => void;
-    /** Callback when shared similarity threshold slider changes */
-    onMinimumScoreChange: (score: number) => void;
-    /** Callback when visual threshold slider changes */
-    onMinimumVisualScoreChange: (score: number) => void;
-    /** Callback when crop threshold slider changes */
-    onMinimumCropScoreChange: (score: number) => void;
-}
+export type { DuplicateRulesFormProperties };
 
 const DETECTION_PROFILES = [
     {
@@ -143,7 +93,6 @@ const DetectionAlgorithmsSection: Component<FormSectionProperties> = sectionProp
         </div>
     );
 };
-
 const ToleranceOptionsSection: Component<FormSectionProperties> = sectionProperties => {
     return (
         <div class="duplicate-rules-section">
@@ -214,92 +163,6 @@ const ToleranceOptionsSection: Component<FormSectionProperties> = sectionPropert
         </div>
     );
 };
-
-const SimilarityThresholdsSection: Component<FormSectionProperties> = sectionProperties => {
-    const globalPercentage = () =>
-        (sectionProperties.componentProperties.minimumScore * 100).toFixed(0);
-    const visualPercentage = () =>
-        (sectionProperties.componentProperties.minimumVisualScore * 100).toFixed(0);
-    const cropPercentage = () =>
-        (sectionProperties.componentProperties.minimumCropScore * 100).toFixed(0);
-
-    return (
-        <div class="duplicate-rules-section">
-            <h3 class="duplicate-rules-section-title">Similarity Thresholds</h3>
-
-            <div class="duplicate-rules-row-slider">
-                <div class="duplicate-rules-row-text">
-                    <span class="duplicate-rules-row-label">
-                        Global Threshold ({globalPercentage()}%)
-                    </span>
-                    <span class="duplicate-rules-row-desc">
-                        Shared fallback threshold. Used when independent thresholds are not set.
-                    </span>
-                </div>
-                <Slider
-                    value={sectionProperties.componentProperties.minimumScore}
-                    minimumValue={0.5}
-                    maximumValue={1.0}
-                    stepValue={0.01}
-                    showTicks={false}
-                    onValueChange={sectionProperties.componentProperties.onMinimumScoreChange}
-                    isDisabled={sectionProperties.isControlsDisabled}
-                />
-            </div>
-
-            <Show when={sectionProperties.componentProperties.considerVisualMatch}>
-                <div class="duplicate-rules-row-slider">
-                    <div class="duplicate-rules-row-text">
-                        <span class="duplicate-rules-row-label">
-                            Visual Match Threshold ({visualPercentage()}%)
-                        </span>
-                        <span class="duplicate-rules-row-desc">
-                            Minimum perceptual similarity required for visual matches. Lower values
-                            find more near-duplicates but increase false positives.
-                        </span>
-                    </div>
-                    <Slider
-                        value={sectionProperties.componentProperties.minimumVisualScore}
-                        minimumValue={0.5}
-                        maximumValue={1.0}
-                        stepValue={0.01}
-                        showTicks={false}
-                        onValueChange={
-                            sectionProperties.componentProperties.onMinimumVisualScoreChange
-                        }
-                        isDisabled={sectionProperties.isControlsDisabled}
-                    />
-                </div>
-            </Show>
-
-            <Show when={sectionProperties.componentProperties.considerCropMatch}>
-                <div class="duplicate-rules-row-slider">
-                    <div class="duplicate-rules-row-text">
-                        <span class="duplicate-rules-row-label">
-                            Crop Match Threshold ({cropPercentage()}%)
-                        </span>
-                        <span class="duplicate-rules-row-desc">
-                            Minimum spatial block hash overlap for crop/derivative matches. Lower
-                            values detect more aggressive crops.
-                        </span>
-                    </div>
-                    <Slider
-                        value={sectionProperties.componentProperties.minimumCropScore}
-                        minimumValue={0.5}
-                        maximumValue={1.0}
-                        stepValue={0.01}
-                        showTicks={false}
-                        onValueChange={
-                            sectionProperties.componentProperties.onMinimumCropScoreChange
-                        }
-                        isDisabled={sectionProperties.isControlsDisabled}
-                    />
-                </div>
-            </Show>
-        </div>
-    );
-};
-
 /**
  * Controlled form allowing configuration of duplicate detection rules.
  *
@@ -336,7 +199,7 @@ export const DuplicateRulesForm: Component<DuplicateRulesFormProperties> = compo
                 isControlsDisabled={isControlsDisabled()}
             />
 
-            <SimilarityThresholdsSection
+            <DuplicateSimilaritySliders
                 componentProperties={componentProperties}
                 isControlsDisabled={isControlsDisabled()}
             />

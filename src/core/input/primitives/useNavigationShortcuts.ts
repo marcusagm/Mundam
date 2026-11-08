@@ -46,6 +46,7 @@ export function useNavigationShortcuts<ViewId extends string>(
 
                 registeredIds.push(
                     shortcutStore.register({
+                        id: `nav_${item.id}`,
                         name: `Go to ${item.label}`,
                         description: `Switch to the ${item.label} view`,
                         keys: `Mod+Digit${index + 1}`,

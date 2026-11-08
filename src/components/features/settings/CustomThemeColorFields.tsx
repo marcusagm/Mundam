@@ -46,10 +46,13 @@ export const CustomThemeColorFields: Component<
      */
     const getEffectiveHexadecimalColor = (token: string): string => {
         appliedVersion();
-        const cssColor =
-            theme()?.colors[token] ??
-            getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-        return (cssColor && convertCssColorToHexadecimal(cssColor)) || FALLBACK_HEXADECIMAL_COLOR;
+        const customThemeColor = theme()?.colors[token];
+        if (customThemeColor) {
+            return convertCssColorToHexadecimal(customThemeColor) || customThemeColor;
+        }
+        const inheritedCssValue =
+            getComputedStyle(document.documentElement).getPropertyValue(token).trim() || token;
+        return convertCssColorToHexadecimal(inheritedCssValue) || FALLBACK_HEXADECIMAL_COLOR;
     };
 
     /**

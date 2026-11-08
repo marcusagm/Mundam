@@ -68,3 +68,55 @@ export interface DuplicateRuleConfiguration {
     /** Independent minimum score for crop/derived matches (0.50 to 1.00) */
     minimumCropScore: number;
 }
+
+/**
+ * Properties for the DuplicateRulesForm component.
+ */
+export interface DuplicateRulesFormProperties {
+    /** Currently selected profile identifier ('exact-match', 'visual-match', 'aggressive', 'custom') */
+    selectedProfile: DuplicateRuleProfile;
+    /** Whether block-level SHA-256 exact matching is active */
+    considerExactMatch: boolean;
+    /** Whether perceptual gradient visual matching is active */
+    considerVisualMatch: boolean;
+    /** Whether 4x4 spatial block hash crop matching is active */
+    considerCropMatch: boolean;
+    /** Whether resolution differences are ignored */
+    ignoreResolutionDifference: boolean;
+    /** Whether format recompressions are ignored */
+    ignoreRecompression: boolean;
+    /** Whether rotated (90°/180°/270°) hash variants are tested */
+    allowRotation: boolean;
+    /** Whether horizontally mirrored hash variants are tested */
+    allowMirroring: boolean;
+    /** Current shared similarity threshold (0.50 to 1.00) */
+    minimumScore: number;
+    /** Current visual match threshold (0.50 to 1.00) */
+    minimumVisualScore: number;
+    /** Current crop match threshold (0.50 to 1.00) */
+    minimumCropScore: number;
+    /** Whether controls are disabled */
+    isDisabled?: boolean;
+    /** Callback when profile changes */
+    onProfileChange: (profileIdentifier: string) => void;
+    /** Callback when exact match toggle changes */
+    onConsiderExactMatchChange: (checked: boolean) => void;
+    /** Callback when visual match toggle changes */
+    onConsiderVisualMatchChange: (checked: boolean) => void;
+    /** Callback when crop match toggle changes */
+    onConsiderCropMatchChange: (checked: boolean) => void;
+    /** Callback when ignore resolution toggle changes */
+    onIgnoreResolutionDifferenceChange: (checked: boolean) => void;
+    /** Callback when ignore recompression toggle changes */
+    onIgnoreRecompressionChange: (checked: boolean) => void;
+    /** Callback when rotation toggle changes */
+    onAllowRotationChange: (checked: boolean) => void;
+    /** Callback when mirroring toggle changes */
+    onAllowMirroringChange: (checked: boolean) => void;
+    /** Callback when minimum score slider changes */
+    onMinimumScoreChange: (value: number) => void;
+    /** Callback when visual score slider changes */
+    onMinimumVisualScoreChange: (value: number) => void;
+    /** Callback when crop score slider changes */
+    onMinimumCropScoreChange: (value: number) => void;
+}

@@ -3,31 +3,41 @@
  */
 
 .general-panel {
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
 }
 
-/* .general-panel .section-group {
-    margin-bottom: var(--p-space-l);
-} */
-
 .general-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--p-space-m);
-  padding: 0.75rem var(--p-space-m);
-  background-color: var(--bg-page);
-  border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .general-setting-row:last-child {
-  border-bottom: none;
+    border-bottom: none;
+}
+
+.general-setting-text-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
 }
 
 .setting-label {
     font-size: var(--p-font-size-xs);
-    color: var(--text-secondary);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.general-setting-sublabel {
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    max-width: 500px;
 }
 
 .setting-note {
@@ -39,39 +49,5 @@
 
 .setting-action-row {
     padding: 0.75rem var(--p-space-m);
-    background-color: var(--bg-page);
-}
-
-/* Cache Stats */
-.cache-stats {
-    display: flex;
-    gap: var(--p-space-xl);
-    padding: var(--p-space-m);
-    background-color: var(--bg-page);
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.cache-stat-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--p-space-xs);
-}
-
-.cache-stat-label {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.cache-stat-value {
-    font-size: var(--text-l);
-    font-weight: var(--font-semibold);
-    color: var(--text-1);
-}
-
-/* Cache Actions */
-.cache-actions {
-    display: flex;
-    gap: var(--p-space-m);
+    background-color: var(--bg-surface-1);
 }

@@ -60,7 +60,8 @@ export const DuplicateScanControls: Component = () => {
                     </Button>
                 </Show>
                 <Button
-                    variant="destructive"
+                    variant="outline"
+                    aria-label="Rebuild Index"
                     onClick={() => setIsConfirming(true)}
                     disabled={!scan.canStart()}
                 >

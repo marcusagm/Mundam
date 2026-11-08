@@ -62,6 +62,47 @@
     padding: 0.5rem 0;
 }
 
+.duplicate-rules-slider-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xs);
+    padding: var(--p-space-m);
+    background-color: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-s);
+}
+
+.duplicate-rules-slider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-s);
+}
+
+.duplicate-rules-percentage-badge {
+    font-size: var(--p-font-size-xxs);
+    font-weight: 600;
+    color: var(--action-primary-text);
+    background-color: var(--action-primary-bg);
+    padding: 2px 6px;
+    border-radius: var(--radius-s);
+}
+
+.duplicate-rules-slider-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+    margin-top: var(--p-space-xs);
+}
+
+.duplicate-rules-slider-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-tertiary);
+    margin-top: var(--p-space-xxs);
+}
+
 .duplicate-rules-info {
     display: flex;
     align-items: center;

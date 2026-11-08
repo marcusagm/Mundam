@@ -359,32 +359,4 @@ export function isSafeCssColor(value: string): boolean {
     return value.length <= MAXIMUM_CSS_COLOR_LENGTH && SAFE_CSS_COLOR_PATTERN.test(value.trim());
 }
 
-/**
- * Converts any CSS color understood by the browser (including oklch) to `#rrggbb`
- * by rasterizing it on a 1x1 canvas.
- *
- * @param {string} cssColor - The CSS color to convert.
- * @returns {string | null} The hexadecimal color, or null if it cannot be resolved.
- *
- * @example
- * ```ts
- * convertCssColorToHexadecimal('rgb(255, 0, 0)'); // '#ff0000'
- * ```
- */
-export function convertCssColorToHexadecimal(cssColor: string): string | null {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) return null;
-
-    context.clearRect(0, 0, 1, 1);
-    context.fillStyle = '#000';
-    context.fillStyle = cssColor;
-    context.fillRect(0, 0, 1, 1);
-
-    const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
-    if (alpha === 0) return null;
-
-    return `#${[red, green, blue].map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
-}
+export { resolveComputedCssColor, convertCssColorToHexadecimal } from './cssColorConverter';
