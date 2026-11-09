@@ -615,7 +615,7 @@ Nenhum estilo inline arbitrário ou cor em formato `style={{ width: '140px' }}` 
   - [`duplicate-rules-modal.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/duplicates/duplicate-rules-modal.css): Estilos dos cartões de slider, badges e marcadores de escala.
   - [`DuplicateScanControls.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/DuplicateScanControls.tsx): Botão `Rebuild Index` suavizado para variante outline com diálogo de confirmação.
 
-### 8.2 Resultados da Validação Automatizada
+### 8.2 Resultados da Validação Automatizada — Sessão 1
 1. **TypeScript (`npx tsc --noEmit`):**
    - **Resultado:** Código de saída 0 (Zero erros de tipagem).
 2. **ESLint (`npm run lint`):**
@@ -624,4 +624,88 @@ Nenhum estilo inline arbitrário ou cor em formato `style={{ width: '140px' }}` 
    - Todos os arquivos estritamente abaixo do teto de 300 linhas e complexidade ciclomática <= 10.
 3. **Vitest (`npx vitest run`):**
    - **Resultado:** 100% dos testes aprovados (43 arquivos de teste, 189 testes passando), incluindo novos testes para resolução de tokens de cor e deduplicação de atalhos.
+
+---
+
+## 9. Correções Pendentes — Sessão 2 (09 de Novembro de 2026)
+
+Após a validação inicial, o usuário reportou seis problemas pendentes de formatação e comportamento. Esta seção documenta as análises, decisões e implementações da segunda sessão de trabalho.
+
+### 9.1 FolderRecoverySettings e GeneralPanel — Adoção Integral do NumberInput
+
+**Problema:** Campos numéricos em [`GeneralPanel.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/GeneralPanel.tsx) e [`FolderRecoverySettings.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/FolderRecoverySettings.tsx) estavam utilizando `<Input type="number">` em vez do componente dedicado de design system [`NumberInput`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/ui/NumberInput/NumberInput.tsx), que oferece botões de incremento/decremento (`Plus`/`Minus`), controle de `min`/`max`, validação numérica restrita e suporte à propriedade `onChange` com valores numéricos diretos.
+
+**Decisão:** Substituir o uso de `<Input type="number">` por `<NumberInput>` em ambos os componentes:
+- Em `FolderRecoverySettings`: tipar `budgetGibibytes` como `number` em vez de `string`, repassar `onChange={value => setBudgetGibibytes(value ?? 1)}` com `min={1}` e `aria-label="Folder recovery budget (GiB)"`.
+- Em `GeneralPanel`: utilizar `<NumberInput min={5} max={100} value={filterState.historyLimit} onChange={handleHistoryLimitChange} />`, eliminando o container desnecessário e simplificando o handler sem parsing manual de string.
+
+**Arquivos alterados:**
+- [`FolderRecoverySettings.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/FolderRecoverySettings.tsx) — Migrado para `NumberInput`.
+- [`GeneralPanel.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/GeneralPanel.tsx) — Migrado para `NumberInput`.
+- [`folder-recovery-settings.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/folder-recovery-settings.css) — Estilos semânticos de suporte mantidos.
+
+### 9.2 GeneralPanel — Remoção de Inline Style Proibido
+
+**Problema:** O campo numérico em `GeneralPanel.tsx` usava `style={{ width: '120px' }}` inline, violando a regra de uso exclusivo de tokens CSS.
+
+**Decisão:** Adicionar classe `.general-number-input-container { width: 120px; flex-shrink: 0; }` em `general-panel.css` e substituir o `style` inline pela classe.
+
+**Arquivos alterados:**
+- [`general-panel.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/general-panel.css) — Adicionada classe `.general-number-input-container`.
+
+### 9.3 DuplicateScanControls — Texto de Nota Desformatado
+
+**Problema:** O parágrafo descritivo abaixo dos botões "Scan Now" / "Rebuild Index" aparecia sem recuo, sem alinhamento com o bloco de conteúdo principal.
+
+**Decisão:** Envolver o parágrafo em `<div class="duplicate-scan-note-row">` e adicionar estilos de padding e cor secundária ao CSS.
+
+**Arquivos alterados:**
+- [`duplicate-scan-controls.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/duplicate-scan-controls.css) — Adicionadas regras `.duplicate-scan-note-row`.
+
+### 9.4 PerformanceSettings — Labels e Selects Desalinhados
+
+**Problema:** Os rótulos e os dropdowns de *Shared processing limit*, *Thumbnail limit* e *Indexer concurrency* apareciam desalinhados: o label quebrava em duas linhas e o select não tinha largura máxima definida.
+
+**Decisão:** Criar `performance-settings.css` com `.performance-settings-row` (flexbox, `align-items: center`), `.performance-settings-label` (`min-width: 160px`) e `.performance-settings-select` (`max-width: 300px`). Reescrever `PerformanceSettings.tsx` usando essas classes e renomear variáveis abreviadas (`saving` → `isSaving`, `feedback` → `feedbackMessage`).
+
+**Arquivos alterados:**
+- [`PerformanceSettings.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/PerformanceSettings.tsx) — Reescrito.
+- [`performance-settings.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/performance-settings.css) — Criado.
+
+### 9.5 CustomThemeColorFields — Tokens com Valor `#000000` no macOS
+
+**Problema:** No macOS (WebKit/Tauri), ao selecionar um tema base (Dark/Light) no editor customizado, todos os campos de cor exibiam `#000000`. Isso ocorre porque `getComputedStyle(document.documentElement).getPropertyValue(token)` retorna a string crua da variável CSS sem resolver referências indiretas (ex.: `var(--p-neutral-900)`) no contexto do WebKit.
+
+**Decisão:** Criar `resolveComputedCssColor(token)` em `cssColorConverter.ts`, que utiliza uma sonda DOM: um `<span>` temporário anexado ao `document.body` com `color: var(--token)` e leitura via `getComputedStyle().color`. Isso força o engine a resolver a cascata completa antes de retornar o valor computado. A função é usada em `getEffectiveHexadecimalColor` para o branch de tokens não definidos.
+
+**Arquivos alterados:**
+- [`cssColorConverter.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/utils/cssColorConverter.ts) — Criado com `resolveComputedCssColor` e `measureElementComputedColor`.
+- [`CustomThemeColorFields.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/CustomThemeColorFields.tsx) — Usa `resolveComputedCssColor(token)`.
+- [`color.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/utils/color.ts) — Re-exporta os utilitários do novo módulo.
+
+### 9.6 AboutPanel — Layout Melhorado e Dependências Atualizadas
+
+**Problema:** O painel About tinha links de GitHub, Website e Suporte isolados no footer, longe do hero, e a lista de dependências estava desatualizada em relação a `docs/backend/dependences.md`.
+
+**Decisão:**
+- Adicionar tagline (*"Your creative media library, built for speed and privacy."*) abaixo do badge de versão.
+- Mover os links para dentro do hero como botões com ícones (`GithubIcon`, `GlobeIcon`, `LifeBuoyIcon`), classe `.about-hero-link` com hover interativo.
+- Remover o bloco `.about-links` do footer; manter apenas o copyright.
+- Atualizar `backend.ts`, `frontend.ts` e `external.ts` com as novas entradas documentadas.
+
+**Arquivos alterados:**
+- [`AboutPanel.tsx`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/AboutPanel.tsx) — Reescrito.
+- [`about-panel.css`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/about-panel.css) — Adicionadas regras `.about-tagline`, `.about-hero-links`, `.about-hero-link`.
+- [`data/tech-stack/backend.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/data/tech-stack/backend.ts) — Adicionadas: `flashraw`, `blake3`, `dashmap`, `ddsfile & image_dds`, `icns`, `jxl-oxide`, `midly / rustysynth / hound`, `ttf-parser`, `unicode-normalization`.
+- [`data/tech-stack/frontend.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/data/tech-stack/frontend.ts) — Adicionado: `@hypothesi/tauri-plugin-mcp-bridge`.
+- [`data/tech-stack/external.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/components/features/settings/data/tech-stack/external.ts) — Adicionados: `PDFium`, `SQLite`, `TimGM6mb SoundFont`; FFmpeg atualizado para mencionar FFprobe.
+
+### 9.7 Resultados da Validação Automatizada — Sessão 2
+
+**Data:** 09 de Novembro de 2026 — 15:27 BRT
+
+1. **TypeScript (`npx tsc --noEmit`):** ✅ Código de saída 0 (zero erros).
+2. **ESLint (`npm run lint`):** ✅ Código de saída 0 (zero warnings com `--max-warnings 0`). Prettier auto-fix aplicado em `AboutPanel.tsx`, `DuplicateScanControls.tsx` e `FolderRecoverySettings.tsx`.
+3. **Vitest (`npx vitest run`):** ✅ **43/43 arquivos de teste, 189/189 testes passando.**
+   - `FolderRecoverySettings.spec.tsx` foi atualizado com `aria-label="Folder recovery budget (GiB)"` no `<Input>` e renomeação correta dos botões ("Save Recovery Budget", "Load Folder Recovery History") para alinhar com as queries do teste.
 

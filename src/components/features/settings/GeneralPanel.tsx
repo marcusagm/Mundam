@@ -1,6 +1,5 @@
 import { Component, onMount } from 'solid-js';
-import { SectionGroup, Switch } from '../../ui';
-import { Input } from '../../ui/Input';
+import { SectionGroup, Switch, NumberInput } from '../../ui';
 import { useSettings, useNotification } from '../../../core/hooks';
 import { filterState, filterActions } from '../../../core/store/filter';
 import './general-panel.css';
@@ -28,12 +27,9 @@ export const GeneralPanel: Component = () => {
         }
     };
 
-    const handleHistoryLimitChange = (
-        event: InputEvent & { currentTarget: HTMLInputElement }
-    ): void => {
-        const numericLimit = parseInt(event.currentTarget.value, 10);
-        if (!isNaN(numericLimit) && numericLimit > 0) {
-            filterActions.setHistoryLimit(numericLimit);
+    const handleHistoryLimitChange = (value: number | undefined): void => {
+        if (value !== undefined && value > 0) {
+            filterActions.setHistoryLimit(value);
         }
     };
 
@@ -56,15 +52,12 @@ export const GeneralPanel: Component = () => {
                             forwards navigation.
                         </span>
                     </div>
-                    <div style={{ width: '120px' }}>
-                        <Input
-                            type="number"
-                            min="5"
-                            max="100"
-                            value={filterState.historyLimit}
-                            onInput={handleHistoryLimitChange}
-                        />
-                    </div>
+                    <NumberInput
+                        min={5}
+                        max={100}
+                        value={filterState.historyLimit}
+                        onChange={handleHistoryLimitChange}
+                    />
                 </div>
             </SectionGroup>
 

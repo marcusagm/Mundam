@@ -1,0 +1,78 @@
+/**
+ * Folder Recovery Settings Styles
+ */
+
+.folder-recovery-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.folder-recovery-budget-input {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.folder-recovery-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.folder-recovery-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.folder-recovery-entry:last-child {
+    border-bottom: none;
+}
+
+.folder-recovery-entry-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-xxs);
+    min-width: 0;
+    flex: 1;
+}
+
+.folder-recovery-entry-path {
+    font-size: var(--p-font-size-xs);
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-recovery-entry-meta {
+    font-size: var(--p-font-size-xxs);
+    color: var(--text-tertiary);
+}
+
+.folder-recovery-entry-restored {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
+    font-style: italic;
+    flex-shrink: 0;
+}
+
+.folder-recovery-load-more {
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.folder-recovery-error {
+    padding: var(--p-space-s) var(--p-space-m);
+    font-size: var(--p-font-size-xs);
+    color: var(--action-destructive-text, #ef4444);
+    background-color: var(--bg-surface-1);
+    border-top: 1px solid var(--border-subtle);
+}

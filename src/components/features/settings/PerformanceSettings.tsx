@@ -4,6 +4,7 @@ import { Select } from '../../ui/Select';
 import type { SelectOption } from '../../ui/Select/types';
 import { useSettings } from '../../../core/hooks';
 import type { SettingsPayload } from '../../../core/store/settings/schemas';
+import './performance-settings.css';
 
 const budgetOptions = [
     { value: '0', label: 'Automatic (Recommended)' },
@@ -36,29 +37,29 @@ function configuredOptions(options: SelectOption[], value: number): SelectOption
 /** Controls live media admission independently of the indexer's startup limit. */
 export const PerformanceSettings: Component = () => {
     const settings = useSettings();
-    const [saving, setSaving] = createSignal(false);
-    const [feedback, setFeedback] = createSignal('');
+    const [isSaving, setIsSaving] = createSignal(false);
+    const [feedbackMessage, setFeedbackMessage] = createSignal('');
 
     /** Persists before acknowledging the effective runtime policy change. */
     const save = async (payload: SettingsPayload, requiresRestart = false): Promise<void> => {
-        if (saving()) return;
-        setSaving(true);
-        setFeedback('Saving performance settings…');
+        if (isSaving()) return;
+        setIsSaving(true);
+        setFeedbackMessage('Saving performance settings…');
         try {
             const result = await settings.updateSettings(payload);
             if (!result.success) {
-                setFeedback('Could not save performance settings. Please try again.');
+                setFeedbackMessage('Could not save performance settings. Please try again.');
                 return;
             }
-            setFeedback(
+            setFeedbackMessage(
                 requiresRestart
                     ? 'Indexer setting saved. Restart the app to apply it.'
                     : 'Processing limits saved. Current operations finish normally; new operations use the updated limits.'
             );
         } catch {
-            setFeedback('Could not save performance settings. Please try again.');
+            setFeedbackMessage('Could not save performance settings. Please try again.');
         } finally {
-            setSaving(false);
+            setIsSaving(false);
         }
     };
 
@@ -67,52 +68,61 @@ export const PerformanceSettings: Component = () => {
             title="Performance"
             description="Thumbnails, colors and duplicate analysis share processing capacity. Higher limits can increase CPU and disk usage."
         >
-            <div class="general-setting-row">
-                <span class="setting-label" id="shared-processing-label">
+            <div class="performance-settings-row">
+                <span class="performance-settings-label" id="shared-processing-label">
                     Shared processing limit:
                 </span>
-                <Select
-                    aria-labelledby="shared-processing-label"
-                    options={configuredOptions(budgetOptions, settings.processingConcurrency())}
-                    value={String(settings.processingConcurrency())}
-                    disabled={saving()}
-                    onValueChange={value => void save({ processingConcurrency: Number(value) })}
-                />
+                <div class="performance-settings-select">
+                    <Select
+                        aria-labelledby="shared-processing-label"
+                        options={configuredOptions(budgetOptions, settings.processingConcurrency())}
+                        value={String(settings.processingConcurrency())}
+                        disabled={isSaving()}
+                        onValueChange={value => void save({ processingConcurrency: Number(value) })}
+                    />
+                </div>
             </div>
-            <div class="general-setting-row">
-                <span class="setting-label" id="thumbnail-processing-label">
+            <div class="performance-settings-row">
+                <span class="performance-settings-label" id="thumbnail-processing-label">
                     Thumbnail limit:
                 </span>
-                <Select
-                    aria-labelledby="thumbnail-processing-label"
-                    options={configuredOptions(thumbnailOptions, settings.thumbnailThreads())}
-                    value={String(settings.thumbnailThreads())}
-                    disabled={saving()}
-                    onValueChange={value => void save({ thumbnailThreads: Number(value) })}
-                />
+                <div class="performance-settings-select">
+                    <Select
+                        aria-labelledby="thumbnail-processing-label"
+                        options={configuredOptions(thumbnailOptions, settings.thumbnailThreads())}
+                        value={String(settings.thumbnailThreads())}
+                        disabled={isSaving()}
+                        onValueChange={value => void save({ thumbnailThreads: Number(value) })}
+                    />
+                </div>
             </div>
-            <p class="setting-note">
+            <p class="performance-settings-note">
                 Media limits apply without restarting. The thumbnail limit cannot exceed shared
                 capacity. See effective limits and pause workers in System Activity. These settings
                 limit operations; extractors may use multiple CPU threads.
             </p>
-            <div class="general-setting-row">
-                <span class="setting-label" id="indexer-processing-label">
+            <div class="performance-settings-row">
+                <span class="performance-settings-label" id="indexer-processing-label">
                     Indexer concurrency:
                 </span>
-                <Select
-                    aria-labelledby="indexer-processing-label"
-                    options={configuredOptions(indexerOptions, settings.indexerConcurrencyLimit())}
-                    value={String(settings.indexerConcurrencyLimit())}
-                    disabled={saving()}
-                    onValueChange={value =>
-                        void save({ indexerConcurrencyLimit: Number(value) }, true)
-                    }
-                />
+                <div class="performance-settings-select">
+                    <Select
+                        aria-labelledby="indexer-processing-label"
+                        options={configuredOptions(
+                            indexerOptions,
+                            settings.indexerConcurrencyLimit()
+                        )}
+                        value={String(settings.indexerConcurrencyLimit())}
+                        disabled={isSaving()}
+                        onValueChange={value =>
+                            void save({ indexerConcurrencyLimit: Number(value) }, true)
+                        }
+                    />
+                </div>
             </div>
-            <p class="setting-note">Indexer concurrency requires an app restart.</p>
-            <p role="status" aria-live="polite">
-                {feedback()}
+            <p class="performance-settings-note">Indexer concurrency requires an app restart.</p>
+            <p role="status" aria-live="polite" class="performance-settings-status">
+                {feedbackMessage()}
             </p>
         </SectionGroup>
     );

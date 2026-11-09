@@ -1,11 +1,13 @@
 import { Component, For, createMemo } from 'solid-js';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { GithubIcon, GlobeIcon, LifeBuoyIcon } from 'lucide-solid';
 import { appearance } from '../../../core/store/appearanceStore';
 import logoColor from '../../../assets/logo-color.svg';
 import logoWhite from '../../../assets/logo-white.svg';
 import './about-panel.css';
 
 import { TECH_STACK } from './data/tech-stack';
+
 export const AboutPanel: Component = () => {
     const handleOpenLink = (url: string) => {
         openUrl(url).catch((err: unknown) => console.error('Failed to open link:', err));
@@ -31,8 +33,33 @@ export const AboutPanel: Component = () => {
                         class="about-logo"
                     />
                 </div>
-                {/* <h1 class="about-app-name">Mundam</h1> */}
                 <div class="about-version">Version 0.1.0</div>
+                <p class="about-tagline">
+                    Your creative media library, built for speed and privacy.
+                </p>
+                <div class="about-hero-links">
+                    <button
+                        class="about-hero-link"
+                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam')}
+                    >
+                        <GithubIcon size={14} />
+                        GitHub
+                    </button>
+                    <button
+                        class="about-hero-link"
+                        onClick={() => handleOpenLink('https://mundam.app')}
+                    >
+                        <GlobeIcon size={14} />
+                        Website
+                    </button>
+                    <button
+                        class="about-hero-link"
+                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam/issues')}
+                    >
+                        <LifeBuoyIcon size={14} />
+                        Support
+                    </button>
+                </div>
             </div>
 
             {/* Tech Stack */}
@@ -62,24 +89,7 @@ export const AboutPanel: Component = () => {
 
             {/* Footer */}
             <footer class="about-footer">
-                <p class="about-copyright">© 2024-2025 Marcus Maia. All rights reserved.</p>
-                <div class="about-links">
-                    <button
-                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam')}
-                        class="about-link"
-                    >
-                        GitHub
-                    </button>
-                    <button onClick={() => handleOpenLink('https://mundam.app')} class="about-link">
-                        Website
-                    </button>
-                    <button
-                        onClick={() => handleOpenLink('https://github.com/marcusagm/Mundam/issues')}
-                        class="about-link"
-                    >
-                        Support
-                    </button>
-                </div>
+                <p class="about-copyright">© 2024–2026 Marcus Maia. All rights reserved.</p>
             </footer>
         </div>
     );

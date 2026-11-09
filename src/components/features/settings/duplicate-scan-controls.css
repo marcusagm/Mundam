@@ -3,3 +3,25 @@
     flex-wrap: wrap;
     gap: var(--p-space-s);
 }
+
+.duplicate-scan-note-row {
+    padding: 0 var(--p-space-m) 0.75rem;
+}
+
+.duplicate-scan-note-row .duplicates-setting-description {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.duplicate-scan-note-row {
+  padding: 0 var(--p-space-m) 0.75rem;
+}
+
+.duplicate-scan-note-row p {
+  font-size: var(--p-font-size-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin: 0;
+}

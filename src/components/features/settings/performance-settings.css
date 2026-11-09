@@ -1,0 +1,47 @@
+/**
+ * Performance Settings Styles
+ */
+
+.performance-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-m);
+    padding: 0.75rem var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.performance-settings-row:last-child {
+    border-bottom: none;
+}
+
+.performance-settings-label {
+    font-size: var(--p-font-size-xs);
+    font-weight: 500;
+    color: var(--text-primary);
+    min-width: 160px;
+    flex-shrink: 0;
+}
+
+.performance-settings-select {
+    flex: 1;
+    max-width: 300px;
+}
+
+.performance-settings-note {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    padding: var(--p-space-s) var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.performance-settings-status {
+    font-size: var(--p-font-size-xs);
+    color: var(--text-secondary);
+    padding: var(--p-space-s) var(--p-space-m);
+    font-style: italic;
+    min-height: 1.5em;
+}

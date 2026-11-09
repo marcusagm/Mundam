@@ -32,7 +32,7 @@
   justify-content: space-between;
   gap: var(--p-space-m);
   padding: 0.75rem var(--p-space-m);
-  background-color: var(--bg-page);
+  background-color: var(--bg-surface-1);
   border-bottom: 1px solid var(--border-subtle);
   transition: background-color var(--transition-fast);
 }
@@ -87,7 +87,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-s);
   cursor: pointer;
-  transition: 
+  transition:
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
@@ -189,7 +189,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-s);
   cursor: pointer;
-  transition: 
+  transition:
     background-color var(--transition-fast),
     border-color var(--transition-fast),
     color var(--transition-fast);
@@ -237,7 +237,7 @@
   color: var(--text-tertiary);
   cursor: pointer;
   opacity: 0;
-  transition: 
+  transition:
     opacity var(--transition-fast),
     color var(--transition-fast);
 }

@@ -68,11 +68,13 @@ export const DuplicateScanControls: Component = () => {
                     Rebuild Index
                 </Button>
             </div>
-            <p class="duplicates-setting-description">
-                File analysis respects scheduled retries and exhausted attempts. Scan Now requests
-                fresh comparisons. Rebuild also resets file analysis. Files, thumbnails and colors
-                are preserved.
-            </p>
+            <div class="duplicate-scan-note-row">
+                <p class="duplicates-setting-description">
+                    File analysis respects scheduled retries and exhausted attempts. Scan Now
+                    requests fresh comparisons. Rebuild also resets file analysis. Files, thumbnails
+                    and colors are preserved.
+                </p>
+            </div>
             <ConfirmModal
                 isOpen={isConfirming()}
                 onClose={() => setIsConfirming(false)}

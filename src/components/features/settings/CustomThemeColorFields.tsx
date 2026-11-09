@@ -9,7 +9,7 @@ import {
     THEME_TOKEN_GROUPS,
     type CustomThemeBase
 } from '../../../core/theme/customTheme';
-import { convertCssColorToHexadecimal } from '../../../utils/color';
+import { convertCssColorToHexadecimal, resolveComputedCssColor } from '../../../utils/color';
 
 const FALLBACK_HEXADECIMAL_COLOR = '#000000';
 
@@ -50,9 +50,10 @@ export const CustomThemeColorFields: Component<
         if (customThemeColor) {
             return convertCssColorToHexadecimal(customThemeColor) || customThemeColor;
         }
-        const inheritedCssValue =
-            getComputedStyle(document.documentElement).getPropertyValue(token).trim() || token;
-        return convertCssColorToHexadecimal(inheritedCssValue) || FALLBACK_HEXADECIMAL_COLOR;
+        // Use DOM probe to resolve the token through the full CSS cascade,
+        // bypassing WebKit's canvas fillStyle limitation with var() values.
+        const resolvedColor = resolveComputedCssColor(token);
+        return convertCssColorToHexadecimal(resolvedColor) || FALLBACK_HEXADECIMAL_COLOR;
     };
 
     /**

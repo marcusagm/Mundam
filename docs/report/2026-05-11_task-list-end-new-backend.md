@@ -8,7 +8,7 @@
 - [x] Criar script para automatizar a configuração de ambiente de desenvolvimento inicial para cada plataforma (Windows, MacOS, Linux), incluindo a instalação de dependências e configuração de variáveis de ambiente.
 - [ ] Sistema de exportação e importação de configurações do aplicativo.
 - [ ] Atualizar README com instruções atualizadas para o novo backend com link para a documentação completa para usuário e desenvolvedor.
-- [ ] Atualizar tela de about com as informações das atuais dependências, links corretos para repositórios e licenças.
+- [x] Atualizar tela de about com as informações das atuais dependências, links corretos para repositórios e licenças.
 - [x] Fazer uma analise completa sobre as licenças atuais de dependencias e compatibilidade com o projeto atual.
 
 ## Atalhos

@@ -19,6 +19,11 @@ export const backendEngine: TechCategory = {
             url: 'https://crates.io/crates/base64'
         },
         {
+            name: 'blake3',
+            description: 'Fast cryptographic hash for content identity and duplicate detection.',
+            url: 'https://crates.io/crates/blake3'
+        },
+        {
             name: 'byteorder',
             description: 'Reading/writing numbers in big/little endian.',
             url: 'https://crates.io/crates/byteorder'
@@ -29,14 +34,34 @@ export const backendEngine: TechCategory = {
             url: 'https://crates.io/crates/chrono'
         },
         {
+            name: 'dashmap',
+            description: 'Concurrent hash map for shared runtime state.',
+            url: 'https://crates.io/crates/dashmap'
+        },
+        {
+            name: 'ddsfile & image_dds',
+            description: 'DDS texture container reading/writing.',
+            url: 'https://crates.io/crates/ddsfile'
+        },
+        {
             name: 'fast_image_resize',
             description: 'SIMD-accelerated image resize.',
             url: 'https://crates.io/crates/fast_image_resize'
         },
         {
+            name: 'flashraw',
+            description: 'Pure-Rust RAW parser for camera formats including GoPro GPR/VC-5.',
+            url: 'https://crates.io/crates/flashraw'
+        },
+        {
             name: 'flate2 & zstd',
             description: 'Compression algorithms.',
             url: 'https://crates.io/crates/zstd'
+        },
+        {
+            name: 'icns',
+            description: 'Reads/writes macOS icon files.',
+            url: 'https://crates.io/crates/icns'
         },
         {
             name: 'image & imagesize',
@@ -49,6 +74,11 @@ export const backendEngine: TechCategory = {
             url: 'https://crates.io/crates/infer'
         },
         {
+            name: 'jxl-oxide',
+            description: 'JPEG XL decoding.',
+            url: 'https://crates.io/crates/jxl-oxide'
+        },
+        {
             name: 'kmeans_colors & palette',
             description: 'Color clustering and space conversion.',
             url: 'https://crates.io/crates/kmeans_colors'
@@ -59,13 +89,18 @@ export const backendEngine: TechCategory = {
             url: 'https://crates.io/crates/memmap2'
         },
         {
+            name: 'midly, rustysynth & hound',
+            description: 'MIDI parsing, software synthesis, and WAV audio.',
+            url: 'https://crates.io/crates/midly'
+        },
+        {
             name: 'notify',
             description: 'Cross-platform filesystem notification system.',
             url: 'https://crates.io/crates/notify'
         },
         {
             name: 'pdfium-render',
-            description: 'High-level bindings to Google Pdfium.',
+            description: 'High-level bindings to Google PDFium.',
             url: 'https://crates.io/crates/pdfium-render'
         },
         {
@@ -82,11 +117,6 @@ export const backendEngine: TechCategory = {
             name: 'quick-xml',
             description: 'High performance XML reader/writer.',
             url: 'https://crates.io/crates/quick-xml'
-        },
-        {
-            name: 'quickraw & rsraw',
-            description: 'Camera RAW files processing/decoding.',
-            url: 'https://crates.io/crates/quickraw'
         },
         {
             name: 'rayon',
@@ -120,7 +150,7 @@ export const backendEngine: TechCategory = {
         },
         {
             name: 'tauri-plugin-*',
-            description: 'Plugins for CLI, dialogs, fs, HTTP, MCP, Opener, SQL.',
+            description: 'Plugins for dialogs, fs, HTTP, MCP, Opener, SQL, clipboard.',
             url: 'https://github.com/tauri-apps/plugins-workspace'
         },
         {
@@ -137,6 +167,16 @@ export const backendEngine: TechCategory = {
             name: 'tracing & tracing-subscriber',
             description: 'Application-level logging and profiling.',
             url: 'https://crates.io/crates/tracing'
+        },
+        {
+            name: 'ttf-parser',
+            description: 'Parses TrueType and OpenType font metadata.',
+            url: 'https://crates.io/crates/ttf-parser'
+        },
+        {
+            name: 'unicode-normalization',
+            description: 'Unicode normalization for consistent string handling.',
+            url: 'https://crates.io/crates/unicode-normalization'
         },
         {
             name: 'uuid',
@@ -157,11 +197,6 @@ export const backendEngine: TechCategory = {
             name: 'webp & zune-jpeg',
             description: 'Specific fast image codecs (WebP, JPEG).',
             url: 'https://crates.io/crates/zune-jpeg'
-        },
-        {
-            name: 'wuff',
-            description: 'Wuffs font/image decoding (WOFF).',
-            url: 'https://crates.io/crates/wuff'
         },
         {
             name: 'zip',

@@ -14,6 +14,11 @@ export const frontendDependencies: TechCategory = {
             url: 'https://modelviewer.dev/'
         },
         {
+            name: '@hypothesi/tauri-plugin-mcp-bridge',
+            description: 'Connects Tauri to the MCP bridge integration.',
+            url: 'https://www.npmjs.com/package/@hypothesi/tauri-plugin-mcp-bridge'
+        },
+        {
             name: '@thisbeyond/solid-dnd',
             description: 'Accessible drag and drop for SolidJS.',
             url: 'https://github.com/thisbeyond/solid-dnd'
