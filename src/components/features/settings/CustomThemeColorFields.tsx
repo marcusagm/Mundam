@@ -47,13 +47,12 @@ export const CustomThemeColorFields: Component<
     const getEffectiveHexadecimalColor = (token: string): string => {
         appliedVersion();
         const customThemeColor = theme()?.colors[token];
-        if (customThemeColor) {
-            return convertCssColorToHexadecimal(customThemeColor) || customThemeColor;
-        }
-        // Use DOM probe to resolve the token through the full CSS cascade,
-        // bypassing WebKit's canvas fillStyle limitation with var() values.
-        const resolvedColor = resolveComputedCssColor(token);
-        return convertCssColorToHexadecimal(resolvedColor) || FALLBACK_HEXADECIMAL_COLOR;
+        const colorExpression = customThemeColor ?? resolveComputedCssColor(token);
+        const hexadecimalColor = convertCssColorToHexadecimal(colorExpression);
+        if (hexadecimalColor) return hexadecimalColor;
+
+        console.error('Failed to resolve custom theme color token:', token, colorExpression);
+        return FALLBACK_HEXADECIMAL_COLOR;
     };
 
     /**

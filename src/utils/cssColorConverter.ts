@@ -1,4 +1,5 @@
 import { validateHexadecimalColor } from './color';
+import { convertOklchColorToHexadecimal } from './oklchColorConverter';
 
 /**
  * Measures the computed CSS color of an expression using an ephemeral probe element.
@@ -61,13 +62,68 @@ function resolveCssVariableHierarchy(initialExpression: string): string {
 }
 
 /**
+ * Parses a CSS numeric component, including percentage values.
+ *
+ * @param {string} component - The CSS component.
+ * @param {number} percentageScale - The multiplier used to normalize percentages.
+ * @returns {number | null} The parsed value, or null when the component is invalid.
+ */
+function parseCssNumericComponent(component: string, percentageScale: number): number | null {
+    const isPercentage = component.endsWith('%');
+    const numericValue = Number(isPercentage ? component.slice(0, -1) : component);
+    if (!Number.isFinite(numericValue)) return null;
+    return isPercentage ? (numericValue / 100) * percentageScale : numericValue;
+}
+
+/**
+ * Formats normalized sRGB channels as a hexadecimal color.
+ *
+ * @param {number} red - The normalized red channel.
+ * @param {number} green - The normalized green channel.
+ * @param {number} blue - The normalized blue channel.
+ * @returns {string} A six-digit hexadecimal color.
+ */
+function formatSrgbHexadecimal(red: number, green: number, blue: number): string {
+    const redHexadecimal = Math.round(Math.min(1, Math.max(0, red)) * 255)
+        .toString(16)
+        .padStart(2, '0');
+    const greenHexadecimal = Math.round(Math.min(1, Math.max(0, green)) * 255)
+        .toString(16)
+        .padStart(2, '0');
+    const blueHexadecimal = Math.round(Math.min(1, Math.max(0, blue)) * 255)
+        .toString(16)
+        .padStart(2, '0');
+    return `#${redHexadecimal}${greenHexadecimal}${blueHexadecimal}`;
+}
+
+/**
+ * Converts an sRGB functional color to hexadecimal.
+ *
+ * @param {string} colorExpression - An rgb() or rgba() expression.
+ * @returns {string | null} The hexadecimal color, or null when the expression is invalid.
+ */
+function convertRgbColorToHexadecimal(colorExpression: string): string | null {
+    const functionMatch = colorExpression.match(/^rgba?\((.*)\)$/i);
+    if (!functionMatch) return null;
+
+    const components = functionMatch[1].replace(/,/g, ' ').replace('/', ' ').trim().split(/\s+/);
+    if (components.length < 3) return null;
+
+    const [redChannel, greenChannel, blueChannel] = components
+        .slice(0, 3)
+        .map(component => parseCssNumericComponent(component, 255));
+    if (redChannel === null || greenChannel === null || blueChannel === null) return null;
+
+    return formatSrgbHexadecimal(redChannel / 255, greenChannel / 255, blueChannel / 255);
+}
+
+/**
  * Resolves a CSS custom property or color string by measuring a probe element attached to the DOM.
  * This guarantees that CSS variables like `var(--p-neutral-900)` and custom property names
- * are fully computed to their canonical `rgb(...)` or `rgba(...)` representation across all browsers
- * (specifically resolving the WebKit canvas limitation on macOS).
+ * are resolved through the active cascade before conversion.
  *
  * @param {string} cssColorOrToken - The CSS color expression or token name.
- * @returns {string} The computed color string (e.g., 'rgb(24, 24, 27)').
+ * @returns {string} The computed color expression (for example, 'rgb(...)' or 'oklch(...)').
  */
 export function resolveComputedCssColor(cssColorOrToken: string): string {
     if (typeof document === 'undefined') {
@@ -92,6 +148,78 @@ export function resolveComputedCssColor(cssColorOrToken: string): string {
 }
 
 /**
+ * Normalizes a short or full hexadecimal color.
+ *
+ * @param {string} colorExpression - The hexadecimal color expression.
+ * @returns {string | null} The normalized color, or null when invalid.
+ */
+function normalizeHexadecimalColor(colorExpression: string): string | null {
+    if (!validateHexadecimalColor(colorExpression)) return null;
+    if (colorExpression.length === 4) {
+        const [redCharacter, greenCharacter, blueCharacter] = colorExpression.slice(1);
+        return `#${redCharacter}${redCharacter}${greenCharacter}${greenCharacter}${blueCharacter}${blueCharacter}`.toLowerCase();
+    }
+    return colorExpression.toLowerCase();
+}
+
+/**
+ * Rasterizes a browser-supported CSS color while detecting rejected fillStyle values.
+ *
+ * @param {string} colorExpression - The resolved CSS color expression.
+ * @returns {string | null} The hexadecimal color, or null when not supported.
+ */
+function rasterizeCssColor(colorExpression: string): string | null {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+
+    context.fillStyle = '#010203';
+    const firstSentinel = context.fillStyle;
+    context.fillStyle = colorExpression;
+    const firstAttempt = context.fillStyle;
+    context.fillStyle = '#040506';
+    const secondSentinel = context.fillStyle;
+    context.fillStyle = colorExpression;
+    const secondAttempt = context.fillStyle;
+    if (firstAttempt === firstSentinel && secondAttempt === secondSentinel) return null;
+
+    context.fillRect(0, 0, 1, 1);
+    const [redChannel, greenChannel, blueChannel, alphaChannel] = context.getImageData(
+        0,
+        0,
+        1,
+        1
+    ).data;
+    if (alphaChannel === 0) return null;
+
+    const redHexadecimal = redChannel.toString(16).padStart(2, '0');
+    const greenHexadecimal = greenChannel.toString(16).padStart(2, '0');
+    const blueHexadecimal = blueChannel.toString(16).padStart(2, '0');
+    return `#${redHexadecimal}${greenHexadecimal}${blueHexadecimal}`;
+}
+
+/**
+ * Converts a resolved CSS color through direct parsing or the browser canvas.
+ *
+ * @param {string} colorExpression - The resolved CSS color expression.
+ * @returns {string | null} The hexadecimal color, or null when it cannot be converted.
+ */
+function convertResolvedColorToHexadecimal(colorExpression: string): string | null {
+    const hexadecimalColor = normalizeHexadecimalColor(colorExpression);
+    if (hexadecimalColor) return hexadecimalColor;
+
+    const rgbHexadecimal = convertRgbColorToHexadecimal(colorExpression);
+    if (rgbHexadecimal) return rgbHexadecimal;
+
+    const oklchHexadecimal = convertOklchColorToHexadecimal(colorExpression);
+    if (oklchHexadecimal) return oklchHexadecimal;
+
+    return rasterizeCssColor(colorExpression);
+}
+
+/**
  * Converts any CSS color understood by the browser (including oklch and CSS custom properties) to `#rrggbb`
  * by resolving computed variables and rasterizing on a 1x1 canvas.
  *
@@ -109,61 +237,9 @@ export function convertCssColorToHexadecimal(cssColor: string): string | null {
     const trimmedCssColor = cssColor.trim();
     if (!trimmedCssColor) return null;
 
-    if (validateHexadecimalColor(trimmedCssColor)) {
-        if (trimmedCssColor.length === 4) {
-            const [redCharacter, greenCharacter, blueCharacter] = trimmedCssColor.slice(1);
-            return `#${redCharacter}${redCharacter}${greenCharacter}${greenCharacter}${blueCharacter}${blueCharacter}`.toLowerCase();
-        }
-        return trimmedCssColor.toLowerCase();
-    }
+    const directColor = convertResolvedColorToHexadecimal(trimmedCssColor);
+    if (directColor) return directColor;
 
     const resolvedColor = resolveComputedCssColor(trimmedCssColor);
-
-    if (validateHexadecimalColor(resolvedColor)) {
-        if (resolvedColor.length === 4) {
-            const [redCharacter, greenCharacter, blueCharacter] = resolvedColor.slice(1);
-            return `#${redCharacter}${redCharacter}${greenCharacter}${greenCharacter}${blueCharacter}${blueCharacter}`.toLowerCase();
-        }
-        return resolvedColor.toLowerCase();
-    }
-
-    const redGreenBlueMatch = resolvedColor.match(
-        /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i
-    );
-    if (redGreenBlueMatch) {
-        const redNumber = Math.min(255, Math.max(0, parseInt(redGreenBlueMatch[1], 10)));
-        const greenNumber = Math.min(255, Math.max(0, parseInt(redGreenBlueMatch[2], 10)));
-        const blueNumber = Math.min(255, Math.max(0, parseInt(redGreenBlueMatch[3], 10)));
-
-        const redHexadecimal = redNumber.toString(16).padStart(2, '0');
-        const greenHexadecimal = greenNumber.toString(16).padStart(2, '0');
-        const blueHexadecimal = blueNumber.toString(16).padStart(2, '0');
-
-        return `#${redHexadecimal}${greenHexadecimal}${blueHexadecimal}`;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) return null;
-
-    context.clearRect(0, 0, 1, 1);
-    context.fillStyle = '#000';
-    context.fillStyle = resolvedColor;
-    context.fillRect(0, 0, 1, 1);
-
-    const [redChannel, greenChannel, blueChannel, alphaChannel] = context.getImageData(
-        0,
-        0,
-        1,
-        1
-    ).data;
-    if (alphaChannel === 0) return null;
-
-    const redHexadecimal = redChannel.toString(16).padStart(2, '0');
-    const greenHexadecimal = greenChannel.toString(16).padStart(2, '0');
-    const blueHexadecimal = blueChannel.toString(16).padStart(2, '0');
-
-    return `#${redHexadecimal}${greenHexadecimal}${blueHexadecimal}`;
+    return convertResolvedColorToHexadecimal(resolvedColor);
 }

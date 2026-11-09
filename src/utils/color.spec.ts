@@ -23,6 +23,12 @@ describe('color conversion and resolution utilities', () => {
         expect(convertCssColorToHexadecimal('#FF5733')).toBe('#ff5733');
     });
 
+    it('converts modern RGB and OKLCH colors without relying on canvas parsing', () => {
+        expect(convertCssColorToHexadecimal('rgb(100% 0% 50%)')).toBe('#ff0080');
+        expect(convertCssColorToHexadecimal('oklch(50% 0 0)')).toBe('#636363');
+        expect(convertCssColorToHexadecimal('oklch(0.627955 0.257683 29.2345)')).toBe('#ff0000');
+    });
+
     it('resolves CSS custom property variables via probe element', () => {
         document.documentElement.style.setProperty('--test-background-color', 'rgb(24, 24, 27)');
 

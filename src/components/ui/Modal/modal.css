@@ -40,6 +40,7 @@
     z-index: 9991;
     outline: none;
     animation: ui-modal-in 0.2s ease;
+    overflow: hidden;
 }
 
 @keyframes ui-modal-in {

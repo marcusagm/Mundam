@@ -1,10 +1,11 @@
 .duplicate-split-view {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    width: 100%;
+    height: calc(100% + var(--p-space-l) * 2);
+    width: calc(100% + var(--p-space-l) * 2);
     background-color: var(--bg-surface-1);
     overflow: hidden;
+    margin: calc(var(--p-space-l) * -1);
 }
 
 .split-view-toolbar {
@@ -115,6 +116,9 @@
     overflow: hidden;
     padding: var(--p-space-m);
     user-select: none;
+    -ms-user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
 }
 
 .split-overlay-container {

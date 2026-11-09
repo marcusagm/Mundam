@@ -676,7 +676,9 @@ Após a validação inicial, o usuário reportou seis problemas pendentes de for
 
 **Problema:** No macOS (WebKit/Tauri), ao selecionar um tema base (Dark/Light) no editor customizado, todos os campos de cor exibiam `#000000`. Isso ocorre porque `getComputedStyle(document.documentElement).getPropertyValue(token)` retorna a string crua da variável CSS sem resolver referências indiretas (ex.: `var(--p-neutral-900)`) no contexto do WebKit.
 
-**Decisão:** Criar `resolveComputedCssColor(token)` em `cssColorConverter.ts`, que utiliza uma sonda DOM: um `<span>` temporário anexado ao `document.body` com `color: var(--token)` e leitura via `getComputedStyle().color`. Isso força o engine a resolver a cascata completa antes de retornar o valor computado. A função é usada em `getEffectiveHexadecimalColor` para o branch de tokens não definidos.
+**Decisão inicial:** Criar `resolveComputedCssColor(token)` em `cssColorConverter.ts`, que utiliza uma sonda DOM: um `<span>` temporário anexado ao `document.body` com `color: var(--token)` e leitura via `getComputedStyle().color`. Isso força o engine a resolver a cascata completa antes de retornar o valor computado. A função é usada em `getEffectiveHexadecimalColor` para o branch de tokens não definidos.
+
+**Correção posterior:** A sonda, sozinha, não garantia uma representação `rgb(...)` em todas as versões do WebKit. Quando o estilo computado permanecia em `oklch(...)`, o conversor ainda dependia de `CanvasRenderingContext2D.fillStyle`; uma cor não reconhecida nessa API mantinha o valor anterior e podia virar `#000000` sem erro. A conversão agora lida diretamente com RGB moderno e OKLCH, aplica redução de croma para cores fora do gamut sRGB e valida se o canvas aceitou outras representações antes de ler o pixel. Testes cobrem RGB com canais percentuais e OKLCH acromático/cromático.
 
 **Arquivos alterados:**
 - [`cssColorConverter.ts`](file:///Users/marcusmaia/Documents/Desenvolvimento/Mundam/src/utils/cssColorConverter.ts) — Criado com `resolveComputedCssColor` e `measureElementComputedColor`.
@@ -708,4 +710,3 @@ Após a validação inicial, o usuário reportou seis problemas pendentes de for
 2. **ESLint (`npm run lint`):** ✅ Código de saída 0 (zero warnings com `--max-warnings 0`). Prettier auto-fix aplicado em `AboutPanel.tsx`, `DuplicateScanControls.tsx` e `FolderRecoverySettings.tsx`.
 3. **Vitest (`npx vitest run`):** ✅ **43/43 arquivos de teste, 189/189 testes passando.**
    - `FolderRecoverySettings.spec.tsx` foi atualizado com `aria-label="Folder recovery budget (GiB)"` no `<Input>` e renomeação correta dos botões ("Save Recovery Budget", "Load Folder Recovery History") para alinhar com as queries do teste.
-
