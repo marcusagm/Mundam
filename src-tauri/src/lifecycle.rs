@@ -129,7 +129,10 @@ impl LifecycleRegistry {
     /// This is the primary shutdown path, called when the application is closing.
     /// All child tokens are cancelled automatically via the root, and each task
     /// handle is awaited to ensure orderly cleanup.
-    pub async fn shutdown_all(&self) {
+    ///
+    /// Returns `false` when a registered task panics or exceeds its timeout.
+    /// This does not account for work that was not registered.
+    pub async fn shutdown_all(&self) -> bool {
         info!("Initiating full shutdown...");
         self.root_token.cancel();
 
@@ -142,6 +145,7 @@ impl LifecycleRegistry {
         };
 
         let task_count = tasks.len();
+        let mut clean = true;
         for (name, (_token, mut handle)) in tasks {
             info!(task = %name, "Awaiting task...");
 
@@ -149,15 +153,21 @@ impl LifecycleRegistry {
             match timeout(Duration::from_secs(5), &mut handle).await {
                 Ok(Ok(_)) => info!(task = %name, "Task stopped gracefully"),
                 Ok(Err(join_error)) => {
+                    clean = false;
                     error!(task = %name, error = %join_error, "Task panicked during shutdown")
                 }
                 Err(_) => {
                     warn!(task = %name, "Task shutdown timed out after 5s. Forcing abort.");
+                    clean = false;
                     handle.abort();
+                    if let Err(join_error) = handle.await {
+                        info!(task = %name, error = %join_error, "Aborted task finished");
+                    }
                 }
             }
         }
-        info!("Full shutdown complete ({} tasks stopped)", task_count);
+        info!(task_count, clean, "Registered task shutdown complete");
+        clean
     }
 }
 

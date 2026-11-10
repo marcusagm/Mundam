@@ -2,13 +2,38 @@
 
 use crate::core::error::{AppError, AppResult};
 use crate::feature::startup::{StartupService, StartupSnapshot, StartupStage};
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
+
+/// Retains the boot supervisor so shutdown can await late service registration.
+pub struct StartupTask(Mutex<Option<tauri::async_runtime::JoinHandle<()>>>);
+
+impl StartupTask {
+    /// Waits for the boot supervisor before draining the lifecycle registry.
+    pub async fn wait(&self) -> bool {
+        let handle = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        match handle {
+            Some(handle) => match handle.await {
+                Ok(()) => true,
+                Err(error) => {
+                    tracing::error!(%error, "Startup supervisor failed during shutdown");
+                    false
+                }
+            },
+            None => true,
+        }
+    }
+}
 
 /// Registers observable state before launching a supervised, non-blocking boot.
 pub fn start(application: &AppHandle) {
     application.manage(StartupService::default());
     let handle = application.clone();
-    tauri::async_runtime::spawn(async move {
+    let task = tauri::async_runtime::spawn(async move {
         let startup_handle = handle.clone();
         let initialization =
             tauri::async_runtime::spawn(async move { initialize(&startup_handle).await });
@@ -17,6 +42,13 @@ pub fn start(application: &AppHandle) {
             Ok(Err(error)) => error.to_string(),
             Err(error) => error.to_string(),
         };
+        if handle
+            .state::<std::sync::Arc<crate::lifecycle::LifecycleRegistry>>()
+            .root_token()
+            .is_cancelled()
+        {
+            return;
+        }
         tracing::error!(%failure, "Application startup failed");
         match handle
             .state::<StartupService>()
@@ -26,6 +58,7 @@ pub fn start(application: &AppHandle) {
             Err(error) => tracing::error!(%error, "Unable to retain startup failure"),
         }
     });
+    application.manage(StartupTask(Mutex::new(Some(task))));
 }
 
 /// Publishes a retained snapshot; a missed event is recoverable through querying.
@@ -50,10 +83,14 @@ pub fn should_shutdown_on_close(application: &AppHandle, label: &str) -> bool {
 }
 
 fn advance(application: &AppHandle, stage: StartupStage) -> AppResult<()> {
-    tracing::info!(?stage, "Application startup milestone");
-    let snapshot = application.state::<StartupService>().advance(stage)?;
-    publish(application, &snapshot);
-    Ok(())
+    application
+        .state::<crate::feature::shutdown::ShutdownService>()
+        .while_running(|| {
+            tracing::info!(?stage, "Application startup milestone");
+            let snapshot = application.state::<StartupService>().advance(stage)?;
+            publish(application, &snapshot);
+            Ok(())
+        })
 }
 
 /// Initializes dependencies after setup returns so the splash stays responsive.
@@ -61,21 +98,36 @@ fn advance(application: &AppHandle, stage: StartupStage) -> AppResult<()> {
 /// # Errors
 /// Propagates filesystem, database and startup-state failures to the boot supervisor.
 async fn initialize(application: &AppHandle) -> AppResult<()> {
+    let token = application
+        .state::<std::sync::Arc<crate::lifecycle::LifecycleRegistry>>()
+        .root_token();
     let directory_handle = application.clone();
     tauri::async_runtime::spawn_blocking(move || {
         super::system::init_directories(&directory_handle)
     })
     .await
     .map_err(|error| AppError::Internal(error.to_string()))??;
+    if token.is_cancelled() {
+        return Ok(());
+    }
     super::system::init_settings(application);
     super::system::init_events(application);
     super::system::init_formats(application);
     advance(application, StartupStage::Database)?;
     super::database::init(application).await?;
+    if token.is_cancelled() {
+        return Ok(());
+    }
     advance(application, StartupStage::Media)?;
     super::streaming::init(application).await;
+    if token.is_cancelled() {
+        return Ok(());
+    }
     super::workers::init(application);
     advance(application, StartupStage::Library)?;
     super::library::init(application).await;
+    if token.is_cancelled() {
+        return Ok(());
+    }
     advance(application, StartupStage::BackendReady)
 }

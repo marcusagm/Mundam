@@ -42,19 +42,23 @@ pub fn complete_startup(
     service: State<'_, StartupService>,
 ) -> AppResult<()> {
     require_main(&window)?;
-    service.ensure_presentable()?;
-    window.show()?;
-    if let Err(error) = window.set_focus() {
-        tracing::warn!(%error, "Unable to focus the prepared main window");
-    }
-    let snapshot = service.advance(StartupStage::Ready)?;
-    publish(&application, &snapshot);
-    if let Some(splash) = application.get_webview_window("splashscreen") {
-        if let Err(error) = splash.close() {
-            tracing::warn!(%error, "Unable to close the completed splash window");
-        }
-    }
-    Ok(())
+    application
+        .state::<crate::feature::shutdown::ShutdownService>()
+        .while_running(|| {
+            service.ensure_presentable()?;
+            window.show()?;
+            if let Err(error) = window.set_focus() {
+                tracing::warn!(%error, "Unable to focus the prepared main window");
+            }
+            let snapshot = service.advance(StartupStage::Ready)?;
+            publish(&application, &snapshot);
+            if let Some(splash) = application.get_webview_window("splashscreen") {
+                if let Err(error) = splash.close() {
+                    tracing::warn!(%error, "Unable to close the completed splash window");
+                }
+            }
+            Ok(())
+        })
 }
 
 /// Retains a safe frontend boot failure for the still-visible splash.

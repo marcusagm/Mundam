@@ -3638,6 +3638,7 @@ dependencies = [
  "midly",
  "mime_guess",
  "notify",
+ "objc2",
  "palette",
  "pdfium-render",
  "percent-encoding",

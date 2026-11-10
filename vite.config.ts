@@ -34,7 +34,8 @@ export default defineConfig(async () => ({
         rollupOptions: {
             input: {
                 main: 'index.html',
-                splashscreen: 'splashscreen.html'
+                splashscreen: 'splashscreen.html',
+                shutdown: 'shutdown.html'
             },
             output: {
                 manualChunks(id: string) {

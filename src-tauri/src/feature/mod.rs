@@ -16,6 +16,8 @@ pub mod processing;
 pub mod search;
 /// Module for settings management.
 pub mod settings;
+/// Application shutdown coordination and presentation state.
+pub mod shutdown;
 /// Application startup readiness and retained progress.
 pub mod startup;
 /// Module for transcoding functionality.

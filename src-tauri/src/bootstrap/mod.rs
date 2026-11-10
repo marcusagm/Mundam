@@ -7,6 +7,9 @@
 
 pub mod database;
 pub mod library;
+#[cfg(target_os = "macos")]
+pub mod macos_shutdown;
+pub mod shutdown;
 pub mod startup;
 pub mod streaming;
 pub mod system;

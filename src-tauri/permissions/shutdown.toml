@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-shutdown-presentation"
+description = "Read shutdown progress and acknowledge the shutdown window"
+commands.allow = ["get_shutdown_state", "acknowledge_shutdown_presentation"]

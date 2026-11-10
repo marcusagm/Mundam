@@ -59,8 +59,9 @@ After eight seconds the splash adds elapsed time. After five seconds without
 successful IPC contact it reports that it is waiting for a response and pauses
 the animated indicator. Neither threshold changes readiness or claims failure.
 Users can quit at any time. Closing splash before readiness or closing main runs
-graceful shutdown; closing splash after readiness only closes that window.
-Other auxiliary windows close independently.
+shutdown; closing splash after readiness only closes that window. Other auxiliary
+windows close independently. The independent shutdown presentation and its
+current limitations are tracked in the [shutdown implementation report](../report/2026-11-09-close-process-windows.md).
 
 Automatic retry is intentionally absent: initialization currently registers
 long-lived services, so restarting a partial boot in place is not an idempotent

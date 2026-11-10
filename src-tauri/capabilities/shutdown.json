@@ -1,0 +1,11 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "shutdown",
+    "description": "Independent shutdown progress presentation",
+    "windows": ["shutdown"],
+    "permissions": [
+        "allow-shutdown-presentation",
+        "core:event:allow-listen",
+        "core:event:allow-unlisten"
+    ]
+}

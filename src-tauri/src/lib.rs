@@ -13,7 +13,6 @@ pub mod feature;
 pub mod infra;
 pub mod lifecycle;
 pub mod processing;
-use crate::lifecycle::LifecycleRegistry;
 use tauri::Manager;
 
 /// Single expansion of the Tauri context; a second `generate_context!` in the same
@@ -72,6 +71,9 @@ pub fn run() {
             std::env::set_var("MUNDAM_RESOURCE_DIR", resource_dir);
 
             crate::bootstrap::system::init_lifecycle(app_handle);
+            app_handle.manage(crate::feature::shutdown::ShutdownService::default());
+            #[cfg(target_os = "macos")]
+            crate::bootstrap::macos_shutdown::install(app_handle)?;
             crate::bootstrap::startup::start(app_handle);
 
             Ok(())
@@ -86,6 +88,8 @@ pub fn run() {
             delivery::tauri::startup::report_startup_stage,
             delivery::tauri::startup::complete_startup,
             delivery::tauri::startup::fail_frontend_startup,
+            delivery::tauri::shutdown::get_shutdown_state,
+            delivery::tauri::shutdown::acknowledge_shutdown_presentation,
             // IPC Commands
             delivery::tauri::commands::queries::get_assets,
             delivery::tauri::commands::queries::get_asset,
@@ -174,27 +178,32 @@ pub fn run() {
         ])
         .build(application_context())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if let tauri::RunEvent::WindowEvent {
+        .run(|app_handle, event| match event {
+            tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { api, .. },
                 label,
                 ..
-            } = event
-            {
-                if !crate::bootstrap::startup::should_shutdown_on_close(app_handle, &label) {
-                    return;
+            } => {
+                if label == "shutdown" {
+                    api.prevent_close();
+                } else if crate::bootstrap::startup::should_shutdown_on_close(app_handle, &label) {
+                    api.prevent_close();
+                    crate::bootstrap::shutdown::request(app_handle);
                 }
-                tracing::info!("Close requested. Orchestrating graceful shutdown.");
-                api.prevent_close();
-
-                let handle = app_handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Some(lifecycle) = handle.try_state::<std::sync::Arc<LifecycleRegistry>>()
-                    {
-                        lifecycle.shutdown_all().await;
-                    }
-                    handle.exit(0);
-                });
             }
+            tauri::RunEvent::ExitRequested { api, code, .. } => {
+                let authorized = app_handle
+                    .state::<crate::feature::shutdown::ShutdownService>()
+                    .exit_authorized()
+                    .unwrap_or_else(|error| {
+                        tracing::error!(%error, "Unable to check shutdown authorization");
+                        false
+                    });
+                if !authorized && code != Some(tauri::RESTART_EXIT_CODE) {
+                    api.prevent_exit();
+                    crate::bootstrap::shutdown::request(app_handle);
+                }
+            }
+            _ => {}
         });
 }
