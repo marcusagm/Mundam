@@ -123,8 +123,12 @@
 - [ ] Ativar modo de desenvolvimento no menu de configurações.
 - [ ] Restringir abertura do inspector do tauri para apenas o modo de desenvolvimento.
 - [ ] Adicionar hotkeys para desenvolvedor, para abrir o inspector e recarregar a aplicação.
-- [ ] Exibir contador de assests carregados no viewport apenas no modo desenvolvedor.
-- [ ] Criar tela para exibição de registros na tabela de `operations_log`, e outros logs gerados pelo sistema para permitir rasterio de bugs.
+- [ ] Exibir contador de assests carregados presente na barra do globalstatusbar apenas no modo desenvolvedor.
+- [ ] Badges nos players de video e audio referentes a forma de trataento (hls, live, native, etc), devem ser omitidos quando o modo desenvolvedor estiver desabilitado.
+- [ ] No inspector de assets, devem ser adicionados indicadores visuais e informações detalhadas sobre o estado do asset, incluindo metadados, histórico de operações e status de processamento, alem de informações como id do asset e outras informações armazenadas no banco de dados uteis para depuração e análise.
+- [ ] Criar tela para exibição de registros na tabela de `operations_log`, e outros logs gerados pelo sistema para permitir rastreio de bugs.
+- [ ] Permitir salvar logs de telemetria em arquivos para análise posterior, com opção de definir o nivel de detalhamento.
+- [ ] Tela de benchmarking para avaliar desempenho de workers, watches de arquivos e outras operações do sistema e tambem providers de formatos de assets.
 - [ ] Restringir a abertura da tela do design system para apenas o modo de desenvolvimento.
 - [ ] Criar documentação de desenvolvedor em `docs/development`.
 - [ ] Atualizar o README.md com as mudanças realizadas.

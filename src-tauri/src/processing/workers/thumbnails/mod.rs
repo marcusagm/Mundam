@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
@@ -180,9 +181,20 @@ impl ThumbnailWorker {
                         asset_id: id.clone(),
                         in_flight: in_flight_clone,
                     };
+                    let shutdown = token.clone();
                     tasks.spawn(async move {
                         let _reservation = reservation;
-                        if let Err(e) = worker_clone.process_single(id.clone(), is_priority).await {
+                        let phase = AtomicU8::new(0);
+                        let work = worker_clone.process_single_tracked(id, is_priority, &phase);
+                        let result = crate::processing::shutdown_diagnostics::observe(
+                            &shutdown,
+                            &phase,
+                            thumbnail_phase,
+                            "thumbnail",
+                            work,
+                        )
+                        .await;
+                        if let Err(e) = result {
                             error!("ThumbnailWorker: Process error: {}", e);
                         }
                         // Permit is returned when dropped here
@@ -197,6 +209,12 @@ impl ThumbnailWorker {
                     }
                 }
             }
+            if token.is_cancelled() {
+                info!(
+                    pending_tasks = tasks.len(),
+                    "ThumbnailWorker: Draining in-flight processing after cancellation"
+                );
+            }
             while let Some(result) = tasks.join_next().await {
                 if let Err(error) = result {
                     error!(%error, "Thumbnail task failed while draining");
@@ -210,8 +228,20 @@ impl ThumbnailWorker {
     /// # Arguments
     /// * `id` - The ID of the asset to process.
     /// * `is_priority` - Whether this item came from the priority queue.
-    #[instrument(skip_all, fields(asset_id = %id, priority = %is_priority))]
+    #[cfg(test)]
     async fn process_single(&self, id: String, is_priority: bool) -> AppResult<()> {
+        self.process_single_tracked(id, is_priority, &AtomicU8::new(0))
+            .await
+    }
+
+    #[instrument(skip_all, fields(asset_id = %id, priority = %is_priority))]
+    async fn process_single_tracked(
+        &self,
+        id: String,
+        is_priority: bool,
+        phase: &AtomicU8,
+    ) -> AppResult<()> {
+        phase.store(1, Ordering::Relaxed);
         let Some(_activity) =
             self.control
                 .try_admit(WorkerKind::Thumbnails, "thumbnail", Some(&id))
@@ -225,25 +255,39 @@ impl ThumbnailWorker {
         else {
             return Ok(());
         };
-        let _lease = crate::processing::lease::ProcessingLease::start(
+        let lease = crate::processing::lease::ProcessingLease::start(
             self.processing.clone(),
             ticket.clone(),
         );
-        let result = self.generate_single(&ticket).await;
-        if self.query_handler.get_by_id(&id).await?.is_none() {
+        let result = self.process_ticket(&id, &ticket, phase).await;
+        phase.store(9, Ordering::Relaxed);
+        let lease_result = lease.finish().await;
+        result?;
+        lease_result
+    }
+
+    async fn process_ticket(
+        &self,
+        id: &str,
+        ticket: &ProcessingTicket,
+        phase: &AtomicU8,
+    ) -> AppResult<()> {
+        let result = self.generate_single(ticket, phase).await;
+        phase.store(8, Ordering::Relaxed);
+        if self.query_handler.get_by_id(id).await?.is_none() {
             if let Some(app_data_directory) = self.thumbnails_dir.parent() {
                 crate::infra::filesystem::asset_cache::remove_asset_artifacts(
                     app_data_directory,
-                    &std::collections::HashSet::from([id]),
+                    &std::collections::HashSet::from([id.to_string()]),
                 )
                 .await?;
             }
         }
         let outcome = match result {
-            Ok(outcome) => self.processing.finish(&ticket, outcome).await,
+            Ok(outcome) => self.processing.finish(ticket, outcome).await,
             Err(error) => {
                 self.processing
-                    .finish(&ticket, ProcessingOutcome::failure(&error))
+                    .finish(ticket, ProcessingOutcome::failure(&error))
                     .await?;
                 if crate::core::processing::tools::ExtractionTool::from_error(&error).is_some() {
                     Ok(())
@@ -252,10 +296,10 @@ impl ThumbnailWorker {
                 }
             }
         };
-        self.processing.release(&ticket).await?;
+        self.processing.release(ticket).await?;
         if let Err(error) = self
             .ledger
-            .reconcile_processing_artifacts(Some(&ticket))
+            .reconcile_processing_artifacts(Some(ticket))
             .await
         {
             tracing::warn!(%error, "Could not prune unpublished thumbnail artifacts");
@@ -264,7 +308,12 @@ impl ThumbnailWorker {
     }
 
     /// Produces output only for an admitted attempt; failures remain retryable work.
-    async fn generate_single(&self, ticket: &ProcessingTicket) -> AppResult<ProcessingOutcome> {
+    async fn generate_single(
+        &self,
+        ticket: &ProcessingTicket,
+        phase: &AtomicU8,
+    ) -> AppResult<ProcessingOutcome> {
+        phase.store(2, Ordering::Relaxed);
         let id = ticket.asset_id.clone();
         let asset = match self.query_handler.get_asset_by_id(&id).await {
             Ok(a) => a,
@@ -291,6 +340,7 @@ impl ThumbnailWorker {
 
         // 1. Technical Metadata Extraction
         if let Some(meta_cap) = provider.metadata() {
+            phase.store(3, Ordering::Relaxed);
             if let Ok(tech_meta) = meta_cap.extract_technical(&path).await {
                 let width = tech_meta.get("width").and_then(|v| v.as_i64());
                 let height = tech_meta.get("height").and_then(|v| v.as_i64());
@@ -328,6 +378,7 @@ impl ThumbnailWorker {
                 });
 
             if is_three_dimensional_model {
+                phase.store(4, Ordering::Relaxed);
                 if let Ok((preview_bytes, mime)) =
                     preview_capability.generate_preview(&path, &id).await
                 {
@@ -356,6 +407,7 @@ impl ThumbnailWorker {
         }
 
         // 3. Generate Thumbnail
+        phase.store(5, Ordering::Relaxed);
         let Some(thumbnail_capability) = provider.thumbnail() else {
             self.ledger
                 .commit_processing(
@@ -373,11 +425,13 @@ impl ThumbnailWorker {
             ));
         };
         let bytes = thumbnail_capability.generate(&path, &id, 300).await?;
+        phase.store(6, Ordering::Relaxed);
         let final_bytes = tokio::task::spawn_blocking(move || prepare_thumbnail(bytes))
             .await
             .map_err(|error| {
                 AppError::Internal(format!("Thumbnail encoding task failed: {error}"))
             })??;
+        phase.store(7, Ordering::Relaxed);
         if !self.processing.is_current(ticket).await? {
             return Ok(ProcessingOutcome::Skipped("Attempt was superseded".into()));
         }
@@ -395,6 +449,21 @@ impl ThumbnailWorker {
             )
             .await?;
         Ok(ProcessingOutcome::Completed)
+    }
+}
+
+fn thumbnail_phase(phase: u8) -> &'static str {
+    match phase {
+        1 => "admission_and_lease",
+        2 => "asset_and_provider",
+        3 => "metadata_extraction",
+        4 => "preview_extraction",
+        5 => "thumbnail_extraction",
+        6 => "thumbnail_encoding",
+        7 => "publication",
+        8 => "outcome_and_reconciliation",
+        9 => "lease_release",
+        _ => "starting",
     }
 }
 

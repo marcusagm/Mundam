@@ -128,12 +128,6 @@ pub async fn init(app: &AppHandle) {
                 .await
             {
                 tracing::error!("Failed to start watcher for {}: {}", root_path.display(), e);
-            } else {
-                lifecycle.register(
-                    format!("watcher:{}", root_path.display()),
-                    watcher_token,
-                    tauri::async_runtime::spawn(async {}),
-                );
             }
         }
 
@@ -154,9 +148,17 @@ pub async fn init(app: &AppHandle) {
                     }
                     tracing::info!("Boot scan starting for: {}", root_path.display());
                     if let Err(e) = indexer_for_boot
-                        .scan_directory(root_path.clone(), Some(folder_id))
+                        .scan_directory_with_token(
+                            root_path.clone(),
+                            Some(folder_id),
+                            token_clone.clone(),
+                        )
                         .await
                     {
+                        if token_clone.is_cancelled() {
+                            tracing::info!("Boot scan stopped after shutdown request");
+                            break;
+                        }
                         tracing::error!("Boot scan failed for {}: {}", root_path.display(), e);
                     }
                 }

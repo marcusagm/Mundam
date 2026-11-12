@@ -88,19 +88,31 @@ impl FingerprintProcessor {
         else {
             return Ok(false);
         };
-        let _lease = crate::processing::lease::ProcessingLease::start(
+        let lease = crate::processing::lease::ProcessingLease::start(
             self.processing.clone(),
             ticket.clone(),
         );
-        let result = self.calculate_and_save(&ticket, token).await;
+        let result = self.process_ticket(&ticket, token).await;
+        let lease_result = lease.finish().await;
+        let completed = result?;
+        lease_result?;
+        Ok(completed)
+    }
+
+    async fn process_ticket(
+        &self,
+        ticket: &ProcessingTicket,
+        token: &CancellationToken,
+    ) -> AppResult<bool> {
+        let result = self.calculate_and_save(ticket, token).await;
         if let Err(error) = &result {
             if !token.is_cancelled() {
                 self.processing
-                    .finish(&ticket, ProcessingOutcome::failure(error))
+                    .finish(ticket, ProcessingOutcome::failure(error))
                     .await?;
             }
         }
-        self.processing.release(&ticket).await?;
+        self.processing.release(ticket).await?;
         if token.is_cancelled() {
             return Ok(false);
         }

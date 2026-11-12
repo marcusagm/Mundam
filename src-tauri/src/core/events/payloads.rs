@@ -153,6 +153,10 @@ pub enum DomainEvent {
     ScanCompleted {
         library_id: String,
     },
+    /// A scan stopped before completing; no success or pruning is implied.
+    ScanFailed {
+        library_id: String,
+    },
     /// A new thumbnail has been generated and is ready at the given path.
     ThumbnailGenerated {
         asset_id: String,

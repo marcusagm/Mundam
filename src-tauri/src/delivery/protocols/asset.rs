@@ -44,6 +44,28 @@ pub async fn handler_async<R: tauri::Runtime>(
     application_handle: &AppHandle<R>,
     request: &Request<Vec<u8>>,
 ) -> Response<Vec<u8>> {
+    let admission = match application_handle
+        .try_state::<Arc<crate::delivery::protocols::admission::ProtocolAdmission>>()
+    {
+        Some(admission) => admission,
+        None => {
+            tracing::error!("Asset protocol admission state not found");
+            return error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                b"Protocol admission unavailable".to_vec(),
+            );
+        }
+    };
+    let _request_guard = match admission.enter() {
+        Some(guard) => guard,
+        None => {
+            tracing::debug!("Asset protocol request rejected during shutdown");
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                b"Application is shutting down".to_vec(),
+            );
+        }
+    };
     let uri = request.uri().to_string();
 
     let (asset_id, requested_type) = parse_asset_uri(&uri);
@@ -390,6 +412,81 @@ async fn serve_file_async(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn closed_admission_returns_unavailable_without_query_handler(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let admission =
+            Arc::new(crate::delivery::protocols::admission::ProtocolAdmission::default());
+        let app = tauri::test::mock_builder()
+            .manage(admission.clone())
+            .build(crate::application_context::<tauri::test::MockRuntime>())?;
+        admission.close();
+        for uri in ["asset://localhost/test", "thumb://localhost/test"] {
+            let request = Request::builder().uri(uri).body(Vec::new())?;
+            let response = handler_async(app.handle(), &request).await;
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn database_request_drains_before_pool_close_and_late_request_is_rejected(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::processing::workers::test_support::ProcessingFixture;
+        use std::time::Duration;
+
+        let fixture = ProcessingFixture::new().await?;
+        fixture.asset("protocol-test", None).await?;
+        tokio::fs::write(fixture.data.path().join("protocol-test.png"), b"image").await?;
+        let queries: Arc<dyn AssetQueryHandler> = fixture.queries.clone();
+        let admission =
+            Arc::new(crate::delivery::protocols::admission::ProtocolAdmission::default());
+        let app = tauri::test::mock_builder()
+            .manage(admission.clone())
+            .manage(queries)
+            .build(crate::application_context::<tauri::test::MockRuntime>())?;
+        let connection = fixture.pool.acquire().await?;
+        let handle = app.handle().clone();
+        let task = tokio::spawn(async move {
+            let request = Request::builder()
+                .uri("asset://localhost/protocol-test")
+                .body(Vec::new())?;
+            Ok::<_, tauri::http::Error>(handler_async(&handle, &request).await)
+        });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while admission.active_count() == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        assert_eq!(admission.close(), 1);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(30), admission.drain())
+                .await
+                .is_err()
+        );
+        assert!(!fixture.pool.is_closed());
+        let late = Request::builder()
+            .uri("thumb://localhost/protocol-test")
+            .body(Vec::new())?;
+        assert_eq!(
+            handler_async(app.handle(), &late).await.status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        drop(connection);
+        let response = tokio::time::timeout(Duration::from_secs(2), task).await???;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.body(), b"image");
+        tokio::time::timeout(Duration::from_secs(2), admission.drain()).await?;
+        tokio::time::timeout(Duration::from_secs(3), fixture.pool.close()).await?;
+        assert!(fixture.pool.is_closed());
+        assert_eq!(
+            handler_async(app.handle(), &late).await.status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        Ok(())
+    }
 
     #[test]
     fn test_parse_asset_uri_macos() {

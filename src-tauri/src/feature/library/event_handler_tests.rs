@@ -120,6 +120,7 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
     let queries = Arc::new(SqliteAssetQueries::new(pool.clone(), registry.clone()));
     let indexer =
         LibraryIndexer::new(queries.clone(), ledger, bus, registry).with_path_guard(guard.clone());
+    let token = tokio_util::sync::CancellationToken::new();
     let moved_path = root_path.join("moved.png");
     tokio::fs::rename(&old_path, &moved_path).await?;
     guard.mark(&root_path);
@@ -142,6 +143,7 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
         .handle_path_renamed(
             moved_path.to_string_lossy().into(),
             renamed_path.to_string_lossy().into(),
+            &token,
         )
         .await;
     assert_eq!(
@@ -165,6 +167,7 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
         .handle_path_renamed(
             renamed_path.to_string_lossy().into(),
             external_path.to_string_lossy().into(),
+            &token,
         )
         .await;
     let retained = queries
@@ -189,7 +192,7 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
         .await?
         .ok_or("Source folder lost")?;
     indexer
-        .handle_directory_rename(source_folder.clone(), unrelated_folder.clone())
+        .handle_directory_rename(source_folder.clone(), unrelated_folder.clone(), &token)
         .await;
     assert_eq!(
         queries

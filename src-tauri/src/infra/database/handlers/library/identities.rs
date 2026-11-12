@@ -11,7 +11,7 @@ pub(crate) async fn remember(
     identities: Vec<(PathBuf, FileIdentity)>,
 ) -> AppResult<()> {
     for chunk in identities.chunks(256) {
-        let mut transaction = pool.begin().await?;
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
         for (path, identity) in chunk {
             if crate::infra::filesystem::identity::read(path)
                 .await

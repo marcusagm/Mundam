@@ -4,6 +4,28 @@ use crate::core::processing::{ProcessingKind, ProcessingRepository};
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 #[tokio::test]
+async fn cancellation_observer_waits_for_in_flight_work() -> TestResult {
+    let token = CancellationToken::new();
+    let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
+    let observed_token = token.clone();
+    let handle = tokio::spawn(async move {
+        observe_cancellation(&observed_token, "test", async move {
+            let _ = started_tx.send(());
+            finish_rx.await
+        })
+        .await
+    });
+    started_rx.await?;
+    token.cancel();
+    tokio::task::yield_now().await;
+    assert!(!handle.is_finished());
+    finish_tx.send(7).map_err(|_| "work unexpectedly dropped")?;
+    assert_eq!(handle.await??, 7);
+    Ok(())
+}
+
+#[tokio::test]
 async fn processing_matching_worker_recovers_manual_work_with_automation_off_after_pause(
 ) -> TestResult {
     let fixture = ProcessingFixture::new().await?;

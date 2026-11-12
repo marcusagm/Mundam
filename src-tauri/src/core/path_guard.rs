@@ -12,6 +12,20 @@ use unicode_normalization::UnicodeNormalization;
 /// the watcher pipeline latency (deletion guard + debounce tick + indexer delay).
 const SUPPRESSION_WINDOW: Duration = Duration::from_secs(15);
 
+/// Produces a candidate lookup key, not proof that two paths name the same entry.
+pub fn spelling_key(path: &Path) -> String {
+    let normalized = path
+        .to_string_lossy()
+        .nfc()
+        .collect::<String>()
+        .to_lowercase();
+    if cfg!(windows) {
+        normalized.replace('\\', "/")
+    } else {
+        normalized
+    }
+}
+
 /// Thread-safe, time-bounded set of paths owned by the Ledger.
 ///
 /// Keys are NFC-normalized: on macOS the same file may be reported as NFC or NFD

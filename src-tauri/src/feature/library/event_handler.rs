@@ -45,7 +45,7 @@ impl LibraryIndexer {
                     recv_result = receiver.recv() => {
                         match recv_result {
                             Ok(event) => {
-                                self.handle_single_event(event).await;
+                                self.handle_single_event(event, &token).await;
                             }
                             Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
                                 if last_reconciliation.is_none_or(|instant| instant.elapsed() >= std::time::Duration::from_secs(60)) { repair_interval.reset_immediately(); }
@@ -88,7 +88,13 @@ impl LibraryIndexer {
             if !tokio::fs::try_exists(&folder.path).await.unwrap_or(false) {
                 continue;
             }
-            if let Err(error) = self.scan_directory(folder.path, Some(folder.id)).await {
+            if let Err(error) = self
+                .scan_directory_with_token(folder.path, Some(folder.id), token.clone())
+                .await
+            {
+                if token.is_cancelled() {
+                    break;
+                }
                 warn!(%error, "Library reconciliation will retry");
             }
         }
@@ -98,7 +104,11 @@ impl LibraryIndexer {
     ///
     /// Instead of calling scan_directory() (which walks 42k+ files), this
     /// performs the minimal database operation for each event type.
-    async fn handle_single_event(&self, event: crate::core::events::DomainEvent) {
+    async fn handle_single_event(
+        &self,
+        event: crate::core::events::DomainEvent,
+        token: &tokio_util::sync::CancellationToken,
+    ) {
         use crate::core::events::DomainEvent;
 
         match event {
@@ -115,11 +125,11 @@ impl LibraryIndexer {
             }
 
             DomainEvent::FsPathRenamed { from, to } => {
-                self.handle_path_renamed(from, to).await;
+                self.handle_path_renamed(from, to, token).await;
             }
 
             DomainEvent::FsDirectoryDiscovered { path } => {
-                self.handle_directory_discovered(path).await;
+                self.handle_directory_discovered(path, token).await;
             }
 
             DomainEvent::FsDirectoryDeleted { path } => {
@@ -267,7 +277,15 @@ impl LibraryIndexer {
     /// the Finder creates a temporary folder and then renames it to the final name.
     /// If the `from` path is not found in the database, the rename is treated as
     /// a new folder creation with the `to` path.
-    async fn handle_path_renamed(&self, from: String, to: String) {
+    async fn handle_path_renamed(
+        &self,
+        from: String,
+        to: String,
+        token: &tokio_util::sync::CancellationToken,
+    ) {
+        if token.is_cancelled() {
+            return;
+        }
         let from_path = PathBuf::from(&from);
         let to_path = PathBuf::from(&to);
 
@@ -277,7 +295,8 @@ impl LibraryIndexer {
             .await
             .is_ok_and(|metadata| metadata.is_dir())
         {
-            self.handle_directory_rename(from_path, to_path).await;
+            self.handle_directory_rename(from_path, to_path, token)
+                .await;
         } else {
             let update_result = self
                 .ledger
@@ -305,7 +324,12 @@ impl LibraryIndexer {
     }
 
     /// Handles a directory rename, including the macOS new-folder creation flow.
-    async fn handle_directory_rename(&self, from_path: PathBuf, to_path: PathBuf) {
+    async fn handle_directory_rename(
+        &self,
+        from_path: PathBuf,
+        to_path: PathBuf,
+        token: &tokio_util::sync::CancellationToken,
+    ) {
         let found_folder = match self
             .query_handler
             .find_folder_by_path(&from_path.to_string_lossy())
@@ -350,7 +374,7 @@ impl LibraryIndexer {
                 .await
             {
                 warn!(%error, "Directory rename was not verified; reconciling destination");
-                self.handle_directory_discovered(to_path.to_string_lossy().into_owned())
+                self.handle_directory_discovered(to_path.to_string_lossy().into_owned(), token)
                     .await;
             }
         } else {
@@ -368,7 +392,7 @@ impl LibraryIndexer {
                 .unwrap_or(None)
                 .is_none()
             {
-                self.create_and_scan_folder(to_path).await;
+                self.create_and_scan_folder(to_path, token).await;
             }
         }
     }
@@ -377,7 +401,14 @@ impl LibraryIndexer {
     ///
     /// Creates the folder in the database and immediately scans it
     /// to discover any files that were dragged or restored inside it.
-    async fn handle_directory_discovered(&self, path: String) {
+    async fn handle_directory_discovered(
+        &self,
+        path: String,
+        token: &tokio_util::sync::CancellationToken,
+    ) {
+        if token.is_cancelled() {
+            return;
+        }
         let dir_path = PathBuf::from(&path);
         let dir_path_str = dir_path.to_string_lossy().to_string();
 
@@ -390,7 +421,7 @@ impl LibraryIndexer {
             }
         }
 
-        self.create_and_scan_folder(dir_path).await;
+        self.create_and_scan_folder(dir_path, token).await;
     }
 
     /// Handles deletion of a directory from the filesystem.
@@ -426,7 +457,14 @@ impl LibraryIndexer {
     /// Resolves the parent folder ID from the database, creates the folder via
     /// the Ledger, then triggers a `scan_directory` using the newly created
     /// folder's ID (not the parent's) to ensure correct asset ownership.
-    async fn create_and_scan_folder(&self, folder_path: PathBuf) {
+    async fn create_and_scan_folder(
+        &self,
+        folder_path: PathBuf,
+        token: &tokio_util::sync::CancellationToken,
+    ) {
+        if token.is_cancelled() {
+            return;
+        }
         match self.has_indexed_ancestor(&folder_path).await {
             Ok(true) => {}
             Ok(false) => return,
@@ -468,11 +506,22 @@ impl LibraryIndexer {
 
         match create_result {
             Ok(new_folder_asset) => {
+                if token.is_cancelled() {
+                    return;
+                }
                 if let Err(error) = self
-                    .scan_directory(folder_path, Some(new_folder_asset.id))
+                    .scan_directory_with_token(
+                        folder_path,
+                        Some(new_folder_asset.id),
+                        token.clone(),
+                    )
                     .await
                 {
-                    warn!(%error, "Discovered folder scan will retry through reconciliation");
+                    if token.is_cancelled() {
+                        info!("Discovered folder scan stopped after shutdown request");
+                    } else {
+                        warn!(%error, "Discovered folder scan will retry through reconciliation");
+                    }
                 }
             }
             Err(error) => {

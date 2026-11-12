@@ -10,7 +10,14 @@ use crate::feature::duplicates::fingerprints::{
     is_image_media, resolve_image_via_format_provider,
 };
 use image::GenericImageView;
-use std::{fs::File, io::Read, sync::Arc};
+use std::{
+    fs::File,
+    io::Read,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
+};
 use tokio_util::sync::CancellationToken;
 
 /// Version five hashes retain their existing mathematical representation.
@@ -25,19 +32,43 @@ pub async fn generate(
     registry: Arc<FormatRegistry>,
     token: CancellationToken,
 ) -> AppResult<Option<DuplicateFingerprint>> {
-    tokio::task::spawn_blocking(move || generate_blocking(asset, &registry, &token))
-        .await
-        .map_err(|error| AppError::Internal(format!("Fingerprint task failed: {error}")))?
+    let phase = Arc::new(AtomicU8::new(0));
+    let worker_phase = phase.clone();
+    let worker_token = token.clone();
+    let task = tokio::task::spawn_blocking(move || {
+        generate_blocking(asset, &registry, &worker_token, &worker_phase)
+    });
+    let result = crate::processing::shutdown_diagnostics::observe(
+        &token,
+        &phase,
+        fingerprint_phase,
+        "fingerprint",
+        task,
+    )
+    .await;
+    result.map_err(|error| AppError::Internal(format!("Fingerprint task failed: {error}")))?
+}
+
+fn fingerprint_phase(phase: u8) -> &'static str {
+    match phase {
+        1 => "content_hash",
+        2 => "image_decode",
+        3 => "provider_extraction",
+        4 => "visual_hash",
+        _ => "starting",
+    }
 }
 
 fn generate_blocking(
     asset: Asset,
     registry: &FormatRegistry,
     token: &CancellationToken,
+    phase: &AtomicU8,
 ) -> AppResult<Option<DuplicateFingerprint>> {
     if token.is_cancelled() {
         return Ok(None);
     }
+    phase.store(1, Ordering::Relaxed);
     let mut file = File::open(&asset.path)?;
     let metadata = file.metadata()?;
     let Some(content_hash) = hash_reader(&mut file, token)? else {
@@ -63,10 +94,12 @@ fn generate_blocking(
         return Ok(None);
     }
     if is_image_media(&asset.family, &asset.format_type) {
+        phase.store(2, Ordering::Relaxed);
         let image = image::open(&asset.path).ok().or_else(|| {
             if token.is_cancelled() {
                 None
             } else {
+                phase.store(3, Ordering::Relaxed);
                 resolve_image_via_format_provider(registry, &asset.path, &asset.id, token)
             }
         });
@@ -74,6 +107,7 @@ fn generate_blocking(
             return Ok(None);
         }
         if let Some(image) = image {
+            phase.store(4, Ordering::Relaxed);
             let (width, height) = image.dimensions();
             fingerprint.perceptual_hash =
                 Some(format!("{:016x}", compute_perceptual_dhash_64(&image)));

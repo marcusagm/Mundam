@@ -1,99 +1,141 @@
-//! Process Manager for FFmpeg Transcoding
-//!
-//! Tracks active FFmpeg processes and allows cancellation for rapid seeking.
-//! This ensures that when a user seeks quickly, previous segment transcoding
-//! processes are terminated to save CPU resources.
+//! Cancellation registry for owned segment transcoding processes.
 
 use std::collections::HashMap;
-use std::time::Instant;
-use tracing::{info, warn};
+use std::time::{Duration, Instant};
+use tokio::sync::watch;
 
-/// Information about an active process
-struct ProcessInfo {
-    /// Process handle/ID
-    process_id: u32,
-    /// When the process started
-    started_at: Instant,
+/// Why a segment process was asked to stop.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CancellationReason {
+    /// A newer request for the same segment supersedes it.
+    Superseded,
+    /// The process exceeded the stale threshold.
+    Stale,
+    /// The application is shutting down.
+    Shutdown,
 }
 
-/// Manages active FFmpeg transcoding processes
+struct ProcessInfo {
+    key: String,
+    started_at: Instant,
+    cancellation: watch::Sender<Option<CancellationReason>>,
+}
+
+/// Tracks all started processes until their owners finish waiting for them.
 #[derive(Default)]
 pub struct ProcessManager {
-    /// Active processes keyed by segment identifier (e.g., "asset_id:index:quality")
-    processes: HashMap<String, ProcessInfo>,
-}
-
-#[cfg(unix)]
-fn kill_process(pid: u32) {
-    use std::process::Command;
-    let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
-}
-
-#[cfg(windows)]
-fn kill_process(pid: u32) {
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
-    let mut cmd = Command::new("taskkill");
-    cmd.creation_flags(0x08000000);
-    let _ = cmd.arg("/F").arg("/PID").arg(pid.to_string()).output();
+    processes: HashMap<uuid::Uuid, ProcessInfo>,
+    closed: bool,
+    owner_failures: usize,
 }
 
 impl ProcessManager {
-    /// Create a new process manager
+    /// Creates an empty registry.
     pub fn new() -> Self {
-        Self {
-            processes: HashMap::new(),
-        }
+        Self::default()
     }
 
-    /// Register a new transcoding process
-    pub fn register(&mut self, key: String, pid: u32) {
-        let info = ProcessInfo {
-            process_id: pid,
-            started_at: Instant::now(),
-        };
-        self.processes.insert(key, info);
-    }
-
-    /// Cancel a transcoding process by key
-    pub fn cancel(&mut self, key: &str) {
-        if let Some(info) = self.processes.remove(key) {
-            let elapsed = info.started_at.elapsed();
-            info!("Cancelled segment {} after {:?}", key, elapsed);
-            kill_process(info.process_id);
-        }
-    }
-
-    /// Remove a process from tracking without killing it (e.g. after successful completion)
-    pub fn remove(&mut self, key: &str) {
-        self.processes.remove(key);
-    }
-
-    /// Check if a segment is currently being processed
-    pub fn is_processing(&self, key: &str) -> bool {
-        self.processes.contains_key(key)
-    }
-
-    /// Clean up old/orphaned processes (older than timeout)
-    pub fn cleanup_stale(&mut self, timeout_secs: u64) {
-        let timeout = std::time::Duration::from_secs(timeout_secs);
-        let now = Instant::now();
-        let mut to_remove = Vec::new();
-
-        for (key, info) in &self.processes {
-            if now.duration_since(info.started_at) > timeout {
-                to_remove.push(key.clone());
+    /// Requests cancellation of all still-running processes for a segment.
+    pub fn cancel(&mut self, key: &str, reason: CancellationReason) {
+        for info in self.processes.values_mut().filter(|info| info.key == key) {
+            if info.cancellation.borrow().is_none() {
+                info.cancellation.send_replace(Some(reason));
             }
         }
+    }
 
-        for key in to_remove {
-            warn!("Cleaning up stale process for {}", key);
-            self.cancel(&key);
+    /// Registers an owner before releasing the process admission lock.
+    pub fn register(
+        &mut self,
+        key: String,
+    ) -> Option<(uuid::Uuid, watch::Receiver<Option<CancellationReason>>)> {
+        if self.closed {
+            return None;
+        }
+        self.cancel(&key, CancellationReason::Superseded);
+        let id = uuid::Uuid::new_v4();
+        let (cancellation, receiver) = watch::channel(None);
+        self.processes.insert(
+            id,
+            ProcessInfo {
+                key,
+                started_at: Instant::now(),
+                cancellation,
+            },
+        );
+        Some((id, receiver))
+    }
+
+    /// Closes admission and requests cancellation of tracked owners.
+    pub fn cancel_all(&mut self) -> usize {
+        self.closed = true;
+        let mut requested = 0;
+        for info in self.processes.values_mut() {
+            if info.cancellation.borrow().is_none() {
+                info.cancellation
+                    .send_replace(Some(CancellationReason::Shutdown));
+                requested += 1;
+            }
+        }
+        requested
+    }
+
+    /// Removes only the finished process instance.
+    pub fn remove(&mut self, id: uuid::Uuid) {
+        self.processes.remove(&id);
+    }
+
+    /// Records that an owner could not complete its process supervision.
+    pub fn record_owner_failure(&mut self) {
+        self.owner_failures += 1;
+    }
+
+    /// Count of owner supervision failures during this server's lifetime.
+    pub fn owner_failures(&self) -> usize {
+        self.owner_failures
+    }
+
+    /// Requests cancellation of stale processes without dropping their tracking.
+    pub fn cleanup_stale(&mut self, timeout_secs: u64) {
+        for info in self.processes.values_mut() {
+            if info.started_at.elapsed() > Duration::from_secs(timeout_secs)
+                && info.cancellation.borrow().is_none()
+            {
+                info.cancellation
+                    .send_replace(Some(CancellationReason::Stale));
+            }
         }
     }
 
-    /// Get number of active processes
+    /// Number of processes whose owners have not completed.
     pub fn active_count(&self) -> usize {
         self.processes.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn superseded_process_remains_tracked_until_its_owner_finishes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut manager = ProcessManager::new();
+        let (first, old) = manager
+            .register("segment".into())
+            .ok_or("admission closed")?;
+        let (second, new) = manager
+            .register("segment".into())
+            .ok_or("admission closed")?;
+        assert_eq!(*old.borrow(), Some(CancellationReason::Superseded));
+        assert_eq!(*new.borrow(), None);
+        manager.remove(first);
+        assert_eq!(manager.active_count(), 1);
+        assert_eq!(manager.cancel_all(), 1);
+        assert_eq!(*new.borrow(), Some(CancellationReason::Shutdown));
+        assert!(manager.register("late".into()).is_none());
+        manager.remove(second);
+        assert_eq!(manager.active_count(), 0);
+        Ok(())
     }
 }

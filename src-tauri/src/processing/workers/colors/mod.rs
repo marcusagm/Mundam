@@ -98,27 +98,38 @@ impl ColorWorker {
             else {
                 continue;
             };
-            let _lease = crate::processing::lease::ProcessingLease::start(
+            let lease = crate::processing::lease::ProcessingLease::start(
                 self.processing.clone(),
                 ticket.clone(),
             );
-            let result = self.extract(&ticket, token).await;
-            if token.is_cancelled() {
+            let result = async {
+                let result = self.extract(&ticket, token).await;
+                if token.is_cancelled() {
+                    self.processing.release(&ticket).await?;
+                    return Ok(());
+                }
+                let outcome = match result {
+                    Ok(outcome) => outcome,
+                    Err(error) => {
+                        if crate::core::processing::tools::ExtractionTool::from_error(&error)
+                            .is_none()
+                        {
+                            warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
+                        }
+                        ProcessingOutcome::failure(&error)
+                    }
+                };
+                self.processing.finish(&ticket, outcome).await?;
                 self.processing.release(&ticket).await?;
+                Ok::<(), AppError>(())
+            }
+            .await;
+            let lease_result = lease.finish().await;
+            result?;
+            lease_result?;
+            if token.is_cancelled() {
                 return Ok(());
             }
-            let outcome = match result {
-                Ok(outcome) => outcome,
-                Err(error) => {
-                    if crate::core::processing::tools::ExtractionTool::from_error(&error).is_none()
-                    {
-                        warn!(asset_id, %error, "Palette extraction will follow the bounded retry policy");
-                    }
-                    ProcessingOutcome::failure(&error)
-                }
-            };
-            self.processing.finish(&ticket, outcome).await?;
-            self.processing.release(&ticket).await?;
         }
         Ok(())
     }
@@ -135,11 +146,18 @@ impl ColorWorker {
             ));
         };
         let path = self.thumbnails_dir.join(thumbnail);
-        let colors = tokio::task::spawn_blocking(move || extract_color_palette(&path, None))
-            .await
-            .map_err(|error| {
-                AppError::Internal(format!("Color extraction task failed: {error}"))
-            })??;
+        let mut extraction =
+            tokio::task::spawn_blocking(move || extract_color_palette(&path, None));
+        let result = tokio::select! {
+            result = &mut extraction => result,
+            _ = token.cancelled() => {
+                tracing::info!("ColorWorker: Waiting for in-flight native extraction after cancellation");
+                extraction.await
+            }
+        };
+        let colors = result.map_err(|error| {
+            AppError::Internal(format!("Color extraction task failed: {error}"))
+        })??;
         if token.is_cancelled() || !self.processing.is_current(ticket).await? {
             return Ok(ProcessingOutcome::Skipped(
                 "Attempt was superseded or canceled".into(),

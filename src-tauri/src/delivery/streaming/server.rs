@@ -39,6 +39,7 @@ use crate::delivery::tauri::commands::queries::StreamingSessionToken;
 use crate::core::models::asset::Folder;
 use crate::delivery::streaming::{playlist, probe, segment};
 
+use crate::delivery::streaming::http_diagnostics::{track_handler, ActiveHandlers};
 use crate::delivery::streaming::linear_manager::LinearManager;
 use crate::delivery::streaming::process_manager::ProcessManager;
 use tokio::sync::RwLock;
@@ -55,6 +56,7 @@ struct AppState {
     _database: Arc<DbManager>,
     asset_query_handler: Arc<dyn AssetQueryHandler>,
     session_token: String,
+    shutdown_token: CancellationToken,
 }
 
 /// Helper for Axum error responses in streaming.
@@ -90,6 +92,10 @@ pub async fn start_server(
         .inner()
         .clone();
     let session_token = app_handle.state::<StreamingSessionToken>().0.clone();
+    let lifecycle = app_handle
+        .state::<Arc<crate::lifecycle::LifecycleRegistry>>()
+        .inner()
+        .clone();
 
     // Initialize Delivery-layer managers (Parity with V1)
     let process_manager = Arc::new(RwLock::new(ProcessManager::new()));
@@ -106,6 +112,7 @@ pub async fn start_server(
         _database: database,
         asset_query_handler: asset_query,
         session_token,
+        shutdown_token: shutdown_token.clone(),
     };
 
     // Spawn cleanup tasks inspired by V1
@@ -138,6 +145,7 @@ pub async fn start_server(
         }
     });
 
+    let active_handlers = Arc::new(ActiveHandlers::default());
     let app = Router::new()
         .route("/health", get(health_handler))
         .route("/probe/:asset_id", get(probe_handler))
@@ -150,11 +158,18 @@ pub async fn start_server(
             auth_middleware,
         ))
         .layer(build_cors_layer())
+        .layer(middleware::from_fn_with_state(
+            active_handlers.clone(),
+            track_handler,
+        ))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     tracing::info!("Streaming server listening on http://{}", addr);
 
+    let shutdown_process_manager = process_manager.clone();
+    let shutdown_linear_manager = linear_manager.clone();
+    let shutdown_lifecycle = lifecycle.clone();
     tauri::async_runtime::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(listener) => listener,
@@ -163,17 +178,76 @@ pub async fn start_server(
                 return;
             }
         };
-        if let Err(error) = axum::serve(listener, app)
-            .with_graceful_shutdown(async move {
-                shutdown_token.cancelled().await;
-                tracing::info!("Streaming server: graceful shutdown initiated");
-            })
-            .await
-        {
+        let server = serve_http_until_shutdown(listener, app, shutdown_token.clone());
+        let cleanup_token = shutdown_token.clone();
+        let cleanup = async move {
+            cleanup_token.cancelled().await;
+            tracing::info!("Streaming server: graceful shutdown initiated");
+            let segments = shutdown_process_manager.write().await.cancel_all();
+            let sessions = shutdown_linear_manager.shutdown().await;
+            if !sessions.is_clean() {
+                shutdown_lifecycle.report_failure("linear streaming cleanup");
+            }
+            tracing::info!(
+                segment_cancellations = segments,
+                linear_sessions = sessions.session_count,
+                "Streaming server: cleanup attempts completed; draining HTTP requests"
+            );
+            loop {
+                let manager = shutdown_process_manager.read().await;
+                let active = manager.active_count();
+                if active == 0 {
+                    let failures = manager.owner_failures();
+                    if failures > 0 {
+                        tracing::error!(failures, "Streaming server: segment supervision failures");
+                        shutdown_lifecycle.report_failure("segment supervision");
+                    }
+                    tracing::info!("Streaming server: all registered segment owners finished");
+                    break;
+                }
+                drop(manager);
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        };
+        tokio::pin!(server);
+        tokio::pin!(cleanup);
+        let result = tokio::select! {
+            result = &mut server => {
+                if shutdown_token.is_cancelled() {
+                    cleanup.await;
+                }
+                result
+            }
+            _ = &mut cleanup => {
+                active_handlers.log_active();
+                let mut interval = tokio::time::interval_at(
+                    tokio::time::Instant::now() + Duration::from_secs(1),
+                    Duration::from_secs(1),
+                );
+                loop {
+                    tokio::select! {
+                        result = &mut server => break result,
+                        _ = interval.tick() => active_handlers.log_active(),
+                    }
+                }
+            }
+        };
+        if let Err(error) = result {
             tracing::error!("Streaming server exited with error: {}", error);
+            lifecycle.report_failure("streaming server");
         }
         tracing::info!("Streaming server stopped");
     })
+}
+
+async fn serve_http_until_shutdown(
+    listener: tokio::net::TcpListener,
+    app: Router,
+    shutdown_token: CancellationToken,
+) -> std::io::Result<()> {
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await
 }
 
 /// Builds a restricted CORS layer for the streaming server.
@@ -438,7 +512,7 @@ async fn stream_handler(
 }
 
 /// Playlist endpoint - generates M3U8 dynamically
-#[instrument(skip(state))]
+#[instrument(skip(state, params))]
 async fn playlist_handler(
     State(state): State<AppState>,
     Path(id_and_ext): Path<String>,
@@ -501,7 +575,7 @@ async fn playlist_handler(
 }
 
 /// Segment endpoint - transcodes and serves a video segment
-#[instrument(skip(state))]
+#[instrument(skip(state, params))]
 async fn segment_handler(
     State(state): State<AppState>,
     Path((asset_id, segment)): Path<(String, String)>,
@@ -553,21 +627,36 @@ async fn segment_handler(
             .header(header::CACHE_CONTROL, "max-age=3600")
             .body(Body::from(data))
             .unwrap_or_default()),
-        Err(segment_error) => {
-            error!("SEGMENT_ERROR: {}", segment_error);
-            Err(StreamError(AppError::Generic(format!(
-                "Segment failed: {}",
-                segment_error
-            ))))
-        }
+        Err(segment_error) => segment_error_response(segment_error.as_ref()),
     }
+}
+
+fn segment_error_response(
+    segment_error: &(dyn std::error::Error + Send + Sync + 'static),
+) -> Result<Response, StreamError> {
+    if segment_error
+        .downcast_ref::<segment::SegmentAdmissionClosed>()
+        .is_some()
+    {
+        tracing::info!("Segment request rejected during shutdown");
+        return Ok((StatusCode::SERVICE_UNAVAILABLE, "Segment admission closed").into_response());
+    }
+    if let Some(cancelled) = segment_error.downcast_ref::<segment::SegmentCancelled>() {
+        tracing::info!(reason = ?cancelled.0, "Segment request cancelled");
+        return Ok((StatusCode::SERVICE_UNAVAILABLE, "Segment request cancelled").into_response());
+    }
+    error!("SEGMENT_ERROR: {}", segment_error);
+    Err(StreamError(AppError::Generic(format!(
+        "Segment failed: {}",
+        segment_error
+    ))))
 }
 
 /// Linear HLS Handler using /hls-live/*path
 /// Request can be:
 /// 1. .../{asset_id}/index.m3u8 -> Starts transcode, returns playlist
 /// 2. .../{asset_id}/segment_00001.ts -> Returns segment
-#[instrument(skip(state))]
+#[instrument(skip(state, params))]
 async fn linear_hls_handler(
     State(state): State<AppState>,
     Path(path): Path<String>,
@@ -614,14 +703,22 @@ async fn linear_hls_handler(
             Ok(temp_dir) => {
                 let playlist_path = temp_dir.join("index.m3u8");
 
-                // Poll for playlist existence (ffmpeg might take a second to create it, or up to 60s for MIDI synthesis)
-                let mut tries = 0;
-                while !playlist_path.exists() && tries < 600 {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    tries += 1;
+                let wait = wait_for_stream_file(
+                    &playlist_path,
+                    Duration::from_secs(60),
+                    &state.shutdown_token,
+                )
+                .await
+                .map_err(|error| {
+                    StreamError(AppError::Generic(format!(
+                        "Failed to check playlist: {error}"
+                    )))
+                })?;
+                if wait == FileWait::Cancelled {
+                    tracing::info!("Linear streaming: playlist wait cancelled during shutdown");
+                    return Ok(StatusCode::SERVICE_UNAVAILABLE.into_response());
                 }
-
-                if playlist_path.exists() {
+                if wait == FileWait::Ready {
                     match tokio::fs::read_to_string(&playlist_path).await {
                         Ok(content) => {
                             // Inject the session token into all segment URLs
@@ -682,14 +779,19 @@ async fn linear_hls_handler(
 
         let segment_path = temp_dir.join(parts[1]);
 
-        // Wait for segment to be ready (it might be being transcoded)
-        let mut attempts = 0;
-        while !segment_path.exists() && attempts < 50 {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            attempts += 1;
+        let wait =
+            wait_for_stream_file(&segment_path, Duration::from_secs(5), &state.shutdown_token)
+                .await
+                .map_err(|error| {
+                    StreamError(AppError::Generic(format!(
+                        "Failed to check segment: {error}"
+                    )))
+                })?;
+        if wait == FileWait::Cancelled {
+            tracing::info!("Linear streaming: segment wait cancelled during shutdown");
+            return Ok(StatusCode::SERVICE_UNAVAILABLE.into_response());
         }
-
-        if !segment_path.exists() {
+        if wait == FileWait::TimedOut {
             return Err(StreamError(AppError::Generic("Segment timed out".into())));
         }
 
@@ -698,6 +800,37 @@ async fn linear_hls_handler(
             .map_err(|s| StreamError(AppError::Generic(format!("Serve error: {}", s))))
     } else {
         Err(StreamError(AppError::Generic("Invalid HLS path".into())))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum FileWait {
+    Ready,
+    TimedOut,
+    Cancelled,
+}
+
+async fn wait_for_stream_file(
+    path: &StdPath,
+    timeout: Duration,
+    shutdown_token: &CancellationToken,
+) -> std::io::Result<FileWait> {
+    let deadline = tokio::time::Instant::now() + timeout;
+    loop {
+        if shutdown_token.is_cancelled() {
+            return Ok(FileWait::Cancelled);
+        }
+        if tokio::fs::try_exists(path).await? {
+            return Ok(FileWait::Ready);
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Ok(FileWait::TimedOut);
+        }
+        tokio::select! {
+            biased;
+            _ = shutdown_token.cancelled() => return Ok(FileWait::Cancelled),
+            _ = tokio::time::sleep_until((tokio::time::Instant::now() + Duration::from_millis(100)).min(deadline)) => {}
+        }
     }
 }
 
@@ -779,6 +912,157 @@ async fn serve_file(
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn segment_admission_and_real_failures_have_distinct_http_statuses() {
+        let response = match segment_error_response(&segment::SegmentAdmissionClosed) {
+            Ok(response) => response,
+            Err(_) => panic!("closed admission should produce a response"),
+        };
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+        let error = std::io::Error::other("transcoding failed");
+        let response = match segment_error_response(&error) {
+            Ok(_) => panic!("a real failure must not be classified as closed admission"),
+            Err(error) => error.into_response(),
+        };
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn http_shutdown_stops_accepting_while_existing_request_drains(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let entered_tx = Arc::new(tokio::sync::Mutex::new(Some(entered_tx)));
+        let release = Arc::new(tokio::sync::Notify::new());
+        let handler_release = release.clone();
+        let app = Router::new().route(
+            "/test",
+            get(move || {
+                let entered_tx = entered_tx.clone();
+                let release = handler_release.clone();
+                async move {
+                    if let Some(sender) = entered_tx.lock().await.take() {
+                        let _ = sender.send(());
+                    }
+                    release.notified().await;
+                    StatusCode::OK
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address = listener.local_addr()?;
+        let token = CancellationToken::new();
+        let server = tokio::spawn(serve_http_until_shutdown(listener, app, token.clone()));
+        let mut client = tokio::net::TcpStream::connect(address).await?;
+        client
+            .write_all(b"GET /test HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await?;
+        tokio::time::timeout(Duration::from_secs(2), entered_rx).await??;
+        token.cancel();
+
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if tokio::net::TcpStream::connect(address).await.is_err() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await?;
+        assert!(!server.is_finished());
+        release.notify_one();
+        let mut response = Vec::new();
+        tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut response)).await??;
+        assert!(response.starts_with(b"HTTP/1.1 200"));
+        tokio::time::timeout(Duration::from_secs(2), server).await???;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stream_file_wait_handles_ready_timeout_and_cancellation(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let file = directory.path().join("playlist.m3u8");
+        let token = CancellationToken::new();
+        assert_eq!(
+            wait_for_stream_file(&file, Duration::from_millis(30), &token).await?,
+            FileWait::TimedOut
+        );
+        tokio::fs::write(&file, b"playlist").await?;
+        assert_eq!(
+            wait_for_stream_file(&file, Duration::from_secs(1), &token).await?,
+            FileWait::Ready
+        );
+        token.cancel();
+        assert_eq!(
+            wait_for_stream_file(&file, Duration::from_secs(1), &token).await?,
+            FileWait::Cancelled
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancellation_releases_a_waiting_http_request() -> Result<(), Box<dyn std::error::Error>>
+    {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("missing.m3u8");
+        let token = CancellationToken::new();
+        let request_token = token.clone();
+        let (entered_sender, entered_receiver) = tokio::sync::oneshot::channel();
+        let entered_sender = Arc::new(tokio::sync::Mutex::new(Some(entered_sender)));
+        let handlers = Arc::new(ActiveHandlers::default());
+        let app = Router::new()
+            .route(
+                "/hls-live/test",
+                get(move || {
+                    let path = path.clone();
+                    let token = request_token.clone();
+                    let entered_sender = entered_sender.clone();
+                    async move {
+                        if let Some(sender) = entered_sender.lock().await.take() {
+                            let _ = sender.send(());
+                        }
+                        match wait_for_stream_file(&path, Duration::from_secs(60), &token).await {
+                            Ok(FileWait::Cancelled) => StatusCode::SERVICE_UNAVAILABLE,
+                            Ok(FileWait::Ready) => StatusCode::OK,
+                            _ => StatusCode::INTERNAL_SERVER_ERROR,
+                        }
+                    }
+                }),
+            )
+            .layer(middleware::from_fn_with_state(
+                handlers.clone(),
+                track_handler,
+            ));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address = listener.local_addr()?;
+        let shutdown_token = token.clone();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app)
+                .with_graceful_shutdown(shutdown_token.cancelled_owned())
+                .await
+        });
+        let mut client = tokio::net::TcpStream::connect(address).await?;
+        client
+            .write_all(
+                b"GET /hls-live/test HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+            )
+            .await?;
+        tokio::time::timeout(Duration::from_secs(2), entered_receiver).await??;
+        assert_eq!(handlers.count(5), 1);
+        token.cancel();
+        let mut response = Vec::new();
+        tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut response)).await??;
+        assert!(response.starts_with(b"HTTP/1.1 503"));
+        tokio::time::timeout(Duration::from_secs(2), server).await???;
+        assert_eq!(handlers.count(5), 0);
+        Ok(())
+    }
 
     #[test]
     fn test_strip_unc_prefix() {

@@ -17,12 +17,29 @@ export interface ProgressPayload {
 
 const [loading, setLoading] = createSignal(true);
 const [progress, setProgress] = createSignal<ProgressPayload | null>(null);
+const [indexingOutcome, setIndexingOutcome] = createSignal<'completed' | 'failed' | null>(null, {
+    equals: false
+});
 const [thumbnailProgress, setThumbnailProgress] = createSignal<ProgressPayload | null>(null);
 const [rootPath, setRootPath] = createSignal<string | null>(null);
 const [initialized, setInitialized] = createSignal(false);
 const [supportedFormats, setSupportedFormats] = createSignal<FileFormat[]>([]);
 const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
 const [isDesignSystemOpen, setIsDesignSystemOpen] = createSignal(false);
+
+function refreshAfterIndexing() {
+    void Promise.allSettled([
+        libraryActions.refreshAssets(true),
+        metadataActions.loadStats(),
+        metadataActions.loadLocations()
+    ]).then(results => {
+        for (const result of results) {
+            if (result.status === 'rejected') {
+                console.error('Failed to refresh library after indexing:', result.reason);
+            }
+        }
+    });
+}
 
 export const systemActions = {
     initialize: async () => {
@@ -54,9 +71,14 @@ export const systemActions = {
 
             await listen<number>('indexer:complete', () => {
                 systemActions.clearProgress();
-                libraryActions.refreshAssets(true);
-                metadataActions.loadStats();
-                metadataActions.loadLocations();
+                refreshAfterIndexing();
+                setIndexingOutcome('completed');
+            });
+
+            await listen<{ library_id: string }>('indexer:failed', () => {
+                systemActions.clearProgress();
+                refreshAfterIndexing();
+                setIndexingOutcome('failed');
             });
 
             await listen<{ id: string; path: string }>('thumbnail:ready', e => {
@@ -163,6 +185,7 @@ export const systemActions = {
 export {
     loading,
     progress,
+    indexingOutcome,
     thumbnailProgress,
     rootPath,
     supportedFormats,

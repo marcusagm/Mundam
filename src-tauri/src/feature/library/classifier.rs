@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::debug;
 use walkdir::DirEntry;
 
 /// Preserves the native path spelling; only verified catalog aliases may be normalized.
@@ -88,6 +89,19 @@ pub async fn classify_file_entry(
 
     if !needs_indexing {
         return AssetDiscoveryResult::ExistingAsset;
+    }
+
+    if let Some((cached_size, cached_time)) = comparison_cache.get(&entry_path_string) {
+        debug!(
+            path = %entry_path.display(),
+            disk_size,
+            cached_size,
+            disk_modified = %disk_modified_time,
+            cached_modified = %cached_time,
+            "Scan classified existing path as changed"
+        );
+    } else {
+        debug!(path = %entry_path.display(), "Scan classified path as absent from comparison cache");
     }
 
     let (format_name, family_name) = if let Some(supported_format) = registry.detect(&entry_path) {

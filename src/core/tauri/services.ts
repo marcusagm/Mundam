@@ -10,7 +10,7 @@ export interface StartIndexingArgs {
 export const tauriService = {
     /**
      * Starts the background indexing process for the given directory path.
-     * This triggers the 'indexer:progress' and 'indexer:complete' events.
+     * Reports progress and either 'indexer:complete' or 'indexer:failed'.
      */
     startIndexing: async (args: StartIndexingArgs): Promise<void> => {
         try {

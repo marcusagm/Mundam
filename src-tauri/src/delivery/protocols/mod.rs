@@ -1,3 +1,4 @@
+pub mod admission;
 /// Module for handling custom URI protocols for the Tauri application.
 ///
 /// This module provides a way to register custom URI schemes with the Tauri

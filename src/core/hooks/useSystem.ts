@@ -1,6 +1,7 @@
 import {
     loading,
     progress,
+    indexingOutcome,
     thumbnailProgress,
     rootPath,
     isSettingsOpen,
@@ -19,6 +20,7 @@ export const useSystem = () => {
         loading,
         /** Global progress tracking mapping */
         progress,
+        indexingOutcome,
         /** Thumbnail generation progress */
         thumbnailProgress,
         /** Scanned library root path directory */

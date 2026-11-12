@@ -71,6 +71,9 @@ pub fn run() {
             std::env::set_var("MUNDAM_RESOURCE_DIR", resource_dir);
 
             crate::bootstrap::system::init_lifecycle(app_handle);
+            app_handle.manage(std::sync::Arc::new(
+                crate::delivery::protocols::admission::ProtocolAdmission::default(),
+            ));
             app_handle.manage(crate::feature::shutdown::ShutdownService::default());
             #[cfg(target_os = "macos")]
             crate::bootstrap::macos_shutdown::install(app_handle)?;

@@ -9,6 +9,72 @@ use crate::infra::events::TokioEventBus;
 use crate::lifecycle::LifecycleRegistry;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
+use tokio::sync::broadcast;
+use tokio_util::sync::CancellationToken;
+
+#[derive(Default)]
+struct BridgeShutdownEvents {
+    total: u64,
+    scan_progress: u64,
+    scan_completed: u64,
+    scan_failed: u64,
+    thumbnail: u64,
+    metadata: u64,
+    lagged: u64,
+}
+
+impl BridgeShutdownEvents {
+    fn record(&mut self, event: &crate::core::events::DomainEvent) {
+        use crate::core::events::DomainEvent;
+        self.total += 1;
+        match event {
+            DomainEvent::ScanProgress { .. } => self.scan_progress += 1,
+            DomainEvent::ScanCompleted { .. } => self.scan_completed += 1,
+            DomainEvent::ScanFailed { .. } => self.scan_failed += 1,
+            DomainEvent::ThumbnailGenerated { .. } => self.thumbnail += 1,
+            DomainEvent::AssetMetadataUpdated { .. } => self.metadata += 1,
+            _ => {}
+        }
+    }
+
+    fn log(&self) {
+        tracing::info!(
+            total = self.total,
+            scan_progress = self.scan_progress,
+            scan_completed = self.scan_completed,
+            scan_failed = self.scan_failed,
+            thumbnail = self.thumbnail,
+            metadata = self.metadata,
+            lagged = self.lagged,
+            "Domain Event Bridge shutdown receive summary; frontend delivery is not verified"
+        );
+    }
+}
+
+async fn next_bridge_event(
+    rx: &mut broadcast::Receiver<crate::core::events::DomainEvent>,
+    token: &CancellationToken,
+) -> Option<Result<crate::core::events::DomainEvent, broadcast::error::RecvError>> {
+    if token.is_cancelled() {
+        return next_ready_bridge_event(rx);
+    }
+    tokio::select! {
+        result = rx.recv() => Some(result),
+        _ = token.cancelled() => next_ready_bridge_event(rx),
+    }
+}
+
+fn next_ready_bridge_event(
+    rx: &mut broadcast::Receiver<crate::core::events::DomainEvent>,
+) -> Option<Result<crate::core::events::DomainEvent, broadcast::error::RecvError>> {
+    match rx.try_recv() {
+        Ok(event) => Some(Ok(event)),
+        Err(broadcast::error::TryRecvError::Lagged(count)) => {
+            Some(Err(broadcast::error::RecvError::Lagged(count)))
+        }
+        Err(broadcast::error::TryRecvError::Empty | broadcast::error::TryRecvError::Closed) => None,
+    }
+}
 
 /// Resolves and ensures the creation of all fundamental directories for local persistence.
 ///
@@ -80,16 +146,21 @@ pub fn init_events(app: &AppHandle) {
     let mut rx = event_bus.subscribe();
     let app_handle = app.clone();
     let lifecycle = app.state::<Arc<LifecycleRegistry>>().inner().clone();
-    let bridge_token = lifecycle.child_token();
+    let bridge_token = CancellationToken::new();
     let token_clone = bridge_token.clone();
+    let shutdown_token = lifecycle.root_token();
 
     let bridge_handle = tauri::async_runtime::spawn(async move {
+        let mut shutdown_events = BridgeShutdownEvents::default();
         loop {
-            tokio::select! {
-                recv_result = rx.recv() => {
+            match next_bridge_event(&mut rx, &token_clone).await {
+                Some(recv_result) => {
                     match recv_result {
                         Ok(event) => {
                             use crate::core::events::DomainEvent;
+                            if shutdown_token.is_cancelled() {
+                                shutdown_events.record(&event);
+                            }
                             // Standard Domain Event Bridge
                             if let Err(e) = app_handle.emit("mundam://domain-event", &event) {
                                 tracing::error!("Failed to emit domain event to frontend: {}", e);
@@ -159,6 +230,14 @@ pub fn init_events(app: &AppHandle) {
                                 DomainEvent::ScanCompleted { .. } => {
                                     let _ = app_handle.emit("indexer:complete", 0);
                                 }
+                                DomainEvent::ScanFailed { library_id } => {
+                                    if let Err(error) = app_handle.emit(
+                                        "indexer:failed",
+                                        serde_json::json!({ "library_id": library_id }),
+                                    ) {
+                                        tracing::error!(%error, "Failed to emit indexer failure to frontend");
+                                    }
+                                }
                                 DomainEvent::ThumbnailGenerated { asset_id, path, .. } => {
                                     let _ = app_handle.emit(
                                         "thumbnail:ready",
@@ -186,6 +265,9 @@ pub fn init_events(app: &AppHandle) {
                             }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            if shutdown_token.is_cancelled() {
+                                shutdown_events.lagged += n;
+                            }
                             tracing::warn!("Event bridge lagged by {} events", n);
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => {
@@ -194,11 +276,14 @@ pub fn init_events(app: &AppHandle) {
                         }
                     }
                 }
-                _ = token_clone.cancelled() => {
-                    tracing::info!("Domain Event Bridge cancelled. Exiting.");
+                None => {
+                    tracing::info!("Domain Event Bridge drained and stopped.");
                     break;
                 }
             }
+        }
+        if shutdown_token.is_cancelled() {
+            shutdown_events.log();
         }
     });
 
@@ -236,4 +321,74 @@ pub fn init_formats(app: &AppHandle) {
     format_registry.register_fallback(providers::fallback_provider());
 
     app.manage(std::sync::Arc::new(format_registry));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::events::DomainEvent;
+
+    #[tokio::test]
+    async fn bridge_drains_queued_events_after_cancellation(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (sender, mut receiver) = broadcast::channel(4);
+        sender.send(DomainEvent::ScanStarted {
+            library_id: "one".into(),
+        })?;
+        sender.send(DomainEvent::ScanCompleted {
+            library_id: "one".into(),
+        })?;
+        let token = CancellationToken::new();
+        token.cancel();
+        assert!(matches!(
+            next_bridge_event(&mut receiver, &token).await,
+            Some(Ok(DomainEvent::ScanStarted { .. }))
+        ));
+        assert!(matches!(
+            next_bridge_event(&mut receiver, &token).await,
+            Some(Ok(DomainEvent::ScanCompleted { .. }))
+        ));
+        assert!(next_bridge_event(&mut receiver, &token).await.is_none());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_reports_lag_after_cancellation() -> Result<(), Box<dyn std::error::Error>> {
+        let (sender, mut receiver) = broadcast::channel(1);
+        for id in ["one", "two"] {
+            sender.send(DomainEvent::ScanStarted {
+                library_id: id.into(),
+            })?;
+        }
+        let token = CancellationToken::new();
+        token.cancel();
+        assert!(matches!(
+            next_bridge_event(&mut receiver, &token).await,
+            Some(Err(broadcast::error::RecvError::Lagged(1)))
+        ));
+        assert!(matches!(
+            next_bridge_event(&mut receiver, &token).await,
+            Some(Ok(DomainEvent::ScanStarted { .. }))
+        ));
+        assert!(next_bridge_event(&mut receiver, &token).await.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn shutdown_event_counts_are_categorized() {
+        let mut counts = BridgeShutdownEvents::default();
+        counts.record(&DomainEvent::ScanCompleted {
+            library_id: "one".into(),
+        });
+        counts.record(&DomainEvent::AssetMetadataUpdated {
+            asset_id: "asset".into(),
+        });
+        counts.record(&DomainEvent::ScanStarted {
+            library_id: "one".into(),
+        });
+        assert_eq!(counts.total, 3);
+        assert_eq!(counts.scan_completed, 1);
+        assert_eq!(counts.metadata, 1);
+        assert_eq!(counts.scan_progress, 0);
+    }
 }

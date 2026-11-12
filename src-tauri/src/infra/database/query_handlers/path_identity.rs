@@ -1,21 +1,8 @@
 //! Exact catalog resolution with live directory-entry proofs for case, Unicode and separator aliases.
 use crate::core::error::AppResult;
+use crate::core::path_guard::spelling_key;
 use sqlx::SqliteConnection;
 use std::path::Path;
-use unicode_normalization::UnicodeNormalization;
-
-fn spelling_key(path: &Path) -> String {
-    let normalized: String = path
-        .to_string_lossy()
-        .nfc()
-        .collect::<String>()
-        .to_lowercase();
-    if cfg!(windows) {
-        normalized.replace('\\', "/")
-    } else {
-        normalized
-    }
-}
 
 /// Resolves cleanup candidates only when both observed and catalog paths are missing.
 ///

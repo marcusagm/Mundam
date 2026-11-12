@@ -275,40 +275,67 @@ pub async fn start_indexing(
 ) -> AppResult<()> {
     let path_buf = std::path::PathBuf::from(&path);
 
-    // 1. Register a filesystem watcher for this path
     let lifecycle = app_handle
-        .try_state::<std::sync::Arc<crate::lifecycle::LifecycleRegistry>>()
+        .try_state::<Arc<crate::lifecycle::LifecycleRegistry>>()
         .ok_or_else(|| {
             crate::core::error::AppError::Internal("Lifecycle not initialized".to_string())
         })?;
-
-    let watcher_token = lifecycle.child_token();
-    if let Err(watcher_error) = watcher.watch(path_buf.clone(), watcher_token.clone()).await {
-        tracing::error!(
-            "Failed to start watcher for {}: {}",
-            path_buf.display(),
-            watcher_error
-        );
-    } else {
-        lifecycle.register(
-            format!("watcher:{}", path_buf.display()),
-            watcher_token,
-            tauri::async_runtime::spawn(async {}),
-        );
-        tracing::info!("Watcher registered for: {}", path_buf.display());
-    }
-
-    // 2. Start indexing in background
+    let watcher = watcher.inner().clone();
     let indexer_ref = indexer.inner().clone();
-    tracing::info!(
-        "Started indexing for: {} component=tauriService",
-        path_buf.display()
-    );
-    tauri::async_runtime::spawn(async move {
-        let _ = indexer_ref.scan_directory(path_buf, folder_id).await;
-    });
-
+    let watcher_token = lifecycle.child_token();
+    let scan_token = lifecycle.child_token();
+    let watcher_path = path_buf.clone();
+    let setup = async move {
+        if let Err(watcher_error) = watcher.watch(watcher_path.clone(), watcher_token).await {
+            tracing::error!(
+                "Failed to start watcher for {}: {}",
+                watcher_path.display(),
+                watcher_error
+            );
+        } else {
+            tracing::info!("Watcher started for: {}", watcher_path.display());
+        }
+    };
+    let scan = async move {
+        if let Err(error) = indexer_ref
+            .scan_directory_with_token(path_buf.clone(), folder_id, scan_token.clone())
+            .await
+        {
+            if scan_token.is_cancelled() {
+                tracing::info!(path = %path_buf.display(), "Background scan stopped after shutdown request");
+            } else {
+                tracing::error!(path = %path_buf.display(), %error, "Background scan failed");
+            }
+        }
+    };
+    admit_indexing_job(&lifecycle, setup, scan).await?;
+    tracing::info!("Started indexing for: {} component=tauriService", path);
     Ok(())
+}
+
+async fn admit_indexing_job<S, F>(
+    lifecycle: &crate::lifecycle::LifecycleRegistry,
+    setup: S,
+    scan: F,
+) -> AppResult<()>
+where
+    S: std::future::Future<Output = ()> + Send + 'static,
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+    let task_name = format!("manual_scan:{}", uuid::Uuid::new_v4());
+    if !lifecycle.spawn_unique(task_name, async move {
+        setup.await;
+        let _ = ready_tx.send(());
+        scan.await;
+    }) {
+        return Err(crate::core::error::AppError::Internal(
+            "Cannot start indexing while the application is shutting down".to_string(),
+        ));
+    }
+    ready_rx.await.map_err(|error| {
+        crate::core::error::AppError::Internal(format!("Indexing setup did not complete: {error}"))
+    })
 }
 
 /// RPC Command to save a new smart folder.
@@ -767,4 +794,67 @@ pub async fn import_tags(
     payload: crate::core::ledger::command::ImportTagsPayload,
 ) -> AppResult<()> {
     crate::feature::assets::tag_commands::import_tags(ledger.inner().as_ref(), payload).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tokio::time::{timeout, Duration};
+
+    #[tokio::test]
+    async fn indexing_setup_and_scan_are_both_awaited_during_shutdown(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let lifecycle = Arc::new(crate::lifecycle::LifecycleRegistry::new());
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (setup_tx, setup_rx) = tokio::sync::oneshot::channel();
+        let (scan_entered_tx, scan_entered_rx) = tokio::sync::oneshot::channel();
+        let (scan_tx, scan_rx) = tokio::sync::oneshot::channel();
+        let command_registry = lifecycle.clone();
+        let command = tokio::spawn(async move {
+            admit_indexing_job(
+                &command_registry,
+                async move {
+                    let _ = entered_tx.send(());
+                    let _ = setup_rx.await;
+                },
+                async move {
+                    let _ = scan_entered_tx.send(());
+                    let _ = scan_rx.await;
+                },
+            )
+            .await
+        });
+        timeout(Duration::from_secs(2), entered_rx).await??;
+        let shutdown_registry = lifecycle.clone();
+        let shutdown = tokio::spawn(async move { shutdown_registry.shutdown_all().await });
+        timeout(Duration::from_secs(2), lifecycle.root_token().cancelled()).await?;
+        assert!(!shutdown.is_finished());
+        setup_tx.send(()).map_err(|_| "setup stopped")?;
+        timeout(Duration::from_secs(2), scan_entered_rx).await??;
+        timeout(Duration::from_secs(2), command).await???;
+        assert!(!shutdown.is_finished());
+        scan_tx.send(()).map_err(|_| "scan stopped")?;
+        assert!(timeout(Duration::from_secs(2), shutdown).await??);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn indexing_after_shutdown_does_not_run_setup_or_scan() {
+        let lifecycle = crate::lifecycle::LifecycleRegistry::new();
+        lifecycle.root_token().cancel();
+        let setup_ran = Arc::new(AtomicBool::new(false));
+        let scan_ran = Arc::new(AtomicBool::new(false));
+        let setup_flag = setup_ran.clone();
+        let scan_flag = scan_ran.clone();
+        let result = admit_indexing_job(
+            &lifecycle,
+            async move { setup_flag.store(true, Ordering::SeqCst) },
+            async move { scan_flag.store(true, Ordering::SeqCst) },
+        )
+        .await;
+        assert!(result.is_err());
+        assert!(!setup_ran.load(Ordering::SeqCst));
+        assert!(!scan_ran.load(Ordering::SeqCst));
+    }
 }

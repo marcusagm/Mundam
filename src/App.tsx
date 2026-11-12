@@ -1,9 +1,9 @@
-import { onMount, onCleanup, Show, createEffect, createSignal, Switch, Match } from 'solid-js';
-import { useSystem, useNotification, useFilters, useMetadataNotifications } from './core/hooks';
+import { onMount, Show, createEffect, createSignal, Switch, Match } from 'solid-js';
+import { useSystem, useFilters, useMetadataNotifications } from './core/hooks';
+import { useIndexingNotifications } from './core/hooks/useIndexingNotifications';
 import { WelcomeView, HomeView, GalleryView, DuplicateFinderView } from './views';
 import { TitleBar, type ApplicationView } from './components/layout/TitleBar';
 // Dialog removed (moved to WelcomeView)
-import { listen } from '@tauri-apps/api/event';
 // Native DnD
 import {
     dndRegistry,
@@ -27,7 +27,6 @@ import { InputProvider, useCommands } from './core/input';
  */
 function App() {
     const system = useSystem();
-    const notification = useNotification();
     const filters = useFilters();
 
     const [activeApplicationView, setActiveApplicationView] =
@@ -35,6 +34,7 @@ function App() {
 
     // Start background sync notifications
     useMetadataNotifications();
+    useIndexingNotifications(system.indexingOutcome);
 
     useCommands({
         'app:settings': () => system.openSettings(true),
@@ -53,18 +53,6 @@ function App() {
         // Register Strategies
         dndRegistry.register('TAG', TagDropStrategy);
         dndRegistry.register('ASSET', AssetDropStrategy);
-
-        // Listen for indexing completion (with proper cleanup)
-        let unlistenIndexerComplete: (() => void) | null = null;
-        listen('indexer:complete', () => {
-            notification.success('Indexing Complete', 'Library update finished');
-        }).then(unlisten => {
-            unlistenIndexerComplete = unlisten;
-        });
-
-        onCleanup(() => {
-            if (unlistenIndexerComplete) unlistenIndexerComplete();
-        });
     });
 
     const renderTitleBar = () => (
@@ -72,31 +60,36 @@ function App() {
     );
 
     return (
-        <Show
-            when={!system.loading()}
-            fallback={<Loader isFullscreen text="Initializing Mundam..." />}
-        >
-            <Show when={system.rootPath()} fallback={<WelcomeView header={renderTitleBar()} />}>
-                <Switch fallback={<GalleryView header={renderTitleBar()} />}>
-                    <Match when={activeApplicationView() === 'home'}>
-                        <HomeView header={renderTitleBar()} onNavigate={setActiveApplicationView} />
-                    </Match>
-                    <Match when={activeApplicationView() === 'gallery'}>
-                        <GalleryView header={renderTitleBar()} />
-                    </Match>
-                    <Match when={activeApplicationView() === 'duplicates'}>
-                        <DuplicateFinderView header={renderTitleBar()} />
-                    </Match>
-                </Switch>
+        <>
+            <Show
+                when={!system.loading()}
+                fallback={<Loader isFullscreen text="Initializing Mundam..." />}
+            >
+                <Show when={system.rootPath()} fallback={<WelcomeView header={renderTitleBar()} />}>
+                    <Switch fallback={<GalleryView header={renderTitleBar()} />}>
+                        <Match when={activeApplicationView() === 'home'}>
+                            <HomeView
+                                header={renderTitleBar()}
+                                onNavigate={setActiveApplicationView}
+                            />
+                        </Match>
+                        <Match when={activeApplicationView() === 'gallery'}>
+                            <GalleryView header={renderTitleBar()} />
+                        </Match>
+                        <Match when={activeApplicationView() === 'duplicates'}>
+                            <DuplicateFinderView header={renderTitleBar()} />
+                        </Match>
+                    </Switch>
 
-                <Sonner position="bottom-right" useRichColors />
-                <SettingsModal
-                    isOpen={system.isSettingsOpen()}
-                    onClose={() => system.openSettings(false)}
-                    initialTab="general"
-                />
+                    <SettingsModal
+                        isOpen={system.isSettingsOpen()}
+                        onClose={() => system.openSettings(false)}
+                        initialTab="general"
+                    />
+                </Show>
             </Show>
-        </Show>
+            <Sonner position="bottom-right" useRichColors />
+        </>
     );
 }
 

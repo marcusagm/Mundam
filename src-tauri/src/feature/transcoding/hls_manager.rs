@@ -165,8 +165,13 @@ impl HlsManager {
             loop {
                 tokio::select! {
                     _ = token.cancelled() => {
-                        tracing::info!("HlsManager: Shutdown signal received. Cleaning up active streams.");
+                        let session_count = sessions.len();
+                        tracing::info!(session_count, "HlsManager: Dropping tracked sessions on shutdown");
                         sessions.clear();
+                        tracing::info!(
+                            session_count,
+                            "HlsManager: Session handles dropped; process exit and directory cleanup not verified"
+                        );
                         break;
                     }
                     _ = interval.tick() => {
@@ -199,5 +204,32 @@ impl HlsManager {
                 }
             }
         })
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cancellation_drops_tracked_sessions() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let manager = HlsManager::new(directory.path());
+        let mut command = Command::new("sleep");
+        command.arg("30").kill_on_drop(true);
+        manager.sessions.insert(
+            "test".into(),
+            StreamSession {
+                process: command.spawn()?,
+                last_accessed: Instant::now(),
+                output_dir: directory.path().join("session"),
+            },
+        );
+        let token = CancellationToken::new();
+        let worker = manager.start_cleanup_worker(token.clone(), 90);
+        token.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(3), worker).await??;
+        assert!(manager.sessions.is_empty());
+        Ok(())
     }
 }

@@ -97,7 +97,13 @@ impl DuplicateWorker {
                 };
                 let mut idle = true;
                 if automatic {
-                    match self.process_batch(&token).await {
+                    match observe_cancellation(
+                        &token,
+                        "fingerprint_batch",
+                        self.process_batch(&token),
+                    )
+                    .await
+                    {
                         Ok((processed, queue_idle)) => {
                             dirty_count += processed;
                             idle = queue_idle;
@@ -117,10 +123,17 @@ impl DuplicateWorker {
                     current.pending > 0 || current.retry_wait > 0 || current.manual_pending,
                 );
                 if (automatic && (idle || dirty_count >= 100)) || current.manual_pending {
-                    match self.compare(&token, idle || current.manual_pending).await {
+                    match observe_cancellation(
+                        &token,
+                        "matching",
+                        self.compare(&token, idle || current.manual_pending),
+                    )
+                    .await
+                    {
                         Ok(true) => {
                             dirty_count = 0;
                         }
+
                         Ok(false) => {}
                         Err(error) => warn!(%error, "Durable duplicate comparison failed"),
                     }
@@ -230,5 +243,22 @@ impl DuplicateWorker {
                 })?;
         }
         Ok(published)
+    }
+}
+
+async fn observe_cancellation<T>(
+    token: &CancellationToken,
+    phase: &'static str,
+    work: impl std::future::Future<Output = T>,
+) -> T {
+    tokio::pin!(work);
+    tokio::select! {
+        result = &mut work => result,
+        _ = token.cancelled() => {
+            tracing::info!(phase, "DuplicateWorker: Waiting for in-flight work after cancellation");
+            let result = work.await;
+            tracing::info!(phase, "DuplicateWorker: In-flight work finished after cancellation");
+            result
+        }
     }
 }

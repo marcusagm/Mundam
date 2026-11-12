@@ -65,6 +65,10 @@ pub enum AppError {
     #[error("Internal state error: {0}")]
     Internal(String),
 
+    /// An operation was stopped because its owner requested cancellation.
+    #[error("Operation cancelled.")]
+    Cancelled,
+
     /// Generic validation for input data.
     #[error("Validation failed: {0}")]
     ValidationFailed(String),

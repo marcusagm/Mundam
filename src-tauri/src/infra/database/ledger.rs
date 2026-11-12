@@ -20,6 +20,10 @@ use crate::core::ledger::command::LedgerCommand;
 use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::models::asset::Asset;
 
+#[cfg(test)]
+#[path = "ledger_concurrency_tests.rs"]
+mod concurrency_tests;
+
 /// SQLite implementation of the Asset Ledger.
 ///
 /// This adapter acts as a **pure transactional router**: it opens a transaction,
@@ -188,7 +192,14 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
         }
         let _library_operation = super::library_operations::LIBRARY_GATE.lock().await;
         super::library_operations::journal::recover(&self.pool, &self.app_data_directory).await?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = if matches!(
+            &command,
+            LedgerCommand::BatchCreate(_) | LedgerCommand::CreateFolder(_)
+        ) {
+            self.pool.begin_with("BEGIN IMMEDIATE").await?
+        } else {
+            self.pool.begin().await?
+        };
 
         // 1. Resolve and expand commands (Handle Batch expansion but NOT BatchCreate)
         let commands_to_process = match &command {
@@ -252,19 +263,9 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
         }
 
         // 3. Publish Domain Events only AFTER commit
-        // For BatchCreate: emit a single summary to avoid flooding the broadcast channel.
-        // Individual AssetCreated events would overflow the 2048-capacity buffer.
+        // Individual BatchCreate events would overflow the broadcast channel.
         match &command {
-            LedgerCommand::BatchCreate(payloads) => {
-                let batch_count = payloads.len();
-                if batch_count > 0 {
-                    let _ = self.event_bus.publish(DomainEvent::ScanProgress {
-                        total: batch_count,
-                        processed: batch_count,
-                        current_file: format!("Batch committed: {} assets", batch_count),
-                    });
-                }
-            }
+            LedgerCommand::BatchCreate(_) => {}
             _ => {
                 for (asset, command_item) in &results {
                     self.emit_event_for_command(asset, command_item)?;

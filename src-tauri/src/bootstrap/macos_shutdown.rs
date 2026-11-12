@@ -87,7 +87,7 @@ pub fn install(application: &AppHandle) -> Result<(), Box<dyn std::error::Error>
             return Err("macOS application delegate has no class".into());
         }
         let parent = &*parent_pointer;
-        let name = CStr::from_bytes_with_nul(b"MundamShutdownAppDelegate\0")?;
+        let name = c"MundamShutdownAppDelegate";
         let subclass = delegate_subclass(parent, name)?;
         // The subclass adds no instance variables and retains Tao's entire implementation.
         objc2::ffi::object_setClass(delegate, subclass);
@@ -105,14 +105,14 @@ mod tests {
     fn subclass_preserves_parent_and_refuses_to_override_termination(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let parent = class!(NSObject);
-        let name = CStr::from_bytes_with_nul(b"MundamShutdownTestDelegate\0")?;
+        let name = c"MundamShutdownTestDelegate";
         let subclass = delegate_subclass(parent, name)?;
         assert_eq!(subclass.superclass(), Some(parent));
         assert!(subclass
             .instance_method(sel!(applicationShouldTerminate:))
             .is_some());
         assert!(subclass.instance_method(sel!(description)).is_some());
-        let duplicate_name = CStr::from_bytes_with_nul(b"MundamShutdownTestDuplicate\0")?;
+        let duplicate_name = c"MundamShutdownTestDuplicate";
         assert!(delegate_subclass(subclass, duplicate_name).is_err());
         Ok(())
     }

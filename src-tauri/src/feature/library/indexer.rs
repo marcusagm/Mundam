@@ -29,6 +29,19 @@ use walkdir::WalkDir;
 
 use super::classifier::{catalog_path, classify_file_entry, AssetDiscoveryResult};
 
+#[cfg(test)]
+#[path = "indexer_tests.rs"]
+mod tests;
+
+struct PruneInput<'a> {
+    root_path: &'a str,
+    comparison_cache: &'a HashMap<String, (i64, DateTime<Utc>)>,
+    verified_file_paths: &'a std::collections::HashSet<String>,
+    existing_folders: &'a [crate::core::models::asset::Folder],
+    verified_folder_paths: &'a std::collections::HashSet<String>,
+    observed_folder_ids: &'a std::collections::HashSet<String>,
+}
+
 /// Service responsible for indexing library folders using a parallel
 /// producer-consumer pipeline.
 ///
@@ -51,6 +64,14 @@ pub struct LibraryIndexer {
     pub(crate) pending_removals: Arc<DashMap<PathBuf, uuid::Uuid>>,
     /// Shared compatibility hints; catalog reconciliation decides whether an observation is stale.
     pub(crate) path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
+}
+
+fn ensure_scan_active(token: &tokio_util::sync::CancellationToken) -> AppResult<()> {
+    if token.is_cancelled() {
+        Err(crate::core::error::AppError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 impl LibraryIndexer {
@@ -106,9 +127,46 @@ impl LibraryIndexer {
     ///
     /// # Errors
     ///
-    /// Returns `AppError::Internal` if the WalkDir thread panics.
+    /// Returns an error when scanning fails or the owning operation is cancelled.
     #[instrument(skip(self), fields(path = %path.display()))]
     pub async fn scan_directory(&self, path: PathBuf, folder_id: Option<String>) -> AppResult<()> {
+        self.scan_directory_with_token(path, folder_id, tokio_util::sync::CancellationToken::new())
+            .await
+    }
+
+    /// Performs a scan that stops at safe boundaries when its owner is cancelled.
+    #[instrument(skip(self, token), fields(path = %path.display()))]
+    pub async fn scan_directory_with_token(
+        &self,
+        path: PathBuf,
+        folder_id: Option<String>,
+        token: tokio_util::sync::CancellationToken,
+    ) -> AppResult<()> {
+        let mut failure_library_id = folder_id.clone().unwrap_or_else(|| "root".to_string());
+        let result = self
+            .scan_directory_inner(path, folder_id, &mut failure_library_id, &token)
+            .await;
+        if result.is_err() && !token.is_cancelled() {
+            if let Err(error) =
+                self.event_bus
+                    .publish(crate::core::events::DomainEvent::ScanFailed {
+                        library_id: failure_library_id,
+                    })
+            {
+                error!(%error, "Unable to publish scan failure");
+            }
+        }
+        result
+    }
+
+    async fn scan_directory_inner(
+        &self,
+        path: PathBuf,
+        folder_id: Option<String>,
+        failure_library_id: &mut String,
+        token: &tokio_util::sync::CancellationToken,
+    ) -> AppResult<()> {
+        ensure_scan_active(token)?;
         let scan_start_time = std::time::Instant::now();
         let path = catalog_path(&path);
         let root_str = path.to_string_lossy().to_string();
@@ -122,6 +180,10 @@ impl LibraryIndexer {
         } else {
             self.query_handler.find_folder_by_path(&root_str).await?
         };
+        ensure_scan_active(token)?;
+        if let Some(id) = &current_root_id {
+            failure_library_id.clone_from(id);
+        }
 
         let _ = self
             .event_bus
@@ -133,11 +195,19 @@ impl LibraryIndexer {
 
         let registry_for_walk = self.registry.clone();
         let walk_path = path.clone();
-        let all_entries: Vec<walkdir::DirEntry> = tokio::task::spawn_blocking(move || {
-            WalkDir::new(&walk_path)
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-        })
+        let walk_token = token.clone();
+        let all_entries = tokio::task::spawn_blocking(
+            move || -> Result<Option<Vec<walkdir::DirEntry>>, walkdir::Error> {
+                let mut entries = Vec::new();
+                for entry in WalkDir::new(&walk_path) {
+                    if walk_token.is_cancelled() {
+                        return Ok(None);
+                    }
+                    entries.push(entry?);
+                }
+                Ok(Some(entries))
+            },
+        )
         .await
         .map_err(|join_error| {
             crate::core::error::AppError::Internal(format!("WalkDir join failed: {}", join_error))
@@ -147,11 +217,16 @@ impl LibraryIndexer {
                 "Incomplete filesystem walk; catalog pruning cancelled: {error}"
             ))
         })?;
+        let Some(all_entries) = all_entries else {
+            return Err(crate::core::error::AppError::Cancelled);
+        };
+        ensure_scan_active(token)?;
 
         let mut directory_entries: Vec<walkdir::DirEntry> = Vec::new();
         let mut file_entries: Vec<walkdir::DirEntry> = Vec::new();
 
         for entry in all_entries {
+            ensure_scan_active(token)?;
             if entry.file_type().is_dir() {
                 if entry.path() != path {
                     directory_entries.push(entry);
@@ -178,17 +253,22 @@ impl LibraryIndexer {
         );
 
         let folder_cache = self
-            .build_folder_cache(&path, &current_root_id, &mut directory_entries)
+            .build_folder_cache(&path, &current_root_id, &mut directory_entries, token)
             .await?;
+        ensure_scan_active(token)?;
 
-        let comparison_cache = self
+        let mut comparison_cache = self
             .query_handler
             .get_all_files_comparison_data(&root_str)
             .await?;
+        ensure_scan_active(token)?;
         debug!(
             "Loaded {} entries from comparison cache",
             comparison_cache.len()
         );
+        self.add_verified_file_aliases(&file_entries, &mut comparison_cache, token)
+            .await?;
+        ensure_scan_active(token)?;
 
         let verified_file_paths: std::collections::HashSet<String> = file_entries
             .iter()
@@ -207,24 +287,40 @@ impl LibraryIndexer {
                 &folder_cache,
                 &current_root_id,
                 total_files,
+                token,
             )
-            .await;
+            .await?;
+        ensure_scan_active(token)?;
 
         self.ledger
             .observe_file_identities(verified_file_paths.iter().map(PathBuf::from).collect())
             .await?;
+        ensure_scan_active(token)?;
 
         let existing_folders = self.query_handler.list_all_subfolders().await?;
+        ensure_scan_active(token)?;
+        let observed_folder_ids: std::collections::HashSet<String> = {
+            let cache = folder_cache.read().await;
+            directory_entries
+                .iter()
+                .filter_map(|entry| cache.get(&catalog_path(entry.path())).cloned())
+                .collect()
+        };
         let (pruned_files_count, pruned_folders_count) = self
             .prune_stale_entries(
-                &root_str,
-                &comparison_cache,
-                &verified_file_paths,
-                &existing_folders,
-                &verified_folder_paths,
+                &PruneInput {
+                    root_path: &root_str,
+                    comparison_cache: &comparison_cache,
+                    verified_file_paths: &verified_file_paths,
+                    existing_folders: &existing_folders,
+                    verified_folder_paths: &verified_folder_paths,
+                    observed_folder_ids: &observed_folder_ids,
+                },
+                token,
             )
-            .await;
+            .await?;
 
+        ensure_scan_active(token)?;
         let scan_duration = scan_start_time.elapsed();
         info!(
             "■ Scan COMPLETED for: {} — Discovered: {}, Unchanged: {}, Pruned: {} ({} files/{} dirs), Errors: {}, Duration: {:.2}s",
@@ -240,14 +336,46 @@ impl LibraryIndexer {
         Ok(())
     }
 
+    async fn add_verified_file_aliases(
+        &self,
+        entries: &[walkdir::DirEntry],
+        comparison_cache: &mut HashMap<String, (i64, DateTime<Utc>)>,
+        token: &tokio_util::sync::CancellationToken,
+    ) -> AppResult<()> {
+        let candidate_keys: std::collections::HashSet<String> = comparison_cache
+            .keys()
+            .map(|path| crate::core::path_guard::spelling_key(std::path::Path::new(path)))
+            .collect();
+        for entry in entries {
+            ensure_scan_active(token)?;
+            let observed = catalog_path(entry.path()).to_string_lossy().to_string();
+            if comparison_cache.contains_key(&observed)
+                || !candidate_keys.contains(&crate::core::path_guard::spelling_key(entry.path()))
+            {
+                continue;
+            }
+            if let Some(asset) = self.query_handler.find_asset_by_path(&observed).await? {
+                ensure_scan_active(token)?;
+                let catalog_path = asset.path.to_string_lossy();
+                if let Some(metadata) = comparison_cache.get(catalog_path.as_ref()).cloned() {
+                    debug!(path = %observed, catalog_path = %catalog_path, "Scan matched verified catalog alias");
+                    comparison_cache.insert(observed, metadata);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Builds the folder hierarchy cache, creating missing folders in depth order.
     async fn build_folder_cache(
         &self,
         root_path: &std::path::Path,
         current_root_id: &Option<String>,
         directory_entries: &mut [walkdir::DirEntry],
+        token: &tokio_util::sync::CancellationToken,
     ) -> AppResult<Arc<RwLock<HashMap<PathBuf, String>>>> {
         let existing_folders = self.query_handler.list_all_subfolders().await?;
+        ensure_scan_active(token)?;
         let folder_cache: Arc<RwLock<HashMap<PathBuf, String>>> = Arc::new(RwLock::new({
             let mut map = HashMap::new();
             for folder in &existing_folders {
@@ -262,6 +390,7 @@ impl LibraryIndexer {
         directory_entries.sort_by_key(|entry| entry.path().components().count());
 
         for dir_entry in directory_entries.iter() {
+            ensure_scan_active(token)?;
             let dir_path = catalog_path(dir_entry.path());
             let dir_path_str = dir_path.to_string_lossy().to_string();
 
@@ -277,6 +406,7 @@ impl LibraryIndexer {
                 .find_folder_by_path(&dir_path_str)
                 .await?
             {
+                ensure_scan_active(token)?;
                 let mut cache_write = folder_cache.write().await;
                 cache_write.insert(dir_path, existing_id);
                 continue;
@@ -302,6 +432,7 @@ impl LibraryIndexer {
 
             match self.ledger.execute(create_folder_command).await {
                 Ok(folder_asset) => {
+                    ensure_scan_active(token)?;
                     let mut cache_write = folder_cache.write().await;
                     cache_write.insert(dir_path, folder_asset.id);
                 }
@@ -316,7 +447,7 @@ impl LibraryIndexer {
 
     /// Fan-out classification and batch persistence pipeline.
     ///
-    /// Returns (discovered_count, unchanged_count, error_count).
+    /// Returns committed discoveries, unchanged files and classification errors.
     async fn fanout_classify_and_persist(
         &self,
         file_entries: Vec<walkdir::DirEntry>,
@@ -324,16 +455,22 @@ impl LibraryIndexer {
         folder_cache: &Arc<RwLock<HashMap<PathBuf, String>>>,
         current_root_id: &Option<String>,
         total_files: usize,
-    ) -> (u64, u64, u64) {
+        token: &tokio_util::sync::CancellationToken,
+    ) -> AppResult<(u64, u64, u64)> {
         let (result_sender, mut result_receiver) = mpsc::channel::<AssetDiscoveryResult>(2000);
         let shared_comparison_cache = Arc::new(comparison_cache.clone());
         let shared_folder_cache = folder_cache.clone();
         let shared_registry = self.registry.clone();
         let current_root_id = current_root_id.clone();
         let concurrency_limit = self.concurrency_limit;
-        let producer = tokio::spawn(async move {
+        let producer_token = token.clone();
+        let mut producer = JoinSet::new();
+        producer.spawn(async move {
             let mut pending = JoinSet::new();
             for file_entry in file_entries {
+                if producer_token.is_cancelled() {
+                    return;
+                }
                 if pending.len() >= concurrency_limit {
                     if let Some(Err(error)) = pending.join_next().await {
                         let _ = result_sender
@@ -367,25 +504,40 @@ impl LibraryIndexer {
         let mut unchanged_count: u64 = 0;
         let mut error_count: u64 = 0;
         let mut processed_count: u64 = 0;
+        let mut persistence_error = None;
         let batch_size: usize = 100;
 
-        while let Some(discovery) = result_receiver.recv().await {
+        loop {
+            let discovery = tokio::select! {
+                biased;
+                _ = token.cancelled() => return Err(crate::core::error::AppError::Cancelled),
+                discovery = result_receiver.recv() => discovery,
+            };
+            let Some(discovery) = discovery else {
+                break;
+            };
             processed_count += 1;
 
             match discovery {
                 AssetDiscoveryResult::NewAsset(payload) => {
-                    batch_payloads.push(payload);
-                    discovered_count += 1;
+                    if persistence_error.is_none() {
+                        batch_payloads.push(payload);
+                    }
 
                     if batch_payloads.len() >= batch_size {
-                        if let Err(batch_error) = self
+                        let count = batch_payloads.len() as u64;
+                        match self
                             .ledger
                             .execute(LedgerCommand::BatchCreate(std::mem::take(
                                 &mut batch_payloads,
                             )))
                             .await
                         {
-                            error!("BatchCreate failed: {}", batch_error);
+                            Ok(_) => discovered_count += count,
+                            Err(batch_error) => {
+                                error!(%batch_error, "BatchCreate failed; scan will not be completed");
+                                persistence_error = Some(batch_error);
+                            }
                         }
                     }
                 }
@@ -397,8 +549,12 @@ impl LibraryIndexer {
                     error_count += 1;
                 }
             }
+            ensure_scan_active(token)?;
 
-            if processed_count % 100 == 0 || processed_count == total_files as u64 {
+            if persistence_error.is_none()
+                && processed_count % 100 == 0
+                && processed_count < total_files as u64
+            {
                 let _ = self
                     .event_bus
                     .publish(crate::core::events::DomainEvent::ScanProgress {
@@ -409,22 +565,50 @@ impl LibraryIndexer {
             }
         }
 
-        if !batch_payloads.is_empty() {
-            if let Err(batch_error) = self
+        ensure_scan_active(token)?;
+        if persistence_error.is_none() && !batch_payloads.is_empty() {
+            let count = batch_payloads.len() as u64;
+            match self
                 .ledger
                 .execute(LedgerCommand::BatchCreate(batch_payloads))
                 .await
             {
-                error!("Final BatchCreate failed: {}", batch_error);
+                Ok(_) => discovered_count += count,
+                Err(batch_error) => {
+                    error!(%batch_error, "Final BatchCreate failed; scan will not be completed");
+                    persistence_error = Some(batch_error);
+                }
             }
         }
 
-        if let Err(error) = producer.await {
+        ensure_scan_active(token)?;
+        let producer_result = producer.join_next().await.ok_or_else(|| {
+            crate::core::error::AppError::Internal(
+                "Classification producer was not registered".to_string(),
+            )
+        })?;
+        if let Err(error) = producer_result {
             error!(%error, "Classification producer failed");
-            error_count += 1;
+            if persistence_error.is_none() {
+                persistence_error = Some(crate::core::error::AppError::Internal(format!(
+                    "Classification producer failed: {error}"
+                )));
+            }
         }
 
-        (discovered_count, unchanged_count, error_count)
+        if let Some(error) = persistence_error {
+            return Err(error);
+        }
+        if processed_count > 0 {
+            let _ = self
+                .event_bus
+                .publish(crate::core::events::DomainEvent::ScanProgress {
+                    total: total_files,
+                    processed: processed_count as usize,
+                    current_file: format!("{}/{}", processed_count, total_files),
+                });
+        }
+        Ok((discovered_count, unchanged_count, error_count))
     }
 
     /// Prunes stale assets and folders that exist in the database but not on disk.
@@ -432,19 +616,18 @@ impl LibraryIndexer {
     /// Returns (pruned_files_count, pruned_folders_count).
     async fn prune_stale_entries(
         &self,
-        root_str: &str,
-        comparison_cache: &HashMap<String, (i64, DateTime<Utc>)>,
-        verified_file_paths: &std::collections::HashSet<String>,
-        existing_folders: &[crate::core::models::asset::Folder],
-        verified_folder_paths: &std::collections::HashSet<String>,
-    ) -> (u64, u64) {
+        input: &PruneInput<'_>,
+        token: &tokio_util::sync::CancellationToken,
+    ) -> AppResult<(u64, u64)> {
         let mut pruned_files_count: u64 = 0;
         let mut pruned_folders_count: u64 = 0;
 
-        for cached_path in comparison_cache.keys() {
-            if !verified_file_paths.contains(cached_path)
+        for cached_path in input.comparison_cache.keys() {
+            ensure_scan_active(token)?;
+            if !input.verified_file_paths.contains(cached_path)
                 && !tokio::fs::try_exists(cached_path).await.unwrap_or(true)
             {
+                ensure_scan_active(token)?;
                 if let Err(error) = self
                     .ledger
                     .execute(LedgerCommand::DeleteAsset {
@@ -461,13 +644,16 @@ impl LibraryIndexer {
             }
         }
 
-        for folder in existing_folders {
+        for folder in input.existing_folders {
+            ensure_scan_active(token)?;
             let folder_path_str = catalog_path(&folder.path).to_string_lossy().to_string();
 
-            if folder_path_str.starts_with(root_str)
-                && folder_path_str != root_str
-                && !verified_folder_paths.contains(&folder_path_str)
+            if folder_path_str.starts_with(input.root_path)
+                && folder_path_str != input.root_path
+                && !input.verified_folder_paths.contains(&folder_path_str)
+                && !input.observed_folder_ids.contains(&folder.id)
             {
+                ensure_scan_active(token)?;
                 if let Err(error) = self
                     .ledger
                     .execute(LedgerCommand::RemoveFolder(
@@ -488,7 +674,7 @@ impl LibraryIndexer {
             }
         }
 
-        (pruned_files_count, pruned_folders_count)
+        Ok((pruned_files_count, pruned_folders_count))
     }
 
     /// Performs a differential repair of the library index.

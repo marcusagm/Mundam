@@ -328,22 +328,22 @@ Executar em **build empacotado** em macOS, Windows e Linux, além do modo de des
 
 Preencher durante a implementação. Um item só deve ser marcado quando houver evidência registrada na seção seguinte.
 
-- [ ] Confirmar decisões de UX, tempos e cobertura de saída com o responsável pelo produto.
+- [x] Confirmar decisões de UX, tempos e cobertura de saída com o responsável pelo produto.
 - [ ] Inventariar entradas reais de saída por plataforma e classificar as não interceptáveis.
 - [ ] Inventariar recursos, proprietários, dependências, operações críticas e política de timeout/recuperação.
 - [ ] Registrar baseline de tempo e consumo nas plataformas disponíveis.
-- [ ] Implementar coordenador único, estado revisionado e saída final sem recursão.
+- [x] Implementar coordenador único, estado revisionado e saída final sem recursão.
 - [ ] Garantir fechamento atômico da admissão e supervisão do boot, incluindo criação/registro concorrentes.
 - [ ] Garantir drenagem verificável dos recursos no escopo, watchers e tarefas filhas.
 - [ ] Auditar e tratar servidor, requisições e processos filhos sob propriedade do Mundam.
 - [ ] Preservar transações, journal, leases, originais e recuperação após reinício.
-- [ ] Implementar janela independente, entrada Vite e empacotamento.
-- [ ] Criar capability mínima e validar autorização de IPC por janela.
-- [ ] Implementar protocolo evento + consulta, reconciliação e descarte dos listeners.
+- [x] Implementar janela independente, entrada Vite e empacotamento.
+- [x] Criar capability mínima e validar autorização de IPC por janela.
+- [x] Implementar protocolo evento + consulta, reconciliação e descarte dos listeners.
 - [ ] Implementar apresentação mínima, limite de handshake, fallback e mensagens factuais.
 - [ ] Validar acessibilidade, teclado, leitores de tela, contraste, temas e movimento reduzido.
 - [ ] Cobrir falhas, timeouts, fechamento repetido, saída do SO e inicialização parcial.
-- [ ] Executar testes automatizados, typecheck, lint e build pertinentes.
+- [x] Executar testes automatizados, typecheck, lint e build pertinentes.
 - [ ] Executar e registrar matriz desktop e medições; explicitar plataformas não validadas.
 - [ ] Atualizar documentação de startup, lifecycle e arquitetura afetada.
 - [ ] Registrar decisões finais, desvios, riscos residuais, resultados e aprovação.
@@ -366,7 +366,7 @@ Não considerar este registro como aceite final.
 | Recurso / dono | Admissão e cancelamento | Evidência de término | Timeout / recuperação | Estado |
 | --- | --- | --- | --- | --- |
 | Inicialização | Token raiz cancelado e supervisor aguardado antes de drenar o registro; verificação entre etapas. | Handle do supervisor. | Sem timeout adicional para boot em andamento. | Implementado; teste de corrida e desktop pendentes. |
-| Tarefas registradas | Token raiz cancelado; `shutdown_all` aguarda handles. | Resultado do handle; panic/timeout marcam resultado degradado. | Timeout existente de 5 s **por tarefa**, não global; abort não prova término de trabalho nativo. | Parcial; política definitiva e cobertura pendentes. |
+| Tarefas registradas | Token raiz cancelado; `shutdown_all` fecha o registro e aguarda handles concorrentemente. | Resultado do handle; panic/timeout marcam resultado degradado. | Prazo compartilhado de 5 s para espera cooperativa; abort não prova término de trabalho nativo nem impõe limite à espera posterior pelo handle. | Parcial; admissão anterior ao registro, política definitiva e cobertura pendentes. |
 | Watchers, operações IPC, servidor, subprocessos e tarefas não registradas | Ainda utilizam mecanismos existentes. | Não estabelecida de forma abrangente nesta etapa. | Limitações e recovery existentes precisam ser auditados. | Pendente; não inferir limpeza integral. |
 
 ### Alterações realizadas
@@ -377,6 +377,101 @@ Não considerar este registro como aceite final.
 | 2026-11-09 | `bootstrap/startup.rs`, `delivery/tauri/startup.rs`, `lifecycle.rs` | Aguardar supervisor do boot; impedir apresentação da principal e avanços de boot após pedido; registrar tarefas com falha/timeout como degradadas. | Ainda não fecha atomicamente toda admissão de trabalho. |
 | 2026-11-09 | `shutdown.html`, `src/core/shutdown/`, `src/components/features/shutdown/`, capability/permissão próprias, `vite.config.ts` | Apresentação independente e indeterminada, com tema e redução de movimento compartilhados com a splash. | Janela observada no macOS em modo de desenvolvimento; acessibilidade real e outros ambientes pendentes. |
 | 2026-11-09 | `bootstrap/macos_shutdown.rs`, `bootstrap/shutdown.rs`, `lib.rs` | Encaminhar `applicationShouldTerminate:` do AppKit ao coordenador compartilhado. O delegate de Tao é preservado por subclasse sem ivars; se já houver implementação do seletor, a instalação falha explicitamente em vez de sobrescrevê-la. A saída autorizada retorna `NSTerminateNow`. | Dock e Cmd+Q validados pelo usuário no macOS em modo de desenvolvimento. |
+
+### Drenagem de subprocessos do servidor de streaming
+
+No cancelamento do token, o servidor de streaming tenta encerrar os processos
+ffmpeg de segmentos rastreados e limpar as sessões lineares (processo e
+diretório temporário) antes do desligamento gracioso do Axum. Cobertura: teste unitário de
+`ProcessManager::cancel_all` (Unix). Sem teste de integração com sessões
+lineares reais.
+
+### Orçamento global e fallback
+
+`LifecycleRegistry::shutdown_all` drena as tarefas concorrentemente com um prazo
+único de 5 s (antes 5 s por tarefa, em sequência); estouro faz abort e marca
+`clean=false`. Testes: `lifecycle::shutdown_budget_tests` (2). Se a janela de
+encerramento não puder ser criada, o título da janela principal passa a
+"Mundam — Closing…".
+
+### Admissão atômica e pool SQLite
+
+`LifecycleRegistry` marca `closed` sob o mesmo lock da drenagem final; registros
+posteriores têm token cancelado e handle abortado (teste
+`registration_after_shutdown_is_rejected_and_aborted`). Após drenagem limpa,
+`DbManager::close` fecha o pool SQLite com limite de 3 s (estouro marca
+`clean=false`). Se qualquer tarefa falhar ou exceder o orçamento, o fechamento
+explícito do pool é ignorado, pois recursos órfãos ainda podem tentar liberar
+leases antes da saída do processo. `cargo clippy --lib --tests` sem avisos;
+`cargo test --lib`:
+269 aprovados (uma execução anterior teve 1 falha não identificada, não
+reproduzida na reexecução).
+
+### Acompanhamento de leases de processamento
+
+Os executores de thumbnails, cores e fingerprints agora aguardam a tarefa de
+renovação e liberação do lease ao concluir o processamento, inclusive quando a
+operação retorna erro. A falha de liberação é registrada e propagada ao
+chamador. Testes do lease verificam espera pela conexão SQLite e propagação de
+falha; os testes de processamento foram executados após a alteração.
+
+Esse acompanhamento cobre o caminho de conclusão dos executores, não o abort
+forçado: nesse caso o `Drop` ainda dispara liberação assíncrona sem aguardar.
+Extrações e computações em `spawn_blocking` também não são interrompidas pelo
+abort de uma tarefa assíncrona. As durações excessivas observadas nos logs
+ainda não têm causa específica confirmada. Foram adicionados logs para informar
+quantas tarefas de thumbnail estão em drenagem e quando a extração nativa de
+cores continua em andamento após cancelamento.
+
+### Observabilidade da drenagem
+
+- HLS registra quantas sessões estavam rastreadas e que os handles foram
+  descartados; `kill_on_drop` não comprova espera pelo processo nem remoção do
+  diretório.
+- Streaming linear registra a contagem, tempo e erros de processo e diretório;
+  tentativas de cancelamento de segmentos registram o resultado do comando, não
+  uma confirmação de término. Os erros de limpeza ainda não alteram `clean`.
+- O worker de duplicatas identifica se aguardava lote de fingerprints ou
+  comparação no momento do cancelamento, sem interromper o trabalho observado.
+  Thumbnail e cores mantêm os diagnósticos de drenagem e extração nativa.
+- SQLite informa início, número de conexões e o resultado do fechamento; no
+  encerramento degradado o fechamento explícito é omitido como antes.
+- Os spans dos endpoints de streaming não incluem mais os parâmetros de
+  consulta, que poderiam conter o token da sessão. Logs anteriores podem
+  conter esse token e devem ser tratados com cuidado ao compartilhar.
+
+Na investigação posterior, o usuário informou que realizou seeks durante a
+reprodução de vários vídeos HLS e que existem trabalhos pendentes de
+thumbnails, fingerprints e cores. Pendência em fila não é equivalente a uma
+tarefa em execução nem, por si só, causa de timeout. A contagem `pending_tasks`
+do `JoinSet` inclui tarefas ainda não coletadas, inclusive eventuais tarefas já
+concluídas.
+
+Para as próximas amostras, operações de thumbnail e fingerprint que continuarem
+após o cancelamento registram a fase atual aproximadamente uma vez por segundo,
+sem caminho, identificador do asset ou token. O monitor não interrompe a
+operação nem prova que o código nativo foi encerrado. Para visualizar segmentos
+transcodificados ou servidos pelo cache, habilitar logs de diagnóstico com
+`RUST_LOG=info,mundam_lib::delivery::streaming::segment=debug npm run tauri dev`.
+Os logs existentes de outras áreas podem conter dados sensíveis; revisar antes
+de compartilhar.
+
+As novas mensagens de cancelamento de segmento distinguem `superseded` (nova
+requisição para o mesmo segmento, inclusive durante navegação), `stale` e
+`shutdown`. Na amostra anterior, ocorreu uma tentativa antes do pedido de
+encerramento e duas durante a limpeza do servidor; sem o campo de motivo não
+é possível atribuir com certeza todas as tentativas ao seek. A remoção do
+registro agora verifica o PID, impedindo que a conclusão de uma requisição
+antiga remova a entrada de uma requisição mais recente para a mesma chave.
+Ainda há corridas de criação e registro e a identificação por PID não prova a
+finalização do processo.
+
+Um teste adicional revelou que, neste ambiente, o futuro de fechamento do pool
+retornou mesmo com uma conexão adquirida ainda em posse do teste, apesar do
+contrato documentado pelo SQLx. A falha foi reproduzida isoladamente; o teste
+de regressão permanece ignorado até a investigação da causa. Portanto, o log
+de retorno de `close` não deve ser interpretado como prova de término de
+operações em conexões já adquiridas; é necessária supervisão explícita.
 
 ### Testes, medições e validação desktop
 
@@ -398,6 +493,28 @@ Não considerar este registro como aceite final.
 | 2026-11-09 | `cargo check --manifest-path src-tauri/Cargo.toml --lib` | macOS | Compilação da ponte AppKit aprovada. |
 | 2026-11-09 | `cargo test --manifest-path src-tauri/Cargo.toml bootstrap::macos_shutdown::tests --lib` | macOS | Teste Objective-C de herança e recusa de sobrescrita aprovado; não simula Dock, Cmd+Q nem exibição da janela. |
 | 2026-11-09 | Testes `feature::shutdown::tests` e `feature::startup::tests` | macOS | 4 e 3 testes aprovados após integração AppKit. |
+| 2026-11-10 | Encerramento após alterações no lifecycle e pool | macOS, `npm run tauri dev`; relato e saída colada pelo usuário | Usuário relata funcionamento correto. Logs mostram pedido nativo, 12 handles registrados concluídos e `clean=true`; servidor informa zero processos de segmento e zero sessões lineares. O meio de encerramento não foi especificado. |
+| 2026-11-10 | Execução com reprodução de mídia e encerramento | macOS, `npm run tauri dev`; logs colados pelo usuário | O servidor drenou 2 sessões lineares e 0 processos de segmento. Dois workers (`duplicate_worker`, `thumbnail_worker`) excederam o limite global de 5 s; resultado `clean=false`. Depois, três liberações de lease falharam porque o pool já estava fechado. Isso evidencia trabalho filho/desanexado fora do handle do worker; não é um encerramento limpo. |
+| 2026-11-10 | Build após correção para não fechar pool quando a drenagem falha | `cargo fmt`, `cargo check --lib`, `cargo clippy --lib --tests` em macOS | Formatação, compilação e clippy concluídos sem avisos. O caminho degradado foi observado nos logs posteriores; ainda requer validação abrangente. |
+| 2026-11-10 | Novo encerramento com sessões lineares | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Servidor relata 2 sessões lineares e 0 processos de segmento; `duplicate_worker` concluiu em aproximadamente 3,3 s, mas `thumbnail_worker` excedeu o prazo e foi abortado. Resultado `clean=false`; log confirma que o fechamento explícito do pool foi omitido. Não houve avisos de falha de release de lease nesta amostra. |
+| 2026-11-10 | Encerramento durante transcodificação de segmento | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Gerenciador registrou cancelamento de 1 segmento; requisição registrou falha de FFmpeg e o servidor terminou. Os workers de thumbnails e duplicatas excederam o prazo e foram abortados; `clean=false` e fechamento explícito do pool omitido. Nenhuma falha de release de lease apareceu no log. |
+| 2026-11-10 | Encerramento durante reprodução e processamento | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Gerenciador relatou cancelamento de 1 segmento e limpeza de 3 sessões lineares; `duplicate_worker` concluiu, mas `thumbnail_worker` e `color_worker` excederam o prazo e foram abortados. Resultado `clean=false`; fechamento explícito do pool omitido. A finalização dos subprocessos não foi confirmada independentemente. |
+| 2026-11-10 | Testes de processamento e clippy após acompanhamento dos leases | macOS | `cargo test --lib processing_`: 81 aprovados; `cargo test --lib processing::`: 102 aprovados, incluindo espera por liberação de lease e falha do pool. `cargo clippy --lib --tests` sem avisos. Os testes não reproduzem o timeout nativo observado nos logs. |
+| 2026-11-10 | Encerramento após acompanhamento de leases | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Thumbnail informou 2 tarefas em drenagem e excedeu o orçamento; foi abortado e o resultado foi `clean=false`. Duplicatas e cores concluíram; fechamento explícito do pool foi omitido. Servidor relatou 1 segmento e 0 sessões lineares; a requisição registrou `SEGMENT_ERROR` após o cancelamento. Não houve falha de release de lease no log. |
+| 2026-11-10 | Nova execução com streaming e processamento | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Uma tarefa de thumbnail em drenagem e extração nativa de cores concluíram; o worker de duplicatas excedeu 5 s e foi abortado. Servidor relatou limpeza de 2 sessões lineares e nenhum segmento; resultado `clean=false` e fechamento explícito do pool omitido. Ainda não havia identificação da fase de duplicatas nem confirmação detalhada da limpeza. |
+| 2026-11-10 | Testes após atualização da observabilidade | macOS, `cargo test --lib` e `cargo clippy --lib --tests` | 274 testes aprovados, 2 ignorados; clippy sem avisos. Entre os ignorados, o novo teste de espera por conexão adquirida falhou duas vezes quando executado anteriormente e requer investigação. Novas mensagens ainda não foram validadas no app em execução. |
+| 2026-11-10 | Encerramento durante reprodução de vídeo HLS, após atualização da observabilidade | macOS, `npm run tauri dev`; relato e logs fornecidos pelo usuário | HLS factory: 0 sessões rastreadas; servidor: 2 tentativas de cancelamento de segmentos, sendo uma com comando aceito e outra com retorno não zero. Sessões lineares: 0. Thumbnails e duplicatas excederam o prazo; `clean=false` e fechamento explícito do pool omitido. |
+| 2026-11-10 | Instrumentação por fase e correção da remoção de segmento | macOS, `cargo test --lib`, testes de streaming e `cargo clippy --lib --tests` | Suíte: 276 aprovados e 2 ignorados; testes de streaming após ajustes finais: 4 aprovados; clippy aprovado. O linker emitiu o aviso já registrado de versão mínima de macOS. Diagnósticos ainda precisam de validação no aplicativo. |
+| 2026-11-10 | Execução com logs de fase e segmentos em DEBUG | macOS, `npm run tauri dev`; logs fornecidos pelo usuário | Logs mostram segmentos transcodificados e servidos pelo cache. Após cancelamento, duas tarefas de thumbnail permaneceram em `thumbnail_extraction` e um fingerprint em `visual_hash` até o prazo; os dois workers foram abortados e `clean=false`. Limpeza linear informou 2 sessões, sem falhas relatadas; HLS factory e processos de segmento rastreados estavam vazios no shutdown. |
+| 2026-11-10 | Encerramento com processamento e reprodução ativos em perfil release | macOS, `RUST_LOG=info,mundam_lib::delivery::streaming::segment=debug npm run tauri dev -- --release`; logs fornecidos pelo usuário | Backend Rust em `release`, frontend servido pelo Vite de desenvolvimento. Thumbnail informou 0 tarefas no `JoinSet` e terminou; duplicatas aguardou `fingerprint_batch`, com observação em `provider_extraction`, e concluiu antes do prazo. Os 12 handles registrados terminaram com `clean=true`; pool informou 20 conexões ociosas de 20 e fechamento retornou em 63 ms. Servidor registrou uma tentativa de cancelamento de segmento e limpeza de 3 sessões lineares sem falhas relatadas. |
+| 2026-11-10 | Primeira indexação após zerar dados da aplicação | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário | `BatchCreate` registrou `database is locked` durante o scan. No encerramento, thumbnails, cores e duplicatas concluíram; 11 handles, `clean=true`. Pool informou 6 conexões, 5 ociosas, e retorno do fechamento em 17 ms. |
+| 2026-11-10 | Reinício, processamento e reprodução | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário | Boot scan falhou com `database is locked`. No encerramento, workers concluíram, mas `streaming_server` excedeu 5 s após iniciar drenagem HTTP e foi abortado; `clean=false` e fechamento explícito do pool omitido. Duas tentativas de cancelamento de segmento e uma sessão linear sem falhas de limpeza relatadas. |
+| 2026-11-10 | Nova execução com processamento e reprodução | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário | Boot scan concluiu sem erros relatados; thumbnails e duplicatas terminaram antes do prazo; 12 handles, `clean=true`. Uma tentativa de cancelamento de segmento e duas sessões lineares sem falhas relatadas. Pool informou 20 conexões, 19 ociosas, e retorno do fechamento em 52 ms. |
+| 2026-11-10 | Testes de streaming após tornar esperas lineares canceláveis | macOS, `cargo test --lib delivery::streaming::`, `cargo clippy --lib --tests`, `cargo fmt --check` e `git diff --check` | 7 testes aprovados, incluindo arquivo pronto, timeout, cancelamento e teste HTTP local que valida resposta 503 e término do servidor. Clippy e verificações de formatação aprovados. Não substitui teste do handler real com Tauri, player e FFmpeg. |
+| 2026-11-10 | Dados zerados, primeira indexação após alteração do streaming | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário | `BatchCreate` falhou com SQLite 517. Encerramento: 11 handles, `clean=true`; thumbnail e cores concluíram e fingerprint em `provider_extraction` concluiu; servidor terminou com 0 segmentos e sessões lineares registrados. Pool: 11 conexões, todas ociosas; fechamento retornou em 47 ms. |
+| 2026-11-10 | Segunda execução após alteração do streaming | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário | Boot scan falhou com SQLite 5. Encerramento: 12 handles, `clean=true`; servidor terminou após duas tentativas de cancelamento de segmento, uma delas com comando não bem-sucedido, e limpeza de uma sessão linear sem falhas relatadas. Diagnóstico observou um handler `segment` ativo antes da parada. Pool: 9 conexões, 8 ociosas; fechamento retornou em 58 ms. |
+| 2026-11-10 | Terceira execução após alteração do streaming | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário | `Final BatchCreate` falhou com SQLite 517, seguido de scan que reportou `Errors: 0`. Encerramento: 12 handles, `clean=true`; servidor terminou após tentativa de cancelamento de um segmento e limpeza de duas sessões lineares sem falhas relatadas. Pool: 20 conexões, todas ociosas; fechamento retornou em 234 ms. |
+| 2026-11-10 | Regressão de snapshot SQLite e recuperação de scan | macOS, `cargo test --lib`, testes direcionados e `cargo clippy --lib --tests` | Suíte: 282 aprovados e 2 ignorados antes do último ajuste no progresso; testes direcionados e clippy aprovados após o ajuste. Testes reproduziram SQLite 517 com WAL e transação diferida, verificaram lote concorrente com outro escritor e falhas injetadas de lote cheio e final seguidas de novo scan. Execução real no aplicativo continua pendente. |
 | Pendente | Matriz desktop | macOS, Windows e Linux | Registrar resultado efetivo antes do aceite. |
 
 Na amostra fornecida, o intervalo entre o log do pedido e o log de conclusão
@@ -409,15 +526,1107 @@ handles registrados, não comprova a finalização dos subprocessos, watchers
 nativos ou operações não rastreadas. A versão do macOS e as condições exatas
 de carga não foram informadas; o build empacotado no macOS foi validado apenas por relato, sem logs; Windows e Linux continuam pendentes.
 
+Na amostra anterior de 2026-11-10, decorreram aproximadamente 3,3 ms entre o
+pedido e a conclusão dos handles registrados e 127 ms até o log do coordenador.
+Não são medições da duração visível da janela nem do término do processo.
+
+A amostra anterior relatou a limpeza de duas sessões lineares, mas não testou
+processos de segmento. Também expôs que os workers de duplicatas e thumbnails
+não concluem dentro do orçamento: tarefas filhas podem continuar com trabalho
+de lease depois que o handle principal é abortado. As tentativas de release
+falharam porque o pool fora fechado sem considerar o resultado degradado. A
+sequência foi corrigida para não fechar explicitamente o pool quando a drenagem
+não é limpa. Na nova amostra, esse caminho foi executado e não houve aviso de
+falha de release; isso não comprova que todas as liberações terminaram antes da
+saída ou que a corrida foi eliminada em todos os cenários. O servidor relatou
+novamente duas sessões lineares e nenhum processo de segmento; como os erros da
+limpeza não são propagados, o log não comprova o término dos subprocessos ou a
+remoção dos diretórios. `duplicate_worker` terminou, mas `thumbnail_worker`
+excedeu o prazo e o encerramento permaneceu degradado. O tempo entre o pedido
+e o log final foi de aproximadamente 5,0 s, não uma medição da janela ou da
+saída do processo. O bundle anterior não comprova as alterações posteriores.
+
+Na amostra seguinte, o gerenciador registrou o cancelamento de um segmento
+ativo e a requisição informou falha de FFmpeg durante o encerramento. Isso é
+consistente com a interrupção solicitada, mas o código não verifica o resultado
+do comando de cancelamento, portanto o log isoladamente não comprova que ele
+terminou o processo; o `SEGMENT_ERROR` também não distingue cancelamento
+esperado de erro inesperado. Ambos os workers de thumbnails e duplicatas
+excederam novamente o orçamento de 5 s; não houve aviso de falha de release de
+lease, mas isso não garante sua conclusão. Aproximadamente 5,01 s decorreram
+entre o pedido e o log final do coordenador, sem medir a apresentação nem a
+saída efetiva do processo.
+
+Na amostra anterior, o diagnóstico registrou 2 tarefas de thumbnail
+em andamento no início da drenagem; não identifica quais ainda permaneciam nem
+a fase em que ficaram ao atingir o prazo. O worker de duplicatas terminou
+aproximadamente 2,46 s após o pedido, e o de cores também terminou. Após cerca
+de 5,0 s, o worker de thumbnail foi abortado e o coordenador reportou
+`clean=false`. O aviso do pool confirma a omissão do fechamento explícito, mas a
+ausência de erro de release não comprova que todas as liberações terminaram.
+O servidor relatou 1 segmento cancelado e nenhuma sessão linear; o erro de
+FFmpeg subsequente é consistente com o cancelamento, sem comprovar por si só
+a causa. Antes do encerramento, houve também uma limpeza por timeout de
+segmento antigo. Na compilação, o linker alertou que um objeto foi compilado
+para macOS 13.1 enquanto o alvo da vinculação era 10.12; compatibilidade com
+versões antigas requer investigação separada.
+
+Na nova execução com reprodução HLS, o `HlsManager` relatou zero sessões
+rastreadas e o gerenciador linear também informou zero sessões. O servidor de
+segmentos tentou cancelar dois processos: um comando retornou sucesso e outro
+retornou código 1, possivelmente porque o processo já havia terminado, mas a
+causa não foi comprovada. A falha da requisição de segmento ocorreu após o
+pedido de cancelamento. O servidor terminou, sem prova independente de que
+ambos os processos foram encerrados. O worker de thumbnails iniciou a drenagem
+com duas tarefas pendentes; o de duplicatas informou que ainda aguardava um
+lote de fingerprints. Ambos foram abortados depois do orçamento de 5 s; não há
+evidência suficiente para determinar a operação exata que os reteve.
+O fechamento explícito do pool foi omitido, portanto seus novos logs de sucesso
+não foram exercitados. Nos spans HTTP visíveis não aparecem parâmetros de
+consulta, embora a amostra não prove cobertura completa de todos os logs.
+
+Na amostra com instrumentação por fase, os logs de DEBUG confirmam exemplos
+de segmentos transcodificados e de cache atendido durante a execução. Na
+drenagem, o monitor registrou duas operações de thumbnail em
+`thumbnail_extraction` e uma de fingerprint em `visual_hash` durante o
+orçamento, até o abort dos workers. Essas fases localizam a espera, mas não
+identificam o formato, o provider nem a função interna exata: não permitem
+afirmar que houve travamento permanente ou identificar a causa raiz. A limpeza
+linear relatou duas sessões sem erros de processo ou diretório; não havia
+segmentos rastreados para cancelar nem sessões da HLS factory no encerramento.
+Como o resultado foi degradado, o pool não foi fechado explicitamente e seu
+caminho de sucesso continua sem validação nessa execução.
+
+Na amostra seguinte, com backend Rust otimizado em perfil `release`, os logs
+registraram aproximadamente 677 ms entre o pedido de encerramento e a
+conclusão dos handles registrados e 740 ms até a conclusão informada pelo
+coordenador. O fingerprint observado estava em `provider_extraction`, não em
+`visual_hash`; thumbnails não tinha tarefas no `JoinSet` naquele momento.
+Essas diferenças de carga e fase impedem concluir que a otimização eliminou o
+timeout anterior ou estabelecer uma comparação controlada de desempenho. O
+fechamento explícito do pool foi exercitado com todas as conexões informadas
+como ociosas; não resolve a divergência observada no teste com conexão
+adquirida. O servidor registrou uma tentativa de cancelamento de segmento por
+`shutdown`, seguida de `SEGMENT_ERROR`, e três sessões lineares sem falhas
+relatadas, em 76 ms. O erro do segmento é consistente com o cancelamento, mas
+o registro não confirma independentemente o término do subprocesso. A HLS
+factory não tinha sessões rastreadas. Foram também registrados avisos de
+extração de cores sem pixels opacos e de decodificação de imagem pelo provider;
+os logs não estabelecem relação desses avisos com o encerramento. O aviso do
+linker sobre a versão mínima do macOS reapareceu.
+
+Nas três execuções seguintes em `release`, os intervalos entre o pedido e o
+log final do coordenador foram aproximadamente 337 ms, 5,01 s e 2,33 s,
+respectivamente; não medem duração visível da janela nem saída do processo.
+Na segunda, o servidor informou conclusão das tentativas de limpeza e início
+da drenagem HTTP, mas não registrou `Streaming server stopped` antes do abort.
+É necessário instrumentar e investigar conexões e requisições HTTP em voo;
+os logs não identificam qual delas reteve o servidor nem provam a causa.
+Os workers terminaram, e a publicação de eventos por thumbnails após o
+cancelamento encontrou o barramento sem assinantes. A consequência funcional
+precisa ser avaliada antes de definir a ordem de drenagem.
+
+Na primeira e na terceira execução, os logs do pool indicaram respectivamente
+6 conexões com 5 ociosas e 20 com 19 ociosas no início do fechamento. Isso
+indica uma conexão não ociosa em cada fotografia, mas não identifica o seu
+possuidor nem comprova que permanecia adquirida no momento em que `close`
+retornou. A limitação do teste de conexão adquirida continua aberta.
+Na primeira indexação houve falha de `BatchCreate` por bloqueio do SQLite e,
+no reinício seguinte, o boot scan falhou pelo mesmo erro; o terceiro boot scan
+concluiu sem erros relatados, sem comprovar recuperação completa dos dados.
+A indexação disparada ao adicionar uma pasta usa tarefa destacada, não
+registrada no lifecycle, e descarta o resultado do scan. Os logs não provam
+que essa tarefa ainda estivesse ativa durante o shutdown; sua supervisão e
+propagação de erros devem ser investigadas junto à contenção no SQLite.
+Na implementação à época dessas amostras, um `BatchCreate` que falhava durante
+a classificação era registrado no log, mas o contador de descobertos já tinha
+sido incrementado e o contador de erros não incluía essa falha. Portanto, os
+contadores dessas amostras não comprovam que todos os assets descobertos foram
+persistidos.
+O ledger abria uma transação diferida e a criação consultava dados antes da
+escrita; a concorrência de escrita em WAL foi posteriormente reproduzida em
+teste isolado, como descrito abaixo, sem identificar o escritor concorrente nas
+amostras reais.
+Também apareceram falhas de extração de thumbnails, inclusive conflitos de
+filtros simples e complexos do FFmpeg na terceira execução; são problemas a
+investigar separadamente, sem atribuir causalidade ao shutdown.
+
+### Drenagem das requisições HTTP de streaming
+
+O handler linear aguardava até 60 s por uma playlist e até 5 s por um
+segmento sem observar o cancelamento. Essas esperas são uma hipótese para o
+timeout observado, não sua causa comprovada. As duas esperas agora consultam o
+token de shutdown e retornam HTTP 503 quando canceladas, sem abandonar
+operações de criação ou encerramento dos subprocessos. Os limites e a
+verificação da disponibilidade dos arquivos permanecem nos caminhos normais.
+
+Durante a drenagem HTTP, um diagnóstico registra aproximadamente a cada
+segundo quantos handlers ainda aguardam a geração da resposta, por categoria
+de rota, sem caminhos, identificadores ou parâmetros de consulta. O registro
+termina quando o handler devolve a resposta ou é descartado: não acompanha
+corpos de resposta em transmissão nem conexões abertas. Assim, contagem zero
+não prova que o Axum terminou de drenar. O monitor não cancela os handlers e
+não confirma o encerramento de subprocessos. Uma execução real com player
+ativo ainda é necessária para verificar se as esperas canceláveis resolvem o
+caso observado e identificar outras requisições potencialmente demoradas. A
+admissão e a criação de sessões ou processos concorrentes com a limpeza ainda
+precisam de supervisão; a mudança das esperas, isoladamente, não fecha essa
+corrida.
+
+Nas três amostras posteriores, o coordenador concluiu em aproximadamente
+1,54 s, 0,71 s e 0,58 s após o pedido, respectivamente, com `clean=true` para
+os handles registrados. Na segunda amostra, o diagnóstico identificou um
+handler `segment` ativo durante a drenagem; ele e o servidor terminaram em
+seguida. Uma das duas tentativas de cancelamento de segmentos retornou status
+não zero; o processo pode já ter terminado, mas isso não foi comprovado. Na
+terceira amostra o snapshot indicou zero handlers, e o servidor terminou.
+Na primeira, o servidor terminou sem snapshot visível, o que é compatível com
+a conclusão rápida em relação ao monitor. Nenhuma amostra registrou o
+cancelamento de espera linear: não demonstram que a correção resolveu o
+timeout anterior nem cobrem respostas em transmissão ou conexões persistentes.
+
+O SQLite retornou o código estendido 517 (`SQLITE_BUSY_SNAPSHOT`) em falhas de
+`BatchCreate` na primeira e na terceira execução. Esse código caracteriza
+conflito ao tentar promover uma leitura com snapshot desatualizado para escrita
+em WAL, reforçando a hipótese de contenção no caminho transacional; os logs
+não identificam a instrução ou a transação concorrente exata. A segunda
+execução reportou apenas o código 5, insuficiente para concluir o subtipo.
+Na terceira, o scan reportou 14 descobertos e `Errors: 0` apesar da falha do
+lote final: o log demonstra que o resultado não deve ser interpretado como
+confirmação da persistência dos assets descobertos.
+
+### Persistência de lotes do scan
+
+Um teste com SQLite em WAL reproduziu o código 517: uma transação diferida
+leu um snapshot, outra conexão confirmou uma escrita e a primeira tentou
+escrever. No ledger, `BatchCreate` agora inicia com `BEGIN IMMEDIATE`, como
+outros caminhos de escrita existentes, adquirindo a reserva de escrita antes
+das leituras do lote. Um teste com outro escritor ativo verificou que o lote
+espera e persiste após a liberação. Isso não prova que todos os bloqueios
+observados, inclusive o código 5 no boot scan, tenham a mesma origem.
+A transação reserva a escrita durante o trabalho de cada lote, inclusive
+operações de filesystem já presentes no handler; a contenção sob carga real e
+a duração dessa reserva precisam ser medidas.
+
+Se um lote falhar, o scan aguarda o produtor de classificação terminar, retorna
+o erro e não executa pruning nem publica `ScanCompleted`; lotes anteriores
+confirmados permanecem persistidos e um scan posterior pode retomá-los. A
+contagem de descobertos só é incrementada após confirmação do lote. Não se
+publica progresso de 100% após falha do lote final. O scan manual destacado
+agora registra o erro retornado; a notificação de falha foi adicionada como
+descrito abaixo, mas a tarefa ainda não é supervisionada no encerramento.
+Testes injetam falhas no lote final e no primeiro lote cheio, verificam
+ausência de evento de conclusão e de pruning e executam um novo scan.
+Falhas individuais de classificação e de criação de pastas continuam com as
+políticas anteriores e não são cobertas por esta mudança.
+
+### Novas amostras e falha de indexação
+
+Nas quatro amostras adicionais, o primeiro scan manual falhou com código SQLite
+5; o segundo boot scan concluiu; o terceiro falhou com código 5; e o quarto,
+com logging DEBUG, falhou com código estendido 517. Os quatro encerramentos
+registraram `clean=true`, relativo aos handles registrados, não uma garantia de
+drenagem integral de operações destacadas ou recursos nativos.
+
+No último log, após um lote de assets, aparecem a consulta de asset e a escrita
+de `library_file_identities` no contexto do scan, próximas à falha. Isso é um
+forte indício de que a transação diferida de observação de identidades também
+pode promover um snapshot obsoleto; o log não prova a causa de todos os códigos
+5 nem identifica o escritor concorrente. A observação agora usa
+`BEGIN IMMEDIATE` por lote de até 256 identidades; a criação de pastas também
+passa a reservar a escrita antes de suas leituras. A reserva inclui verificações
+de filesystem, portanto o impacto na contenção e na latência sob carga real
+precisa ser medido.
+
+Ao falhar, o indexador publica `ScanFailed`, preserva o erro original e não
+publica conclusão de sucesso. A ponte emite `indexer:failed`: o frontend limpa
+o progresso, atualiza os dados que podem ter sido parcialmente persistidos e
+exibe uma notificação de erro. Falhas dessas atualizações são registradas. O
+ledger deixou de emitir progresso de 100% por lote, que não representava o
+progresso do scan inteiro. A contagem do scan ainda pode alcançar o total
+antes de outras etapas, como identidades e pruning; apenas `ScanCompleted`
+representa sucesso.
+
+Limitações: o progresso continua global, sem identificador de operação; scans
+simultâneos podem interferir nos indicadores ou notificações. Os listeners são
+instalados após o início do backend, portanto um boot scan muito rápido ainda
+pode terminar antes de o frontend receber seus eventos. Nenhuma destas
+alterações comprova a resolução dos bloqueios no banco real; repetir o cenário
+com uma biblioteca limpa e durante processamento concorrente.
+
+**Validação automatizada desta etapa:** a suíte Rust em release passou com
+288 testes e dois ignorados. Inclui concorrência real em WAL para criação de
+lote, criação de pasta e observação de identidades; uma identidade antiga não é
+atribuída a um arquivo substituído. Testes do indexador cobrem falha antes e
+depois de `ScanStarted`, falhas de lote e de identidade, preservação do erro,
+ausência de conclusão falsa e recuperação posterior. Cinco testes frontend
+cobrem progresso, resultado, notificações e erro ao atualizar os dados;
+typecheck, ESLint, Clippy em release com `-D warnings`, formatação Rust e
+`git diff --check` passaram.
+Os dois testes ignorados incluem o teste do pool com conexão adquirida, cuja
+limitação permanece aberta. A validação desktop parcial é descrita a seguir.
+
+### Três execuções posteriores no macOS
+
+O usuário executou `tauri dev -- --release`, com logs de segmentos em DEBUG,
+e informou que a primeira execução usou pasta de aplicação limpa e que a
+indexação e a árvore de pastas voltaram a funcionar.
+
+| Execução | Scan | Encerramento observado |
+| --- | --- | --- |
+| 1 — banco novo | Scan manual: 787 descobertos, nenhum inalterado, nenhum erro reportado, em 2,63 s. | `clean=true`; 11 tarefas registradas drenadas; aproximadamente 1,23 s entre a solicitação e a conclusão. |
+| 2 | Boot scan: 14 descobertos, 773 inalterados, nenhum erro reportado, em 0,75 s. | `clean=true`; 12 tarefas registradas drenadas; aproximadamente 2,22 s até a conclusão. |
+| 3 | Boot scan: 14 descobertos, 773 inalterados, nenhum erro reportado, em 0,87 s. | `clean=true`; 12 tarefas registradas drenadas; aproximadamente 1,37 s até a conclusão. |
+
+Nenhuma das três amostras contém `database is locked`, `SQLITE_BUSY` ou aborto
+forçado por orçamento de shutdown. Isso é evidência favorável para este cenário,
+mas não demonstra ausência de contenção em outras cargas nem identifica a causa
+de todos os erros anteriores. A falha de scan e sua notificação visual não foram
+exercitadas por essas amostras.
+
+O número 14 se repete nas duas inicializações; a investigação posterior desses
+registros está detalhada abaixo.
+
+Na primeira e na segunda execução, havia cancelamento de segmentos e uma sessão
+linear na finalização; a limpeza linear reportou zero falhas de processo e
+diretório (56 ms e 45 ms). Na primeira, uma solicitação de término de segmento
+retornou status 1; não é possível concluir apenas pelo log se o processo já
+havia terminado. Em ambas, houve `SEGMENT_ERROR` após o cancelamento, sem
+evidência suficiente para tratar qualquer erro semelhante como cancelamento
+esperado. Na terceira não havia segmentos ou sessões lineares registrados na
+limpeza. Os handlers HTTP chegaram a zero nas duas primeiras, mas o contador
+não rastreia corpos de resposta nem conexões.
+
+As tarefas de thumbnail e fingerprint em andamento concluíram dentro do prazo
+nestas amostras. Na segunda, o pool informou 13 conexões, 12 ociosas, antes de
+`close`, que retornou em 84 ms; essa observação não comprova drenagem da
+conexão restante, dado o teste ignorado e o trabalho não supervisionado. Na
+primeira e na segunda, thumbnails ainda publicaram eventos após o encerramento
+da ponte e sem assinantes. Persistência e reconciliação desses eventos seguem
+sem comprovação.
+
+Foram observados também erros de extração de thumbnails, inclusive previews
+ausentes/inválidos e conflito de filtros simples e complexos do FFmpeg, além
+de avisos de fontes ausentes e de extração de cores. Eles são distintos dos
+erros de banco e merecem investigação própria; os logs não identificam com
+segurança todos os assets nem demonstram que os arquivos sejam inválidos.
+`Errors: 0` no scan não significa que processamento posterior tenha terminado
+sem erros.
+
+### Diagnóstico dos 14 assets redescobertos
+
+Foi realizada consulta somente leitura ao banco de desenvolvimento fechado,
+sem recriação da biblioteca nem alteração dos dados. Havia 787 registros de
+assets e, no histórico de `CREATE_ASSET`, três grupos posteriores de 14
+operações com exatamente os mesmos IDs. Na comparação com a listagem do
+filesystem, os 14 caminhos estavam em NFC no catálogo e com caracteres
+decompostos na listagem; os pares foram confirmados como o mesmo objeto físico.
+Os tamanhos e tempos de modificação dos 787 registros consultados estavam
+compatíveis com os arquivos existentes. Nessa amostra, portanto, os 14 assets
+estavam persistidos: eram reclassificados por grafia distinta do caminho, não
+há evidência de 14 novos registros a cada scan.
+
+O cache do scan compara caminhos exatos. O ledger, por outro lado, resolve
+aliases mediante identidade nativa e retorna o registro existente. Essa
+diferença explicava a repetição dos contadores e das operações de criação.
+Agora, quando uma grafia observada não está no cache, uma chave de busca
+seleciona candidatos; o resolvedor existente verifica a identidade da entrada
+antes de reutilizar metadados. A chave não é prova de identidade: entradas
+distintas em volumes sensíveis e hardlinks continuam distintas. Pastas
+observadas também são protegidas da poda por ID resolvido, mesmo quando sua
+grafia diverge.
+
+Para observar scans futuros, usar o comando abaixo em `src-tauri` ou na raiz.
+Os módulos de classificação e indexação em DEBUG registram candidatos ausentes,
+diferenças de metadados e aliases verificados; segmentos de streaming também
+permanecem em DEBUG. Os logs podem conter caminhos e nomes de arquivos, que
+devem ser revisados antes do compartilhamento.
+
+```sh
+RUST_LOG=info,mundam_lib::feature::library::indexer=debug,mundam_lib::feature::library::classifier=debug,mundam_lib::delivery::streaming::segment=debug npm run tauri dev -- --release
+```
+
+Uma validação representativa deve manter a pasta da aplicação existente,
+executar a aplicação ao menos duas vezes sem alterar os arquivos e observar
+os resultados dos scans e do encerramento. Para a biblioteca atual, espera-se
+que os 14 aliases deixem de ser contabilizados como descobertas e que o total
+de `CREATE_ASSET` não cresça apenas por reiniciar a aplicação. Os logs de
+aliases contêm tanto a grafia observada quanto a grafia do catálogo.
+
+**Testes:** a suíte Rust em release passou com 289 testes e dois ignorados;
+o teste de scan repetido com grafias Unicode passou no macOS, assim como o
+teste existente de aliases e hardlinks. Clippy em release com `-D warnings`
+passou. O linker emitiu o aviso conhecido de versão mínima do macOS para
+`zstd`. A validação real em macOS está descrita abaixo; a execução nos demais
+sistemas permanece pendente.
+
+**Validação real em macOS após a correção:** nas duas execuções em
+`tauri dev -- --release`, cada scan registrou 14 aliases verificados e
+`Discovered: 0`, `Unchanged: 787`, `Pruned: 0`, `Errors: 0`. Os tempos foram
+1,08 s e 0,67 s. Consulta posterior ao banco fechado, somente leitura,
+confirmou 787 assets e nenhum novo grupo de operações `CREATE_ASSET` após as
+operações anteriores à correção. Os resultados comprovam o comportamento
+esperado para esta biblioteca nas duas amostras, não em todos os volumes.
+
+Os dois encerramentos terminaram com `clean=true`, respectivamente em cerca de
+192 ms e 141 ms entre solicitação e conclusão do backend; esses tempos não são
+uma medição da duração visual da janela. Não houve timeout de tarefa ou erro
+de bloqueio SQLite nos logs. Nos snapshots anteriores ao fechamento, todas as
+conexões do pool estavam ociosas (20/20 e 14/14). Os logs mostram segmentos
+transcodificados antes da saída e tentativas de cancelamento durante ela:
+na primeira, uma sessão linear foi limpa sem falhas reportadas; na segunda,
+uma das tentativas de terminar segmento retornou status 1, sem comprovação de
+que o processo já estivesse encerrado. Em ambas houve `SEGMENT_ERROR` após
+iniciar o cancelamento. Esses resultados não eliminam os riscos de drenagem,
+nem provam a conclusão de processos e recursos não supervisionados.
+
+Se houver alterações reais em arquivos,
+o caminho `ON CONFLICT` de criação ainda merece investigação própria: nessa
+ramificação, tamanho e data não são atualizados; não foi a causa observada nos
+14 casos. Os erros de thumbnail relativos a formatos conhecidos estão fora
+desta investigação.
+
+### Supervisão de processos de segmentos HLS
+
+O cancelamento anterior identificava processos por PID e invocava ferramentas
+externas de término. Isso não comprovava que o processo havia sido aguardado e
+permitia corridas com encerramento natural, substituição de pedidos e reuso de
+PID. O controle de segmentos agora registra cada proprietário com identificador
+próprio e mantém o `Child` na tarefa responsável pelo processo. Pedidos
+substituídos, processos antigos e shutdown recebem sinais tipados; o registro
+permanece até a conclusão da tarefa proprietária. O início do processo e sua
+admissão são protegidos pela mesma trava que fecha a admissão no shutdown.
+
+O proprietário continua ativo mesmo se a requisição HTTP for descartada, lê as
+duas saídas em paralelo e aguarda o filho após solicitar seu término. O servidor
+aguarda os proprietários registrados antes de concluir sua limpeza, sujeito ao
+mesmo orçamento global. O contador `segment_cancellations` informa quantos
+processos receberam seu primeiro pedido de cancelamento no
+shutdown, e não o número total de processos ativos ou comprovadamente
+encerrados. Processos já sinalizados mantêm a primeira causa.
+
+Em Unix, um término solicitado com sucesso e observado como `SIGKILL` é tratado
+como cancelamento esperado, em vez de `SEGMENT_ERROR`; outras falhas
+permanecem explícitas. Em Windows, o status ainda não é usado para comprovar
+essa distinção e uma saída malsucedida continua sendo registrada como erro.
+O log `all registered segment owners finished` significa que as tarefas
+registradas terminaram, não que todas as operações de wait e leitura
+necessariamente tiveram sucesso: essas falhas são registradas separadamente
+e agora propagadas ao resultado `clean` do lifecycle. Uma tarefa que
+falhe por panic pode manter o registro até o timeout. Um timeout ou abort do
+servidor também não comprova conclusão das tarefas destacadas. Permanecem
+fora dessa garantia processos ou operações anteriores à admissão e recursos
+de streaming não cobertos por esse registro. Uma requisição tardia para
+segmento que chega à admissão fechada ainda é registrada como `SEGMENT_ERROR`;
+isso não significa que um processo novo tenha sido iniciado.
+
+**Testes automatizados:** `cargo clippy --release --lib --tests -- -D warnings`
+passou; os nove testes direcionados de streaming em release passaram no
+macOS. Eles incluem cancelamento e espera de filho real, falha genuína,
+requisição descartada, supersessão e recusa de admissão após shutdown.
+`cargo fmt --check` e `git diff --check` passaram. O linker voltou a avisar
+sobre a versão mínima de macOS do objeto `zstd`; não houve falha no teste.
+
+**Validação real pendente:** reproduzir no macOS com HLS ativo ao fechar e
+com vários seeks rápidos antes do fechamento; coletar logs completos desde o
+início. Quando um processo estiver ativo e o término for solicitado, observar
+`Segment process termination awaited` e, se a requisição ainda estiver
+presente, `Segment request cancelled`. Observar também
+`all registered segment owners finished`, erros e timeouts. A ausência dos
+dois primeiros eventos não prova falha caso não haja processo ativo ou a
+requisição já tenha sido descartada. Verificar os processos reais, comportamento
+do player e integridade do reinício; repetir a validação em Windows e Linux.
+
+**Duas novas execuções reais em macOS (11 de novembro):** ambas indexaram
+787 arquivos inalterados, com 14 aliases verificados, zero descobertas,
+remoções ou erros. Na primeira, houve 16 segmentos transcodificados e 51
+servidos do cache; dois processos substituídos foram aguardados com `SIGKILL`.
+No shutdown, um segmento recebeu cancelamento, teve o término aguardado com
+`SIGKILL` e a requisição registrou cancelamento por `Shutdown`. Os proprietários
+registrados terminaram e o servidor parou. Na segunda, houve 31 segmentos
+transcodificados, cinco servidos do cache e um processo substituído aguardado;
+nenhum segmento recebeu primeiro cancelamento no shutdown. Duas sessões
+lineares foram limpas em 156 ms, sem falhas de processo ou diretório
+reportadas, e uma espera por playlist foi cancelada.
+
+Ambos os encerramentos reportaram `clean=true` e zero handlers ativos no
+snapshot; o pool tinha 20 conexões, todas ociosas, antes do fechamento.
+Os intervalos entre solicitação e conclusão do backend foram aproximadamente
+130 ms e 196 ms, sem medir a apresentação visual. Não apareceram erros de
+segmento ou timeouts nesses logs. Essas amostras comprovam os caminhos
+observados, não os recursos não supervisionados, corpos HTTP ou todas as
+plataformas. O encerramento efetivo de processos não foi verificado por
+inspeção externa do sistema.
+
+### Admissão de sessões lineares
+
+Uma revisão posterior identificou que duas requisições podiam criar sessões
+para o mesmo asset simultaneamente e substituir um `Child` sem aguardá-lo.
+Também era possível criar uma sessão depois da limpeza do shutdown. A criação
+agora é serializada, a admissão é fechada antes de aguardar uma criação já
+admitida e o processo é iniciado e registrado sem ponto de suspensão entre
+essas operações. O shutdown aguarda a criação admitida antes de drenar as
+sessões; pedidos aguardando admissão são recusados após o fechamento. Um
+processo iniciado tem `kill_on_drop` como proteção adicional, que não
+substitui o wait. Ao substituir uma sessão já encerrada, a remoção da pasta
+anterior e a verificação de estado reportam falhas explicitamente.
+
+A serialização é global: uma criação lenta pode atrasar outras criações e o
+shutdown, sujeito ao orçamento global. A síntese MIDI usa `spawn_blocking`;
+se o handler for descartado durante a síntese, esse trabalho nativo pode
+continuar destacado e não está coberto pela trava. Falhas de limpeza de
+sessões lineares no shutdown agora degradam `clean`; falhas da limpeza
+periódica anterior ao shutdown ainda não são abrangidas. Validação real dos
+caminhos de erro permanece pendente.
+
+**Testes:** os 11 testes direcionados de streaming em release passaram no
+macOS, incluindo dois testes da barreira de admissão e os testes existentes de
+processos de segmentos. O Clippy em release com `-D warnings` passou. Os
+novos testes exercitam a sincronização da barreira, não uma sessão linear
+completa com FFmpeg e requisições HTTP.
+
+**Três execuções posteriores em macOS (11 de novembro):** com trocas rápidas,
+reprodução mais prolongada e vídeos concluídos, os scans repetiram
+`Discovered: 0`, `Unchanged: 787`, `Pruned: 0`, `Errors: 0` e 14 aliases
+verificados. Os shutdowns processaram respectivamente 4, 5 e 1 sessões
+lineares, em 318 ms, 277 ms e 8 ms, sem falhas reportadas de processo ou
+diretório. Na segunda execução, seis esperas por playlist foram canceladas.
+Na segunda e terceira, um segmento substituído teve sua terminação aguardada
+em cada execução; nenhum segmento recebeu primeiro cancelamento no shutdown.
+Não houve warnings, erros ou timeouts registrados. Os três encerramentos
+reportaram `clean=true`, com 20 conexões do pool, todas ociosas, antes do
+fechamento; o tempo do backend foi cerca de 385 ms, 359 ms e 92 ms,
+respectivamente, sem medir a apresentação visual. A ausência de eventos de
+admissão impede demonstrar, somente por esses logs, que o cenário de corrida
+entre a admissão e o shutdown tenha ocorrido. Os logs não comprovam que todos
+os recursos não registrados foram encerrados.
+
+### Propagação de falhas de supervisão de streaming
+
+O lifecycle agora aceita um registro explícito de falha de subsistema. Durante
+a drenagem, o servidor informa falhas reportadas na limpeza de sessões
+lineares e erros dos proprietários de segmentos; o resultado é degradado e o
+fechamento explícito do pool é evitado. Falhas de supervisão de proprietários
+são acumuladas durante a vida do servidor, mesmo se ocorrerem antes do pedido
+de shutdown: é uma política conservadora, pois a conclusão segura do recurso
+pode não ter sido comprovada. Cancelamentos tipados e erros de transcodificação
+com status de saída conhecido não contam como falhas de supervisão. Um erro
+retornado pelo loop do servidor também é registrado como falha de subsistema.
+
+Essa propagação não cobre trabalho não registrado, falhas silenciosas da
+limpeza periódica linear, tarefas nativas destacadas, ou abort após timeout.
+`clean=true` permanece restrito ao que foi supervisionado.
+
+**Testes:** 13 testes direcionados de streaming e quatro testes do orçamento
+do lifecycle passaram em release no macOS; Clippy passou com `-D warnings`.
+Os testes cobrem, separadamente, o registro de falha do proprietário, o
+resultado de limpeza linear e a degradação do lifecycle quando um subsistema
+reporta falha. Não há teste de integração que injete esses erros no servidor
+completo. O linker emitiu novamente o aviso conhecido de versão mínima de
+macOS para `zstd`.
+
+### Protocolo de assets e fechamento do banco
+
+**Logs de 12 de novembro:** as duas execuções indexaram 787 arquivos
+inalterados, sem descobertas, remoções ou erros e com 14 aliases verificados.
+Na primeira, foram registradas 67 transcodificações e 19 segmentos servidos
+do cache; 23 segmentos substituídos tiveram término aguardado e suas
+requisições registraram cancelamento. No shutdown, três sessões lineares
+foram processadas sem falhas reportadas, sem novo cancelamento de segmento.
+Na segunda, foram registradas 32 transcodificações e cinco segmentos servidos
+do cache; não havia sessões lineares nem novos cancelamentos de segmento no
+shutdown. Ambos os resultados registrados foram `clean=true`, com cerca de
+92 ms e 88 ms de duração no backend, respectivamente.
+
+Na primeira execução, porém, o protocolo de assets tentou consultar o banco
+após o início do fechamento do pool: ocorreram 16 erros `PoolClosed`, inclusive
+após o registro de conclusão do backend. Antes do fechamento, o snapshot do
+pool mostrava 20 conexões ociosas; isso não impediu novas requisições. A segunda
+execução não apresentou o erro e tinha 19 conexões ociosas. Os logs não
+comprovam perda de dados nem que as requisições tenham iniciado antes do
+fechamento; comprovam que o resultado anterior não cobria essas operações.
+
+Para `asset://` e `thumb://`, a admissão agora é fechada atomicamente quando
+o shutdown é solicitado. Requisições tardias recebem resposta 503 antes de
+consultar o banco; requisições já admitidas mantêm um guard até o retorno do
+handler. O coordenador aguarda sua drenagem em paralelo à drenagem de tarefas
+registradas, com timeout de cinco segundos. Se a drenagem não concluir,
+`clean=false` e o fechamento explícito do pool é evitado. Os logs informam a
+contagem ativa ao fechar a admissão e a conclusão ou timeout da drenagem.
+
+Essa barreira não cobre comandos IPC, protocolos `video://`/`audio://`,
+corpos entregues pelo runtime após o retorno do handler, ou trabalho nativo
+destacado que sobreviva ao cancelamento de um handler. A validação real deve
+verificar os novos eventos e a ausência de `PoolClosed`, inclusive depois do
+log de conclusão; sem requisições próximas ao fechamento a ausência isolada
+de erro não demonstra a corrida. A duração visual não é medida pelo backend.
+
+**Testes:** nove testes direcionados de protocolos e quatro de lifecycle
+passaram em release no macOS, assim como o Clippy com `-D warnings`. Os
+testes verificam o bloqueio de admissões tardias, a espera pelos guards
+existentes e a resposta 503 do handler para os dois esquemas com Tauri mock.
+A reprodução em runtime ainda requer observação de requisições ativas ou
+tardias no instante do shutdown.
+
+**Duas novas execuções reais em macOS (12 de novembro):** nas duas o scan
+registrou 787 arquivos inalterados, 14 aliases verificados e nenhuma
+descoberta, poda ou erro. A admissão do protocolo fechou com `active=0`, e
+`Asset protocol handlers drained` precedeu o fechamento do pool. Nenhum
+`PoolClosed` apareceu, inclusive após a conclusão do backend. As sessões
+lineares processadas foram três e nove, sem falhas reportadas; na segunda
+execução quatro esperas por playlist foram canceladas. Os resultados foram
+`clean=true`, com cerca de 318 ms e 452 ms entre o pedido e a conclusão do
+backend. Em ambos os casos o pool tinha 20 conexões ociosas antes do
+fechamento. Não foi registrado nenhum cancelamento novo de segmento no
+shutdown. A contagem zero na admissão não comprova drenagem de uma requisição
+ativa nem que uma requisição tardia tenha sido recusada em runtime; o filtro
+de logs utilizado também não habilitava o DEBUG do protocolo.
+
+Na segunda execução, houve dois erros de saída vazia para o segmento 5 do
+asset `d3bd415a-e418-4bd8-b42b-46934bf8c433`, durante a reprodução e antes
+do shutdown. Consulta somente leitura ao banco fechado identificou o
+arquivo `Audio/amr/AUD001.amr`. O `ffprobe` local informou duração estimada
+de 20,02575 s e advertiu que a estimativa por bitrate pode ser imprecisa;
+os últimos pacotes observados terminam em 19,4 s. A execução local de
+FFmpeg com início em 20 s reproduziu saída vazia. A playlist de quatro
+segundos solicita esse sexto segmento por causa da duração estimada. Trata-se
+de problema de reprodução independente do shutdown; não reduzir a duração
+por margem arbitrária, pois isso poderia cortar conteúdo válido. Investigar
+estratégia de duração efetiva e custo de leitura para formatos estimados.
+
+**Teste adicional:** dez testes de protocolos passaram em release e Clippy
+passou com `-D warnings`. O novo teste usa Tauri mock e SQLite real com o
+schema da aplicação: mantém a única conexão ocupada para garantir uma consulta
+admitida em espera, fecha a admissão, verifica que a drenagem não termina
+antes da liberação, confirma resposta 503 para requisição tardia, permite a
+conclusão da consulta e só então fecha o pool. O teste não executa o
+coordenador Tauri completo nem substitui a validação em runtime.
+
+**Três execuções adicionais (12 de novembro):** todos os scans registraram
+787 arquivos inalterados, 14 aliases verificados e nenhuma descoberta, poda
+ou erro. Os três encerramentos terminaram `clean=true`, sem `PoolClosed` ou
+timeout registrado, com a admissão do protocolo fechada em `active=0` e
+drenada antes do fechamento do pool. Assim, a corrida com handler ativo ou
+requisição tardia permanece não demonstrada em runtime.
+
+Na primeira execução, sete sessões lineares foram limpas em 2.288 ms, sem
+falhas reportadas; seis esperas por playlist foram canceladas. O backend
+levou aproximadamente 2.380 ms do pedido à conclusão. Nas duas seguintes,
+um segmento por execução foi cancelado por `Shutdown`, com `SIGKILL`
+aguardado e cancelamento registrado pela requisição. As limpezas lineares
+processaram uma e zero sessões, respectivamente; os tempos totais do backend
+foram aproximadamente 89 ms e 115 ms. Em cada execução o pool tinha 20
+conexões ociosas antes do fechamento. Esses tempos não medem a duração visual.
+
+A limpeza linear é sequencial; a amostra de 2.288 ms demonstra consumo
+relevante do orçamento de cinco segundos, mas o log anterior não distingue
+tempo aguardando processos de tempo removendo diretórios. Foram acrescentados
+ao resumo de limpeza `running_processes`, `exited_processes`,
+`process_wait_ms`, `directory_cleanup_ms` e `slowest_session_ms`; os dois
+tempos acumulados representam intervalos sequenciais, não tempo de CPU. Em
+DEBUG, cada sessão também registra os tempos, sem identificadores ou
+caminhos. Esses dados orientarão eventual paralelização, sem presumir sua
+causa ou prometer redução de tempo antes de medições.
+
+**Validação da instrumentação:** Clippy em release com `-D warnings` e os
+13 testes direcionados de streaming passaram no macOS. A medição real dos
+novos campos permanece pendente; os testes existentes não reproduzem uma
+limpeza linear com sete sessões e diretórios grandes.
+
+### Workers ativos e snapshot do pool (12 de novembro)
+
+Na primeira das duas novas execuções, com pasta da aplicação e banco
+reinicializados pelo usuário, o scan concluiu com 787 arquivos descobertos,
+sem erros ou poda. Na seguinte, registrou 787 inalterados, 14 aliases
+verificados e nenhuma descoberta ou erro. Não apareceram `PoolClosed` nem
+`database is locked` nessas amostras.
+
+No primeiro encerramento, havia duas tarefas de thumbnail em andamento, com
+fases de extração de metadados e thumbnail; os diagnósticos também registraram
+espera por extração nativa de cores e por lote de fingerprints. Foram
+limpas 12 sessões lineares em 1.959 ms: nove processos ativos, três já
+encerrados, 1.928 ms acumulados em espera de processos, 6 ms na remoção
+de diretórios e 780 ms na sessão mais lenta, sem falhas reportadas. Nesta
+amostra a espera sequencial dominou a limpeza, mas não demonstra que
+paralelizá-la seja sempre segura ou vantajosa. Um segmento foi cancelado
+por `Shutdown` e seu processo aguardado. Quatro requisições chegaram depois
+do fechamento da admissão de segmentos e foram registradas como
+`SEGMENT_ERROR`, embora essa recusa seja esperada no shutdown.
+
+O backend levou aproximadamente 5.064 ms do pedido à conclusão, com
+`clean=true`. O prazo compartilhado do lifecycle começou depois do pedido;
+a drenagem registrada levou aproximadamente 4.901 ms a partir desse início.
+O tempo total também inclui etapas fora desse prazo, inclusive o fechamento
+do pool: não se trata, portanto, de um limite de cinco segundos para toda
+a experiência de encerramento.
+
+Na segunda execução, as duas tarefas de thumbnail estavam ativas no
+shutdown; os workers de duplicatas e thumbnails concluíram aproximadamente
+1,62 s e 2,09 s após o pedido. Quatro sessões lineares foram limpas em
+242 ms, com 236 ms de espera de processos e 2 ms de remoção de diretórios.
+Dois segmentos cancelados por `Shutdown` foram aguardados. No snapshot
+anterior ao fechamento havia nove conexões no pool e oito ociosas;
+`close` retornou em 24 ms e o resultado anterior foi `clean=true`. Isso
+não identifica o proprietário nem comprova perda de dados: uma conexão
+não ociosa pode também refletir atividade interna do pool.
+
+Para evitar classificação enganosa, a recusa de segmento agora usa erro
+próprio, distinto de um processo efetivamente cancelado, e é mapeada para
+HTTP 503 com log informativo; falhas reais continuam produzindo HTTP 500
+e `SEGMENT_ERROR`. O teste de admissão fechada usa um executável inexistente:
+receber o erro tipado confirma que a tentativa foi recusada antes do spawn.
+O mapeamento de ambos os tipos de falha também tem teste direcionado.
+
+O coordenador agora aguarda até 250 ms pelo retorno de conexões ao estado
+ocioso e considera o encerramento degradado, sem fechar explicitamente o
+pool, se o snapshot continuar indicando conexões não ociosas. A espera
+limitada contempla a devolução assíncrona do SQLx e é adicional aos demais
+prazos de shutdown. Um teste
+com SQLite mantém uma conexão adquirida, verifica a recusa de fechamento,
+libera-a e verifica o fechamento quando o pool está ocioso. Essa é uma
+verificação conservadora, não uma barreira: as contagens não são atômicas,
+podem refletir atividade transitória e novas operações IPC ainda podem
+adquirir conexões após o snapshot. Mesmo `clean=true` não comprova drenagem
+integral de trabalho não supervisionado. A queda do processo ao sair ainda
+libera recursos; omitir o fechamento explícito não garante a conclusão
+de operações em andamento.
+
+**Validação no macOS:** `cargo fmt --check`, `git diff --check` e Clippy
+em release com `-D warnings` passaram; os 14 testes direcionados de
+streaming e o teste de conexão adquirida do coordenador passaram em
+release. A primeira versão do teste evidenciou que a devolução da conexão
+ao pool é assíncrona; após a introdução da espera limitada, o teste passou.
+Esses testes não substituem a validação do coordenador completo em runtime.
+
+Eventos de metadados e thumbnail novamente foram publicados depois de o
+bridge do frontend parar, gerando `No active subscribers`; a consequência
+funcional e a reconciliação desses eventos continuam pendentes de análise.
+As falhas de suporte de thumbnails e os avisos de fontes SVG não são
+atribuídos a essas alterações.
+
+### Quatro encerramentos adicionais e admissão HTTP (12 de novembro)
+
+Na ordem cronológica dos arquivos de log, o usuário encerrou pela barra
+de título, duas vezes por Cmd+Q e uma pelo Dock. Todos os scans registraram
+787 arquivos inalterados, nenhuma descoberta, poda ou erro. Os quatro
+encerramentos chegaram ao coordenador e registraram `clean=true`; os três
+últimos também registraram o callback nativo de terminação do macOS.
+
+| Entrada | Tempo entre pedido e conclusão do backend | Sessões lineares | Limpeza linear | Pool antes do fechamento |
+| --- | ---: | ---: | ---: | --- |
+| Barra de título | 859 ms | 2 | 110 ms | 11/11 ociosas |
+| Cmd+Q | 1.312 ms | 3 | 433 ms | 19/19 ociosas após espera de 12 ms |
+| Cmd+Q | 4.206 ms | 6 | 545 ms | 9/9 ociosas |
+| Dock | 1.953 ms | 9 | 1.875 ms | 19/19 ociosas |
+
+Na terceira execução, o worker de duplicatas ainda aguardava extração de
+fingerprint por cerca de quatro segundos e terminou antes do prazo do
+lifecycle. Na quarta, a limpeza das nove sessões teve 1.857 ms acumulados
+de espera por processos e 10 ms de remoção de diretórios. Não houve falhas
+reportadas nessas limpezas. Não havia tarefas de thumbnail pendentes no
+instante do cancelamento. O protocolo de assets fechou com `active=0` nas
+quatro amostras; a corrida com handler ativo continua sem confirmação em
+runtime. Não houve `PoolClosed` ou erro de banco trancado nos logs.
+
+As recusas esperadas de segmentos ocorreram 2, 11, 22 e 0 vezes,
+respectivamente, sem `SEGMENT_ERROR` correspondente. Os logs confirmam
+o caminho de classificação e os testes confirmam seu status HTTP 503; não
+há registro independente do código HTTP de cada resposta em runtime.
+Em três execuções, processos de segmentos efetivamente cancelados por
+`Shutdown` também tiveram seu término aguardado.
+
+A investigação das requisições tardias identificou que o futuro usado como
+sinal de graceful shutdown do Axum aguardava toda a limpeza linear antes de
+concluir. Assim, até o fim dessa limpeza, o servidor ainda podia aceitar
+conexões e requisições novas. O sinal HTTP agora é ativado diretamente pelo
+cancelamento, enquanto a limpeza dos processos ocorre em paralelo, dentro
+do mesmo handle supervisionado. A conclusão do servidor continua aguardando
+tanto a drenagem HTTP quanto a limpeza de processos; os limites existentes
+do lifecycle continuam se aplicando. Requisições já admitidas podem ainda
+alcançar as barreiras de segmentos e sessões e ser recusadas.
+
+O novo teste com servidor TCP real mantém uma requisição ativa, cancela o
+servidor, confirma que ele deixa de aceitar conexões antes de terminar essa
+requisição e verifica que a resposta admitida é drenada normalmente. O
+teste não executa o coordenador completo nem prova comportamento de todos
+os clientes ou plataformas. As requisições repetidas, por si só, não provam
+que players antigos tenham vazado; a origem desses clientes não foi
+identificada. A mudança na admissão HTTP ainda precisa de validação real.
+
+**Validação no macOS:** os 15 testes direcionados de streaming passaram em
+release, inclusive o novo teste TCP; Clippy em release com `-D warnings`,
+`cargo fmt --check` e `git diff --check` passaram. O linker emitiu o aviso
+conhecido de objeto zstd compilado para macOS 13.1 em alvo 10.12; não houve
+falha de compilação.
+
+### Três novas execuções e supervisão do scan manual (12 de novembro)
+
+Na ordem cronológica dos logs, os encerramentos foram pelo Dock, Cmd+Q e
+botão da barra de título. Os três scans concluíram com 787 arquivos
+inalterados, 14 aliases identificados e nenhuma descoberta, poda ou erro.
+Todos os encerramentos registraram `clean=true`, sem `PoolClosed` ou
+`database is locked`. O callback nativo do macOS apareceu nas duas
+primeiras execuções, conforme esperado para Dock e Cmd+Q.
+
+| Entrada | Pedido até conclusão do backend | Limpeza linear | Pool antes do fechamento |
+| --- | ---: | --- | --- |
+| Dock | 496 ms | 4 sessões, 439 ms, sem falhas | 20/20 ociosas |
+| Cmd+Q | 318 ms | nenhuma sessão | 20/20 ociosas |
+| Barra de título | 130 ms | 2 sessões, 105 ms, sem falhas | 6/6 ociosas |
+
+O Cmd+Q cancelou quatro segmentos e o botão da barra de título cancelou
+dois; os respectivos processos tiveram o término aguardado. Não houve
+requisições de segmento registradas como recusadas após o fechamento, nem
+`SEGMENT_ERROR`. Não se deve concluir apenas disso que a porta deixou de
+aceitar imediatamente: os logs não registram o instante exato do fechamento
+do listener nem demonstram que houve tentativa de nova conexão. O teste
+TCP direcionado continua sendo a evidência direta desse comportamento.
+As três execuções fecharam a admissão do protocolo de assets com `active=0`
+e não tinham tarefas de thumbnail pendentes no cancelamento; esses cenários
+ativos permanecem não exercitados nessas amostras.
+
+O scan disparado pelo comando de indexação manual anteriormente era
+destacado. Agora o comando admite e registra cada scan com nome único no
+lifecycle antes de iniciá-lo; scans concorrentes não substituem o handle
+um do outro. Se a admissão observar o cancelamento ou o registro fechado,
+o comando retorna erro explícito e não inicia o scan. A sincronização da
+admissão e da drenagem garante que uma tarefa aceita fique no conjunto
+aguardado, mesmo se o encerramento concorrer com sua criação. Handles
+concluídos permanecem no registro até o shutdown, preservando a observação
+de panics, com pequeno custo por scan.
+
+O scan admitido é aguardado até o prazo compartilhado do lifecycle, não
+interrompido imediatamente ao cancelar. Se exceder o prazo, seu handle é
+abortado e o encerramento degradado; isso não comprova o término do
+`spawn_blocking` de caminhada nem do produtor de classificação destacado.
+Assim, a supervisão é parcial e não substitui cancelamento cooperativo e
+propriedade de todas as tarefas filhas. O watcher criado pelo comando e
+outras operações IPC também ainda exigem uma barreira de admissão própria.
+
+**Validação no macOS:** os seis testes direcionados do lifecycle e os cinco
+testes do indexador passaram em release; Clippy em release com `-D warnings`,
+`cargo fmt --check` e `git diff --check` passaram. Os novos testes verificam
+que o shutdown aguarda uma tarefa dinâmica admitida, que uma tarefa tardia
+não é executada e que nomes duplicados não substituem o handle existente.
+Não exercitam o comando Tauri completo nem a corrida com um scan real ativo.
+
+### Scan manual ativo e corrida na preparação (12 de novembro)
+
+Nos dois primeiros novos logs, um scan manual já registrado estava ativo
+quando o shutdown começou. No primeiro, concluiu após o pedido com 193
+descobertas e sem erros; o lifecycle aguardou seu handle antes de fechar
+o pool. No boot seguinte, os 193 arquivos foram encontrados inalterados.
+No segundo, outro scan concluiu após o pedido com 147 descobertas e sem
+erros, também aguardado antes do fechamento; no boot seguinte, os 147
+arquivos foram encontrados inalterados. Isso confirma a persistência e a
+drenagem do handle principal nesses dois cenários, não em casos que
+ultrapassem o orçamento ou envolvam tarefas filhas não supervisionadas.
+Os três encerramentos registraram `clean=true`, com cerca de 533 ms,
+317 ms e 218 ms do pedido à conclusão do backend, respectivamente.
+
+No primeiro caso, `ScanCompleted` foi publicado após o bridge de eventos
+do frontend ter encerrado, gerando `No active subscribers`. O catálogo
+persistiu e foi observado no boot seguinte, mas o evento não foi entregue
+nessa execução. A ordem do bridge, seus consumidores e a reconciliação
+permanecem pendentes de investigação; não tratar a persistência como prova
+de entrega da notificação.
+
+O terceiro log revelou outra corrida: depois de o lifecycle concluir e
+enquanto o pool fechava, um comando de indexação iniciou um watcher;
+o registro do watcher e a admissão do scan foram recusados, mas o comando
+ainda informou que o watcher fora registrado. Esse `clean=true` não
+representa uma garantia de que todo o trabalho IPC tivesse terminado.
+
+A preparação do watcher agora faz parte da mesma tarefa do scan, admitida
+atomicamente no lifecycle antes de executar qualquer preparação. O comando
+aguarda a conclusão da preparação como antes, enquanto a tarefa permanece
+supervisionada até o fim do scan; uma admissão recusada não executa nem a
+preparação nem o scan. A falha de inicialização do watcher continua sendo
+registrada e não impede o scan, preservando o comportamento anterior. O
+registro fictício de handle vazio do watcher manual foi removido: não
+demonstrava a conclusão do watcher nativo, cujo ciclo de vida continua
+uma limitação separada. Um comando admitido antes do cancelamento pode
+prosseguir durante a drenagem; um timeout ainda não garante interrupção de
+código nativo ou tarefas filhas.
+
+Essa correção cobre apenas a preparação e o scan deste comando. A operação
+de adicionar a localização pode começar antes dele e outras operações IPC
+continuam sem barreira abrangente; o snapshot do pool também não é atômico.
+
+**Validação no macOS:** os dois testes direcionados da admissão de indexação
+e os seis testes de lifecycle passaram em release; Clippy em release com
+`-D warnings`, `cargo fmt --check` e `git diff --check` passaram. O teste
+controla a preparação e o scan separadamente e verifica que o shutdown
+aguarda ambos; outro verifica que preparação e scan não executam após
+cancelamento. Não há teste do comando Tauri completo nem validação runtime
+da nova sequência nesta amostra.
+
+### Novas amostras e ordem do bridge de eventos (12 de novembro)
+
+Nos três logs, o encerramento ocorreu pelo callback nativo macOS e foi
+registrado como `clean=true`, com aproximadamente 164 ms, 1.068 ms e
+1.334 ms entre pedido e conclusão do backend. A origem específica do
+callback (Dock ou Cmd+Q) não está identificada pelo log. Não apareceram
+`PoolClosed`, bloqueios de banco nem falhas de limpeza linear.
+
+Na primeira execução, um comando de scan foi recusado após a drenagem do
+lifecycle; diferentemente da amostra anterior, não há log de inicialização
+do watcher pelo comando recusado. É evidência favorável para a nova ordem,
+não uma prova de que todas as operações de adicionar localização estejam
+protegidas: o comando foi chamado após a drenagem e o pool já fechava. Na
+segunda, um scan manual de 193 arquivos terminou antes do encerramento;
+duas tarefas de thumbnail ainda estavam ativas e publicaram metadados e
+thumbnails depois de o bridge parar, resultando em quatro avisos de
+ausência de assinantes.
+
+Na terceira execução, o scan manual foi registrado antes da preparação do
+watcher, começou antes do pedido e terminou durante a drenagem com 787
+descobertas e zero erros; seu handle foi aguardado antes de fechar o pool.
+Os logs mostram localizações sendo removidas e readicionadas nessas
+amostras, com novos IDs de raiz; as contagens de descoberta devem ser
+interpretadas nesse contexto, e não como prova de falha de persistência.
+Não há boot posterior nesta amostra para comprovar persistência desse último
+scan. Seus eventos de progresso e conclusão foram publicados depois do
+bridge parar e não tiveram assinantes ativos.
+
+Para preservar o atendimento dos eventos de produtores supervisionados,
+o bridge agora usa token independente do cancelamento inicial. O lifecycle
+aguarda primeiro os demais handles e só então sinaliza o bridge, que
+processa eventos já disponíveis antes de sair. Ambas as fases compartilham
+o mesmo prazo global: um bridge que não termine dentro do prazo degrada o
+resultado. Se um produtor exceder o prazo ou trabalho não supervisionado
+publicar posteriormente, a entrega desses eventos continua sem garantia.
+O canal é limitado e pode perder mensagens por lag; a emissão Tauri ou
+a entrega ao frontend também não são comprovadas apenas pela presença de
+assinante. A ordenação não substitui estado recuperável nem correlação de
+operações de scan.
+
+**Validação no macOS:** oito testes do lifecycle e dois testes do bridge
+passaram em release; Clippy em release com `-D warnings`,
+`cargo fmt --check` e `git diff --check` passaram. Os testes cobrem a ordem
+de término dos produtores, o prazo compartilhado, a fila pendente e o
+registro de lag. Eles não executam o frontend nem comprovam a recepção de
+eventos por uma janela real; a nova ordem ainda requer validação runtime.
+
+### Bridge com produtores ativos e watcher no boot (12 de novembro)
+
+Os três logs registram encerramento pelo callback nativo macOS; não é
+possível distinguir Dock de Cmd+Q apenas por esse registro. Os tempos do
+pedido à conclusão do backend foram aproximadamente 4.548 ms, 2.765 ms e
+4.436 ms. Todos registraram `clean=true`, sem `PoolClosed`, bloqueio SQLite
+ou ausência de assinantes do event bus. Os erros de thumbnail e avisos de
+formatos/fontes registrados continuam sendo problemas conhecidos fora do
+escopo deste encerramento.
+
+Nos dois primeiros encerramentos, scans manuais ativos concluíram com 193
+e 787 descobertas, respectivamente, após o pedido e antes do término do
+bridge. Nas reinicializações seguintes, os respectivos scans registraram
+193 e 787 arquivos inalterados e zero erros. As localizações foram removidas
+e readicionadas durante os testes; novas descobertas após a readição não
+representam, por si, falha de persistência. Havia duas tarefas de thumbnail
+pendentes no cancelamento em cada execução. O bridge só registrou término
+depois dos handles supervisionados, sem avisos de ausência de assinantes
+ou lag. Esses logs não demonstram, por si, que cada evento foi recebido
+pelo bridge ou processado pelo frontend.
+
+Para permitir essa distinção, foi adicionado um resumo agregado de eventos
+recebidos pelo bridge após o cancelamento: total, progresso, conclusão e
+falha de scan, thumbnail, metadados e mensagens perdidas por lag. O resumo
+não contém caminhos nem identificadores. É uma contagem de recebimento
+no backend, não confirmação de emissão Tauri nem entrega ao frontend; se
+o bridge for abortado antes de terminar, o resumo pode não ser registrado.
+
+A investigação do watcher confirmou que o boot registrava handles vazios
+por raiz no lifecycle, embora o watcher nativo e seus loops destacados
+não fossem aguardados por esses handles. Esses registros fictícios foram
+removidos para não produzir logs de conclusão enganosa. O watcher real
+continua sem encerramento supervisionado: seu token por raiz não controla
+os loops, e seu callback utiliza envio bloqueante. Uma correção completa
+precisa preservar eventos e coordenar parada da origem nativa, debouncer
+e publicador, inclusive sob filas cheias e falha de shutdown. O registro
+removido não era uma barreira e sua ausência não comprova liberação dos
+recursos. Outras operações IPC continuam também sem barreira abrangente.
+
+**Validação no macOS:** três testes do bridge e oito testes do lifecycle
+passaram em release; Clippy em release com `-D warnings`,
+`cargo fmt --check` e `git diff --check` passaram. O teste novo verifica a
+classificação das contagens; os logs reais com o novo resumo e a liberação
+do watcher nativo ainda não foram validados.
+
+### Scans grandes e prazo do bridge (12 de novembro)
+
+No primeiro dos três logs, um scan manual de 787 arquivos terminou após
+o pedido, antes do shutdown do bridge e do fechamento do pool. O resumo
+registrou 205 eventos recebidos durante o encerramento, incluindo oito
+progressos e uma conclusão de scan, sem lag. O encerramento levou cerca
+de 2.645 ms e registrou `clean=true`. O boot seguinte reconheceu os 787
+arquivos como inalterados. A contagem confirma recebimento pelo bridge,
+não entrega ou processamento pelo frontend.
+
+No segundo, um scan manual de uma localização em volume externo estava
+ativo no encerramento. A caminhada encontrou 42.568 arquivos suportados
+e 12 subdiretórios; o scan principal excedeu os cinco segundos do lifecycle
+e foi abortado. Não foi registrado `ScanCompleted` para ele. O bridge,
+cancelado somente depois de expirar o mesmo prazo, também foi abortado;
+nenhum resumo de recebimento foi registrado. O resultado foi `clean=false`
+e o fechamento explícito do pool foi omitido. Na reinicialização seguinte,
+o cache dessa localização tinha 500 entradas; isso demonstra persistência
+parcial, não conclusão da biblioteca inteira.
+
+No terceiro, o boot scan da mesma localização ainda estava em andamento ao
+encerrar e também excedeu o prazo. O worker de thumbnails, com duas tarefas
+diagnosticadas na fase `publication`, igualmente excedeu o prazo. O bridge
+foi abortado após o prazo compartilhado; seu resumo apareceu na corrida com
+o abort, contendo seis progressos e nenhuma conclusão de scan. A fase
+`publication` abrange a verificação da tentativa, a escrita do arquivo
+e o commit de processamento; o diagnóstico não identifica qual dessas
+operações aguardava. Não se pode inferir a causa precisa da espera nem que
+os trabalhos abortados e suas tarefas filhas terminaram. O resultado foi `clean=false`
+e o pool não foi fechado explicitamente. Não houve log de conclusão desse
+scan nem uma nova execução para verificar a recuperação integral.
+
+Corrigida a ausência de tempo de drenagem do bridge depois que outro handle
+esgota o prazo: após cancelar o bridge, ele dispõe de pelo menos 250 ms para
+processar a fila, ainda com timeout e abort. Essa tolerância pode acrescentar
+até 250 ms ao prazo de cinco segundos, além das demais etapas do coordenador;
+um timeout de produtor continua degradando `clean`, mesmo se o bridge
+terminar. A tolerância não garante entrega, nem impede publicações posteriores
+de trabalho não supervisionado. A interrupção cooperativa dos scans grandes,
+a propriedade das tarefas filhas e a espera em `publication` de thumbnails
+continuam pendentes; não há evidência suficiente para tratar a causa da
+contenção como conhecida ou alterar o timeout arbitrariamente.
+Em particular, a caminhada usa `spawn_blocking` e o produtor de classificação
+é iniciado em uma tarefa separada: abortar o scan que os aguarda não prova
+que esses trabalhos cessaram. O produtor agora pertence a um `JoinSet` do
+scan; quando o scan é abortado, o descarte do conjunto solicita o abort do
+produtor e, ao descartá-lo, de suas tarefas de classificação. Isso elimina
+o destaque involuntário, mas não espera a conclusão dos aborts e não interrompe
+a caminhada bloqueante nem operações nativas já iniciadas. Uma solução
+cooperativa deve supervisionar esses trabalhos e lidar
+com transações e lotes já comprometidos, impedindo pruning e conclusão falsa
+quando houver interrupção.
+
+**Validação:** Clippy em release com `-D warnings` e os nove testes de
+`lifecycle::shutdown_budget_tests` passaram após a alteração do bridge,
+incluindo o cenário em que o produtor excede o prazo e o bridge ainda consegue
+drenar. Depois da alteração de cancelamento, Clippy, os sete testes de
+`feature::library::indexer::tests`, os dois testes de
+`feature::library::event_handler::tests`, os nove testes de
+`lifecycle::shutdown_budget_tests`, `cargo fmt --check` e `git diff --check`
+passaram.
+
+### Novos logs e cancelamento cooperativo (12 de novembro)
+
+Foram recebidos quatro logs com encerramento por Cmd+Q, botão de fechamento
+da splash, titlebar e Dock, conforme a ordem informada. Os timestamps internos,
+porém, colocam o arquivo `125556` às 16:17, antes dos outros três (16:20,
+16:22 e 16:23); portanto não é possível associar com segurança esse arquivo
+ao quarto método de encerramento.
+
+No log mais antigo, a localização em volume externo não estava montada:
+`WalkDir` retornou `No such file or directory`, e o scan registrou erro sem
+pruning. O encerramento subsequente foi limpo (`clean=true`), com bridge
+drenado sem lag, sete conexões ociosas e fechamento do pool concluído em
+58 ms. Esse erro de acesso à localização não é evidência de corrupção nem
+de remoção dos registros.
+
+Nos outros três logs, o scan de boot da localização montada encontrou 42.568
+arquivos suportados e 12 subdiretórios. O cache observado no início desses
+scans foi de 11.100 entradas nos dois primeiros logs e 13.500 no terceiro;
+isso é compatível com retomada de persistência parcial, mas os logs não provam
+quantas entradas cada execução confirmou no banco. Os scans não publicaram
+conclusão antes do encerramento. Em todos os três casos, `boot_scan` excedeu
+o orçamento de cinco segundos, foi abortado e o shutdown terminou `clean=false`;
+por segurança, o pool SQLite não foi fechado explicitamente. Não foram
+encontrados erros SQLite de banco ocupado/trancado nesses arquivos.
+
+O trabalho de outros recursos não foi idêntico em todas as amostras: no
+primeiro dos três logs, o worker de thumbnails e o de duplicatas terminaram
+depois do pedido, enquanto o scan excedeu o prazo. Nos outros dois, além do
+scan, thumbnails e duplicatas também excederam o prazo. Os resumos do bridge
+registraram respectivamente 13, 10 e 6 eventos `scan_progress`, sem
+`scan_completed` e sem lag. Isso confirma a utilidade da margem de drenagem
+de 250 ms para o bridge, mas não confirma entrega ao frontend. As linhas de
+classificação continuaram durante os cinco segundos de drenagem, evidência
+de que os scans não observavam o cancelamento até então.
+
+Para corrigir esse comportamento, a indexação agora recebe o token do dono
+do scan (boot, operação manual e reconciliação do watcher) e verifica
+cancelamento entre etapas e itens da caminhada, durante classificação e
+resolução de aliases, e entre lotes de persistência. Ao cancelar antes do
+pruning, a operação retorna `Cancelled`, não publica `ScanFailed`, não inicia
+pruning nem emite `ScanCompleted`; lotes já confirmados permanecem válidos e
+serão reconciliados na próxima varredura. O producer continua sob `JoinSet`
+proprietário do scan, para que suas tarefas de classificação também recebam
+abort no drop.
+
+O pruning só começa depois que caminhada, classificação, gravação dos lotes
+e observação de identidades terminaram sem cancelamento. Se o cancelamento
+chegar enquanto a fase de pruning já está em andamento, ela para entre
+operações; remoções já concluídas vieram de uma caminhada completa, mas
+podem deixar o pruning parcial para ser reconciliado na próxima varredura.
+
+Essa cooperação não cancela uma chamada de filesystem que esteja bloqueada
+dentro do `WalkDir`, nem uma operação de banco já iniciada; o token é observado
+entre lotes e assim que o controle retorna desses limites. O orçamento do
+lifecycle continua sendo um limite para aguardar handles assíncronos, não uma
+garantia de limite absoluto para I/O bloqueante. A nova implementação ainda
+foi validada nos três novos cenários reais de runtime descritos abaixo.
+
+### Validação runtime após o cancelamento cooperativo (12 de novembro)
+
+Os três logs mais recentes correspondem, na ordem informada pelo usuário, ao
+fechamento pela titlebar (`144037`), Cmd+Q (`150141`) e Dock (`150329`).
+Em todos, a localização externa estava montada; a caminhada encontrou 42.568
+arquivos suportados e 12 subdiretórios. Os caches carregados antes do scan
+foram de 18.300, 25.600 e 28.200 registros. O número crescente é compatível
+com a retomada da indexação entre execuções, mas não permite afirmar que a
+biblioteca inteira já foi indexada.
+
+Em cada execução, `boot_scan` reconheceu o pedido de encerramento e parou
+cooperativamente, sem exceder o prazo nem ser abortado. Do pedido de shutdown
+à conclusão do processo transcorreram aproximadamente 2,135 s, 0,889 s e
+1,899 s. Todos os três encerramentos terminaram `clean=true`; o pool foi
+fechado após snapshot ocioso e o fechamento explícito terminou em 57 ms,
+57 ms e 64 ms, respectivamente. Não houve `ScanCompleted` para o scan
+interrompido, como esperado.
+
+O bridge terminou sem lag em todos os logs. Recebeu respectivamente um,
+dois e quatro eventos durante a drenagem, sem `scan_completed`. Isso é
+consistente com o scan cancelado sem emitir uma conclusão falsa. O usuário
+confirmou que notificações e atualizações no viewport continuam normais e
+que a tela de fechamento se comporta como esperado. A observação visual do
+usuário é evidência funcional do frontend; o resumo backend do bridge, por
+si só, continua sem provar entrega individual de eventos.
+
+Foi encontrada, contudo, contenção SQLite durante o processamento normal,
+antes dos pedidos de encerramento: um erro `SQLITE_BUSY` no processamento de
+fingerprint após uma renovação de lease que demorou cerca de 10,75 s, e um
+erro `SQLITE_BUSY` em processamento de thumbnail no terceiro log. O erro do
+fingerprint ocorreu aproximadamente 54 s antes do encerramento; o erro de
+thumbnail, cerca de 1,17 s antes. O worker de duplicatas aplicou sua política
+de retry. Os logs não identificam com certeza qual transação concorrente
+reteve a escrita, portanto não atribuímos a contenção ao scan ou aos workers
+sem mais evidência. Apesar dessas falhas durante a execução, os workers
+supervisionados encerraram sem abort e o pool estava ocioso ao final; não há
+evidência de corrupção ou de falha no fechamento do banco.
+
 ### Desvios, limitações e riscos residuais
 
 | Item | Impacto | Mitigação / encaminhamento | Estado |
 | --- | --- | --- | --- |
-| Admissão e registro ainda não são atômicos durante shutdown. | Novas operações ou recursos podem surgir durante a drenagem; a janela não garante que todo trabalho cessou. | Implementar barreira por proprietário, cobrir corridas e operações IPC antes de marcar entrega completa. | Pendente. |
-| Watcher, subprocessos e tarefas não rastreadas não foram auditados integralmente. | Token cancelado ou handle concluído não prova liberação dos recursos. | Inventariar propriedade, drenar e testar explicitamente. | Pendente. |
-| Timeout continua sendo por tarefa e abort não interrompe necessariamente código nativo. | Espera cumulativa e encerramento degradado são possíveis. | Definir política segura por recurso e orçamento global após inventário. | Pendente. |
+| Admissão de operações IPC durante shutdown não é barrada. | Comandos já em voo podem usar o banco até o fechamento do pool. | Registro de tarefas já é fechado atomicamente; barreira para IPC pendente. | Parcial. |
+| Scan iniciado ao adicionar pasta contém I/O de filesystem bloqueante. | Uma chamada nativa já bloqueada pode não observar o token imediatamente; o prazo do lifecycle não é limite absoluto para I/O bloqueante. | Scans manuais, de boot e reconciliação recebem token; producer é supervisionado por `JoinSet`; cancelamento evita conclusão falsa e pruning prematuro. Três encerramentos reais pararam o boot scan cooperativamente e terminaram `clean=true`. | Comportamento validado em macOS; I/O bloqueante continua como limite residual. |
+| Contenção SQLite entre indexação e workers de processamento. | Os logs mais recentes registram um erro `SQLITE_BUSY` em fingerprint e outro em thumbnail; o retry reduz perda permanente, mas uma tentativa pode falhar e renovar lease pode atrasar. | `BatchCreate`, criação de pastas e observação de identidades usam transações imediatas; fingerprints têm retry limitado. Determinar qual escrita concorrente retém o lock e reproduzir sob carga antes de alterar o protocolo de transação. | Parcial; investigar concorrência em runtime. |
+| Eventos de indexação sem identidade de operação e listeners iniciados após o backend. | Scans simultâneos podem interferir; eventos de boot podem ser perdidos. | Definir estado recuperável e correlacionar os ciclos de scan antes de declarar cobertura completa. | Pendente. |
+| Servidor de streaming excedeu o prazo após iniciar drenagem HTTP. | Um encerramento em release foi degradado mesmo com workers concluídos. | Esperas por playlist e segmento lineares são canceláveis e há diagnóstico agregado de handlers; investigar também corpos e conexões, testar reprodução ativa e não presumir a causa. | Parcial; validação runtime pendente. |
+| Eventos de scan e thumbnails foram publicados depois que o bridge parou. | Eventos de atualização não foram entregues nessas amostras; efeito funcional não determinado. | Bridge permanece ativo durante drenagem dos produtores registrados e consome a fila disponível; emissão, lag, produtores não supervisionados e reconciliação durável ainda exigem validação. | Parcial; pendente. |
+| Fechamento do pool retornou enquanto uma conexão permanecia adquirida em teste no macOS. | O retorno de `close` pode não comprovar a conclusão de conexões em uso; operações IPC ou tarefas não rastreadas podem persistir. | Snapshot não ocioso agora degrada o resultado e impede fechamento explícito; não é barreira atômica. Investigar divergência com o contrato SQLx e supervisionar operações; teste de regressão original permanece ignorado. | Parcial; pendente. |
+| Watcher e subprocessos de extração/waveform/probe/HLS não foram auditados integralmente. | Token cancelado ou handle concluído não prova liberação dos recursos. | Proprietários de segmentos são sinalizados e aguardados pelo servidor; falhas reportadas de supervisão e da limpeza linear no shutdown degradam `clean`. Inventariar os demais recursos e validar em runtime. | Parcial; pendente. |
+| Workers de duplicatas, thumbnails e cores excederam o prazo em diferentes execuções; tarefas filhas podem ultrapassar o abort do handle principal. | `clean=false`; trabalho de lease pode persistir e acessar recursos durante a saída. | Manter pool SQLite aberto se a drenagem falhar; investigar cancelamento e propriedade das tarefas filhas e repetir encerramento com processamento ativo. | Requer investigação e validação runtime. |
+| Abort não interrompe necessariamente código nativo. | Encerramento degradado é possível. | Orçamento global de 5 s com drenagem concorrente implementado; política por recurso depende do inventário. | Parcial. |
 | Validação limitada ao macOS (dev e bundle); sem teste de logout/desligamento do SO ou leitores de tela reais. | Acessibilidade e suporte Windows/Linux não comprovados. | Executar matriz em builds empacotados nesses sistemas. | Parcial; pendente. |
-| Se a janela não for criada, a janela anterior permanece visível sem overlay próprio. | O fallback pode não transmitir o progresso. | Implementar e testar feedback alternativo independente da janela dedicada. | Pendente. |
+| Se a janela não for criada, só o título da janela principal muda para "Mundam — Closing…". | Feedback mínimo, sem progresso detalhado. | Fallback básico implementado; não testado com falha real de criação. | Parcial. |
 | Callback de encerramento nativo no macOS depende da estrutura do delegate Tao. | Alterações futuras no runtime podem introduzir implementação própria do seletor. | Falhar explicitamente na inicialização em vez de substituir a implementação; verificar em atualizações do Tauri/Tao e repetir testes de Dock e Cmd+Q. | Teste Objective-C aprovado; fluxos básicos validados em desenvolvimento e no bundle macOS. |
 
 ### Aceite

@@ -46,6 +46,7 @@ impl Serialize for AppError {
                 ("TIMEOUT", "Extraction process timed out.".to_string(), None)
             }
             AppError::ValidationFailed(msg) => ("VALIDATION_FAILED", msg.clone(), None),
+            AppError::Cancelled => ("CANCELLED", "Operation cancelled.".to_string(), None),
             _ => ("INTERNAL_ERROR", self.to_string(), None),
         };
 
