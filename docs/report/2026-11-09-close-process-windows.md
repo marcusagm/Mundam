@@ -1,9 +1,16 @@
 # Levantamento e plano: janela de finalização do Mundam
 
 **Data:** 9 de novembro de 2026  
-**Estado:** três novos encerramentos Windows em desenvolvimento limpos; matriz restante e aceite geral pendentes
+**Estado:** Windows em desenvolvimento validado nos cenários registrados; pronto para iniciar Linux; bundle Windows atual e lacunas compartilhadas ainda pendentes
 **Escopo:** aplicações desktop Tauri em macOS, Windows e Linux  
 **Destino:** `docs/report/`, conforme solicitado; este documento combina levantamento e planejamento técnico.
+
+**Leitura atual (13 de novembro):** as seções 4 a 8 preservam o diagnóstico e a
+proposta originais; não descrevem integralmente o código atual. As seções 9 a 12,
+o inventário de recursos e a seção 14 foram reconciliados com o commit
+`26d0925` e com os logs mais recentes. A seção 13 mantém o histórico das rodadas,
+inclusive falhas depois corrigidas. Testes de acessibilidade estão dispensados
+como critério de implementação e conclusão, por orientação do usuário.
 
 ## 1. Resumo executivo
 
@@ -122,6 +129,11 @@ Os limiares de 5 e 8 segundos seguem a splash como **ponto de partida**, não co
 
 ### 6.2 Interação e acessibilidade
 
+**Atualização de escopo em 13 de novembro:** as recomendações abaixo preservam
+as decisões de apresentação e o comportamento já implementado. Testes de
+acessibilidade, leitores de tela, contraste, alto contraste, ampliação e
+movimento reduzido não são exigências para concluir esta implementação.
+
 - A saída já foi solicitada: não oferecer cancelamento/reinício quando não houver reversão segura. Durante o fechamento, nova tentativa de fechar a janela de progresso é interceptada e se junta ao mesmo fluxo; não cria outra instância nem força a saída.
 - `main` com título semântico, indicador com `role="progressbar"` indeterminado e nome acessível, e uma única região `role="status"`/`aria-live="polite"` para mudanças relevantes. Nenhum `aria-valuenow` fabricado.
 - Sem depender apenas de animação ou cor; respeitar `prefers-reduced-motion`. Contraste de texto e componentes não textuais no mínimo WCAG AA aplicável, inclusive estados de foco.
@@ -237,16 +249,16 @@ Não exibir na janela dados internos de bibliotecas, caminhos, nomes de arquivos
 - Não alterar sem necessidade a política de fechamento de janelas auxiliares nem o comportamento de startup concluído. Fechamento da principal minimizada/oculta e múltiplas telas devem ser verificados.
 - Não supor que toda solicitação de saída do SO possa ser adiada; documentar comportamento específico e exceções medidas por plataforma.
 
-## 9. Plano de execução após aprovação
+## 9. Plano de execução e estado atual
 
-| Etapa | Trabalho | Saída verificável |
+| Etapa | Trabalho e evidência | Estado em 13 de novembro |
 | --- | --- | --- |
-| 1. Inventário e contratos | Mapear entradas de saída e ownership dos recursos; verificar eventos Tauri nas três plataformas e medir tempos atuais. Definir política por recurso e deadlines. | Matriz de recursos e fluxos reais, com lacunas, decisões e baseline registrados neste relatório. |
-| 2. Coordenação | Criar estado monotônico e execução única; proteger registro/admissão e corrida com boot; testar origem múltipla e saída autorizada. | Testes determinísticos de concorrência e inicialização parcial aprovados. |
-| 3. Drenagem real | Ajustar apenas os donos necessários, incluindo watchers, processos/servidor e tarefas filhas; preservar journals, leases e garantias das mutações. | Evidência por recurso de término ou desfecho degradado, com testes de falhas e recuperação. |
-| 4. Janela e protocolo | Implementar entrada independente, capability mínima, estado/IPC, handshake limitado e fallback. | Build inclui recursos; janela funciona sem depender do ciclo da principal. |
-| 5. UX e acessibilidade | Aplicar tokens, mensagens factuais, tema e movimento reduzido; avaliar foco e fallback. | Verificações visuais, teclado e leitor de tela registradas. |
-| 6. Integração e aceite | Executar matriz de testes, medir latências, atualizar documentação e preencher checklist/área de implementação. | Evidências e limitações registradas; pronto para revisão e aceite. |
+| 1. Inventário e contratos | Entradas, donos, orçamento e limitações registrados; inventário atualizado abaixo. | Levantamento atualizado; cobertura nativa Linux e medições completas pendentes. |
+| 2. Coordenação | Coordenador único, estado revisionado, autorização de saída, registro fechado atomicamente e supervisão do boot implementados e testados. | Implementada para os caminhos cobertos; a admissão global de IPC ainda não está fechada. |
+| 3. Drenagem real | Registro concorrente, bridge por último, protocolos, segmentos/probes e sessões lineares aguardados; três últimos encerramentos Windows limpos. | Parcial: watcher, loops auxiliares e gerenciador HLS usado pelo IPC ainda têm lacunas de ownership. |
+| 4. Janela e protocolo | Entrada Vite, capability, evento/consulta, handshake 1.500 ms, mínimo 600 ms, fallback e pausa de mídia implementados. | Implementada; bundle atual e falha real de apresentação ainda exigem validação. |
+| 5. Apresentação funcional | Mensagens factuais, estado indeterminado e janela independente observados em macOS/Windows. Principal brevemente visível foi aceita como não bloqueante. | Sem implementação visual adicional exigida agora; testes de acessibilidade dispensados. |
+| 6. Integração e aceite | Testes focados aprovados; Windows dev validado, macOS com evidência anterior; revisão documental atualizada. | Linux pode começar. Para concluir, fechar as pendências da seção 14 e validar os artefatos finais. |
 
 As etapas 2 e 3 podem ser refinadas juntas, mas a interface não deve declarar encerramento seguro antes de existir uma definição verificável do que foi drenado.
 
@@ -269,38 +281,47 @@ As etapas 2 e 3 podem ser refinadas juntas, mas a interface não deve declarar e
 
 - Listener antes da consulta; respostas fora de ordem; mesmo revision confirma contato; evento perdido recuperado por polling; limpeza de timer e listener tardio.
 - Estados de demora e indisponibilidade com timers/relógio simulados; recuperação do contato; nenhum percentual fabricado ou anúncio repetido a cada segundo.
-- Montagem, acessibilidade semântica, tema, movimento reduzido, texto ampliado e confirmação de apresentação uma única vez; erro de montagem/IPC e fallback.
+- Montagem, confirmação de apresentação uma única vez, erro de montagem/IPC e fallback. Testes já existentes de semântica podem continuar, mas não há campanha de acessibilidade exigida para o aceite.
 - Relógio controlado para limpeza rápida/lenta, handshake antes/depois do término, ausência ou confirmação tardia, prazo de 1.500 ms e mínimo de 600 ms. Testar que iniciar limpeza não aguarda o frontend.
 
-**Comandos iniciais sugeridos**, ajustar filtros aos nomes reais quando houver implementação:
+**Comandos de referência para a implementação existente:**
 
 ```sh
 npm run typecheck
 npm run lint
 npm run build
-npm run test -- src/core/startup/client.test.ts
-cargo test --manifest-path src-tauri/Cargo.toml feature::startup::tests
+npm run test -- src/core/shutdown src/components/features/shutdown
+cargo test --manifest-path src-tauri/Cargo.toml --lib shutdown
+cargo test --manifest-path src-tauri/Cargo.toml --lib delivery::streaming::
 ```
 
-Acrescentar os testes focados novos de shutdown, lifecycle, watchers, streaming e recuperação, além de regressões das áreas alteradas; executar o conjunto mais amplo quando mudanças de coordenação afetarem múltiplos subsistemas. Nenhum desses comandos foi executado para este relatório, pois não houve alteração de código.
+As últimas execuções registradas passaram com 19 testes frontend focados,
+19 de streaming Rust e 23 filtrados por shutdown; as suítes Rust se sobrepõem.
+Typecheck, lint dos arquivos alterados, formatação e build também passaram.
+Esta revisão documental não reexecutou os testes nem substitui a validação
+Linux. Novas alterações de ownership devem acrescentar regressões de término
+real dos respectivos recursos e repetir os testes pertinentes.
 
 ### 10.2 Matriz desktop obrigatória
 
 Executar em **build empacotado** em macOS, Windows e Linux, além do modo de desenvolvimento. Registrar versão do SO, meio de execução, resultado, duração e evidências, sem dados pessoais. Se algum ambiente não estiver disponível, marcar explicitamente como pendente, não como aprovado.
 
-| Cenário | Verificações |
-| --- | --- |
-| Biblioteca vazia e existente; saída sem trabalho | Feedback visível, duração mínima proposta, saída real e sem janela residual. |
-| Indexação, miniaturas, cores e duplicados ativos | UI responsiva, drenagem/recuperação coerente; reabrir e validar integridade dos dados e originais. |
-| Vídeo/HLS/transcodificação e requisições ativas | Encerramento comprovado dos subprocessos próprios e do servidor; reabrir e verificar disponibilidade. |
-| Operação de arquivo ou transação em andamento | Não perder originais; validar commit/rollback ou recuperação existente após reabrir. |
-| Fechar durante cada fase da splash e após falha do boot | Sem reaparecimento da principal, sem novos serviços após drenagem, sem travar aguardando dependências ausentes. |
-| Clique repetido, atalho, menu/Dock e saída programática elegível | Uma execução; confirmar quais caminhos realmente geram os eventos esperados em cada plataforma. |
-| Janela principal minimizada, outra tela, mudança de escala/alto contraste | Feedback localizável sem foco indevido, layout íntegro e encerramento funcional. |
-| Falso atraso, timeout, WebView ou evento indisponível | Mensagens corretas, fallback, saída conforme política e logs adequados. |
-| Janelas auxiliares e splash após readiness | Fechamento independente preservado; não disparar encerramento global inadvertido. |
-| Leitor de tela, teclado, movimento reduzido e temas | Nome/título/status compreensíveis, foco útil, contraste e ausência de movimento obrigatório. |
-| Encerramento de sessão do SO e fechamento forçado | Registrar o que é interceptável e prazos observados; não alegar garantias impossíveis. |
+| Cenário | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| Saída ociosa pelo X e fechamento do sistema de janelas | Dev e bundle anteriores observados; repetir no bundle atual. | Titlebar/Dock/Cmd+Q observados anteriormente. | Pendente. |
+| Fechar com indexação/processing/mídia ativos | Dev atual com três resultados limpos, incluindo rede; bundle anterior teve timeout e precisa repetir. | Evidências anteriores, inclusive saídas limpas; smoke das mudanças compartilhadas finais pendente. | Pendente em dev e bundle. |
+| Fechar durante boot/splash e após falha de inicialização | Código e testes parciais; confirmação nativa atual pendente. | Evidência parcial e testes; confirmar somente as lacunas restantes. | Pendente. |
+| Pedidos repetidos, Alt+F4 ou equivalente e janelas auxiliares | Concorrência coberta em unidade; validação nativa complementar pendente. | Pedidos de saída principais já observados; regressão final complementar. | Pendente; registrar gerenciador de janelas e sessão usada. |
+| Reabrir após cancelamento e confirmar recuperação | Reinícios e novas reproduções observados; confirmar pendências/leases e originais no artefato final. | Evidência histórica de recuperação; regressão final limitada às mudanças novas. | Pendente. |
+| Janela principal minimizada e apresentação indisponível | Fallback implementado; falha real/injetada ainda pendente. Principal brevemente visível não bloqueia. | Fallback e regressão funcional pendentes quando ainda não cobertos. | Pendente. |
+| Processos próprios, servidor, handlers e banco | Evidência positiva para recursos registrados; inventário incompleto impede afirmar ausência universal de filhos. | Mesma limitação de implementação compartilhada. | Validar após tratar ownership e também na execução exploratória inicial. |
+| Encerramento de sessão do SO/terminação forçada | Caracterizar apenas se houver requisito de suporte; não prometer interceptação universal. | Mesmo limite. | Mesmo limite. |
+
+Testes de acessibilidade foram retirados desta matriz e não bloqueiam a
+implementação ou o aceite. Para Linux, registrar distribuição, versão,
+empacotamento e sessão X11/Wayland efetivamente utilizada; não presumir que
+testar um ambiente valida todos os demais. Esta matriz não exige corrigir
+suporte a formatos nem desempenho de rede.
 
 ### 10.3 Medições de aceite
 
@@ -308,7 +329,7 @@ Executar em **build empacotado** em macOS, Windows e Linux, além do modo de des
 - Confirmar por teste automatizado que, em saída normal com apresentação confirmada, a janela permanece pelo menos **600 ms** a partir da confirmação; que a ausência de confirmação não adiciona mais de **1.500 ms desde o pedido** por motivo de apresentação; que a limpeza começa sem esperar handshake. Considerar precisão dos timers e registrar a tolerância adotada no teste.
 - Medir distribuição, não apenas um caso: ao menos 10 execuções quentes e 10 frias por plataforma, em repouso e com carga representativa; registrar mediana, máximo, metodologia e hardware. Não estabelecer meta de latência de criação sem baseline.
 - Comparar consumo e tempo com a versão anterior; o único atraso deliberado de saída normal deve ser o mínimo de apresentação definido, sobreposto à limpeza. Nenhum timeout de interface deve prolongar a saída indefinidamente.
-- Registrar como pendente qualquer resultado ainda não observado; não interpretar teste unitário de mocks como evidência de funcionamento nativo, acessibilidade real ou processo filho encerrado.
+- Registrar como pendente qualquer resultado ainda não observado; não interpretar teste unitário de mocks como evidência de funcionamento nativo ou processo filho encerrado. Acessibilidade está dispensada.
 
 ## 11. Riscos, escolhas para aprovação e perguntas abertas
 
@@ -326,33 +347,53 @@ Executar em **build empacotado** em macOS, Windows e Linux, além do modo de des
 
 ## 12. Lista de entregas e acompanhamento
 
-Preencher durante a implementação. Um item só deve ser marcado quando houver evidência registrada na seção seguinte.
+Atualizado em 13 de novembro contra código e evidências. Itens implementados
+foram separados de validações nativas e de garantias ainda não demonstradas.
+As pendências detalhadas e a ordem de execução estão na seção 14.
 
 - [x] Confirmar decisões de UX, tempos e cobertura de saída com o responsável pelo produto.
-- [ ] Inventariar entradas reais de saída por plataforma e classificar as não interceptáveis.
-- [ ] Inventariar recursos, proprietários, dependências, operações críticas e política de timeout/recuperação.
-- [ ] Registrar baseline de tempo e consumo nas plataformas disponíveis.
+- [x] Registrar entradas conhecidas, inventário de recursos, políticas e lacunas verificadas.
+- [ ] Concluir cobertura nativa das entradas restantes e das plataformas finais.
+- [x] Registrar tempos de encerramento observados em macOS e Windows.
+- [ ] Completar medições e comparação de consumo previstas na seção 10.3, ou registrar dispensa explícita desse levantamento estatístico.
 - [x] Implementar coordenador único, estado revisionado e saída final sem recursão.
-- [ ] Garantir fechamento atômico da admissão e supervisão do boot, incluindo criação/registro concorrentes.
-- [ ] Garantir drenagem verificável dos recursos no escopo, watchers e tarefas filhas.
-- [ ] Auditar e tratar servidor, requisições e processos filhos sob propriedade do Mundam.
-- [ ] Preservar transações, journal, leases, originais e recuperação após reinício.
+- [x] Fechar atomicamente o registro e admitir scans dinâmicos sob a mesma trava; reter e aguardar o supervisor do boot.
+- [x] Drenar tarefas registradas concorrentemente, distinguir resultado degradado e drenar bridge por último.
+- [x] Fechar admissão dos protocolos de assets/thumbnails e aguardar handlers admitidos.
+- [x] Supervisionar e aguardar processos de segmentos, probes e sessões lineares do servidor HTTP.
+- [x] Pausar mídia da principal quando o pedido de encerramento for aceito.
+- [ ] Encerrar e aguardar o watcher nativo e seus loops com propriedade verificável (R1).
+- [ ] Supervisionar loops auxiliares e completar a auditoria dos demais subprocessos alcançáveis (R2).
+- [ ] Resolver a admissão/drenagem de IPC que pode criar recursos ou acessar o banco durante a saída (R3).
+- [ ] Concluir política e cobertura de boot/I/O não interrompível, falhas e recuperação (R4).
+- [x] Preservar leases ao adiar thumbnails por cancelamento entre fases, sem consumir nova tentativa.
+- [ ] Confirmar recuperação de pendências e integridade no reinício dos artefatos finais.
 - [x] Implementar janela independente, entrada Vite e empacotamento.
 - [x] Criar capability mínima e validar autorização de IPC por janela.
 - [x] Implementar protocolo evento + consulta, reconciliação e descarte dos listeners.
-- [ ] Implementar apresentação mínima, limite de handshake, fallback e mensagens factuais.
-- [ ] Validar acessibilidade, teclado, leitores de tela, contraste, temas e movimento reduzido.
-- [ ] Cobrir falhas, timeouts, fechamento repetido, saída do SO e inicialização parcial.
+- [x] Implementar mínimo de 600 ms, handshake limitado a 1.500 ms, fallback e mensagens factuais.
+- [x] Testar concorrência, timeouts e ausência de confirmação sem bloqueio indefinido.
+- [ ] Completar verificações nativas de boot, pedidos repetidos, janelas auxiliares e falha de apresentação ainda não cobertas.
 - [x] Executar testes automatizados, typecheck, lint e build pertinentes.
-- [ ] Executar e registrar matriz desktop e medições; explicitar plataformas não validadas.
-- [ ] Atualizar documentação de startup, lifecycle e arquitetura afetada.
+- [x] Registrar a rodada final de desenvolvimento Windows: três encerramentos `clean=true`.
+- [ ] Repetir o bundle Windows atual, incluindo fechamento sob carga (R5).
+- [ ] Executar Linux em desenvolvimento e no bundle escolhido (R6).
+- [ ] Fazer smoke macOS das mudanças compartilhadas posteriores à validação anterior (R7).
+- [x] Atualizar tabelas, checklist, inventário e referências de startup/backend nesta revisão.
 - [ ] Registrar decisões finais, desvios, riscos residuais, resultados e aprovação.
+
+**Dispensado:** testes de acessibilidade não compõem este checklist de conclusão.
+**Fora do escopo atual:** suporte a formatos, thumbnails conhecidos, prompts
+durante reprodução e desempenho de rede, salvo impacto demonstrado no fechamento.
 
 ## 13. Detalhes da implementação e evidências
 
-**Atualização de 9 de novembro de 2026:** primeira integração em andamento; os
-itens ainda não marcados continuam pendentes de implementação ou validação.
-Não considerar este registro como aceite final.
+**Histórico de 9 a 13 de novembro de 2026:** os quadros e relatos datados
+preservam o estado observado em cada rodada, inclusive pendências superadas.
+O inventário abaixo foi atualizado em 13 de novembro. Para tarefas atuais,
+usar o checklist da seção 12 e o levantamento da seção 14; não acumular como
+obrigações novas todas as propostas ou observações históricas. Não considerar
+esta seção como aceite final.
 
 ### Decisões aprovadas
 
@@ -361,13 +402,20 @@ Não considerar este registro como aceite final.
 | 2026-11-09 | Plano aprovado; iniciar com janela independente usando Solid/Vite, simplificando para HTML/JS próprio caso necessário. | Solicitação do usuário nesta sessão. |
 | 2026-11-09 | Primeira etapa mantém os tempos propostos de 600 ms e 1.500 ms e usa o estado de finalização separado do startup. | Implementação em andamento; validação nativa pendente. |
 
-### Inventário e política de recursos
+### Inventário e política de recursos (atualizado em 13 de novembro)
 
 | Recurso / dono | Admissão e cancelamento | Evidência de término | Timeout / recuperação | Estado |
 | --- | --- | --- | --- | --- |
-| Inicialização | Token raiz cancelado e supervisor aguardado antes de drenar o registro; verificação entre etapas. | Handle do supervisor. | Sem timeout adicional para boot em andamento. | Implementado; teste de corrida e desktop pendentes. |
-| Tarefas registradas | Token raiz cancelado; `shutdown_all` fecha o registro e aguarda handles concorrentemente. | Resultado do handle; panic/timeout marcam resultado degradado. | Prazo compartilhado de 5 s para espera cooperativa; abort não prova término de trabalho nativo nem impõe limite à espera posterior pelo handle. | Parcial; admissão anterior ao registro, política definitiva e cobertura pendentes. |
-| Watchers, operações IPC, servidor, subprocessos e tarefas não registradas | Ainda utilizam mecanismos existentes. | Não estabelecida de forma abrangente nesta etapa. | Limitações e recovery existentes precisam ser auditados. | Pendente; não inferir limpeza integral. |
+| Inicialização | Token raiz cancelado; `StartupTask` aguardado antes da drenagem; avanços/apresentação protegidos pelo estado de shutdown. | Supervisor retido; teste de estado disponível antes de setup. | Espera do supervisor sem timeout próprio; I/O em andamento não é interrompido automaticamente. | Implementado parcialmente; validar boot interrompido e política de espera (R4). |
+| Registro de tarefas e scans dinâmicos | `shutdown_all` fecha o registro sob trava; `spawn_unique` verifica cancelamento e reserva/inicia sob a mesma trava. | Handles aguardados; testes de concorrência, rejeição tardia e nomes duplicados. | 5 s compartilhados, abort aguardado; grace de 250 ms para bridge. | Implementado para recursos admitidos por esses caminhos; não equivale a barreira global de IPC. |
+| Bridge de eventos | Cancelado após os produtores registrados; fila consumida antes de parar. | Handle registrado e testes de ordem/drenagem. | Orçamento compartilhado mais grace limitado. | Implementado; produtores não supervisionados continuam como limite. |
+| Asset/thumbnail protocols | `ProtocolAdmission` fecha a admissão e conta guards já admitidos. | Drenagem de handlers registrada nos três últimos logs Windows. | Até 5 s; falha degrada o resultado e impede fechamento explícito do pool. | Implementado; não prova conclusão de todo corpo HTTP já entregue. |
+| Servidor HTTP, segmentos e FFprobe | Token raiz fecha servidor; processos registrados recebem cancelamento e seus donos aguardam saída/saídas de pipes. | 19 testes de streaming; servidor e donos concluíram nas três novas execuções Windows. | Drenagem dentro do orçamento do lifecycle; falhas de supervisão degradam resultado. | Implementado para esses donos; repetir no bundle atual e Linux. |
+| Sessões lineares HTTP | Admissão serializada e fechada; filhos e diretórios tratados em `LinearManager::shutdown`. | Relatório de falhas de processo/diretório; testes e logs de sessões reais. | Lifecycle limita espera; falhas são propagadas. | Implementado para o caminho HTTP; processo já encerrado não exercita kill de filho ativo. |
+| Watcher nativo e debouncer | `WatcherService::watch` ignora `_token`; loops e publicador usam `tokio::spawn` sem handles retidos no lifecycle. | Ainda não há confirmação explícita de término. | Drop no fim do processo não comprova drenagem antes de fechar banco/bridge. | Lacuna de implementação compartilhada (R1). |
+| Limpeza periódica HTTP e HLS do IPC | Dois loops periódicos do servidor têm token, mas seus handles não são aguardados; `HlsManager` do IPC limpa sessões por drop/`kill_on_drop`. | Drop e cancelamento registrados; espera de todos esses donos não comprovada. | A política de recursos registrados não se estende automaticamente a esses caminhos. | Auditar e supervisionar caminhos alcançáveis (R2). |
+| Workers e extratores | Handles principais registrados; thumbnails verificam cancelamento entre fases e preservam leases. | Testes de cancelamento e logs limpos sob carga; histórico também contém resultados degradados. | Operações bloqueantes/filhos podem ultrapassar abort do handle principal. | Cobertura parcial de ownership e recuperação (R2/R4). |
+| Banco SQLite e IPC | Pool fecha só após tarefas/protocolos limpos e snapshot totalmente ocioso. | Últimos três pools Windows fecharam; teste rejeita fechamento com conexão adquirida. | Espera de ociosidade até 250 ms e close até 3 s; omissão/falha não implica corrupção. | Implementado com limite conhecido: não há barreira atômica para todos os comandos IPC (R3). |
 
 ### Alterações realizadas
 
@@ -515,7 +563,7 @@ operações em conexões já adquiridas; é necessária supervisão explícita.
 | 2026-11-10 | Segunda execução após alteração do streaming | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário | Boot scan falhou com SQLite 5. Encerramento: 12 handles, `clean=true`; servidor terminou após duas tentativas de cancelamento de segmento, uma delas com comando não bem-sucedido, e limpeza de uma sessão linear sem falhas relatadas. Diagnóstico observou um handler `segment` ativo antes da parada. Pool: 9 conexões, 8 ociosas; fechamento retornou em 58 ms. |
 | 2026-11-10 | Terceira execução após alteração do streaming | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário | `Final BatchCreate` falhou com SQLite 517, seguido de scan que reportou `Errors: 0`. Encerramento: 12 handles, `clean=true`; servidor terminou após tentativa de cancelamento de um segmento e limpeza de duas sessões lineares sem falhas relatadas. Pool: 20 conexões, todas ociosas; fechamento retornou em 234 ms. |
 | 2026-11-10 | Regressão de snapshot SQLite e recuperação de scan | macOS, `cargo test --lib`, testes direcionados e `cargo clippy --lib --tests` | Suíte: 282 aprovados e 2 ignorados antes do último ajuste no progresso; testes direcionados e clippy aprovados após o ajuste. Testes reproduziram SQLite 517 com WAL e transação diferida, verificaram lote concorrente com outro escritor e falhas injetadas de lote cheio e final seguidas de novo scan. Execução real no aplicativo continua pendente. |
-| Pendente | Matriz desktop | macOS, Windows e Linux | Registrar resultado efetivo antes do aceite. |
+| Atualizado em 2026-11-13 | Matriz desktop | macOS, Windows e Linux | Windows dev atual tem três saídas limpas; macOS possui validação anterior; bundle Windows atual e Linux pendentes. Estado vigente nas seções 10.2 e 14. |
 
 Na amostra fornecida, o intervalo entre o log do pedido e o log de conclusão
 da drenagem registrada foi de aproximadamente 3,5 ms pela titlebar, 78,8 ms
@@ -2187,31 +2235,100 @@ Não há evidência nestes logs que o vincule a falha de drenagem ou corrupção
 
 **Resultado desta rodada:** validação funcional de encerramento em
 desenvolvimento Windows positiva nos três cenários, inclusive com biblioteca
-em rede. Isso não fecha a matriz de bundle, inicialização parcial, acessibilidade
-ou plataformas restantes. Nenhuma alteração de código foi necessária nesta
+em rede. Isso não fecha a matriz de bundle, inicialização parcial ou plataformas
+restantes. Acessibilidade foi dispensada como requisito de conclusão na revisão
+seguinte. Nenhuma alteração de código foi necessária nesta
 rodada; foi atualizada a documentação. Não foram solicitados novos testes de
 suporte a formatos, thumbnails ou desempenho de rede.
 
+## 14. Prontidão Windows → Linux e levantamento para conclusão
+
+**Revisão de 13 de novembro, sobre `26d0925`: podemos iniciar a validação Linux.**
+O repositório estava limpo no início desta revisão; as alterações desta rodada
+são documentais. Não foi identificada uma correção adicional específica do
+Windows demonstrada pelos últimos logs. As entradas `CloseRequested` e
+`ExitRequested`, o coordenador e a maior parte da drenagem são compartilhados
+entre as plataformas. Isso permite avançar com Linux sem declarar o Windows
+ou a implementação inteira concluídos.
+
+### Windows: o que já foi validado e o que falta
+
+| Item | Estado atual | Efeito na decisão |
+| --- | --- | --- |
+| Fechamento em desenvolvimento com vídeo, áudio e biblioteca em rede | Três resultados `clean=true`; pausa de mídia, streaming e pool confirmados pelos registros. | Suficiente para iniciar Linux. Não exige repetir suporte a formatos ou velocidade de rede. |
+| Build Windows empacotada atual | O bundle instalado de 12/11 precede as correções finais e teve um timeout de thumbnail. A rodada de 13/11 usou `tauri dev --release`, não um novo instalador. | R5: repetir o artefato atual antes do aceite Windows. |
+| Boot interrompido, Alt+F4/pedidos repetidos, janela minimizada e auxiliares | Há implementação e parte dos testes automatizados; a matriz nativa atual não está integralmente documentada. | Incluir os casos restantes no teste do bundle, sem invalidar casos anteriores já cobertos. |
+| Ausência de processos remanescentes e recuperação no reinício | Servidor/donos registrados e banco tiveram término limpo; não há inventário universal concluído de recursos nativos/filhos. | Concluir R1–R4 e conferir processos próprios/reabertura nos artefatos finais. |
+| Principal brevemente visível, avisos Tao e `Chrome_WidgetWin_0` | Sem falha de drenagem demonstrada nas saídas limpas; observação da janela aceita pelo usuário. | Não bloqueiam Linux nem justificam atualização de dependências/atraso artificial. Reabrir somente se afetarem o fechamento. |
+
+Não há necessidade demonstrada de adicionar agora uma nova camada exclusiva
+Windows, uma seleção manual de estratégia de reprodução ou ajustes de suporte
+a formatos. As lacunas de implementação abaixo são compartilhadas.
+
+### Pendências concretas de implementação e auditoria
+
+| ID | O que falta | Evidência no código atual | Critério para encerrar o item |
+| --- | --- | --- | --- |
+| R1 | Dar ao watcher nativo e a seus loops um encerramento explícito, supervisionado e aguardado. | `processing/watcher/sensor.rs`: `watch` recebe `_token` e cria debouncer/publicador com `tokio::spawn` sem reter handles. `library_observation` é outro loop; sua conclusão não comprova término do watcher. | Fechar admissão de observação, liberar watcher e aguardar loops; testar ausência de publicação após término confirmado. |
+| R2 | Completar ownership dos caminhos auxiliares alcançáveis, sem refazer suporte a formatos. | `delivery/streaming/server.rs`: dois loops periódicos recebem token, mas seus handles são descartados. `feature/transcoding/hls_manager.rs`: o HLS acionado pelo IPC usa `sessions.clear`/`kill_on_drop`, sem aguardar todos os filhos. Extratores bloqueantes exigem auditoria quando o handle principal é abortado. | Reter/aguardar os donos ou remover/delimitar um caminho comprovadamente fora do escopo. Cobrir cancelamento, falha e término real; manter resultado degradado quando a liberação não puder ser verificada. |
+| R3 | Resolver a admissão e a drenagem das operações IPC que podem criar recursos ou usar SQLite durante o fechamento. | `lib.rs` mantém comandos registrados; o guard de protocolos e `spawn_unique` cobrem caminhos específicos. O snapshot ocioso em `bootstrap/shutdown.rs` não é uma barreira atômica global. | Identificar comandos alcançáveis, rejeitar trabalho novo e aguardar operações admitidas, ou demonstrar proteção equivalente por caminho. Testar corrida com fechamento do pool. |
+| R4 | Completar política e testes para boot interrompido, I/O não interrompível, fallback de janela/IPC e recuperação. | `StartupTask::wait` não possui limite próprio; `shutdown::request` o aguarda antes da drenagem. `spawn_blocking` e chamadas nativas não são interrompidas apenas por abortar uma future. Fallback existe, mas falta evidência de falha real/injetada da apresentação. | Demonstrar saída autônoma quando a UI falha; impedir reapresentação/novos recursos após cancelamento; registrar limites reais de I/O e testar pendências/leases/originais no reinício. Não impor abort inseguro para simular deadline. |
+
+R1–R4 impedem afirmar que **todos** os recursos da aplicação são drenados antes
+da saída. Os testes limpos dos recursos registrados não eliminam essas lacunas.
+É possível executar Linux exploratoriamente agora, mas a validação final dos
+artefatos deve ocorrer depois das mudanças compartilhadas que resultarem desse
+levantamento, para não aceitar uma versão anterior ao código final.
+
+### Pendências de validação e encerramento
+
+| ID | Trabalho restante | Saída verificável |
+| --- | --- | --- |
+| R5 | Revalidar bundle Windows atual: ocioso; processing e mídia ativos; interrupção de boot; Alt+F4/pedidos repetidos; auxiliares/minimizada; reabertura. | Registrar versão/commit/instalador, logs, resultado limpo ou degradado explicado, processos próprios e recuperação. Um instalador antigo não cobre as correções de 13/11. |
+| R6 | Executar Linux nativo em desenvolvimento e no formato de bundle escolhido. | Registrar distribuição, versão e sessão X11/Wayland usada; compilar/empacotar; repetir os cenários funcionais de fechamento da seção 10.2 e conferir processos/servidor/SQLite/reinício. O host desta revisão é Windows; nenhum teste Linux foi executado aqui. |
+| R7 | Fazer smoke macOS do código final compartilhado. | Preservar o aceite anterior dos fluxos observados; repetir mídia/pausa/saída e os caminhos tocados por R1–R4 após as mudanças introduzidas na rodada Windows. Não requer repetir suporte a formatos. |
+| R8 | Encerrar a medição e a matriz ainda previstas no plano. | As amostras de tempo já estão registradas. A série de 10 execuções frias e 10 quentes por plataforma, consumo e comparação com baseline ainda não foi produzida; coletar ou registrar dispensa explícita antes de declarar esse requisito concluído. Não bloqueia iniciar Linux. |
+| R9 | Consolidar revisão final, documentação e aceite do responsável. | Reconciliar resultados dos artefatos finais, testes pertinentes após R1–R4, checklist e limitações aceitas; preencher a área de aceite. |
+
+**Ordem recomendada:** iniciar a preparação/validação Linux; tratar R1–R4 por
+recurso; executar R5–R7 no código final; encerrar R8/R9. Uma falha Linux só deve
+gerar implementação específica da plataforma quando houver reprodução e causa
+identificada. Não é necessário bloquear Linux aguardando mais uma rodada dos
+mesmos testes de mídia em Windows dev.
+
+**Itens que não faltam para concluir este escopo:** testes de acessibilidade;
+correção de MP2 ou de outros formatos; correção de thumbnails conhecidos;
+otimização de rede; eliminação de prompts/avisos de runtime sem impacto no
+encerramento; tornar a ocultação da principal perceptível por atraso artificial.
+Logout/terminação forçada só exige caracterização se passar a existir requisito
+específico de suporte; não se promete interceptação universal.
+
 ### Desvios, limitações e riscos residuais
 
-| Item | Impacto | Mitigação / encaminhamento | Estado |
-| --- | --- | --- | --- |
-| Admissão de operações IPC durante shutdown não é barrada. | Comandos já em voo podem usar o banco até o fechamento do pool. | Registro de tarefas já é fechado atomicamente; barreira para IPC pendente. | Parcial. |
-| Scan iniciado ao adicionar pasta contém I/O de filesystem bloqueante. | Uma chamada nativa já bloqueada pode não observar o token imediatamente; o prazo do lifecycle não é limite absoluto para I/O bloqueante. | Scans manuais, de boot e reconciliação recebem token; producer é supervisionado por `JoinSet`; cancelamento evita conclusão falsa e pruning prematuro. Três encerramentos reais pararam o boot scan cooperativamente e terminaram `clean=true`. | Comportamento validado em macOS; I/O bloqueante continua como limite residual. |
-| Contenção SQLite entre indexação e workers de processamento. | Os logs mais recentes registram um erro `SQLITE_BUSY` em fingerprint e outro em thumbnail; o retry reduz perda permanente, mas uma tentativa pode falhar e renovar lease pode atrasar. | `BatchCreate`, criação de pastas e observação de identidades usam transações imediatas; fingerprints têm retry limitado. Determinar qual escrita concorrente retém o lock e reproduzir sob carga antes de alterar o protocolo de transação. | Parcial; investigar concorrência em runtime. |
-| Eventos de indexação sem identidade de operação e listeners iniciados após o backend. | Scans simultâneos podem interferir; eventos de boot podem ser perdidos. | Definir estado recuperável e correlacionar os ciclos de scan antes de declarar cobertura completa. | Pendente. |
-| Servidor de streaming excedeu o prazo após iniciar drenagem HTTP. | Um encerramento em release foi degradado mesmo com workers concluídos. | Esperas por playlist e segmento lineares são canceláveis e há diagnóstico agregado de handlers; investigar também corpos e conexões, testar reprodução ativa e não presumir a causa. | Parcial; validação runtime pendente. |
-| Eventos de scan e thumbnails foram publicados depois que o bridge parou. | Eventos de atualização não foram entregues nessas amostras; efeito funcional não determinado. | Bridge permanece ativo durante drenagem dos produtores registrados e consome a fila disponível; emissão, lag, produtores não supervisionados e reconciliação durável ainda exigem validação. | Parcial; pendente. |
-| Fechamento do pool retornou enquanto uma conexão permanecia adquirida em teste no macOS. | O retorno de `close` pode não comprovar a conclusão de conexões em uso; operações IPC ou tarefas não rastreadas podem persistir. | Snapshot não ocioso agora degrada o resultado e impede fechamento explícito; não é barreira atômica. Investigar divergência com o contrato SQLx e supervisionar operações; teste de regressão original permanece ignorado. | Parcial; pendente. |
-| Watcher e subprocessos de extração/waveform/probe/HLS não foram auditados integralmente. | Token cancelado ou handle concluído não prova liberação dos recursos. | Proprietários de segmentos são sinalizados e aguardados pelo servidor; falhas reportadas de supervisão e da limpeza linear no shutdown degradam `clean`. Inventariar os demais recursos e validar em runtime. | Parcial; pendente. |
-| Workers de duplicatas, thumbnails e cores excederam o prazo em diferentes execuções; tarefas filhas podem ultrapassar o abort do handle principal. | `clean=false`; trabalho de lease pode persistir e acessar recursos durante a saída. | Manter pool SQLite aberto se a drenagem falhar; investigar cancelamento e propriedade das tarefas filhas e repetir encerramento com processamento ativo. | Requer investigação e validação runtime. |
-| Abort não interrompe necessariamente código nativo. | Encerramento degradado é possível. | Orçamento global de 5 s com drenagem concorrente implementado; política por recurso depende do inventário. | Parcial. |
-| Validação no macOS e Windows (dev e bundle); sem teste de logout/desligamento do SO ou leitores de tela reais. | Acessibilidade e suporte completo Windows/Linux não comprovados; uma execução Windows em bundle terminou degradada. | Investigar o worker de thumbnails e executar a matriz restante, inclusive Linux empacotado. | Parcial; pendente. |
-| Erro gráfico Windows `Chrome_WidgetWin_0`, código 1412, após encerramentos em dev e bundle. | A classe ainda possui janelas abertas no momento da tentativa; causa e impacto não identificados. | Comparar outros fluxos; não inferir processo remanescente ou relação causal com o shutdown. | Pendente de investigação. |
-| Se a janela não for criada, só o título da janela principal muda para "Mundam — Closing…". | Feedback mínimo, sem progresso detalhado. | Fallback básico implementado; não testado com falha real de criação. | Parcial. |
-| Callback de encerramento nativo no macOS depende da estrutura do delegate Tao. | Alterações futuras no runtime podem introduzir implementação própria do seletor. | Falhar explicitamente na inicialização em vez de substituir a implementação; verificar em atualizações do Tauri/Tao e repetir testes de Dock e Cmd+Q. | Teste Objective-C aprovado; fluxos básicos validados em desenvolvimento e no bundle macOS. |
+Quadro vigente em 13 de novembro. As falhas das rodadas anteriores permanecem
+no histórico, mas não representam automaticamente defeitos ainda reproduzidos.
+
+| Item | Estado atual | Encaminhamento |
+| --- | --- | --- |
+| Watcher e produtores não supervisionados | Lacuna concreta: token ignorado e handles não retidos. | R1; necessário para comprovar drenagem completa. |
+| Loops auxiliares, HLS do IPC e extratores/filhos alcançáveis | Cancelamento/drop não comprova término de todos os donos. | R2; auditar e aguardar recursos, preservando limites de código nativo. |
+| Admissão IPC e fechamento do banco | Pool ocioso foi fechado nos três últimos testes; ainda existe janela de corrida fora dos guards atuais. | R3; resolver por caminho e testar concorrência. Não inferir corrupção a partir da existência da lacuna. |
+| Boot/I/O bloqueante, timeout e falha de apresentação | Política parcial; orçamento de tarefas não é prazo absoluto para chamadas nativas nem para o supervisor de boot. | R4; completar cobertura e registrar política segura de saída degradada/recuperação. |
+| Timeout de workers e streaming em logs antigos | Resultados degradados históricos; três execuções Windows atuais foram limpas. | Revalidar carga nos artefatos finais (R5–R7); investigar falha de encerramento que reaparecer. |
+| Eventos de scan/processing e SQLite durante uso normal | Histórico contém problemas de entrega e contenção; não há nova falha de fechamento demonstrada na rodada final. | Fora do escopo como suporte/performance; produtores em shutdown continuam incluídos em R1–R4. |
+| Tao, Chrome_WidgetWin_0 e principal brevemente visível | Observações sem impacto de drenagem comprovado; visibilidade breve aceita como não bloqueante. | Manter diagnóstico, sem suprimir avisos, atualizar dependências ou criar atraso artificial só para eliminá-los. |
+| Windows bundle, Linux e regressão final macOS | Validação atual incompleta; macOS possui evidência anterior e Windows dev atual está validado nos casos registrados. | R5–R7. Não declarar Linux ou bundle Windows atual aprovados. |
+| Medições completas e aceite | Tempos amostrais existem; série estatística original e aprovação final ainda não foram concluídas. | R8/R9. |
+| Acessibilidade, suporte a formatos, thumbnails conhecidos e desempenho de rede | Excluídos dos requisitos de conclusão por orientação do usuário. | Não gerar novas tarefas nesta implementação; problemas de formatos, thumbnails ou rede só retornam se afetarem comprovadamente o fechamento. |
 
 ### Aceite
 
 **Estado:** pendente.  
 **Responsável, data e observações:** a preencher após revisão.
+
+Para o aceite geral, encerrar os itens R1–R9 da seção 14 ou registrar de forma
+explícita a dispensa/limitação aceita para cada item aplicável. A conclusão
+não depende de testes de acessibilidade nem de resolver problemas de suporte
+a formatos, thumbnails ou desempenho de rede sem efeito no fechamento.
+O avanço para Linux está liberado como próxima etapa de validação, não como
+declaração de que a matriz Windows/bundle e todos os recursos estão concluídos.

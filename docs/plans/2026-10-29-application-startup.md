@@ -65,6 +65,13 @@ shutdown; closing splash after readiness only closes that window. Other auxiliar
 windows close independently. The independent shutdown presentation and its
 current limitations are tracked in the [shutdown implementation report](../report/2026-11-09-close-process-windows.md).
 
+As of 13 November, the latest Windows development runs closed cleanly, including
+active media and a network-backed library. Linux validation can start; the current
+Windows bundle, interrupted boot, and shared ownership/admission gaps still need
+closure before final acceptance. The report's sections 12 and 14 are the current
+checklist and completion assessment. Accessibility testing is excluded from the
+shutdown completion criteria by the user's decision.
+
 Automatic retry is intentionally absent: initialization currently registers
 long-lived services, so restarting a partial boot in place is not an idempotent
 operation. Quit and reopen is the supported recovery path.

@@ -3,6 +3,7 @@
 ## Index
 
 - [Folder structure](#folder-structure)
+- [Encerramento da aplicação](#encerramento-da-aplicação)
 - [Architeture details](#architeture-details)
 - [Core](#core)
 - [Delivery](#delivery)
@@ -81,6 +82,22 @@ journal e primitivas nativas. O protocolo de recuperação, seus limites e as
 evidências de validação estão em [Operações da biblioteca](library-operations.md#implementação-da-checagem--2026-11-06).
 
 O ciclo de padronização dos workers está concluído e validado pelo usuário em Windows/macOS. O [encerramento](workers/2026-11-04-22-18-workers-closure.md) reúne o aceite, os limites e o índice dos documentos. As [evoluções técnicas futuras](workers/2026-11-04-22-18-workers-future-evolutions.md) são propostas separadas; matching incremental foi adiado e benchmarks ponta a ponta adicionais foram dispensados para este encerramento.
+
+### Encerramento da aplicação
+
+O encerramento desktop é coordenado por `feature/shutdown.rs` e adaptado em
+`bootstrap/shutdown.rs` e `delivery/tauri/shutdown.rs`. O lifecycle aguarda
+tarefas registradas, mantém o bridge até o fim dos produtores e distingue
+limpeza normal de resultado degradado. O pool SQLite só é fechado explicitamente
+quando as verificações de drenagem e ociosidade permitem. A apresentação de
+encerramento não controla nem bloqueia indefinidamente a limpeza.
+
+O aceite dos workers acima não equivale a inventário completo dos recursos da
+aplicação. Watcher nativo, alguns loops/filhos e admissão de IPC ainda têm lacunas
+de supervisão. O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
+contém o inventário atualizado, as evidências Windows/macOS, o checklist e as
+pendências para Linux e artefatos finais. Testes de acessibilidade não são
+critério de conclusão dessa implementação, por decisão do usuário.
 
 ## Architeture details
 
