@@ -67,6 +67,7 @@ impl IntoResponse for StreamError {
         let status = match &self.0 {
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Forbidden(_) => StatusCode::FORBIDDEN,
+            AppError::Cancelled => StatusCode::SERVICE_UNAVAILABLE,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, self.0.to_string()).into_response()
@@ -183,13 +184,13 @@ pub async fn start_server(
         let cleanup = async move {
             cleanup_token.cancelled().await;
             tracing::info!("Streaming server: graceful shutdown initiated");
-            let segments = shutdown_process_manager.write().await.cancel_all();
+            let processes = shutdown_process_manager.write().await.cancel_all();
             let sessions = shutdown_linear_manager.shutdown().await;
             if !sessions.is_clean() {
                 shutdown_lifecycle.report_failure("linear streaming cleanup");
             }
             tracing::info!(
-                segment_cancellations = segments,
+                process_cancellations = processes,
                 linear_sessions = sessions.session_count,
                 "Streaming server: cleanup attempts completed; draining HTTP requests"
             );
@@ -199,10 +200,10 @@ pub async fn start_server(
                 if active == 0 {
                     let failures = manager.owner_failures();
                     if failures > 0 {
-                        tracing::error!(failures, "Streaming server: segment supervision failures");
-                        shutdown_lifecycle.report_failure("segment supervision");
+                        tracing::error!(failures, "Streaming server: process supervision failures");
+                        shutdown_lifecycle.report_failure("streaming process supervision");
                     }
-                    tracing::info!("Streaming server: all registered segment owners finished");
+                    tracing::info!("Streaming server: all registered process owners finished");
                     break;
                 }
                 drop(manager);
@@ -390,6 +391,7 @@ async fn validate_path_scope(
     asset_query_handler: &Arc<dyn AssetQueryHandler>,
     path: &std::path::Path,
 ) -> Result<(), AppError> {
+    let started = std::time::Instant::now();
     let path_clone = path.to_path_buf();
 
     // Canonicalize to resolve symlinks and '..'
@@ -406,6 +408,10 @@ async fn validate_path_scope(
             );
             AppError::Forbidden(format!("Cannot resolve path: {:?}", e))
         })?;
+    tracing::debug!(
+        elapsed_ms = started.elapsed().as_millis(),
+        "Streaming asset path canonicalized"
+    );
 
     // Use AssetQueryHandler to list root locations
     let roots: Vec<Folder> = asset_query_handler.list_folders(None).await.map_err(|e| {
@@ -413,13 +419,23 @@ async fn validate_path_scope(
         AppError::Internal(format!("Failed to list root folders: {:?}", e))
     })?;
 
-    let is_within_scope = roots.iter().any(|root| {
-        let canonical_root = root
-            .path
-            .canonicalize()
-            .unwrap_or_else(|_| root.path.clone());
-        is_subpath(&canonical_path, &canonical_root) || is_subpath(&canonical_path, &root.path)
-    });
+    let root_count = roots.len();
+    let is_within_scope = tokio::task::spawn_blocking(move || {
+        roots.iter().any(|root| {
+            let canonical_root = root
+                .path
+                .canonicalize()
+                .unwrap_or_else(|_| root.path.clone());
+            is_subpath(&canonical_path, &canonical_root) || is_subpath(&canonical_path, &root.path)
+        })
+    })
+    .await
+    .map_err(|error| AppError::Internal(format!("Root scope validation task failed: {error}")))?;
+    tracing::debug!(
+        root_count,
+        elapsed_ms = started.elapsed().as_millis(),
+        "Streaming path scope validated"
+    );
 
     if !is_within_scope {
         warn!("Access denied: path {:?} is outside authorized roots", path);
@@ -471,7 +487,15 @@ async fn probe_handler(
 
     let file_path = resolve_and_validate_path(&asset, &state).await?;
 
-    match probe::get_video_info(&state.app_handle, &state.registry, &file_path).await {
+    match probe::get_video_info(
+        &state.app_handle,
+        &state.registry,
+        &file_path,
+        &state.process_manager,
+        &state.shutdown_token,
+    )
+    .await
+    {
         Ok(info) => {
             let json = serde_json::to_string(&info).unwrap_or_default();
             Ok(Response::builder()
@@ -481,6 +505,9 @@ async fn probe_handler(
                 .unwrap_or_default())
         }
         Err(probe_error) => {
+            if probe::is_shutdown_cancellation(probe_error.as_ref()) {
+                return Err(StreamError(AppError::Cancelled));
+            }
             error!(path = ?file_path, "Probe failed: {}", probe_error);
             Err(StreamError(AppError::Generic(format!(
                 "Probe failed: {}",
@@ -548,9 +575,20 @@ async fn playlist_handler(
         .unwrap_or_default();
 
     // First, probe the video to get duration
-    let info = match probe::get_video_info(&state.app_handle, &state.registry, &file_path).await {
+    let info = match probe::get_video_info(
+        &state.app_handle,
+        &state.registry,
+        &file_path,
+        &state.process_manager,
+        &state.shutdown_token,
+    )
+    .await
+    {
         Ok(video_info) => video_info,
         Err(probe_error) => {
+            if probe::is_shutdown_cancellation(probe_error.as_ref()) {
+                return Err(StreamError(AppError::Cancelled));
+            }
             return Err(StreamError(AppError::Generic(format!(
                 "Failed to probe video: {}",
                 probe_error
@@ -960,24 +998,36 @@ mod tests {
         client
             .write_all(b"GET /test HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
             .await?;
-        tokio::time::timeout(Duration::from_secs(2), entered_rx).await??;
+        tokio::time::timeout(Duration::from_secs(2), entered_rx)
+            .await
+            .map_err(|_| "HTTP handler did not start")??;
         token.cancel();
 
-        tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::time::timeout(Duration::from_secs(3), async {
             loop {
-                if tokio::net::TcpStream::connect(address).await.is_err() {
-                    break;
+                match tokio::time::timeout(
+                    Duration::from_millis(500),
+                    tokio::net::TcpStream::connect(address),
+                )
+                .await
+                {
+                    Ok(Ok(_)) => tokio::time::sleep(Duration::from_millis(10)).await,
+                    Ok(Err(_)) | Err(_) => break,
                 }
-                tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
-        .await?;
+        .await
+        .map_err(|_| "HTTP listener remained reachable after shutdown")?;
         assert!(!server.is_finished());
         release.notify_one();
         let mut response = Vec::new();
-        tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut response)).await??;
+        tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut response))
+            .await
+            .map_err(|_| "HTTP response did not drain")??;
         assert!(response.starts_with(b"HTTP/1.1 200"));
-        tokio::time::timeout(Duration::from_secs(2), server).await???;
+        tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .map_err(|_| "HTTP server did not stop after the request drained")???;
         Ok(())
     }
 

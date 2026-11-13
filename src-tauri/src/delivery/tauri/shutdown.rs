@@ -1,7 +1,7 @@
 //! Restricted IPC for the independent shutdown presentation.
 
 use crate::core::error::{AppError, AppResult};
-use crate::feature::shutdown::{ShutdownService, ShutdownSnapshot};
+use crate::feature::shutdown::{ShutdownPhase, ShutdownService, ShutdownSnapshot};
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 
 fn require_shutdown(window: &WebviewWindow) -> AppResult<()> {
@@ -29,7 +29,7 @@ pub fn get_shutdown_state(
 /// Acknowledges a rendered shutdown presentation.
 ///
 /// # Errors
-/// Rejects other windows, late acknowledgements, and unavailable state.
+/// Rejects other windows, acknowledgements outside active shutdown, and unavailable state.
 #[tauri::command]
 pub async fn acknowledge_shutdown_presentation(
     window: WebviewWindow,
@@ -37,7 +37,22 @@ pub async fn acknowledge_shutdown_presentation(
     service: State<'_, ShutdownService>,
 ) -> AppResult<()> {
     require_shutdown(&window)?;
-    service.presented()?;
+    let timely = match service.presented() {
+        Ok(()) => true,
+        Err(AppError::ValidationFailed(_))
+            if service.snapshot()?.phase != ShutdownPhase::Idle
+                && !service.exit_authorized()? =>
+        {
+            // A rendered window can replace the main window even when it arrived
+            // too late to extend the bounded minimum presentation interval.
+            false
+        }
+        Err(error) => return Err(error),
+    };
+    tracing::info!(
+        timely,
+        "Shutdown presentation acknowledged; hiding previous windows"
+    );
     for label in ["main", "splashscreen"] {
         if let Some(previous) = application.get_webview_window(label) {
             if let Err(error) = previous.hide() {

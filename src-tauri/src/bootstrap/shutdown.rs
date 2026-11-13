@@ -88,6 +88,9 @@ pub fn request(application: &AppHandle) {
         }
     }
     tracing::info!("Application shutdown requested");
+    if let Err(error) = application.emit_to("main", "shutdown:requested", ()) {
+        tracing::warn!(%error, "Unable to notify main window to pause media");
+    }
     let lifecycle = application
         .state::<Arc<LifecycleRegistry>>()
         .inner()

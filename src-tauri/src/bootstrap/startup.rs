@@ -29,9 +29,13 @@ impl StartupTask {
     }
 }
 
-/// Registers observable state before launching a supervised, non-blocking boot.
+/// Registers startup state before configured windows can issue IPC requests.
+pub fn register_state<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.manage(StartupService::default())
+}
+
+/// Launches a supervised, non-blocking boot using the pre-registered state.
 pub fn start(application: &AppHandle) {
-    application.manage(StartupService::default());
     let handle = application.clone();
     let task = tauri::async_runtime::spawn(async move {
         let startup_handle = handle.clone();
@@ -130,4 +134,36 @@ async fn initialize(application: &AppHandle) -> AppResult<()> {
         return Ok(());
     }
     advance(application, StartupStage::BackendReady)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_state_is_available_before_setup() -> Result<(), Box<dyn std::error::Error>> {
+        let app = register_state(tauri::test::mock_builder())
+            .invoke_handler(tauri::generate_handler![
+                crate::delivery::tauri::startup::get_startup_state
+            ])
+            .build(crate::application_context::<tauri::test::MockRuntime>())?;
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build()?;
+        let response = tauri::test::get_ipc_response(
+            &window,
+            tauri::webview::InvokeRequest {
+                cmd: "get_startup_state".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse()?,
+                body: tauri::ipc::InvokeBody::Json(serde_json::json!({})),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.into(),
+            },
+        )
+        .map_err(|error| format!("Early startup IPC rejected: {error:?}"))?
+        .deserialize::<serde_json::Value>()?;
+        assert_eq!(response["stage"], "preparing");
+        assert_eq!(response["backendReady"], false);
+        Ok(())
+    }
 }

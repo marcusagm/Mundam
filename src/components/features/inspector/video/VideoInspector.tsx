@@ -29,13 +29,13 @@ export const VideoInspector: Component<VideoInspectorProps> = props => {
     return (
         <div class="inspector-content">
             <div class="inspector-preview video-preview">
-                <Show when={probeResult.loading}>
+                <Show when={!videoUrl() && probeResult.loading}>
                     <div class="inspector-video-loading">
                         <Loader size="md" />
                     </div>
                 </Show>
 
-                <Show when={!probeResult.loading && videoUrl()}>
+                <Show when={videoUrl()}>
                     <UIVideoPlayer
                         src={videoUrl()}
                         variant="compact"

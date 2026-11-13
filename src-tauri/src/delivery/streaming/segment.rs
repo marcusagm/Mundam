@@ -315,13 +315,13 @@ async fn wait_for_segment(
 }
 
 #[cfg(unix)]
-fn termination_confirmed(status: &std::process::ExitStatus) -> bool {
+pub(super) fn termination_confirmed(status: &std::process::ExitStatus) -> bool {
     use std::os::unix::process::ExitStatusExt;
     status.signal() == Some(libc::SIGKILL)
 }
 
 #[cfg(not(unix))]
-fn termination_confirmed(_status: &std::process::ExitStatus) -> bool {
+pub(super) fn termination_confirmed(_status: &std::process::ExitStatus) -> bool {
     false
 }
 

@@ -1,7 +1,7 @@
 # Levantamento e plano: janela de finalização do Mundam
 
 **Data:** 9 de novembro de 2026  
-**Estado:** plano aprovado; primeira etapa de implementação em andamento  
+**Estado:** três novos encerramentos Windows em desenvolvimento limpos; matriz restante e aceite geral pendentes
 **Escopo:** aplicações desktop Tauri em macOS, Windows e Linux  
 **Destino:** `docs/report/`, conforme solicitado; este documento combina levantamento e planejamento técnico.
 
@@ -1611,6 +1611,587 @@ sem mais evidência. Apesar dessas falhas durante a execução, os workers
 supervisionados encerraram sem abort e o pool estava ocioso ao final; não há
 evidência de corrupção ou de falha no fechamento do banco.
 
+### Validação em desenvolvimento no Windows (12 de novembro)
+
+Foram analisadas cinco execuções em `tauri dev --release`. O usuário relatou
+três fechamentos pelo botão da titlebar e dois pela opção de fechar janela
+na barra de tarefas. Em ordem cronológica dos timestamps internos, os logs
+são `172148`, `175724`, `175939`, `180112` e `180334`. Os registros não
+identificam a origem do pedido; a associação dos três primeiros à titlebar e
+dos dois últimos à barra de tarefas depende de essa ser também a ordem
+cronológica informada.
+
+| Log | Pedido até conclusão do backend | Tarefas registradas | Pool: conexões ociosas / total | Bridge: eventos / lag |
+| --- | ---: | ---: | ---: | ---: |
+| `172148` | 26 ms | 10 | 7 / 7 | 0 / 0 |
+| `175724` | 2.968 ms | 12 | 7 / 7 | 4 / 0 |
+| `175939` | 907 ms | 11 | 8 / 8 | 1 / 0 |
+| `180112` | 1.174 ms | 12 | 20 / 20 | 7 / 0 |
+| `180334` | 2.034 ms | 11 | 20 / 20 | 5 / 0 |
+
+Cada log contém um pedido e uma conclusão `clean=true`; as tarefas
+registradas e os handlers do protocolo foram drenados, e o fechamento
+explícito do pool foi concluído. Os tempos medem apenas o intervalo entre
+os registros de pedido e conclusão do backend, não a duração da janela nem
+o momento de saída do processo. O snapshot ocioso do pool não é uma
+barreira atômica para operações não supervisionadas.
+
+Nos logs `175939`, `180112` e `180334`, o boot scan registrou parada após
+o pedido; em `175724` e `180112`, um scan em segundo plano também registrou
+parada. Havia thumbnails em andamento nas quatro últimas execuções e
+fingerprint em `175724`. Os resumos do bridge indicam recebimento no backend,
+não entrega individual ao frontend. O usuário observou notificações,
+atualizações do viewport e tela de encerramento funcionando como esperado,
+sem processos remanescentes visíveis no Gerenciador de Tarefas.
+
+Após a conclusão do backend, todos os logs registraram
+`Failed to unregister class Chrome_WidgetWin_0. Error = 1412`. No Windows,
+o código 1412 significa que a classe ainda possui janelas abertas. A
+mensagem vem do componente gráfico baseado em Chromium; estes logs não
+identificam a janela responsável nem demonstram a causa, impacto persistente
+ou relação com a nova janela de encerramento. Em quatro logs também aparecem
+avisos do event loop Tao antes do shutdown. Investigar a recorrência em
+bundle e, se necessário, comparar com outros fluxos antes de atribuir a
+origem ao Mundam ou ao runtime.
+
+Essas amostras validam os fluxos observados em desenvolvimento, não o bundle
+Windows, reprodução de mídia ativa, acessibilidade real, encerramento de
+sessão do sistema ou liberação abrangente de subprocessos e recursos não
+supervisionados. Não alteram o aceite pendente.
+
+### Bloqueios ao testar o bundle Windows (12 de novembro)
+
+No aplicativo instalado, a splash permaneceu aberta apesar do backend atingir
+`BackendReady`. A inspeção da janela principal reproduziu um erro de IPC:
+`get_startup_state` foi chamado antes de `StartupService` ser registrado.
+O comando subsequente `fail_frontend_startup` também falhou pelo mesmo motivo,
+deixando a splash sem estado de falha. Para eliminar a corrida, o estado de
+startup foi movido do callback `setup` para o builder Tauri, anterior à criação
+das janelas. Um teste automatizado de IPC anterior ao setup passou. Uma nova
+build de produção sem instalador foi executada em uma pasta temporária com
+recursos do pacote, exceto o Assimp incompatível: a janela principal ficou
+visível, o snapshot chegou a `ready` sem falha e o fechamento registrou
+`clean=true`. A validação em uma nova build instalada ainda é necessária.
+
+O executável Assimp instalado e a DLL `assimp-vc143-mt.dll` correspondem aos
+arquivos preparados para a build, mas o executável importa
+`assimp-vc145-mt.dll`, ausente. A captura enviada confirma essa DLL ausente.
+Não há evidência de que esse erro tenha causado a corrida da splash. O
+instalador MSI não ter mostrado o alerta não demonstra que o Assimp funcione.
+
+Com aprovação do usuário, foi compilado o Assimp oficial `v6.0.6`, commit
+`a79ff6bbce54d3e01186a918dc6374ed55317426`, usando Visual Studio 2022,
+MSVC 19.44 e Windows SDK 10.0.26100.0, em x64 Release. O CMake habilitou
+bibliotecas compartilhadas, CLI e zlib incluído; testes, exemplos e instalação
+foram desabilitados. A DLL e o executável foram gerados juntos com sufixo
+`vc143`; não é necessário o toolset `v145` para esse par.
+
+Os dois arquivos e a licença fornecida no código-fonte foram preparados em
+`src-tauri/resources/assimp/windows-x64/`. O executável anterior e a DLL
+anterior foram preservados na pasta de arquivos desta sessão. O teste
+`assimp version` identificou o commit esperado, e o comando usado pelo
+Mundam (`export ... -fglb2`) converteu um OBJ de teste em GLB v2 válido.
+Isso não valida todos os formatos nem a instalação final. A build usa o
+runtime MSVC dinâmico; a disponibilidade do redistribuível em máquinas
+limpas deve ser verificada. Antes de redistribuição, revisar todos os avisos
+e obrigações das dependências incorporadas.
+
+O executável preparado é ignorado pelo Git, enquanto a DLL é rastreada. O
+setup Windows ainda reconhece um executável existente apenas pela presença
+do arquivo e não verifica se suas DLLs são compatíveis; não confiar nessa
+verificação como prova de funcionamento em outro ambiente. Após a build de
+produção sem bundle usada para validar a splash, `tauri bundle --ci` gerou
+novos instaladores MSI e NSIS; suas definições geradas incluem o executável,
+a DLL e a licença preparados. A instalação e os recursos extraídos ainda
+precisam ser verificados. Os avisos sobre `__TAURI_BUNDLE_TYPE` persistiram.
+
+### Validação do bundle Windows instalado (12 de novembro)
+
+O usuário executou os cenários em sequência: fechamento pelo X com aplicativo
+ocioso (`211058`), pela barra de tarefas com aplicativo ocioso (`211107`),
+pelo X durante indexação (`211135`) e pelo X durante reprodução (`211219`).
+Informou que indexação, thumbnails, players, splash de abertura e tela de
+fechamento se comportaram como esperado. A associação dos métodos aos logs
+depende da ordem informada; a origem do pedido não é registrada nos logs.
+
+| Log | Pedido até conclusão do backend | Resultado | Evidência relevante |
+| --- | ---: | --- | --- |
+| `211058` | 36 ms | `clean=true` | 10 tarefas registradas drenadas; pool fechado com 5 de 5 conexões ociosas. |
+| `211107` | 45 ms | `clean=true` | 10 tarefas registradas drenadas; pool fechado com 7 de 7 conexões ociosas. |
+| `211135` | 70 ms | `clean=true` | Scan em segundo plano parou após o pedido; 11 tarefas drenadas; pool fechado com 5 de 5 conexões ociosas. |
+| `211219` | 5.015 ms | `clean=false` | Worker de thumbnails excedeu o prazo e foi abortado; fechamento explícito do pool foi omitido. |
+
+Os tempos vão do pedido à conclusão do backend; não medem a duração da
+apresentação nem o momento da saída final do processo. O quarto log registra
+que o boot scan da localização anteriormente adicionada completou antes do
+shutdown, com 787 descobertas e zero erros. Ao encerrar, havia duas tarefas
+de thumbnail pendentes: os diagnósticos mostraram fases de extração de
+metadados e thumbnail até o timeout. O handle do worker foi abortado e
+reportado como cancelado, mas isso não comprova o término de toda tarefa
+filha ou operação nativa. Um fingerprint em andamento terminou antes do
+encerramento do worker de duplicatas. Não há evidência suficiente para
+identificar a operação específica que reteve os thumbnails nem para afirmar
+corrupção de dados.
+
+Na mesma execução, a limpeza do streaming linear reportou uma sessão, um
+processo já encerrado, nenhuma falha de processo ou diretório e a parada do
+servidor. Isso não comprova encerramento de um processo ativo durante o
+shutdown. Antes do pedido, três tentativas de segmento registraram erro
+FFmpeg com stderr vazio, imediatamente após registros de término aguardado
+por `Superseded`. No Windows a implementação não confirma que o status
+decorra da terminação solicitada; portanto, os logs não distinguem um
+cancelamento esperado de outra falha e não estabelecem impacto perceptível
+na reprodução. O relato do usuário é favorável, mas não elimina a necessidade
+de investigar essas mensagens.
+
+Os quatro bridges terminaram sem eventos durante a drenagem e sem lag.
+Cada execução registrou um pedido e uma conclusão; isso não testa pedidos
+simultâneos. O erro gráfico `Chrome_WidgetWin_0`, código 1412, voltou a
+aparecer após a conclusão do backend nos quatro logs de stderr, inclusive
+no bundle instalado. Sua origem e impacto permanecem indeterminados. Os
+resultados não comprovam a ausência de subprocessos ou recursos não
+supervisionados. O encerramento degradado sob carga mantém o aceite pendente.
+
+O relato em [tauri-apps/tauri#7606](https://github.com/tauri-apps/tauri/issues/7606)
+associa essa mensagem à limpeza interna do Chromium e inclui relatos de
+supressão do código 1412 ao fechar ou destruir a janela antes de sair; não
+estabelece uma correção universal. No Mundam, o fechamento da janela principal
+é interceptado, a apresentação de encerramento oculta as janelas anteriores
+e, após a drenagem e a espera pela apresentação, o coordenador chama
+`handle.exit(0)`. Portanto, o ciclo de vida das janelas é uma hipótese a
+testar, não uma causa comprovada. Chamar `close()` indiscriminadamente não
+é equivalente a destruí-las: os pedidos de fechamento das janelas principal
+e de encerramento são interceptados. Qualquer ajuste precisa preservar a
+apresentação e o protocolo de saída. O aviso também ocorreu em encerramentos
+limpos, de modo que não explica por si só o timeout dos thumbnails. Não há
+evidência nestes testes que justifique reparar o WebView2 ou atualizar
+dependências como solução presumida.
+
+#### Acompanhamento: cancelamento dos thumbnails
+
+O worker aguardava cada tarefa em andamento, mas não consultava o sinal de
+encerramento entre as fases. Assim, uma extração que terminasse depois do
+cancelamento podia iniciar outra extração ou codificação. O worker agora
+verifica o sinal entre essas fases e antes da publicação; ao interromper uma
+tentativa sem resultado, libera a reserva sem consumir uma nova tentativa,
+procura reconciliar artefatos não publicados e mantém o trabalho pendente. Uma operação
+já iniciada continua sendo aguardada, pois descartar sua future não garante a
+parada do trabalho bloqueante ou do subprocesso. Erros reais continuam sendo
+tratados como erros, e uma publicação já iniciada não é interrompida por
+esses pontos de verificação. A verificação não é atômica com o início de cada
+operação, e o timeout global ainda pode abortar a tarefa.
+
+O diagnóstico após cancelamento inclui o ID do asset e, com debug do módulo
+de thumbnails, o provider selecionado. Os logs podem conter identificadores
+de assets. A mudança não altera o orçamento de cinco segundos nem garante que
+uma operação nativa ou subprocesso em andamento termine nesse prazo: por
+exemplo, extratores de vídeo usam FFprobe com timeout de 15 segundos. O caso
+observado ainda não identifica o provider ou a operação concreta. São
+necessários novos testes Windows e, se persistir o timeout, investigação do
+cancelamento e da supervisão da operação específica.
+
+Em 12 de novembro, a suíte focada do worker passou no Windows (7 testes).
+O novo teste cancela durante a extração de metadados ou de thumbnail, verifica
+que a fase em andamento é aguardada, que a tentativa permanece pendente sem
+consumir retry e que um preview não publicado é removido. A reprodução no
+aplicativo foi repetida como registrado abaixo; a validação de uma nova build
+empacotada permanece pendente.
+
+#### Repetição em desenvolvimento com biblioteca em rede (12 de novembro)
+
+O usuário executou, nesta ordem, fechamento ocioso com biblioteca vazia,
+fechamento logo após iniciar a indexação, reprodução de vídeos com diferentes
+estratégias e reprodução de áudio após reiniciar. A correspondência abaixo usa
+a ordem cronológica dos quatro logs e o relato; os logs não identificam o
+gesto de fechamento. Os tempos medem apenas o pedido até a conclusão do backend.
+
+| Log | Tempo | Resultado | Evidência |
+| --- | ---: | --- | --- |
+| `232729` | 44 ms | `clean=true` | Nenhum thumbnail pendente na drenagem; pool 5/5 ocioso e fechado. |
+| `234708` | 46 ms | `clean=true` | Scan manual iniciado e encerrado cooperativamente; nenhum thumbnail pendente na drenagem; pool 6/6 ocioso e fechado. Não exercita o cancelamento de uma extração ativa. |
+| `234816` | 5.013 ms | `clean=false` | Dois thumbnails em publicação ou reconciliação; worker de thumbnails, scan de inicialização, verificador de ferramentas e worker de duplicatas excederam o prazo. Pool não foi fechado explicitamente. |
+| `235144` | 5.008 ms | `clean=false` | Dois thumbnails em extração de metadados; worker de thumbnails, scan de inicialização e servidor de streaming excederam o prazo. Pool não foi fechado explicitamente. |
+
+No terceiro teste, antes do shutdown, o SQLite registrou `database is locked`
+em processamento de thumbnail e fingerprint, além de renovações de lease com
+duração de aproximadamente 13 a 14 segundos. Isso demonstra contenção naquela
+execução, mas não identifica o detentor do lock nem comprova que ele tenha
+causado o timeout posterior. A biblioteca indexada estava em um compartilhamento
+de rede; isso não estabelece que o banco SQLite estivesse na rede nem prova
+que o compartilhamento causou a contenção. A inspeção do código identificou
+uma hipótese concreta: a criação de lote abre `BEGIN IMMEDIATE` e consulta
+identidades e existência de arquivos durante a transação. Essas operações
+podem aguardar a rede mantendo o lock de escrita. Os logs não demonstram que
+esse lote era o detentor do lock observado.
+
+No quarto teste, os dois thumbnails ainda ativos correspondiam ao provider
+Hasselblad RAW e permaneciam em `metadata_extraction`. O provider aguarda
+extração síncrona em `spawn_blocking`; a fase registrada não distingue leitura
+de arquivo, FlashRaw, fallback ou EXIF. A extração não é interrompida pelos
+pontos de verificação entre fases. O scan de inicialização também não terminou
+no prazo; a fase específica que o reteve não está identificada.
+
+No terceiro teste, o servidor de streaming confirmou o término dos donos de
+segmento e parou; um processo foi terminado com motivo `Shutdown`, seguido
+por registro de erro FFmpeg com stderr vazio. Antes do fechamento, registros
+análogos ocorreram após `Stale` e `Superseded`. A implementação Windows não
+confirma pelo status que a terminação foi a causa da saída; a classificação
+continua pendente. No quarto teste, a limpeza linear observou uma sessão cujo
+processo já tinha saído, mas uma requisição de playlist permaneceu ativa e o
+servidor foi abortado. Isso não comprova a conclusão dessa requisição nem
+identifica em qual etapa estava bloqueada. O handler de playlist chama um
+probe que usa `std::process::Command::output()` em uma função async, sem
+timeout explícito; isso é um risco concreto a investigar, mas não está
+confirmado como a etapa retida nesse teste.
+
+#### Supervisão do FFprobe do streaming
+
+O probe das rotas de playlist e metadados foi migrado para processo assíncrono
+supervisionado pelo mesmo registro usado nos segmentos, com identificador
+independente para cada probe. A tarefa proprietária permanece registrada mesmo
+se a requisição for descartada, lê as duas saídas em paralelo e aguarda o
+processo após solicitar sua terminação. A admissão é verificada sob a trava do
+registro e também rejeitada quando o token de shutdown já está cancelado.
+Falhas de supervisão são reportadas ao lifecycle; se não for possível drenar
+o proprietário dentro do orçamento global, o encerramento continua degradado.
+O status do processo é registrado após a solicitação de término, mas não prova
+que esta causou a saída em uma corrida com encerramento natural. Assim como nos
+segmentos, no Windows o status malsucedido é preservado como erro, mesmo após
+o pedido de cancelamento, em vez de assumir que o pedido causou a saída.
+
+Como o registro também cancela processos antigos, probes agora estão sujeitos
+ao limite existente de 30 segundos, verificado a cada 10 segundos; antes não
+existia limite explícito para esse processo. O contador de log do shutdown
+passa a se chamar `process_cancellations` e inclui probes e segmentos. A
+verificação de existência e a leitura de MIDI foram movidas para operações
+bloqueantes fora das threads assíncronas, mas não são interrompíveis: uma
+leitura de rede já iniciada ainda pode atrasar a requisição. A validação de
+caminhos e outras operações do servidor também não foram integralmente auditadas.
+Esta alteração não comprova qual etapa reteve a playlist no quarto teste,
+nem resolve os timeouts de thumbnails, scan ou a contenção SQLite. A validação
+em desenvolvimento e em bundle continua pendente.
+
+Na suíte focada `cargo test --manifest-path src-tauri\Cargo.toml --lib
+delivery::streaming::`, os 17 testes passaram no Windows, incluindo filhos de
+teste reais, pedido descartado, cancelamento por idade e corrida de admissão.
+Um teste anterior de drenagem HTTP exigia recusa imediata de conexão e falhou:
+neste Windows, uma nova conexão ao listener fechado permaneceu pendente mesmo
+em reprodução independente. O teste agora limita cada tentativa e continua
+rejeitando conexões bem-sucedidas durante o prazo de observação. Isso valida
+o comportamento do teste no ambiente, não substitui a validação do aplicativo.
+
+Os logs mostram que alguns assets voltaram a ser selecionados após reiniciar,
+mas não comprovam que todas as tentativas ou o processamento pendente tenham
+terminado. O aviso `Chrome_WidgetWin_0`, código 1412, reapareceu nos quatro
+encerramentos. Não há evidência de corrupção, mas os dois resultados
+`clean=false` mantêm a validação sob carga pendente.
+
+### Continuação no Windows: reprodução e novos logs (13 de novembro)
+
+**Fase atual:** etapa 6 (integração e aceite), com correções da etapa 3
+(drenagem real) ainda abertas. A janela e o coordenador já estão implementados;
+os testes anteriores no macOS estão registrados acima. Isso não significa
+aceite integral da matriz desktop. No início desta continuação, o Git já
+continha mudanças de supervisão do FFprobe, cancelamento entre fases dos
+thumbnails, registro antecipado do estado de startup e recursos Assimp Windows.
+Essas mudanças foram preservadas.
+
+Os logs `mundam-streaming-20261113-062259.log` e
+`mundam-streaming-20261113-064105.log` acrescentam as seguintes evidências:
+
+| Log | Evidência | Limite da conclusão |
+| --- | --- | --- |
+| `062259` | Segmentos de vídeo foram gerados e servidos do cache. Um segmento levou 15.531 ms; houve pedidos repetidos de playlist. Servidor de streaming drenou; boot scan e thumbnails excederam o prazo; `clean=false`. | Produzir MPEG-TS não comprova reprodução pelo WebView. Os pedidos repetidos não identificam sua causa no frontend. |
+| `064105` | Playlist de áudio solicitada às 09:47:00.883 UTC; FFprobe iniciou às 09:47:16.999 UTC. No fechamento, seu processo foi terminado e aguardado, e o servidor parou. Apenas boot scan excedeu o prazo; `clean=false`. | Há demora antes do início do processo, mas os logs anteriores não separam consulta SQLite, validação do caminho e verificação de existência. Não comprovam falha de decodificação do áudio. |
+
+O segundo log também contém três erros de thumbnail com a mensagem de que
+filtros simples e complexos não podem ser usados juntos. O comando do extrator
+usa `-vf`; não foi demonstrado qual arquivo ou comportamento interno do FFmpeg
+introduziu o grafo complexo. Esse problema permanece separado da reprodução.
+Os erros de FFprobe com stderr vazio nestas amostras ocorreram depois da
+solicitação de terminação no shutdown; não demonstram a causa da falha anterior
+de reprodução. O aviso gráfico `Chrome_WidgetWin_0` voltou a aparecer.
+
+#### Correções e diagnóstico de reprodução
+
+- O elemento de vídeo deixa de vincular a URL HLS diretamente a `src`;
+  o gerenciador mantém a propriedade desse atributo para native HLS ou
+  MediaSource. O binding anterior podia competir com o endereço MediaSource
+  mantido pelo hls.js ao trocar a fonte. Recolocar apenas o binding antigo
+  também passou no teste de troca de fonte: a alteração centraliza a
+  propriedade de `src`, mas não reproduz isoladamente a falha relatada.
+- O retry genérico de vídeo deixa de chamar `video.load()` para fontes HLS;
+  essa chamada reinicializava o elemento durante a recuperação do hls.js.
+  Recolocar o retry anterior faz a regressão falhar porque `load()` é chamado
+  após um erro simulado; a correção foi restaurada depois dessa verificação.
+- Ao anexar outra fonte, o gerenciador destrói a instância anterior, remove
+  seus listeners e registra callbacks antes de anexar o novo elemento.
+- Eventos de erro do hls.js passam pelo bridge de telemetria existente até
+  o log Rust: tipo, detalhe, fatalidade, status HTTP, número de segmento e
+  estado do elemento. Não são serializados URLs, objetos de loader ou
+  mensagens brutas de erro que possam conter o token da sessão. Manifesto
+  carregado e seleção de native HLS/MediaSource são registrados em `info`;
+  eventos de carregamento, espera e reprodução ficam em `debug`.
+- A canonicalização das raízes autorizadas passa para `spawn_blocking`, como
+  já ocorria para o arquivo, preservando as comparações de escopo. I/O de rede
+  em andamento continua não interrompível. Logs de tempo separam a resolução
+  do arquivo do restante da validação de escopo.
+- O FFprobe usa nível `error` em vez de `quiet` e registra tempo e status ao
+  concluir, para evitar falhas naturais sem diagnóstico em stderr.
+
+A regressão de frontend cobre troca de assets HLS, retorno à fonte nativa e
+erro do elemento sem reinicialização por `load()`. Testes do gerenciador
+cobrem substituição da instância, descarte dos listeners e diagnóstico sem
+token. São testes com MediaSource simulado; a reprodução real no Windows
+continua pendente. Essas alterações não comprovam nem resolvem por si só a
+falha de áudio, o timeout do scan, os extratores de thumbnail ou a contenção
+SQLite.
+
+#### Próxima validação manual
+
+Executar separadamente `video-local`, `audio-local` e `rede`. Nos dois
+primeiros cenários, usar cópias locais de um vídeo WMV/MKV e de um áudio
+FLAC/AIFC que apresentaram falha. No terceiro, usar os originais em rede.
+Abrir um arquivo por vez, clicar Play, aguardar até 60 segundos, registrar
+se houve imagem, som, avanço do contador ou mensagem de erro e testar um
+seek se reproduzir. Em seguida fechar pelo X e aguardar o prompt. No cenário
+de rede, testar primeiro o vídeo e depois o áudio antes de fechar.
+
+Antes de **cada execução**, ajustar `$cenario` e rodar no PowerShell:
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\Marcus Maia\Desktop\Aplicativos\Mundam-v2'
+$cenario = 'video-local' # depois: audio-local e rede
+$env:RUST_LOG = 'info,mundam_lib::delivery::streaming=debug,mundam_lib::delivery::tauri::commands::mutations=debug,mundam_lib::processing::workers::thumbnails=debug,mundam_lib::bootstrap::shutdown=debug,mundam_lib::lifecycle=debug,mundam_lib::bootstrap::system=debug'
+$desktop = [Environment]::GetFolderPath('Desktop')
+$log = Join-Path $desktop ("mundam-streaming-{0}-{1}.log" -f $cenario, (Get-Date -Format 'yyyyMMdd-HHmmss'))
+Write-Host "Log: $log"
+npm run tauri dev -- --release 2>&1 | Tee-Object -FilePath $log
+
+# Executado depois que o aplicativo fechar e o comando acima terminar.
+Get-Process -Name mundam,ffmpeg,ffprobe -ErrorAction SilentlyContinue |
+    Select-Object Id, ProcessName, StartTime, Path |
+    Out-String | Tee-Object -FilePath $log -Append
+Write-Host "Log final: $log"
+```
+
+A listagem é somente observacional: um processo FFmpeg de outro aplicativo
+não é evidência de vazamento do Mundam. Se o prompt não voltar após 30 segundos
+do fechamento, registrar esse fato e preservar o log parcial; não iniciar outra
+instância sobre a execução pendente. Enviar os três logs com o resultado por
+arquivo e qualquer processo remanescente. Os logs existentes do backend podem
+conter caminhos de arquivos, mesmo que a telemetria nova do player não inclua
+URLs de sessão.
+
+#### Verificação automatizada desta continuação
+
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib delivery::streaming::`:
+  17 testes aprovados no Windows.
+- `npm test -- src/components/ui/VideoPlayer/playback.spec.tsx src/lib/hls-manager.spec.ts src/lib/stream-utils.spec.ts`:
+  9 testes aprovados na versão final, incluindo retorno de fonte nativa para HLS.
+- `npm run typecheck`: aprovado.
+- `npm run build`: aprovado na versão final; 2.753 módulos transformados.
+- ESLint dos cinco arquivos TypeScript/TSX alterados: aprovado, sem warnings.
+- Prettier dos cinco arquivos TypeScript/TSX alterados: aprovado.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` e `git diff --check`:
+  aprovados após os ajustes de formatação.
+
+O teste que falhou ao recolocar intencionalmente o retry antigo foi uma
+verificação da regressão, não uma falha restante da versão final. Nenhum
+teste automatizado substitui as três execuções do aplicativo descritas acima.
+
+### Quatro cenários de rede e disco local: HLS e apresentação (13 de novembro)
+
+Os quatro arquivos recebidos têm o mesmo prefixo `mundam-streaming-video-local`,
+mas o cenário abaixo segue o relato do usuário e os caminhos nos logs, não o
+rótulo do arquivo. O compartilhamento está em um MacBook conectado por Wi-Fi.
+
+| Sufixo do log | Cenário relatado | Resultado do backend |
+| --- | --- | --- |
+| `120851` | Adição de pasta em rede, processamento e reprodução de vídeos. | Scan: 787 descobertos em 92,61 s. Shutdown: 5.018 ms, `clean=false`; thumbnails e duplicatas excederam o prazo. |
+| `121941` | Áudios em rede; alguns tocaram após nova tentativa. | Shutdown: 5.005 ms, `clean=false`; thumbnails excederam o prazo. |
+| `122433` | Banco/pastas da aplicação recriados pelo usuário; biblioteca local e vídeos. | Scan: 783 descobertos em 2,01 s. Shutdown: 1.826 ms, `clean=true`; pool 6/6 ocioso e fechado. HLS continuou sem reproduzir segundo o relato. |
+| `123117` | Áudios locais reproduziram; mídia continuou audível durante o fechamento. | Scan de boot: 783 inalterados em 1,55 s. Shutdown: 2.643 ms, `clean=true`; pool 15/15 ocioso e fechado. |
+
+Esses números são amostras distintas, não um benchmark controlado. O resultado
+`clean=true` comprova as verificações registradas do backend; não comprova que
+a janela principal foi ocultada nem que a reprodução parou imediatamente.
+O aviso `Chrome_WidgetWin_0`, código 1412, reapareceu inclusive nas saídas limpas.
+
+#### Evidência concreta no fluxo HLS
+
+O diagnóstico dos áudios registra `Attaching native HLS` no Windows. O player
+de vídeo também tinha um atalho que escrevia a playlist diretamente em `src`
+quando `canPlayType` indicava HLS nativo, sem passar pelo gerenciador e sem
+seus novos logs. Portanto, a hipótese anterior de que este Windows estava
+sempre usando MediaSource não se confirmou.
+
+A inspeção read-only com o FFprobe empacotado encontrou timestamps reiniciados
+em segmentos consecutivos já existentes no cache:
+
+- Vídeo H.264, segmentos 0 e 1 da mesma variante: ambos com `start_time=1.463044`.
+- Áudio AAC, segmentos 0, 1 e 2 da mesma variante: todos com `start_time=1.400000`.
+
+Cada segmento é produzido por uma execução independente do FFmpeg, que também
+reinicia seus continuity counters. A playlist não sinalizava essas quebras.
+A [RFC 8216, seção 3](https://datatracker.ietf.org/doc/html/rfc8216#section-3)
+exige continuidade ou sinalização explícita da descontinuidade; quebras não
+sinalizadas podem provocar erros de reprodução. Isso confirma uma
+inconsistência do stream, mas a recuperação no WebView ainda requer teste.
+
+Foi acrescentado `EXT-X-DISCONTINUITY` entre os segmentos independentes.
+A correção usa o formato real existente e vale também para segmentos já
+armazenados; não exige apagar banco ou cache. No Windows, o gerenciador passa
+a preferir hls.js/MediaSource quando disponível, mantendo HLS nativo como
+fallback. No macOS, a preferência anterior por HLS nativo é preservada. O hook
+de vídeo agora delega a escolha ao mesmo gerenciador usado pelo áudio.
+
+Pedidos simultâneos do mesmo segmento ainda podem gerar `Superseded` e erro
+temporário na primeira requisição: isso apareceu nos logs locais e de rede.
+A deduplicação das requisições em andamento permanece pendente; não se deve
+interpretar essas terminações solicitadas como falha espontânea do codec.
+
+#### Probe, acesso em rede e preview
+
+Na primeira execução, a validação de escopo levou até 57.821 ms em um pedido
+de segmento linear. Probes também chegaram ao limite de processos antigos;
+um MP4 terminou com erro após aproximadamente 39 s no probe. O player podia
+reproduzir a URL nativa mesmo quando essa análise falhava, mas o renderer e
+o inspector mantinham o preview bloqueado enquanto aguardavam o probe. Agora
+uma URL disponível permite montar o player imediatamente, e uma falha de
+metadados não exibe erro de reprodução sobre essa fonte. A análise continua
+em segundo plano e pode ajustar a estratégia de codec depois de concluir.
+
+A diferença entre disco local e compartilhamento é consistente com espera
+de I/O, mas não determina se a causa está em SMB, Wi-Fi, disco remoto, consultas
+ou processamento concorrente. Não houve `database is locked` nessas quatro
+amostras. A ausência desse erro não encerra a investigação de contenção.
+
+#### Mídia e janelas no encerramento
+
+O backend agora emite `shutdown:requested` à janela principal quando aceita
+o pedido. O frontend pausa e silencia áudio/vídeo, desativa autoplay e pausa
+novos eventos de reprodução durante a drenagem. A limpeza do backend continua
+independente da entrega desse evento.
+
+O adaptador que confirma a apresentação retornava antes de ocultar a janela
+principal quando o handshake chegava depois dos 1.500 ms. Agora uma confirmação
+tardia, durante um shutdown ainda não autorizado a sair, pode ocultar as
+janelas anteriores sem reiniciar ou estender o prazo mínimo de apresentação.
+O log registra se a confirmação foi pontual. Esse caminho explica uma
+possibilidade concreta no código; os logs recebidos não comprovam que foi
+o caminho ocorrido na quarta execução.
+
+A chamada de conversão Assimp não configurava `CREATE_NO_WINDOW`; foi
+acrescentada a mesma flag usada nos demais subprocessos Windows. Isso trata
+uma fonte possível do prompt piscando, ainda sujeita à validação visual.
+As falhas de extração HEIC/Blender/Assimp permanecem em investigação.
+
+#### Verificação e próxima execução
+
+Os sete arquivos de teste focados do frontend passaram: 19 testes, incluindo
+seleção de engine por plataforma, passagem pelo gerenciador mesmo com suporte
+nativo anunciado, preview com probe lento/falho, pausa de mídia e descarte dos
+listeners. Typecheck, ESLint dos arquivos alterados e build Vite foram aprovados.
+Os dois testes novos da playlist também passaram em compilação isolada com
+`rustc --test src-tauri/src/delivery/streaming/playlist.rs`.
+
+Na compilação completa do aplicativo, `cargo test --manifest-path
+src-tauri/Cargo.toml --lib delivery::streaming::` passou com 19 testes, e
+`cargo test --manifest-path src-tauri/Cargo.toml --lib shutdown` passou com
+23 testes. As suítes têm testes em comum; as contagens não representam 42
+testes distintos. Nenhum teste foi ignorado nessas duas execuções.
+
+Para validar no aplicativo, usar a biblioteca atual e repetir o bloco PowerShell
+da seção anterior com `$cenario = 'video-local-v2'`, depois `'audio-local-v2'`
+e, se os dois locais funcionarem, `'rede-v2'`.
+No primeiro cenário local, abrir WMV ou MKV com duração suficiente para atravessar ao
+menos três segmentos; tocar por 12 segundos ou mais, fazer seek e trocar
+qualidade. Conferir também MP4 nativo e um vídeo linear; voltar ao HLS e fechar
+durante a reprodução. No segundo cenário, tocar áudio e fechar pelo X:
+verificar pausa imediata, substituição da janela principal pela apresentação
+e retorno ao prompt. Repetir vídeo e áudio em rede depois de validar
+localmente. Enviar os logs e resultado por arquivo/estratégia.
+A correção do protocolo e os testes simulados ainda não equivalem ao aceite
+de reprodução no WebView real.
+
+### Validação v2 e delimitação do escopo de fechamento (13 de novembro)
+
+O usuário confirmou a reprodução de vídeos locais por estratégias HLS, linear
+e nativa, além de áudio com waveform e seek. Em seguida repetiu os cenários
+com o compartilhamento do MacBook conectado por cabo. A estratégia de
+reprodução é determinada automaticamente pelo provider do formato; os testes
+consistem em abrir arquivos representativos, não em selecionar manualmente
+um modo. A escolha de engine para executar HLS não cria essa escolha no produto.
+
+**Delimitação atual, conforme orientação do usuário:** suporte a formatos,
+falhas conhecidas de thumbnails, MP2 e desempenho da rede ficam fora desta
+implementação. Só voltam a este escopo quando houver evidência de erro que
+afete a finalização, drenagem, integridade ou propriedade dos recursos.
+Prompts durante reprodução/extração também não serão investigados aqui sem
+essa relação. Essa delimitação prevalece sobre encaminhamentos anteriores
+de investigação de suporte e desempenho neste relatório; os registros
+históricos permanecem como evidência, não como trabalho atual autorizado.
+
+Os três logs registram execução em `tauri dev --release`:
+
+| Sufixo do log | Cenário informado | Pedido até conclusão do backend | Resultado e pool SQLite |
+| --- | --- | ---: | --- |
+| `134821` | Vídeos locais; fechamento com MPG linear tocando. | 1.818 ms | `clean=true`; 19/19 conexões ociosas; pool fechado em 117 ms. |
+| `141611` | Áudios locais; fechamento com WMA tocando. | 90 ms | `clean=true`; 17/17 conexões ociosas; pool fechado em 79 ms. |
+| `144512` | Biblioteca em rede por cabo, após recriação pelo usuário. | 2.116 ms | `clean=true`; 7/7 conexões ociosas; pool fechado em 61 ms. |
+
+Em todas as execuções, as tarefas registradas terminaram sem timeout/abort,
+o servidor HTTP parou, os proprietários de subprocessos registrados terminaram
+e os handlers do protocolo de assets drenaram. A limpeza linear reportou zero
+falhas de processo e de diretório; nas duas sessões encontradas nos testes
+de vídeo, o processo linear já havia saído. Na execução em rede houve uma
+solicitação de cancelamento de processo de segmento no shutdown, seguida da
+espera por sua saída e da conclusão do proprietário. Esses registros não
+garantem a ausência de todo processo externo não inventariado.
+
+A telemetria de pausa de mídia chegou 4,8 ms, 3,3 ms e 5,5 ms após os pedidos,
+respectivamente, registrando dois, um e dois elementos de mídia. É evidência
+da execução da ação no frontend; não uma medição acústica independente.
+
+#### Visibilidade da janela e avisos do runtime
+
+No teste de áudio, a conclusão do backend ocorreu aos 90 ms e a confirmação
+da apresentação aos 409 ms. No teste em rede, a confirmação ocorreu aos
+1.345 ms, antes da conclusão do backend aos 2.116 ms. Ambos registraram
+`hiding previous windows`, com `timely=true` e sem erro de `hide()`. O teste
+`134821` não contém esse registro de confirmação. O log de pedido para
+ocultar e o retorno sem erro não comprovam a visibilidade percebida pelo
+usuário. A rapidez do fechamento pode reduzir a percepção, mas não foi
+demonstrada como causa única do comportamento relatado.
+
+Conforme orientação do usuário, a permanência breve da principal durante
+uma saída normal, sem travamento e sem prolongar a reprodução, fica
+registrada como observação não bloqueante. Não será acrescentado atraso
+artificial para tornar sua ocultação perceptível.
+
+Os avisos `NewEvents emitted without explicit RedrawEventsCleared` e
+`RedrawEventsCleared emitted without explicit MainEventsCleared` também
+apareceram durante o uso normal, antes dos pedidos de fechamento. O usuário
+os correlacionou com retirar/restaurar foco. Foi conferida a implementação
+instalada do Tao 0.34.5 em `src/platform_impl/windows/event_loop/runner.rs`:
+esses ramos detectam transições fora da sequência esperada, emitem o aviso
+e despacham os eventos intermediários. Não são, por si, um erro de worker,
+FFmpeg ou fechamento do SQLite. Essas amostras terminaram limpas apesar dos
+avisos; sua causa concreta ao alternar foco e eventual impacto visual não
+foram determinados. Não haverá atualização de dependências nem supressão
+dos avisos como parte desta validação sem evidência de impacto no fechamento.
+
+O aviso `Chrome_WidgetWin_0`, código 1412, também permanece nos três finais.
+Não há evidência nestes logs que o vincule a falha de drenagem ou corrupção.
+
+**Resultado desta rodada:** validação funcional de encerramento em
+desenvolvimento Windows positiva nos três cenários, inclusive com biblioteca
+em rede. Isso não fecha a matriz de bundle, inicialização parcial, acessibilidade
+ou plataformas restantes. Nenhuma alteração de código foi necessária nesta
+rodada; foi atualizada a documentação. Não foram solicitados novos testes de
+suporte a formatos, thumbnails ou desempenho de rede.
+
 ### Desvios, limitações e riscos residuais
 
 | Item | Impacto | Mitigação / encaminhamento | Estado |
@@ -1625,7 +2206,8 @@ evidência de corrupção ou de falha no fechamento do banco.
 | Watcher e subprocessos de extração/waveform/probe/HLS não foram auditados integralmente. | Token cancelado ou handle concluído não prova liberação dos recursos. | Proprietários de segmentos são sinalizados e aguardados pelo servidor; falhas reportadas de supervisão e da limpeza linear no shutdown degradam `clean`. Inventariar os demais recursos e validar em runtime. | Parcial; pendente. |
 | Workers de duplicatas, thumbnails e cores excederam o prazo em diferentes execuções; tarefas filhas podem ultrapassar o abort do handle principal. | `clean=false`; trabalho de lease pode persistir e acessar recursos durante a saída. | Manter pool SQLite aberto se a drenagem falhar; investigar cancelamento e propriedade das tarefas filhas e repetir encerramento com processamento ativo. | Requer investigação e validação runtime. |
 | Abort não interrompe necessariamente código nativo. | Encerramento degradado é possível. | Orçamento global de 5 s com drenagem concorrente implementado; política por recurso depende do inventário. | Parcial. |
-| Validação limitada ao macOS (dev e bundle); sem teste de logout/desligamento do SO ou leitores de tela reais. | Acessibilidade e suporte Windows/Linux não comprovados. | Executar matriz em builds empacotados nesses sistemas. | Parcial; pendente. |
+| Validação no macOS e Windows (dev e bundle); sem teste de logout/desligamento do SO ou leitores de tela reais. | Acessibilidade e suporte completo Windows/Linux não comprovados; uma execução Windows em bundle terminou degradada. | Investigar o worker de thumbnails e executar a matriz restante, inclusive Linux empacotado. | Parcial; pendente. |
+| Erro gráfico Windows `Chrome_WidgetWin_0`, código 1412, após encerramentos em dev e bundle. | A classe ainda possui janelas abertas no momento da tentativa; causa e impacto não identificados. | Comparar outros fluxos; não inferir processo remanescente ou relação causal com o shutdown. | Pendente de investigação. |
 | Se a janela não for criada, só o título da janela principal muda para "Mundam — Closing…". | Feedback mínimo, sem progresso detalhado. | Fallback básico implementado; não testado com falha real de criação. | Parcial. |
 | Callback de encerramento nativo no macOS depende da estrutura do delegate Tao. | Alterações futuras no runtime podem introduzir implementação própria do seletor. | Falhar explicitamente na inicialização em vez de substituir a implementação; verificar em atualizações do Tauri/Tao e repetir testes de Dock e Cmd+Q. | Teste Objective-C aprovado; fluxos básicos validados em desenvolvimento e no bundle macOS. |
 

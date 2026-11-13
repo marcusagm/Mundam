@@ -1,4 +1,4 @@
-//! Cancellation registry for owned segment transcoding processes.
+//! Cancellation registry for owned streaming processes.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

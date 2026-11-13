@@ -4,6 +4,7 @@ import { Button } from '../Button';
 import { Loader } from '../Loader';
 import { Play, Pause, AlertCircle } from 'lucide-solid';
 import { videoState } from '../../../core/store/videoStore';
+import { isHlsUrl } from '../../../lib/stream-utils';
 import { createFocusScope, useCommands } from '../../../core/input';
 import { VideoProvider, useVideoContext } from './VideoPlayerContext';
 import { VideoControls } from './VideoControls';
@@ -109,7 +110,7 @@ const VideoPlayerContent: Component = () => {
             <Show when={!error()}>
                 <video
                     ref={setVideoElement}
-                    src={props.src}
+                    src={isHlsUrl(props.src) ? undefined : props.src}
                     class="ui-video-element"
                     autoplay={props.autoPlay}
                     preload="auto"

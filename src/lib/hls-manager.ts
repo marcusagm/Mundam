@@ -6,6 +6,8 @@
 
 import Hls from 'hls.js';
 import { type HlsPlayerOptions } from './hls-player';
+import { LifecycleManager } from '../core/utils/LifecycleManager';
+import { detectPlatform } from '../core/input/utils/platform';
 
 /** Default options for HLS player */
 const DEFAULT_OPTIONS: Required<HlsPlayerOptions> = {
@@ -19,6 +21,7 @@ export class HlsPlayerManager {
     private mediaElement: HTMLMediaElement | null = null;
     private mergedOptions: Required<HlsPlayerOptions>;
     private seekDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+    private removeMediaListeners: (() => void) | null = null;
 
     constructor(options: HlsPlayerOptions = {}) {
         this.mergedOptions = { ...DEFAULT_OPTIONS, ...options };
@@ -31,16 +34,40 @@ export class HlsPlayerManager {
 
     /** Attach the HLS player to a media element and load a playlist */
     attach(mediaElement: HTMLMediaElement, playlistUrl: string): void {
-        this.detach();
+        this.destroy();
         this.mediaElement = mediaElement;
+        const reportMediaState = (event: Event) => {
+            void LifecycleManager.logTelemetry(
+                event.type === 'error' ? 'warn' : 'debug',
+                'HlsPlayer',
+                JSON.stringify({
+                    event: event.type,
+                    mediaErrorCode: mediaElement.error?.code ?? null,
+                    readyState: mediaElement.readyState,
+                    networkState: mediaElement.networkState,
+                    currentTime: mediaElement.currentTime,
+                    paused: mediaElement.paused
+                })
+            );
+        };
+        const mediaEvents = ['loadedmetadata', 'playing', 'waiting', 'stalled', 'error'];
+        mediaEvents.forEach(event => mediaElement.addEventListener(event, reportMediaState));
+        this.removeMediaListeners = () => {
+            mediaEvents.forEach(event => mediaElement.removeEventListener(event, reportMediaState));
+        };
 
-        // Safari has native HLS support
-        if (mediaElement.canPlayType('application/vnd.apple.mpegurl')) {
+        // Keep WebKit's native path; prefer supervised MediaSource on WebView2.
+        if (
+            mediaElement.canPlayType('application/vnd.apple.mpegurl') &&
+            (detectPlatform() !== 'windows' || !Hls.isSupported())
+        ) {
+            void LifecycleManager.logTelemetry('info', 'HlsPlayer', 'Attaching native HLS');
             mediaElement.src = playlistUrl;
             return;
         }
 
         if (!Hls.isSupported()) {
+            void LifecycleManager.logTelemetry('error', 'HlsPlayer', 'MediaSource HLS unavailable');
             console.error('HLS is not supported in this browser');
             return;
         }
@@ -60,17 +87,40 @@ export class HlsPlayerManager {
             fragLoadingMaxRetryTimeout: 60000
         });
 
-        this.hlsInstance.attachMedia(mediaElement);
-
         this.hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
             this.hlsInstance?.loadSource(playlistUrl);
         });
 
         this.hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
+            // Do not serialize ErrorData: URLs and loader contexts contain session tokens.
+            void LifecycleManager.logTelemetry(
+                data.fatal ? 'error' : 'warn',
+                'HlsPlayer',
+                JSON.stringify({
+                    event: 'hlsError',
+                    type: data.type,
+                    details: data.details,
+                    fatal: data.fatal,
+                    httpStatus: data.response?.code ?? null,
+                    segment: data.frag?.sn ?? null,
+                    mediaErrorCode: mediaElement.error?.code ?? null,
+                    readyState: mediaElement.readyState,
+                    networkState: mediaElement.networkState
+                })
+            );
             if (data.fatal) {
                 this.handleFatalError(data.type);
             }
         });
+        this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+            void LifecycleManager.logTelemetry(
+                'info',
+                'HlsPlayer',
+                JSON.stringify({ event: 'manifestParsed', levels: data.levels.length })
+            );
+        });
+        void LifecycleManager.logTelemetry('info', 'HlsPlayer', 'Attaching MediaSource HLS');
+        this.hlsInstance.attachMedia(mediaElement);
     }
 
     /** Handle fatal HLS errors with recovery attempts */
@@ -93,6 +143,8 @@ export class HlsPlayerManager {
 
     /** Detach the HLS player from the media element */
     detach(): void {
+        this.removeMediaListeners?.();
+        this.removeMediaListeners = null;
         if (this.seekDebounceTimeout) {
             clearTimeout(this.seekDebounceTimeout);
             this.seekDebounceTimeout = null;

@@ -1,6 +1,7 @@
 import { onMount, Show, createEffect, createSignal, Switch, Match } from 'solid-js';
 import { useSystem, useFilters, useMetadataNotifications } from './core/hooks';
 import { useIndexingNotifications } from './core/hooks/useIndexingNotifications';
+import { useShutdownMedia } from './core/shutdown/useShutdownMedia';
 import { WelcomeView, HomeView, GalleryView, DuplicateFinderView } from './views';
 import { TitleBar, type ApplicationView } from './components/layout/TitleBar';
 // Dialog removed (moved to WelcomeView)
@@ -26,6 +27,7 @@ import { InputProvider, useCommands } from './core/input';
  * @returns {JSX.Element} The application layout.
  */
 function App() {
+    useShutdownMedia();
     const system = useSystem();
     const filters = useFilters();
 

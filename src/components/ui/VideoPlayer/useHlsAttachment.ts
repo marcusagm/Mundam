@@ -36,9 +36,10 @@ export function useHlsAttachment(props: UseHlsAttachmentProps) {
                 }
 
                 if (isHlsUrl(sourceUrl)) {
-                    if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                        videoElement.src = sourceUrl;
-                    } else if (HlsPlayerManager.isSupported()) {
+                    if (
+                        HlsPlayerManager.isSupported() ||
+                        videoElement.canPlayType('application/vnd.apple.mpegurl')
+                    ) {
                         hlsPlayerManagerInstance = new HlsPlayerManager({ debug: false });
                         hlsPlayerManagerInstance.attach(videoElement, sourceUrl);
                     } else {

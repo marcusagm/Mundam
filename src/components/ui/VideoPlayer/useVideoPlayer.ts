@@ -234,6 +234,11 @@ export function useVideoPlayer(props: VideoPlayerProps) {
             return;
         }
 
+        // hls.js owns MediaSource recovery. load() would detach its active source.
+        if (isHlsUrl(props.src)) {
+            return;
+        }
+
         if (needsTranscode() && retryCount() < 20) {
             setIsTranscoding(true);
             setRetryCount(prev => prev + 1);

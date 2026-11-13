@@ -30,7 +30,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
     );
 
     createEffect(() => {
-        if (!probeResult.loading && (videoUrl() || probeError())) {
+        if (videoUrl() || (!probeResult.loading && probeError())) {
             props.onReady?.();
         }
     });
@@ -41,14 +41,14 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
 
     return (
         <div class="video-player-container">
-            <Show when={probeResult.loading}>
+            <Show when={!videoUrl() && probeResult.loading}>
                 <div class="video-player-loading">
                     <Loader size="lg" />
                     <p>Analyzing video...</p>
                 </div>
             </Show>
 
-            <Show when={!probeResult.loading && videoUrl()}>
+            <Show when={videoUrl()}>
                 <UIVideoPlayer
                     src={videoUrl()}
                     variant="full"
@@ -63,7 +63,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = props => {
                 />
             </Show>
 
-            <Show when={probeError()}>
+            <Show when={!videoUrl() && probeError()}>
                 <div class="video-player-error">
                     <p>Failed to analyze video</p>
                     <small>{probeError()}</small>

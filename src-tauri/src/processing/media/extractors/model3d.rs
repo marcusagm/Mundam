@@ -82,6 +82,11 @@ pub async fn convert_to_glb_with_assimp(
 
     let command_output = tokio::task::spawn_blocking(move || {
         let mut command = std::process::Command::new(assimp_binary);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x08000000);
+        }
         command
             .arg("export")
             .arg(&source_path_owned)

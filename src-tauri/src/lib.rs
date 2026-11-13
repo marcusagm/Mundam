@@ -28,7 +28,8 @@ pub fn run() {
     // Initialize structured tracing
     crate::infra::telemetry::init_telemetry();
 
-    let builder = tauri::Builder::default().plugin(tauri_plugin_clipboard_manager::init());
+    let builder = crate::bootstrap::startup::register_state(tauri::Builder::default())
+        .plugin(tauri_plugin_clipboard_manager::init());
     builder
         .register_asynchronous_uri_scheme_protocol(
             "thumb",

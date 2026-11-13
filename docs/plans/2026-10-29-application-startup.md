@@ -15,6 +15,8 @@ or cross-window transition is used.
 - `src/components/features/startup/` presents progress, delays and failures.
 
 Startup is application lifecycle state, independent of library domain events.
+It is registered on the Tauri builder before configured windows are created,
+so early frontend IPC can query it even before the setup callback starts boot.
 Backend dependencies are registered in order: filesystem/configuration/events/formats,
 database, media/workers, and library/watchers. Frontend library IPC starts only after
 backend readiness. Indexing, thumbnails and statistics remain background work.

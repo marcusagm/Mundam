@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, Instrument};
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::formats::FormatRegistry;
@@ -185,7 +185,9 @@ impl ThumbnailWorker {
                     tasks.spawn(async move {
                         let _reservation = reservation;
                         let phase = AtomicU8::new(0);
-                        let work = worker_clone.process_single_tracked(id, is_priority, &phase);
+                        let span = tracing::info_span!("thumbnail_shutdown_work", asset_id = %id);
+                        let work =
+                            worker_clone.process_single_tracked(id, is_priority, &phase, &shutdown);
                         let result = crate::processing::shutdown_diagnostics::observe(
                             &shutdown,
                             &phase,
@@ -193,6 +195,7 @@ impl ThumbnailWorker {
                             "thumbnail",
                             work,
                         )
+                        .instrument(span)
                         .await;
                         if let Err(e) = result {
                             error!("ThumbnailWorker: Process error: {}", e);
@@ -230,8 +233,13 @@ impl ThumbnailWorker {
     /// * `is_priority` - Whether this item came from the priority queue.
     #[cfg(test)]
     async fn process_single(&self, id: String, is_priority: bool) -> AppResult<()> {
-        self.process_single_tracked(id, is_priority, &AtomicU8::new(0))
-            .await
+        self.process_single_tracked(
+            id,
+            is_priority,
+            &AtomicU8::new(0),
+            &CancellationToken::new(),
+        )
+        .await
     }
 
     #[instrument(skip_all, fields(asset_id = %id, priority = %is_priority))]
@@ -240,8 +248,12 @@ impl ThumbnailWorker {
         id: String,
         is_priority: bool,
         phase: &AtomicU8,
+        token: &CancellationToken,
     ) -> AppResult<()> {
         phase.store(1, Ordering::Relaxed);
+        if token.is_cancelled() {
+            return Ok(());
+        }
         let Some(_activity) =
             self.control
                 .try_admit(WorkerKind::Thumbnails, "thumbnail", Some(&id))
@@ -259,7 +271,7 @@ impl ThumbnailWorker {
             self.processing.clone(),
             ticket.clone(),
         );
-        let result = self.process_ticket(&id, &ticket, phase).await;
+        let result = self.process_ticket(&id, &ticket, phase, token).await;
         phase.store(9, Ordering::Relaxed);
         let lease_result = lease.finish().await;
         result?;
@@ -271,8 +283,9 @@ impl ThumbnailWorker {
         id: &str,
         ticket: &ProcessingTicket,
         phase: &AtomicU8,
+        token: &CancellationToken,
     ) -> AppResult<()> {
-        let result = self.generate_single(ticket, phase).await;
+        let result = self.generate_single(ticket, phase, token).await;
         phase.store(8, Ordering::Relaxed);
         if self.query_handler.get_by_id(id).await?.is_none() {
             if let Some(app_data_directory) = self.thumbnails_dir.parent() {
@@ -284,7 +297,11 @@ impl ThumbnailWorker {
             }
         }
         let outcome = match result {
-            Ok(outcome) => self.processing.finish(ticket, outcome).await,
+            Ok(Some(outcome)) => self.processing.finish(ticket, outcome).await,
+            Ok(None) => {
+                info!(asset_id = %id, "Thumbnail processing deferred after cancellation");
+                Ok(())
+            }
             Err(error) => {
                 self.processing
                     .finish(ticket, ProcessingOutcome::failure(&error))
@@ -312,27 +329,35 @@ impl ThumbnailWorker {
         &self,
         ticket: &ProcessingTicket,
         phase: &AtomicU8,
-    ) -> AppResult<ProcessingOutcome> {
+        token: &CancellationToken,
+    ) -> AppResult<Option<ProcessingOutcome>> {
         phase.store(2, Ordering::Relaxed);
+        if token.is_cancelled() {
+            return Ok(None);
+        }
         let id = ticket.asset_id.clone();
         let asset = match self.query_handler.get_asset_by_id(&id).await {
             Ok(a) => a,
             Err(error) => return Err(error),
         };
         if !self.processing.is_current(ticket).await? {
-            return Ok(ProcessingOutcome::Skipped(
+            return Ok(Some(ProcessingOutcome::Skipped(
                 "Attempt is no longer current".into(),
-            ));
+            )));
+        }
+        if token.is_cancelled() {
+            return Ok(None);
         }
 
         let provider = match self.format_registry.resolve(&asset.path, &[]) {
             Some(p) => p,
             None => {
-                return Ok(ProcessingOutcome::Unavailable(
+                return Ok(Some(ProcessingOutcome::Unavailable(
                     crate::core::processing::diagnostics::ProcessingIssue::ProviderMissing,
-                ));
+                )));
             }
         };
+        tracing::debug!(asset_id = %id, provider = provider.name(), "Thumbnail provider selected");
 
         let mut metadata = None;
         let mut preview_path = None;
@@ -340,6 +365,9 @@ impl ThumbnailWorker {
 
         // 1. Technical Metadata Extraction
         if let Some(meta_cap) = provider.metadata() {
+            if token.is_cancelled() {
+                return Ok(None);
+            }
             phase.store(3, Ordering::Relaxed);
             if let Ok(tech_meta) = meta_cap.extract_technical(&path).await {
                 let width = tech_meta.get("width").and_then(|v| v.as_i64());
@@ -378,6 +406,9 @@ impl ThumbnailWorker {
                 });
 
             if is_three_dimensional_model {
+                if token.is_cancelled() {
+                    return Ok(None);
+                }
                 phase.store(4, Ordering::Relaxed);
                 if let Ok((preview_bytes, mime)) =
                     preview_capability.generate_preview(&path, &id).await
@@ -407,6 +438,9 @@ impl ThumbnailWorker {
         }
 
         // 3. Generate Thumbnail
+        if token.is_cancelled() {
+            return Ok(None);
+        }
         phase.store(5, Ordering::Relaxed);
         let Some(thumbnail_capability) = provider.thumbnail() else {
             self.ledger
@@ -420,23 +454,37 @@ impl ThumbnailWorker {
                     },
                 )
                 .await?;
-            return Ok(ProcessingOutcome::Skipped(
+            return Ok(Some(ProcessingOutcome::Skipped(
                 "Provider has no thumbnail capability".into(),
-            ));
+            )));
         };
         let bytes = thumbnail_capability.generate(&path, &id, 300).await?;
+        if token.is_cancelled() {
+            return Ok(None);
+        }
         phase.store(6, Ordering::Relaxed);
         let final_bytes = tokio::task::spawn_blocking(move || prepare_thumbnail(bytes))
             .await
             .map_err(|error| {
                 AppError::Internal(format!("Thumbnail encoding task failed: {error}"))
             })??;
+        if token.is_cancelled() {
+            return Ok(None);
+        }
         phase.store(7, Ordering::Relaxed);
         if !self.processing.is_current(ticket).await? {
-            return Ok(ProcessingOutcome::Skipped("Attempt was superseded".into()));
+            return Ok(Some(ProcessingOutcome::Skipped(
+                "Attempt was superseded".into(),
+            )));
+        }
+        if token.is_cancelled() {
+            return Ok(None);
         }
         let filename = format!("{}.{}.webp", id, ticket.lease_id);
         tokio::fs::write(self.thumbnails_dir.join(&filename), final_bytes).await?;
+        if token.is_cancelled() {
+            return Ok(None);
+        }
         self.ledger
             .commit_processing(
                 ticket,
@@ -448,7 +496,7 @@ impl ThumbnailWorker {
                 },
             )
             .await?;
-        Ok(ProcessingOutcome::Completed)
+        Ok(Some(ProcessingOutcome::Completed))
     }
 }
 

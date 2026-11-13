@@ -1,7 +1,149 @@
 use super::*;
-use crate::core::formats::{capabilities::ThumbnailCapability, provider::FormatProvider};
+use crate::core::formats::{
+    capabilities::{MetadataCapability, PreviewCapability, ThumbnailCapability},
+    provider::FormatProvider,
+};
 use crate::core::ledger::command::LedgerCommand;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
+
+struct DelayedProvider {
+    block_thumbnail: bool,
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+    thumbnail_called: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl FormatProvider for DelayedProvider {
+    fn name(&self) -> &'static str {
+        "MODEL_DELAYED_TEST_PROVIDER"
+    }
+
+    fn supported_extensions(&self) -> Vec<&'static str> {
+        vec!["png"]
+    }
+
+    fn metadata(&self) -> Option<&dyn MetadataCapability> {
+        Some(self)
+    }
+
+    fn thumbnail(&self) -> Option<&dyn ThumbnailCapability> {
+        Some(self)
+    }
+
+    fn preview(&self) -> Option<&dyn PreviewCapability> {
+        Some(self)
+    }
+}
+
+#[async_trait::async_trait]
+impl PreviewCapability for DelayedProvider {
+    async fn generate_preview(
+        &self,
+        _path: &std::path::Path,
+        _asset_id: &str,
+    ) -> AppResult<(Vec<u8>, String)> {
+        Ok((vec![1], "model/gltf-binary".into()))
+    }
+}
+
+#[async_trait::async_trait]
+impl MetadataCapability for DelayedProvider {
+    async fn extract_technical(&self, _path: &std::path::Path) -> AppResult<serde_json::Value> {
+        if !self.block_thumbnail {
+            self.entered.notify_one();
+            self.release.notified().await;
+        }
+        Ok(serde_json::json!({}))
+    }
+
+    async fn extract_semantic(&self, _path: &std::path::Path) -> AppResult<serde_json::Value> {
+        Ok(serde_json::json!({}))
+    }
+}
+
+#[async_trait::async_trait]
+impl ThumbnailCapability for DelayedProvider {
+    async fn generate(
+        &self,
+        _path: &std::path::Path,
+        _asset_id: &str,
+        _size_hint: u32,
+    ) -> AppResult<Vec<u8>> {
+        self.thumbnail_called.store(true, Ordering::SeqCst);
+        if self.block_thumbnail {
+            self.entered.notify_one();
+            self.release.notified().await;
+        }
+        Ok(vec![1])
+    }
+}
+
+#[tokio::test]
+async fn cancellation_drains_current_phase_and_leaves_thumbnail_pending() -> TestResult {
+    for block_thumbnail in [false, true] {
+        let fixture = ProcessingFixture::new().await?;
+        fixture.asset("asset", None).await?;
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        let thumbnail_called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut registry = FormatRegistry::new();
+        registry.register(Arc::new(DelayedProvider {
+            block_thumbnail,
+            entered: entered.clone(),
+            release: release.clone(),
+            thumbnail_called: thumbnail_called.clone(),
+        }));
+        let worker = ThumbnailWorker::new(
+            Arc::new(registry),
+            fixture.ledger.clone(),
+            fixture.queries.clone(),
+            Arc::new(ThumbnailPriorityState::default()),
+            fixture.data.path().join("thumbnails"),
+            fixture.processing.clone(),
+        );
+        let token = CancellationToken::new();
+        let task_token = token.clone();
+        let mut task = tokio::spawn(async move {
+            worker
+                .process_single_tracked("asset".into(), false, &AtomicU8::new(0), &task_token)
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(5), entered.notified()).await?;
+        if block_thumbnail {
+            assert!(tokio::fs::read_dir(fixture.data.path().join("thumbnails"))
+                .await?
+                .next_entry()
+                .await?
+                .is_some());
+        }
+        token.cancel();
+        assert!(tokio::time::timeout(Duration::from_millis(20), &mut task)
+            .await
+            .is_err());
+        release.notify_one();
+        tokio::time::timeout(Duration::from_secs(5), task).await???;
+
+        assert_eq!(thumbnail_called.load(Ordering::SeqCst), block_thumbnail);
+        assert_eq!(
+            fixture
+                .processing
+                .pending(ProcessingKind::Thumbnail, 1)
+                .await?,
+            ["asset"]
+        );
+        let attempts: i64 =
+            sqlx::query_scalar("SELECT attempts FROM processing_tasks WHERE asset_id = 'asset'")
+                .fetch_one(&fixture.pool)
+                .await?;
+        assert_eq!(attempts, 0);
+        assert!(tokio::fs::read_dir(fixture.data.path().join("thumbnails"))
+            .await?
+            .next_entry()
+            .await?
+            .is_none());
+    }
+    Ok(())
+}
 
 #[tokio::test]
 async fn processing_thumbnail_publishes_immutable_versions_and_reclaims_previous_cache(
