@@ -68,6 +68,8 @@ powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1   # Windows (
 
 Options: `--skip-system` / `-SkipSystem` (don't install packages), `--check` / `-Check` (run `cargo check` at the end), `-y` (non-interactive, Unix). On Windows, open a new terminal afterwards so `PATH` and `LIBCLANG_PATH` are refreshed. Assimp is optional on Windows (no package available): without `assimp.exe` in `src-tauri/resources/assimp/windows-x64/`, 3D previews are disabled.
 
+On Linux and macOS, setup installs Node.js and npm through the system package manager when Node.js >= 18 or npm is missing. With `--skip-system`, both must already be available in `PATH`. If a Linux distribution only provides Node.js older than 18, install a newer LTS using nvm/fnm and re-run setup.
+
 ### Native dependencies
 
 Third-party source and runtime assets are kept separate:

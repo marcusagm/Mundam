@@ -62,12 +62,50 @@ ensure_rust() {
 
 ensure_node() {
     log "Checking Node.js"
-    have node || die "Node.js (>= 18, 20 LTS recommended) is required: https://nodejs.org or use nvm/fnm."
     local major
+    if ! node_is_ready; then
+        [ "$SKIP_SYSTEM" = 0 ] || die "Node.js >= 18 and npm are required. Re-run without --skip-system to install them."
+        install_node
+        hash -r
+    fi
+    have node || die "Node.js was not found after installation. Check your PATH."
     major="$(node -p 'process.versions.node.split(".")[0]')"
-    [ "$major" -ge 18 ] || die "Node.js >= 18 is required (found $(node --version))."
+    [ "$major" -ge 18 ] || die "Node.js >= 18 is required (found $(node --version)). Install a newer Node.js LTS using nvm/fnm; your distribution package may be outdated or shadowed in PATH."
     have npm || die "npm not found."
     ok "node $(node --version), npm $(npm --version)"
+}
+
+node_is_ready() {
+    local major
+    have node && have npm || return 1
+    major="$(node -p 'process.versions.node.split(".")[0]')" || return 1
+    [[ "$major" =~ ^[0-9]+$ ]] && [ "$major" -ge 18 ]
+}
+
+install_node() {
+    local yes_flag="" noconfirm=""
+    if [ "$ASSUME_YES" = 1 ]; then yes_flag="-y"; noconfirm="--noconfirm"; fi
+    log "Installing Node.js and npm"
+    case "$(uname -s)" in
+        Darwin)
+            have brew || die "Homebrew is required to install Node.js: https://brew.sh"
+            brew install node
+            ;;
+        Linux)
+            if have apt-get; then
+                $SUDO apt-get install $yes_flag nodejs npm
+            elif have dnf; then
+                $SUDO dnf install $yes_flag nodejs npm
+            elif have pacman; then
+                $SUDO pacman -S --needed $noconfirm nodejs npm
+            elif have zypper; then
+                $SUDO zypper install $yes_flag nodejs npm
+            else
+                die "No supported package manager found to install Node.js. Install Node.js LTS and npm using nvm/fnm."
+            fi
+            ;;
+        *) die "Automatic Node.js installation is not supported on this OS." ;;
+    esac
 }
 
 install_node_deps() {
@@ -193,4 +231,5 @@ finish() {
     fi
     echo
     echo "Next step:  npm run tauri dev"
+    echo 'For cargo commands in this terminal, run: source "${CARGO_HOME:-$HOME/.cargo}/env" (or open a new terminal).'
 }

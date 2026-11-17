@@ -65,7 +65,7 @@ tauri-plugin-http = "2.5.7"
 uuid = { version = "1.20.0", features = ["v4"] }
 thiserror = "2.0.18"
 memmap2 = "0.9.9"
-flashraw = "=0.1.1"
+flashraw = "=0.3.1"
 base64 = "0.22"
 wait-timeout = "0.2"
 byteorder = "1.5"
