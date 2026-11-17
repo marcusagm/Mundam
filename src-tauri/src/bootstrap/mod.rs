@@ -6,6 +6,7 @@
 //! framework (Tauri via `AppHandle`) and the concrete infrastructure instances.
 
 pub mod database;
+mod database_tasks;
 pub mod library;
 #[cfg(target_os = "macos")]
 pub mod macos_shutdown;

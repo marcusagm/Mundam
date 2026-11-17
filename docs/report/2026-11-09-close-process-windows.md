@@ -308,12 +308,12 @@ Executar em **build empacotado** em macOS, Windows e Linux, além do modo de des
 
 | Cenário | Windows | macOS | Linux |
 | --- | --- | --- | --- |
-| Saída ociosa pelo X e fechamento do sistema de janelas | Dev e bundle anteriores observados; repetir no bundle atual. | Titlebar/Dock/Cmd+Q observados anteriormente. | Pendente. |
+| Saída ociosa pelo X e fechamento do sistema de janelas | Dev e bundle anteriores observados; repetir no bundle atual. | Titlebar/Dock/Cmd+Q observados anteriormente. | X e Alt+F4 ociosos em dev validados em 17/11; bundle pendente (seção 15). |
 | Fechar com indexação/processing/mídia ativos | Dev atual com três resultados limpos, incluindo rede; bundle anterior teve timeout e precisa repetir. | Evidências anteriores, inclusive saídas limpas; smoke das mudanças compartilhadas finais pendente. | Pendente em dev e bundle. |
 | Fechar durante boot/splash e após falha de inicialização | Código e testes parciais; confirmação nativa atual pendente. | Evidência parcial e testes; confirmar somente as lacunas restantes. | Pendente. |
 | Pedidos repetidos, Alt+F4 ou equivalente e janelas auxiliares | Concorrência coberta em unidade; validação nativa complementar pendente. | Pedidos de saída principais já observados; regressão final complementar. | Pendente; registrar gerenciador de janelas e sessão usada. |
 | Reabrir após cancelamento e confirmar recuperação | Reinícios e novas reproduções observados; confirmar pendências/leases e originais no artefato final. | Evidência histórica de recuperação; regressão final limitada às mudanças novas. | Pendente. |
-| Janela principal minimizada e apresentação indisponível | Fallback implementado; falha real/injetada ainda pendente. Principal brevemente visível não bloqueia. | Fallback e regressão funcional pendentes quando ainda não cobertos. | Pendente. |
+| Janela principal minimizada e apresentação indisponível | Fallback implementado; falha real/injetada ainda pendente. Principal brevemente visível não bloqueia. | Fallback e regressão funcional pendentes quando ainda não cobertos. | Principal minimizada com saída pelo dock validada em dev em 17/11 (seção 15); falha de apresentação e bundle pendentes. |
 | Processos próprios, servidor, handlers e banco | Evidência positiva para recursos registrados; inventário incompleto impede afirmar ausência universal de filhos. | Mesma limitação de implementação compartilhada. | Validar após tratar ownership e também na execução exploratória inicial. |
 | Encerramento de sessão do SO/terminação forçada | Caracterizar apenas se houver requisito de suporte; não prometer interceptação universal. | Mesmo limite. | Mesmo limite. |
 
@@ -2332,3 +2332,339 @@ não depende de testes de acessibilidade nem de resolver problemas de suporte
 a formatos, thumbnails ou desempenho de rede sem efeito no fechamento.
 O avanço para Linux está liberado como próxima etapa de validação, não como
 declaração de que a matriz Windows/bundle e todos os recursos estão concluídos.
+
+## 15. Validação Linux: encerramento ocioso (17 de novembro)
+
+As duas execuções recebidas usaram o commit `146eb8b`, em Ubuntu 26.04.1
+LTS, kernel `7.0.0-43-generic`, x86_64, GNOME (`ubuntu:GNOME`) e sessão
+Wayland. O modo foi `tauri dev --release`: backend otimizado e frontend
+servido pelo Vite, sem bundle. A sessão não comprova qual backend gráfico
+o WebView utiliza. A única alteração local registrada era este relatório.
+
+O usuário confirmou a sequência visual splash → principal → apresentação de
+finalização, com comportamento considerado esperado. Os dois arquivos têm
+rótulo `ocioso-x`; os logs não distinguem a origem nativa do fechamento.
+Na confirmação posterior, o usuário identificou o primeiro fechamento como X
+da titlebar e o segundo como Alt+F4; os dois caminhos estão validados para
+o cenário ocioso observado, com origem atribuída pelo relato.
+
+| Log | Pedido até conclusão do backend | Pedido até handshake | Tarefas | Pool ocioso / total; fechamento | Resultado |
+| --- | ---: | ---: | ---: | --- | --- |
+| `ocioso-x-20261117-090803.log` | 181,8 ms | 729,4 ms | 10 | 6/6; 180 ms | `clean=true`; comando Tauri retornou 0. |
+| `ocioso-x-20261117-092345.log` | 208,4 ms | 937,6 ms | 10 | 7/7; 205 ms | `clean=true`; comando Tauri retornou 0. |
+
+Cada execução registrou um pedido e uma conclusão, sem timeout, abort,
+`PoolClosed` ou bloqueio SQLite. O servidor HTTP parou, os proprietários de
+processos registrados terminaram e os handlers do protocolo de assets
+drenaram antes do fechamento do pool. O bridge terminou sem lag e sem eventos
+recebidos durante a drenagem. Os handshakes foram pontuais (`timely=true`),
+seguidos do registro de ocultação das janelas anteriores. A confirmação
+visual vem do relato do usuário; o handshake não mede pixels visíveis.
+Os tempos da tabela não medem duração da janela nem instante de saída final.
+
+As bibliotecas tinham zero raízes observadas. Não havia tarefas de thumbnail
+em andamento, elementos de mídia a pausar, sessões lineares, sessões HLS
+rastreadas ou processos a cancelar no shutdown. As listagens antes e depois
+não encontraram processos com os nomes exatos `mundam`, `ffmpeg` e `ffprobe`.
+Isso reforça o resultado ocioso, mas não constitui inventário universal de
+filhos, processos com outros nomes ou recursos nativos. Não foram exercitados
+watcher com raiz ativa, reprodução, indexação, recuperação de trabalho pendente
+ou corrida de admissão.
+
+### Avisos e limites da rodada
+
+Ambos os logs contêm aviso do clipboard: o protocolo Wayland de data control
+exigido pelo arboard não está disponível no compositor, e o runtime informa
+fallback para o protocolo X11 de clipboard. O aviso ocorreu no startup e não
+foi acompanhado de falha de encerramento nestas amostras. O funcionamento do
+clipboard não foi testado; o fallback não comprova uso de X11 pelo WebView.
+
+O Cargo informou dependência `urlencoding` não utilizada. O primeiro build
+levou 13 min 47 s, e o segundo 25,44 s; esses valores incluem compilação e
+não representam latência de startup ou shutdown. Nenhum desses avisos
+justifica mudança no fechamento com base nos resultados recebidos.
+
+**Resultado:** validação inicial positiva do fluxo visual e do encerramento
+ocioso em desenvolvimento neste ambiente Linux. R6 continua parcial: carga,
+entradas complementares e bundle não foram validados. As lacunas compartilhadas
+R1–R4 e os demais itens de aceite permanecem abertos.
+
+Na preparação, os cinco testes frontend focados de shutdown passaram em três
+arquivos. A suíte Rust filtrada por `shutdown` foi iniciada, mas seu resultado
+final não foi recuperado; ela não está registrada como aprovada. Esta rodada
+alterou apenas documentação, sem correção de código.
+
+### Processamento e tentativas de mídia (17 de novembro)
+
+O usuário seguiu os cenários de processamento, vídeo local e áudio com
+Alt+F4. Informou que nenhum vídeo ou áudio reproduziu; as mensagens incluíam
+“failed to load media” e “HLS is not supported in this browser”. Assim,
+os testes exercitaram tentativas de reprodução e fechamento sob processamento,
+mas não validaram pausa audível ou drenagem de reprodução efetivamente ativa.
+
+| Log | Cenário / resultado | Pedido até conclusão do backend | Evidência |
+| --- | --- | ---: | --- |
+| `processamento-20261117-093303.log` | X durante processamento; `clean=true`, saída do comando 0. | 846,7 ms | Scan manual parou após cancelamento; dois thumbnails em admissão/lease foram adiados. 11 tarefas concluíram; pool 8/8 ocioso, fechamento em 616 ms. Handshake pontual aos 1.362,3 ms. |
+| `video-local-20261117-093519.log` | Tentativas de vídeo, fechamento pelo X; `clean=true`, saída do comando 0. | 1.311,4 ms | Dois thumbnails ativos em publicação/reconciliação concluíram. 11 tarefas; pool 8/8 ocioso após espera de 16 ms, fechamento em 519 ms. Não há handshake registrado. |
+| `audio-alt-f4-20261117-094530.log` | Execução interrompida externamente; usuário relatou código 9. | Não aplicável | Log termina sem pedido/conclusão de shutdown ou código final do comando. Não é evidência de execução do coordenador. |
+| `audio-alt-f4-20261117-095151.log` | Nova tentativa de áudio, Alt+F4; `clean=false`, saída do comando 0. | 5.003,0 ms | Thumbnail excedeu o orçamento na fase `publication`; handle abortado. Pool explicitamente não fechado devido à drenagem incompleta. |
+
+Nos três fechamentos coordenados, o servidor e seus proprietários registrados
+terminaram, sem sessões lineares nem processos a cancelar; os protocolos
+fecharam com `active=0` e drenaram. As listagens finais não mostraram processos
+com os nomes observados. O frontend registrou pausa de zero, dois e dois
+elementos, respectivamente; existência de elementos não comprova reprodução.
+Os bridges terminaram sem lag; receberam zero, três e um eventos na drenagem.
+Não houve erro `PoolClosed` ou bloqueio SQLite nestas amostras. Os tempos
+não medem duração visual ou saída final do processo.
+
+O scan do vídeo reconheceu 400 registros e descobriu outros 387, totalizando
+787, sem poda ou erros. Os dois boots de áudio encontraram os 787 inalterados,
+sem poda ou erros. É evidência de persistência/reabertura do catálogo observado,
+não de conclusão de todo processamento pendente ou recuperação universal.
+
+#### Interrupção externa e pressão de memória
+
+Consulta ao journal de `systemd-oomd` encontrou, às 09:50:03 locais, término
+de um scope `ptyxis-spawn` por pressão de memória do grupo do usuário superior
+a 50% por mais de 20 s (78,43% no registro). O scope candidato tinha 3,7 GB
+em uso. Horário e tipo de scope são compatíveis com a interrupção do primeiro
+áudio relatada pelo usuário. Não há identificação individual do Mundam no
+registro consultado, nem prova de qual processo causou a pressão. A ausência
+de registro no journal do kernel não exclui uma decisão do oomd em userspace.
+Não é possível atribuir a falha a vazamento específico a partir destes dados.
+
+#### Dependências de reprodução verificadas
+
+A inspeção local encontrou WebKitGTK 2.52.6 e GStreamer 1.28.2, com os
+pacotes `gstreamer1.0-libav`, `gstreamer1.0-plugins-bad` e
+`gstreamer1.0-plugins-ugly` não instalados. Não foram encontrados os elementos
+`avdec_h264`, `avdec_aac`, `h264parse` ou `tsdemux`; `hlsdemux2` e `qtdemux`
+estavam disponíveis. WebKitGTK utiliza GStreamer para mídia, conforme sua
+[documentação oficial](https://docs.webkit.org/Ports/WebKitGTK%20and%20WPE%20WebKit/Multimedia.html).
+
+Essa ausência fornece uma explicação concreta plausível para parte das falhas,
+inclusive fluxos HLS com H.264/AAC. Não comprova que todos os erros tenham a
+mesma causa. No código, a recusa de HLS ocorre quando não há suporte nativo
+anunciado nem suporte detectado pelo hls.js; a mensagem não distingue sozinha
+codecs ausentes de outras limitações do runtime. O FFmpeg utilizado no backend
+não substitui os plugins do GStreamer utilizados pelo WebView. Nenhum pacote
+foi instalado nesta análise e a reprodução após instalação não foi validada.
+
+#### Falha de drenagem confirmada no segundo áudio
+
+O thumbnail ativo usava `WINDOWS_MEDIA_VIDEO_PROVIDER`, asset
+`298cd052-cee7-4ea2-9136-2a34f823106a`. Permaneceu em `publication` durante
+os cinco segundos. No código atual, essa fase abrange verificação de tentativa,
+publicação do thumbnail e commit correspondente; o diagnóstico não identifica
+qual suboperação reteve a tarefa. Não há evidência para atribuí-la à ausência
+de codecs no WebView ou à pressão de memória da execução anterior. Cores e
+duplicatas terminaram antes do prazo, e o bridge drenou após o abort do worker.
+O retorno 0 do comando não converte o resultado `clean=false` em aceite limpo.
+Esta falha afeta diretamente a finalização e permanece no escopo R2/R4;
+as falhas conhecidas de extração de outros formatos continuam fora dele.
+
+### Mídia após disponibilizar codecs e nova lacuna de ownership (17 de novembro)
+
+Nos logs `video-codecs-20261117-101610.log` e
+`audio-codecs-20261117-102330.log`, `avdec_h264`, `avdec_aac`, `h264parse` e
+`tsdemux` estavam disponíveis. O usuário relatou erro de formato no MP4,
+vídeo HLS com tela preta e falha de mídia nos áudios nativos como MP3.
+O áudio HLS passou a avançar e carregar waveforms. Não houve confirmação
+acústica: o usuário informou ausência de som também no YouTube pelo navegador.
+Isso caracteriza uma limitação do teste de saída de áudio do sistema;
+não demonstra que todo erro de reprodução do Mundam tenha essa origem.
+Waveform e avanço visual não comprovam sozinhos som audível ou imagem decodificada.
+
+| Log | Pedido até conclusão do backend | Resultado de encerramento |
+| --- | ---: | --- |
+| `video-codecs-20261117-101610.log` | 4.261,2 ms | Tarefas registradas limpas, mas pool SQLite excedeu 3 s; resultado final `clean=false`. Comando retornou 0. |
+| `audio-codecs-20261117-102330.log` | 541,7 ms | `clean=true`; 11 tarefas concluíram, pool 18/18 ocioso e fechado em 540 ms. Comando retornou 0. |
+
+No vídeo, um processo de segmento recebeu cancelamento por `Shutdown`, foi
+aguardado e o servidor parou. A admissão de assets fechou sem handlers ativos;
+os handlers drenaram. Duplicatas concluiu sua extração em andamento; nenhum
+worker excedeu o orçamento. O snapshot anterior ao fechamento do pool era
+12/12 ocioso, mas `close` excedeu o limite. Após a conclusão degradada,
+`bootstrap::database` registrou `Library cleanup remains pending` com tentativa
+de adquirir conexão em pool fechado. Isso confirma trabalho de manutenção
+fora da drenagem; não prova que esse trabalho causou o timeout do pool.
+
+No áudio, uma sessão linear cujo processo já havia saído foi limpa sem falhas,
+em 1 ms. O servidor e os proprietários registrados terminaram. Nos dois
+encerramentos foram pausados dois elementos de mídia; a telemetria chegou
+aproximadamente 17,4 ms e 38,9 ms após o pedido. Não há handshake de apresentação
+registrado nestes logs. As listagens finais não mostram processos com os nomes
+observados; não constituem inventário universal de recursos.
+
+#### Reprodução: evidência e delimitação
+
+Os dois logs mostram uso de MediaSource HLS e manifestos processados pelo
+hls.js. No vídeo há respostas 503 para segmentos antes do shutdown, próximas
+a cancelamentos por `Superseded`, além de `bufferStalledError` e
+`bufferSeekOverHole`. Portanto, há falhas de carregamento antes do fechamento;
+não é correto atribuir todas as respostas 503 à drenagem. Segmentos também
+foram gerados com sucesso e chegaram a existir elementos com `readyState=4`;
+isso não comprova imagem apresentada, conforme a tela preta relatada.
+O registro atual não determina a causa completa dos erros nativos nem da
+imagem preta. Não foi aplicada mudança de renderer, driver ou configuração
+gráfica sem reprodução causal. A validação acústica permanece indisponível.
+
+#### Correção compartilhada de manutenção do banco
+
+A inspeção de `bootstrap/database.rs` confirmou que a rotina periódica de
+`retry_cleanup` tinha handle descartado e loop sem cancelamento; a recuperação
+de sagas também era destacada. Ambas passaram à admissão atômica com
+`LifecycleRegistry::spawn_unique`, sob os nomes `library_cleanup` e
+`saga_recovery`. A limpeza observa o cancelamento antes de iniciar uma rodada,
+aguarda uma rodada já iniciada e não agenda outra após seu retorno.
+A recuperação admitida é aguardada até concluir, sujeita ao orçamento existente.
+Assim, o fechamento explícito do pool depende também desses handles; se não
+drenarem, o resultado permanece degradado. Isso elimina esses dois donos
+específicos do conjunto não supervisionado, sem encerrar R2/R3 integralmente.
+Não comprova a correção de toda causa possível do timeout do pool, do timeout
+anterior em `publication` ou da pressão de memória.
+
+Foram adicionadas regressões para impedir limpeza após cancelamento prévio e
+para verificar que o shutdown aguarda uma limpeza em andamento antes de retornar,
+sem executar uma segunda rodada. A formatação Rust e `git diff --check` passaram.
+
+**Validação automatizada recebida em 17 de novembro:** o log
+`mundam-database-tasks-tests.log` confirma compilação em perfil de testes
+(`unoptimized + debuginfo`) em 5 min 44 s e os dois testes aprovados, sem falhas
+ou ignorados; 326 testes ficaram fora do filtro. O teste de cancelamento prévio
+confirma ausência de nova limpeza; o teste com lifecycle confirma espera pela
+rodada em andamento e ausência de uma segunda execução após cancelamento.
+Os testes usam uma operação controlada, sem executar a limpeza real de arquivos
+ou a recuperação completa de sagas. Não comprovam a resolução do timeout do
+pool em runtime. A validação desktop da alteração permanece pendente; os logs
+de mídia acima precedem esta alteração.
+
+### Validação runtime da manutenção e confirmação acústica (17 de novembro)
+
+Foi analisado `manutencao-20261117-141654.log`, localizado na pasta de logs
+Linux. O cabeçalho registra `146eb8b` com as alterações locais de manutenção
+e testes descritas acima, em `tauri dev --release`. O backend permaneceu
+ativo por aproximadamente 19 min 27 s entre o registro da manutenção e o
+pedido de saída, ultrapassando o intervalo de 60 s da rotina periódica.
+O log não conta as rodadas efetivamente executadas.
+
+O usuário resolveu a ausência de som selecionando o dispositivo de saída
+correto. Confirmou som e waveforms para AAC, OGG, MIDI, AC3, AIF, APE, M4R,
+M4A, RA e WMA. MP3, FLAC e WAV continuaram falhando com “Failed to load media”.
+Nos vídeos 3GP, 3G2, F4V, M2TS, MKV e AVI, o áudio e o seek funcionaram via
+HLS, mas a imagem permaneceu preta. FLV, HEVC e SWF no caminho linear tiveram
+comportamento semelhante. MP4 e MOV falharam com “error loading video format”.
+A resolução do dispositivo de som elimina a indisponibilidade acústica desta
+rodada; não resolve nem explica por si os erros nativos ou a imagem preta.
+
+O usuário deixou `sample_1280x720_surfing_with_audio.f4v` tocar até o fim,
+relatou mudança para 1,5x e 2x após cerca de 1 min 30 s e alteração de qualidade.
+Isso confirma interação e reprodução audível observadas, sem comprovar imagem
+correta. O log contém manifestos HLS processados e também stalls, saltos sobre
+lacunas de buffer e erros 503 anteriores ao shutdown; não caracteriza todos
+os formatos como plenamente suportados. As falhas de reprodução permanecem
+registradas separadamente da validação de fechamento.
+
+**Encerramento por Alt+F4, conforme relato:** um pedido às 17:50:39.886 UTC e
+conclusão do backend às 17:50:40.784 UTC, aproximadamente 897,8 ms, com
+`clean=true`. As 13 tarefas registradas concluíram, incluindo `library_cleanup`
+e `saga_recovery`. A limpeza periódica confirmou parada aproximadamente
+9,8 ms após o pedido e foi aguardada antes do pool. A recuperação não encontrou
+sagas pendentes neste boot; o cenário de recuperação efetiva não foi exercitado.
+
+O servidor terminou após limpar três sessões lineares, duas com processos
+ativos e uma com processo já encerrado. A limpeza levou 156 ms, com 146 ms
+acumulados esperando processos e 8 ms removendo diretórios; nenhuma falha de
+processo ou diretório foi reportada. Os proprietários de processo registrados
+terminaram, os handlers de assets drenaram e o pool fechou em 735 ms após
+snapshot 9/9 ocioso. Não houve timeout, abort ou nova tentativa de manutenção
+sobre pool fechado. O comando retornou 0, e a listagem final não mostrou
+processos com os nomes observados.
+
+A telemetria registrou pausa de um elemento cerca de 177,1 ms após o pedido.
+Um erro de fragmento com status 0 foi registrado após a parada do servidor;
+essa proximidade é compatível com uma tentativa do player durante a saída,
+sem demonstrar sua origem individual. Não há handshake de apresentação
+registrado nesta amostra; os tempos não medem visibilidade ou saída final.
+
+**Resultado:** evidência positiva da correção dos dois donos de manutenção
+neste cenário Linux, sem repetição do timeout do pool. Uma saída limpa não
+elimina os outros caminhos de admissão não auditados, o timeout anterior de
+thumbnail em `publication`, os casos restantes de boot/janelas ou a validação
+de bundle. Nenhuma mudança adicional de código foi feita nesta rodada.
+
+### Splash e pedidos repetidos no Linux (17 de novembro)
+
+O usuário confirmou execução dos passos de fechamento durante a splash e de
+Alt+F4 repetido. Ambos os logs registram o checkout `146eb8b` com as alterações
+locais de manutenção, em `tauri dev --release`.
+
+| Log | Pedido até conclusão do backend | Tarefas / pool | Resultado |
+| --- | ---: | --- | --- |
+| `boot-interrompido-20261117-145428.log` | 396,0 ms | 13 tarefas; pool 7/7 ocioso após espera de 10 ms, fechado em 381 ms. | `clean=true`; comando retornou 0. |
+| `pedidos-repetidos-20261117-145720.log` | 184,8 ms | 13 tarefas; pool 12/12 ocioso, fechado em 181 ms. | `clean=true`; comando retornou 0. |
+
+Nos dois, manutenção e recuperação foram aguardadas, o servidor parou, os
+handlers de assets drenaram e o bridge terminou sem lag. Não havia sessões
+lineares, processos a cancelar ou thumbnails pendentes no instante da saída.
+As listagens finais não mostraram processos com os nomes observados. Não houve
+timeout, abort ou acesso da manutenção ao pool fechado.
+
+**Momento do primeiro pedido:** `BackendReady` ocorreu às 17:55:24.619 UTC,
+o scan terminou às 17:55:25.131 e o fechamento foi solicitado às
+17:55:27.624. Conforme o procedimento confirmado pelo usuário, a ação ocorreu
+na splash; o backend já estava pronto, enquanto o frontend ainda carregava.
+Esse caso cobre fechamento na apresentação de startup, mas não cancelamento
+antes do banco, durante a aquisição de serviços ou com scan ativo. Não há
+handshake de shutdown registrado nem evento que comprove visualmente a ausência
+de reapresentação da principal após o pedido.
+
+Após a conclusão limpa do backend, às 14:55:29–30 locais, o Vite/esbuild
+registrou erros `write EPIPE` e serviço parado para módulos ainda em
+transformação. A sequência é compatível com interrupção do servidor de
+desenvolvimento durante carregamento do frontend; a causa exata não foi
+isolada. Não houve falha de drenagem Rust ou código final diferente de zero.
+Essa observação de desenvolvimento não valida o comportamento do bundle.
+
+**Pedidos repetidos:** há um único registro de pedido, uma drenagem e uma
+conclusão. A confirmação de apresentação ocorreu aos 828,1 ms após o pedido,
+com `timely=true`, e a pausa de mídia informou zero elementos. O resultado é
+compatível com a idempotência esperada sob Alt+F4 repetido, conforme o relato;
+o log não conta quantos eventos nativos adicionais chegaram ao coordenador.
+O usuário confirmou posteriormente que apareceu apenas uma tela de fechamento
+no segundo cenário, acrescentando a evidência visual de apresentação única.
+
+**Resultado:** os dois fluxos observados encerraram normalmente. O caso de
+splash com backend pronto e a execução de pedidos repetidos acrescentam
+cobertura nativa Linux; os pontos anteriores do boot e falhas de apresentação
+continuam sem validação runtime. Nenhuma correção de código foi necessária
+nesta rodada.
+
+### Principal minimizada e saída pelo dock (17 de novembro)
+
+No teste `minimizada-20261117-150040.log`, em `tauri dev --release`, o usuário
+minimizou a principal e selecionou Sair no menu de contexto do ícone do dock.
+Confirmou que a apresentação de finalização apareceu rapidamente e o aplicativo
+terminou. A origem do pedido e a visibilidade são atribuídas ao relato; o log
+confirma a execução do coordenador.
+
+Houve um único pedido às 18:01:41.354 UTC e conclusão do backend às
+18:01:41.495, aproximadamente 141,1 ms, com `clean=true`. As 13 tarefas
+registradas concluíram, incluindo manutenção e recuperação; servidor,
+proprietários de processos registrados, handlers de assets e bridge drenaram.
+O pool tinha 10/10 conexões ociosas e fechou em 138 ms. A confirmação da
+apresentação chegou aos 761,8 ms após o pedido, com `timely=true` e registro
+de ocultação das janelas anteriores. Esses tempos não medem duração visível.
+
+Não havia thumbnails pendentes, sessões lineares, processos a cancelar ou
+mídia a pausar. Não houve timeout, abort, erro de pool fechado ou lag do bridge.
+O comando retornou 0; a listagem final não mostrou processos com os nomes
+observados. O boot reconheceu 787 arquivos inalterados, sem descobertas, poda
+ou erros. Permaneceram os avisos já conhecidos de clipboard e dependência
+`urlencoding` não utilizada, sem falha de encerramento associada nesta amostra.
+
+**Resultado:** fechamento com principal minimizada e saída pelo dock validado
+neste ambiente Linux em desenvolvimento, com confirmação visual de apresentação.
+O teste não simula falha de criação da janela/IPC e não cobre bundle ou toda
+sessão gráfica Linux. Nenhuma alteração de código foi necessária nesta rodada.

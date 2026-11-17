@@ -90,10 +90,10 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     crate::infra::database::handlers::library::identities::seed_missing(db_manager.pool()).await?;
     let cleanup_pool = db_manager.pool().clone();
     let cleanup_directory = dirs.app_data.clone();
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-        loop {
-            interval.tick().await;
+    let lifecycle = app.state::<Arc<crate::lifecycle::LifecycleRegistry>>();
+    let cleanup_token = lifecycle.child_token();
+    lifecycle.spawn_unique("library_cleanup".to_string(), async move {
+        super::database_tasks::run_periodic_cleanup(cleanup_token, || async {
             if let Err(error) = crate::infra::database::library_operations::retry_cleanup(
                 &cleanup_pool,
                 &cleanup_directory,
@@ -102,15 +102,16 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
             {
                 tracing::warn!(%error, "Library cleanup remains pending");
             }
-        }
+        })
+        .await;
     });
 
-    // Run Saga Recovery
+    // Recovery already admitted to the lifecycle finishes before the pool closes.
     let recovery_service =
         crate::infra::database::saga_recovery::SagaRecoveryService::new(db_manager.pool().clone());
-    tauri::async_runtime::spawn(async move {
-        if let Err(e) = recovery_service.run_recovery().await {
-            tracing::error!("Failed to run saga recovery: {}", e);
+    lifecycle.spawn_unique("saga_recovery".to_string(), async move {
+        if let Err(error) = recovery_service.run_recovery().await {
+            tracing::error!(%error, "Failed to run saga recovery");
         }
     });
 
