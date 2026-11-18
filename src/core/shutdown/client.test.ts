@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { observeShutdown } from './client';
+import { acknowledgeShutdownPresentation, observeShutdown } from './client';
+import { hasShutdownTestFault } from './testFaults';
 import type { ShutdownSnapshot } from './types';
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
@@ -17,7 +18,10 @@ describe('shutdown observation', () => {
         vi.resetAllMocks();
         mocks.listen.mockResolvedValue(vi.fn());
     });
-    afterEach(() => vi.useRealTimers());
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllEnvs();
+    });
 
     it('rejects stale query responses after newer events', async () => {
         let resolveQuery!: (value: ShutdownSnapshot) => void;
@@ -58,6 +62,65 @@ describe('shutdown observation', () => {
         resolveListener(unlisten);
         await vi.advanceTimersByTimeAsync(0);
         expect(unlisten).toHaveBeenCalledOnce();
+        expect(mocks.invoke).not.toHaveBeenCalled();
+    });
+});
+
+describe('shutdown IPC recovery', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.resetAllMocks();
+        mocks.listen.mockResolvedValue(vi.fn());
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllEnvs();
+    });
+
+    it('recovers after a state query never responds', async () => {
+        mocks.invoke.mockImplementationOnce(() => new Promise(() => {}));
+        mocks.invoke.mockResolvedValue(snapshot(3));
+        const receive = vi.fn();
+        const unavailable = vi.fn();
+        const dispose = observeShutdown(receive, unavailable);
+        await vi.advanceTimersByTimeAsync(2100);
+        expect(unavailable).toHaveBeenCalledOnce();
+        expect(receive).toHaveBeenCalledWith(snapshot(3));
+        dispose();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('retries a transient acknowledgement failure', async () => {
+        mocks.invoke.mockRejectedValueOnce(new Error('temporary IPC error'));
+        mocks.invoke.mockResolvedValueOnce(undefined);
+        const acknowledgement = acknowledgeShutdownPresentation();
+        await vi.advanceTimersByTimeAsync(100);
+        await acknowledgement;
+        expect(mocks.invoke).toHaveBeenCalledTimes(2);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('bounds acknowledgement retries when IPC never responds', async () => {
+        mocks.invoke.mockImplementation(() => new Promise(() => {}));
+        const result = acknowledgeShutdownPresentation().catch(error => error);
+        await vi.advanceTimersByTimeAsync(2100);
+        expect(await result).toBeInstanceOf(Error);
+        expect(mocks.invoke).toHaveBeenCalledTimes(2);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('keeps development faults inactive in production', () => {
+        vi.stubEnv('DEV', false);
+        vi.stubEnv('VITE_SHUTDOWN_TEST_FAULT', 'ipc-unavailable');
+        expect(hasShutdownTestFault('ipc-unavailable')).toBe(false);
+    });
+
+    it('injects IPC failure without calling native commands', async () => {
+        vi.stubEnv('DEV', true);
+        vi.stubEnv('VITE_SHUTDOWN_TEST_FAULT', 'ipc-unavailable');
+        const result = acknowledgeShutdownPresentation().catch(error => error);
+        await vi.advanceTimersByTimeAsync(100);
+        expect(await result).toBeInstanceOf(Error);
         expect(mocks.invoke).not.toHaveBeenCalled();
     });
 });

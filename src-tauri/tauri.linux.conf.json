@@ -6,6 +6,24 @@
       "resources/ffmpeg/linux/": "resources/ffmpeg/linux/",
       "resources/assimp/linux/": "resources/assimp/linux/",
       "resources/pdfium/libpdfium.so": "resources/pdfium/libpdfium.so"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "ffmpeg",
+          "gstreamer1.0-plugins-base",
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-bad",
+          "gstreamer1.0-plugins-ugly",
+          "gstreamer1.0-libav"
+        ],
+        "recommends": [
+          "assimp-utils"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
     }
   }
 }

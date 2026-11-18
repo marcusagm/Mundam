@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { settingsActions, processingConcurrency, thumbnailThreads } from './settingsStore';
+import {
+    settingsActions,
+    processingConcurrency,
+    thumbnailThreads,
+    linuxVideoCompatibility,
+    linuxGraphicsCompatibility
+} from './settingsStore';
 
 const backend = vi.hoisted(() => ({
     getSetting: vi.fn(),
@@ -73,5 +79,51 @@ describe('live processing settings', () => {
         ).toBe(true);
         expect(processingConcurrency()).toBe(0);
         expect(thumbnailThreads()).toBe(0);
+    });
+});
+
+describe('saved Linux video mode', () => {
+    it('loads the saved mode and only acknowledges successful writes', async () => {
+        backend.getSetting.mockImplementation(async (key: string) =>
+            key === 'linux_video_compatibility' ? 'true' : null
+        );
+        await settingsActions.initialize();
+        expect(linuxVideoCompatibility()).toBe(true);
+        const logging = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        backend.setSetting.mockRejectedValueOnce(new Error('disk failure'));
+        expect(
+            (await settingsActions.updateSettings({ linuxVideoCompatibility: false })).success
+        ).toBe(false);
+        expect(linuxVideoCompatibility()).toBe(true);
+        expect(
+            (await settingsActions.updateSettings({ linuxVideoCompatibility: false })).success
+        ).toBe(true);
+        expect(backend.setSetting).toHaveBeenLastCalledWith('linux_video_compatibility', 'false');
+        expect(linuxVideoCompatibility()).toBe(false);
+        logging.mockRestore();
+    });
+});
+
+describe('saved Linux graphics mode', () => {
+    it('persists independently from video and retains the last saved state on failure', async () => {
+        backend.getSetting.mockImplementation(async (key: string) =>
+            key === 'linux_video_compatibility' ? true : null
+        );
+        await settingsActions.initialize();
+        expect(linuxGraphicsCompatibility()).toBe(false);
+        expect(linuxVideoCompatibility()).toBe(true);
+        expect(
+            (await settingsActions.updateSettings({ linuxGraphicsCompatibility: true })).success
+        ).toBe(true);
+        expect(backend.setSetting).toHaveBeenLastCalledWith('linux_graphics_compatibility', 'true');
+        expect(linuxGraphicsCompatibility()).toBe(true);
+        expect(linuxVideoCompatibility()).toBe(true);
+        const logging = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        backend.setSetting.mockRejectedValueOnce(new Error('disk failure'));
+        expect(
+            (await settingsActions.updateSettings({ linuxGraphicsCompatibility: false })).success
+        ).toBe(false);
+        expect(linuxGraphicsCompatibility()).toBe(true);
+        logging.mockRestore();
     });
 });

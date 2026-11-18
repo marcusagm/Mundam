@@ -7,6 +7,7 @@
 import { onCleanup, createSignal, createEffect, Accessor } from 'solid-js';
 import { type HlsPlayerOptions, isHlsUrl } from './hls-player';
 import { HlsPlayerManager } from './hls-manager';
+import { observeMediaDiagnostics } from './media-diagnostics';
 
 /**
  * SolidJS hook for using HLS player
@@ -27,13 +28,17 @@ export function createHlsPlayer(
     const [isHlsActive, setIsHlsActive] = createSignal(false);
 
     let manager: HlsPlayerManager | null = null;
+    let disposeDiagnostics: (() => void) | undefined;
 
     createEffect(() => {
+        disposeDiagnostics?.();
+        disposeDiagnostics = undefined;
         const media = mediaRef();
         const source = sourceAccessor();
 
         if (!media || !source) return;
 
+        disposeDiagnostics = observeMediaDiagnostics(media);
         setIsLoading(true);
         setHasError(false);
         setErrorMessage(null);
@@ -93,6 +98,7 @@ export function createHlsPlayer(
     }
 
     onCleanup(() => {
+        disposeDiagnostics?.();
         if (manager) {
             manager.destroy();
             manager = null;

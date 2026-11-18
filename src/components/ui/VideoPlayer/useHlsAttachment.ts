@@ -1,6 +1,7 @@
 import { createEffect, on, onCleanup, Accessor, Setter } from 'solid-js';
 import { isHlsUrl } from '../../../lib/stream-utils';
 import { HlsPlayerManager } from '../../../lib/hls-player';
+import { observeMediaDiagnostics } from '../../../lib/media-diagnostics';
 
 interface UseHlsAttachmentProps {
     sourceUrlAccessor: Accessor<string>;
@@ -21,11 +22,14 @@ interface UseHlsAttachmentProps {
  */
 export function useHlsAttachment(props: UseHlsAttachmentProps) {
     let hlsPlayerManagerInstance: HlsPlayerManager | null = null;
+    let disposeDiagnostics: (() => void) | undefined;
 
     createEffect(
         on(
             [() => props.sourceUrlAccessor(), () => props.videoElementAccessor()],
             ([sourceUrl, videoElement]) => {
+                disposeDiagnostics?.();
+                disposeDiagnostics = undefined;
                 if (hlsPlayerManagerInstance) {
                     hlsPlayerManagerInstance.destroy();
                     hlsPlayerManagerInstance = null;
@@ -35,6 +39,7 @@ export function useHlsAttachment(props: UseHlsAttachmentProps) {
                     return;
                 }
 
+                disposeDiagnostics = observeMediaDiagnostics(videoElement);
                 if (isHlsUrl(sourceUrl)) {
                     if (
                         HlsPlayerManager.isSupported() ||
@@ -51,6 +56,7 @@ export function useHlsAttachment(props: UseHlsAttachmentProps) {
     );
 
     onCleanup(() => {
+        disposeDiagnostics?.();
         if (hlsPlayerManagerInstance) {
             hlsPlayerManagerInstance.destroy();
             hlsPlayerManagerInstance = null;

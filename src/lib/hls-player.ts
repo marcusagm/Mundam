@@ -138,7 +138,8 @@ export async function isHlsServerAvailable(): Promise<boolean> {
  * Check if a URL is an HLS playlist
  */
 export function isHlsUrl(url: string): boolean {
-    return url.endsWith('.m3u8') || url.includes(HLS_SERVER_URL);
+    const resourcePath = url.split(/[?#]/, 1)[0];
+    return /\.m3u8$/i.test(resourcePath);
 }
 
 // Re-export for backwards compatibility

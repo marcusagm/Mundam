@@ -8,6 +8,8 @@
 pub mod database;
 mod database_tasks;
 pub mod library;
+#[cfg(target_os = "linux")]
+pub mod linux_video;
 #[cfg(target_os = "macos")]
 pub mod macos_shutdown;
 pub mod shutdown;
@@ -29,3 +31,6 @@ pub struct AppDirectories {
     pub thumbnails_dir: std::path::PathBuf,
     pub previews_dir: std::path::PathBuf,
 }
+
+#[cfg(target_os = "linux")]
+pub(crate) mod linux_graphics;

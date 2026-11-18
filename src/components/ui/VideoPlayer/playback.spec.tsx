@@ -3,6 +3,10 @@ import { cleanup, fireEvent, render } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VideoPlayer } from './index';
 
+vi.mock('../../../core/utils/LifecycleManager', () => ({
+    LifecycleManager: { logTelemetry: vi.fn().mockResolvedValue(undefined) }
+}));
+
 vi.mock('../../../core/input', () => ({
     createFocusScope: () => ({ whenFocused: (callback: unknown) => callback }),
     useCommands: () => {}

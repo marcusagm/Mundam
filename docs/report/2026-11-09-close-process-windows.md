@@ -2668,3 +2668,1044 @@ ou erros. Permaneceram os avisos já conhecidos de clipboard e dependência
 neste ambiente Linux em desenvolvimento, com confirmação visual de apresentação.
 O teste não simula falha de criação da janela/IPC e não cobre bundle ou toda
 sessão gráfica Linux. Nenhuma alteração de código foi necessária nesta rodada.
+
+## 16. Mídia nativa Linux e resiliência da apresentação/IPC (17 de novembro)
+
+**Ampliação autorizada de escopo:** o usuário incluiu explicitamente a correção
+de mídia nativa e das falhas de apresentação/IPC antes do bundle Linux.
+Essa decisão prevalece sobre a exclusão anterior de suporte a formatos para
+os caminhos Linux investigados nesta seção. Não representa aceite de reprodução
+nem encerramento das lacunas de ownership R1–R4.
+
+### Transporte de mídia nativa
+
+A inspeção identificou que `getVideoUrl` e `getAudioUrl` retornavam
+`asset://localhost/{id}` para mídia nativa no Linux. HLS utiliza HTTP local.
+Há uma [ocorrência no projeto Tauri](https://github.com/tauri-apps/tauri/issues/8654)
+com reprodução local por protocolo customizado falhando no WebKitGTK e mídia
+HTTP funcionando. É evidência externa compatível, não uma reprodução isolada
+neste host nem prova suficiente da causa de todos os arquivos.
+
+A seleção de URL agora encaminha mídia nativa Linux para a rota existente
+`http://127.0.0.1:9876/stream/{id}`, com token de sessão codificado na query.
+Essa rota mantém resolução por ID, validação do caminho/raízes autorizadas,
+autenticação e suporte a Range do servidor existente. A mudança preserva a
+decodificação nativa e não força transcodificação. macOS/Windows mantêm os
+protocolos anteriores, e as rotas HLS/linear não foram alteradas. O token é
+obtido pelo IPC de startup existente. Não foi criado servidor ou acesso por
+caminho arbitrário adicional.
+
+Regressões verificam URL HTTP autenticada para áudio/vídeo nativos Linux,
+preservação de HLS e do transporte anterior nas outras plataformas. A correção
+continua dependente de confirmação no WebView real para MP4/MOV/MP3/WAV/FLAC.
+
+### Apresentação e IPC: lacuna de recuperação
+
+Os testes nativos anteriores de apresentação foram positivos; falha de janela
+ou IPC ainda não tinha sido exercitada. A inspeção do cliente encontrou dois
+limites: uma consulta IPC sem resposta mantinha `queryPending` indefinidamente,
+impedindo novas consultas, e a confirmação de apresentação era tentada apenas
+uma vez. O backend já possui limite de apresentação independente da limpeza.
+
+O cliente agora limita a espera de cada IPC a um segundo, permitindo novas
+consultas após uma resposta ausente. Uma confirmação que falhe recebe uma única
+nova tentativa após 100 ms, também limitada. Respostas nativas tardias não são
+canceladas pelo timeout frontend; confirmações repetidas continuam idempotentes
+no backend. Isso não altera os prazos de 1.500 ms/600 ms nem adia a limpeza.
+Uma confirmação tardia segue a política existente e não reinicia o tempo mínimo.
+
+Foram adicionados testes com IPC sem resposta, falha transitória de confirmação,
+esgotamento limitado das tentativas e falha injetada. Para permitir validação
+nativa controlada, o frontend de desenvolvimento ganhou injeção explícita de
+IPC indisponível ou ausência de montagem da apresentação, protegida por
+`import.meta.env.DEV`. A build de produção ignora essas falhas mesmo se a variável
+de ambiente estiver presente; há teste dessa proteção. A injeção não simula uma
+falha real de criação da janela nativa, e não substitui auditoria de todas as
+operações IPC ou do fallback nativo. Nenhuma falha foi ativada nesta análise.
+
+### Diagnóstico da imagem preta
+
+A inspeção do host identificou NVIDIA GeForce GT 530 (GF108). A presença desse
+hardware não demonstra defeito do driver ou do WebKit. A implementação de
+WebKitGTK/GStreamer oferece um controle de diagnóstico do sink GL
+([código-fonte WebKit](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp));
+o nome correspondente foi encontrado na biblioteca instalada. Não foi aplicada
+configuração permanente de desativação de GPU/sink, atualização de driver ou
+mudança de renderer.
+
+A telemetria dos players passou a registrar estado de mídia, dimensões e
+contagem de frames quando disponível, com amostragem de avanço no máximo a
+cada cinco segundos em DEBUG. Não serializa URL, token, mensagem bruta do
+runtime ou conteúdo dos frames. Os listeners são liberados na troca da fonte
+e no descarte do player. O teste verifica dados de dimensão, ausência de URL/token
+e remoção dos listeners. Esses contadores não comprovam que os pixels foram
+apresentados corretamente; seu objetivo é localizar o estágio da falha.
+
+A validação desktop dessas alterações e o teste comparativo do caminho gráfico
+permanecem pendentes. Nenhum novo resultado de reprodução ou de falha injetada
+é considerado aprovado nesta seção sem logs e observação do usuário.
+
+### Verificação automatizada desta alteração
+
+Os sete arquivos focados de frontend passaram com 26 testes, incluindo seleção
+de transporte, ciclo do player, dados de diagnóstico, observação/recuperação de
+IPC, pausa de mídia e apresentação de shutdown. A execução final usou um worker.
+Na primeira execução paralela, o teste de apresentação excedeu 5 s; passou em
+1,25 s na execução sequencial sem alterar seu limite ou sua implementação.
+Isso registra sensibilidade ao ambiente de execução, sem comprovar sua causa.
+Após ajustar o mock de telemetria do teste de playback, seus três testes passaram
+novamente, sem tentar usar IPC nativo no jsdom. Essas três verificações se
+sobrepõem aos 26 testes e não representam casos adicionais.
+
+Typecheck, ESLint dos arquivos de implementação e testes alterados, Prettier e
+`git diff --check` passaram. A build Vite final passou em 50,63 s, inclusive
+com a variável de falha IPC presente no ambiente de produção. A inspeção da
+entrada de shutdown gerada não encontrou os marcadores de injeção de falha.
+Nenhum teste Rust foi necessário nesta rodada, que não alterou o backend.
+Esses resultados não substituem a reprodução nativa, o teste comparativo do
+sink gráfico e as falhas injetadas no aplicativo desktop, ainda pendentes.
+
+### Quatro cenários: transporte, sink GL e falhas injetadas (17 de novembro)
+
+Foram recebidos os logs `midia-http-20261117-153804.log`,
+`video-sem-gl-20261117-160910.log`, `ipc-indisponivel-20261117-162016.log` e
+`sem-apresentacao-20261117-162314.log`. Todos registram desenvolvimento com
+backend release sobre `71f10f3` e as alterações locais da seção 16.
+
+| Cenário | Pedido até conclusão do backend | Pool ocioso / total; fechamento | Resultado |
+| --- | ---: | --- | --- |
+| Mídia HTTP, X com MP4 aberto | 1.623,6 ms | 13/13; 1.600 ms | `clean=true`; comando retornou 0. |
+| Sink GL desativado, Alt+F4 com M2TS tocando | 395,0 ms | 13/13; 295 ms | `clean=true`; comando retornou 0. |
+| IPC de shutdown indisponível | 148,6 ms | 8/8; 147 ms | `clean=true`; comando retornou 0. |
+| Apresentação sem montagem | 175,6 ms | 9/9; 168 ms | `clean=true`; comando retornou 0. |
+
+Nas quatro execuções, as 13 tarefas registradas concluíram sem timeout/abort,
+os handlers de assets drenaram e o servidor e seus proprietários registrados
+terminaram. No segundo cenário foi limpa uma sessão linear cujo processo já
+havia saído, sem falhas de processo/diretório, em 10 ms. A confirmação da
+apresentação chegou aos 1.350,1 ms, com `timely=true`. No primeiro não há
+handshake registrado. As listagens finais não mostraram os processos de nomes
+monitorados; isso não constitui inventário universal de recursos nativos.
+
+#### Classificação indevida de URLs nativas como HLS
+
+No primeiro cenário, o usuário relatou loading persistente em MP3/WAV/FLAC,
+com waveform disponível, e MP4/MOV identificados como HLS sem reproduzir.
+O log mostra `manifestParsingError`, fatal, com HTTP 200. A inspeção encontrou
+uma interação não coberta pela alteração anterior: `isHlsUrl` retornava true
+para qualquer URL que contivesse o endereço do servidor HLS. Assim, a rota
+nativa `/stream/{id}` também acionava o hls.js, que tentava interpretar os
+bytes do arquivo como manifesto. A URL HTTP estava corretamente selecionada,
+mas era entregue ao engine incorreto. Os testes anteriores validavam a URL
+sem verificar sua classificação no consumidor.
+
+`isHlsUrl` agora verifica a extensão `.m3u8` do recurso, removendo query e
+fragmento da comparação. Rotas `/stream`, `/probe`, `/health` e URLs blob não
+são HLS apenas por compartilhar servidor. Foram acrescentadas regressões de
+classificação da URL produzida para mídia nativa Linux, playlists com query,
+rotas lineares e token contendo `.m3u8`. Dois testes do hook real de áudio/vídeo
+verificam que a fonte HTTP nativa não cria gerenciador HLS e que `loadeddata`
+retira o loading. A reprodução real após essa correção permanece pendente.
+
+O log do segundo cenário também contém erro de parsing de manifesto durante
+as tentativas de MOV. Não foi encontrado erro novo de FFmpeg/servidor que
+permita atribuir todos os MOV a uma falha de codec. A classificação corrigida
+cobre MOV encaminhado por `/stream`; MOV com codec realmente não nativo pode
+continuar selecionando transcodificação conforme o probe, como antes.
+
+#### Imagem com sink GL desativado
+
+Com `WEBKIT_GST_DISABLE_GL_SINK=1`, o usuário confirmou imagem, som e seek para
+3GP, 3G2, F4V, M2TS, MKV, AVI, FLV, HEVC, SWF e MJPEG. O log registra eventos
+`loadeddata`/`playing`, dimensões válidas e avanço de contagem de frames,
+inclusive 1280×720. Esta é evidência positiva do caminho alternativo do sink
+neste host, em conjunto com a observação visual. Não prova qual componente
+do caminho GL falha nem justifica desativação global em todos os hosts Linux.
+Nenhuma configuração persistente de driver ou de GPU foi alterada. O uso no
+artefato final ainda precisa de política de compatibilidade explícita.
+
+#### IPC e apresentação indisponíveis
+
+Os cabeçalhos dos dois últimos logs confirmam as falhas de desenvolvimento
+solicitadas, com sink GL normal. O usuário confirmou comportamento esperado.
+Não houve handshake de apresentação; a drenagem permaneceu independente do
+frontend, com retorno ao prompt e saída 0. Esses cenários validam saída autônoma
+quando os comandos/eventos da apresentação são bloqueados ou quando o conteúdo
+não monta. Não simulam falha na criação do WebView, IPC geral da aplicação,
+crash nativo ou prazo de saída imposto pelo sistema operacional.
+
+**Verificação automatizada da correção de classificação:** 30 testes passaram
+nos arquivos de URLs/HLS, gerenciador e cliente de shutdown; outros dois testes
+do hook nativo passaram, totalizando 32 nesta execução focada. A regressão de
+URL verifica também o classificador real usado pelos consumidores, cobrindo
+a interação ausente nos testes anteriores. Typecheck final, ESLint dos arquivos
+alterados, formatação e `git diff --check` passaram. A build Vite passou em
+1 min 3 s, com 2.756 módulos transformados. Não houve alteração Rust nesta
+correção. O comportamento com arquivos reais após a mudança ainda não foi
+validado pelo usuário; não há aceite de mídia nativa nesta etapa.
+
+### Validação real de mídia nativa após corrigir o classificador (17 de novembro)
+
+No log `nativos-v2-20261117-163429.log`, a execução continuou em
+`tauri dev --release`, sobre `71f10f3` com as alterações locais da seção 16.
+O usuário confirmou execução do procedimento anterior, que manteve
+`WEBKIT_GST_DISABLE_GL_SINK=1` e desativou as injeções de falha. O cabeçalho
+deste log não imprime essas variáveis; a condição gráfica é atribuída ao
+procedimento confirmado, e não à telemetria do WebView.
+
+**Reprodução confirmada pelo usuário:** MP3, WAV e FLAC tocaram, carregaram
+waveforms e permitiram seek. MP4 e MOV foram identificados como nativos pelo
+frontend, reproduziram imagem e som e permitiram seek e mudança de velocidade.
+F4V e M2TS mantiveram a estratégia HLS e continuaram reproduzindo normalmente.
+O log registra `loadeddata` e `playing` com transporte HTTP para mídia nativa,
+sem erro de mídia nesses eventos, além de dimensões e frames para vídeo.
+Não houve novo `manifestParsingError` nesta amostra. Esses resultados validam
+funcionalmente o encaminhamento HTTP nativo e a correção de `isHlsUrl` para os
+arquivos observados, mantendo HLS para os demais caminhos testados.
+
+**Fechamento:** o usuário fechou pelo X da titlebar com M2TS tocando. Houve um
+único pedido às 19:40:50.499 UTC e conclusão do backend às 19:40:51.109,
+aproximadamente 609,9 ms, com `clean=true`. As 13 tarefas registradas concluíram,
+os proprietários registrados terminaram, o servidor parou e os protocolos
+fecharam com `active=0` e drenaram. Não havia sessões lineares ou processos a
+cancelar naquele instante, portanto a reprodução ativa não exercitou kill de
+filho ativo nesta amostra. O pool tinha 14/14 conexões ociosas e fechou em
+608 ms. A telemetria informou pausa de dois elementos cerca de 68,6 ms após
+o pedido. Não há handshake de apresentação registrado.
+
+O comando retornou 0 e a listagem final não mostrou processos dos nomes
+monitorados. Não houve timeout, abort ou erro de pool fechado. Após a conclusão
+limpa do backend, o WebKit registrou erro interno em
+`WebLoaderStrategy::internallyFailedLoadTimerFired()`. Esse erro de runtime
+permanece como observação: o log não determina sua causa nem demonstra perda
+de dados, falha na drenagem registrada ou crash persistente. Não foi suprimido
+nem considerado comprovadamente resolvido; o retorno 0 e a reprodução normal
+não garantem ausência de defeito no runtime. A ocorrência deve ser distinguida
+dos erros anteriores de parsing de manifesto, ausentes nesta rodada.
+
+**Resultado:** validação de mídia nativa e regressão HLS positiva nos arquivos
+observados, no ambiente com o sink GL desativado. As falhas injetadas da seção
+anterior também possuem validação nativa positiva. A política persistente de
+compatibilidade gráfica e a validação de bundle continuam pendentes; não se
+atribui suporte universal a todo MP4/MOV ou a todo host Linux. Nenhuma alteração
+de código ou novo teste automatizado foi necessária nesta rodada de análise.
+
+### Inspeção independente do driver gráfico (17 de novembro)
+
+A pedido do usuário, foi iniciada a separação entre falha de aplicação e
+problema da pilha gráfica do host. `lspci -k` identificou a GeForce GT 530
+(GF108) usando `nouveau`. O journal do kernel deste boot contém falhas de
+carregamento de `nouveau/nvc1_fuc084` e `nouveau/nvc1_fuc084d`, seguidas de
+`msvld: unable to load firmware data` e `init failed, -19`, inclusive às
+12:26 e 13:58 locais. Às 12:26:26 há também `gr: TRAP` no contexto de
+`gst-plugin-scan`, com `GPC0/PROP trap` e `RT_HEIGHT_OVERRUN`. Há avisos
+repetidos de trabalho de hotplug do nouveau consumindo CPU.
+
+Esses registros demonstram erros de driver/firmware no ambiente, além do
+comportamento específico do Mundam. Não comprovam defeito físico da placa,
+nem estabelecem que todo erro WebKit ou a imagem preta tenha exatamente essa
+causa. Não foi atualizado driver, instalado firmware ou alterada configuração
+gráfica nesta inspeção. `glxinfo` não estava disponível no ambiente consultado;
+`gst-play-1.0` estava. O acesso a dispositivos gráficos pelo sandbox do agente
+não deve ser usado para inferir presença/permissões na sessão desktop do usuário.
+
+Testes independentes de identificação do renderizador, padrão de vídeo com
+sink OpenGL e reprodução GStreamer fora do Mundam ainda não foram realizados.
+A comparação serve para distinguir renderização, decodificação e integração
+WebKit; passar em um deles não valida universalmente os demais caminhos.
+
+### Resultados dos testes gráficos independentes (17 de novembro)
+
+Foram analisados `ambiente.log`, `padrao-opengl.log`, `arquivo-opengl.log`,
+`arquivo-ximagesink.log` e `kernel.log`, em `/tmp/mundam-gpu/`.
+O `glxinfo -B` informa renderizador NVC1, Mesa 26.0.8, `direct rendering: Yes`
+e `Accelerated: yes`, com OpenGL 4.3 e aproximadamente 2 GB de memória de vídeo.
+Não se trata de llvmpipe/softpipe nesse teste GLX. Isso confirma aceleração no
+caminho consultado, sem demonstrar que todos os clientes Wayland/EGL/WebKit
+utilizem ou apresentem buffers da mesma forma.
+
+O padrão colorido OpenGL foi observado sem piscadas ou tela preta pelo usuário;
+o pipeline encerrou por EOS após 10,07 s. O arquivo F4V foi reproduzido com boa
+imagem e som tanto por `glimagesink` quanto por `ximagesink`, conforme relato.
+Os logs de reprodução chegaram ao término da lista. Há aviso de qtdemux sobre
+um segmento que excede levemente a duração declarada do arquivo; no teste GL
+há também `gst_egl_image_from_dmabuf: eglCreateImage failed: EGL_BAD_ALLOC`.
+Apesar desse aviso, a reprodução observada funcionou. O aviso não deve ser
+omitido nem interpretado sozinho como falta de VRAM ou causa comprovada da
+imagem preta no WebKit.
+
+O kernel mantém as falhas de firmware e o trap já descritos; são registros
+anteriores aos novos testes, não prova de novo trap durante cada reprodução.
+O usuário relatou ainda glitches ocasionais ao abrir ChatGPT ou VSCode.
+Não houve reprodução controlada desses glitches nesta rodada, portanto sua
+relação com o driver, compositor e buffers do WebKit permanece indeterminada.
+
+**Conclusão delimitada:** a GPU e o driver conseguem renderizar OpenGL e
+reproduzir o arquivo testado fora do Mundam. Não há fundamento para declarar
+placa inoperante ou defeito físico a partir destes dados. Tampouco a pilha
+gráfica está comprovadamente livre de problemas: existem erros de
+firmware/driver e um aviso de importação DMA-BUF/EGL fora da aplicação.
+A falha do vídeo no caminho GL do WebKit continua sendo uma incompatibilidade
+na integração WebKit/GStreamer/Mesa/nouveau/compositor a isolar; não deve ser
+classificada integralmente como problema do computador nem como falha da
+lógica de playback. O workaround de sink do WebKit possui evidência funcional
+neste host, sem comprovar a causa específica. Nenhum driver foi trocado e
+nenhuma configuração gráfica persistente foi alterada nesta análise.
+
+## 17. Preferência persistente de compatibilidade de vídeo Linux (17 de novembro)
+
+O usuário aprovou oferecer um modo de compatibilidade e indicou a
+[orientação oficial do Tauri para gráficos Linux](https://v2.tauri.app/develop/debug/linux-graphics/).
+A página relaciona incompatibilidades WebKitGTK/driver e recomenda aplicar
+workarounds antes de criar o WebView, evitando impor perda de desempenho a
+hosts não afetados. Os ajustes de DMABUF, sincronização e composição citados
+ali não são equivalentes ao ajuste específico do sink de vídeo validado neste
+host. Nenhuma configuração de kernel ou driver foi alterada.
+
+### Implementação
+
+Foi adicionada em Settings → Performance uma seleção de vídeo visível apenas
+no Linux, com Normal como padrão e Compatibility como opção explícita. O texto
+explica seu uso para imagem preta/glitches, possível redução de desempenho e
+necessidade de reiniciar. O painel carrega a preferência ao abrir, sem depender da passagem pelo painel
+General, e mantém a seleção desabilitada até concluir essa leitura. Uma falha
+de carregamento mantém o controle desabilitado e informa como tentar novamente.
+O salvamento não afirma que o renderer já mudou na sessão atual; falha de
+persistência mantém a preferência anterior e informa o erro sem expor detalhes
+internos.
+
+A chave booleana `linux_video_compatibility` é persistida no mapa `extra` do
+`settings.json` existente. O serviço valida o tipo tanto no comando de chave
+individual quanto na atualização completa das preferências. Arquivos antigos
+ou chave ausente mantêm modo normal. Não há alteração do schema SQLite.
+
+No início de `run`, antes do builder, do GTK/WebView e dos workers, o bootstrap
+Linux lê essa preferência do mesmo diretório de dados local/identificador
+usado pelo Tauri. Foi declarada dependência Linux direta de `dirs` 6, já
+presente transitivamente no lockfile, para manter a resolução de diretório
+alinhada com o runtime. Com a preferência ativada e sem override externo,
+aplica `WEBKIT_GST_DISABLE_GL_SINK=1`; no modo normal deixa o ambiente intacto.
+Uma variável definida explicitamente pelo lançador/terminal tem precedência,
+inclusive valor 0, e essa origem é registrada no log. Não são aplicados
+`WEBKIT_DISABLE_DMABUF_RENDERER` ou `WEBKIT_DISABLE_COMPOSITING_MODE`.
+
+Leitura ausente mantém normal; falha de leitura/parse é registrada sem sobrescrever
+preferências ou ativar workaround por suposição. A criação de contexto e a
+instalação do builder reutilizam uma única expansão do contexto Tauri. A mudança
+vale para desenvolvimento e binário empacotado, sem depender de script npm ou
+variável fornecida manualmente no uso normal. macOS e Windows não executam
+esse bootstrap específico.
+
+### Cobertura de regressão preparada
+
+Foram adicionados testes de persistência real em arquivo através do serviço
+existente e leitura antecipada, chave ausente, valor inválido, configuração
+incompleta e retorno ao modo normal. Testes em processos filhos verificam a
+aplicação no startup e a preservação dos overrides 0/1, sem alterar o ambiente
+do processo de teste principal. Testes frontend cobrem salvamento antes de
+confirmar o modo, falha de gravação, indicação de reinício e visibilidade
+apenas no Linux, além da integração com o store existente.
+
+A validação desktop da preferência salva, com a variável externa removida,
+ainda permanece pendente. A evidência anterior validava o sink alternativo
+via comando; não comprova por si a aplicação da preferência no próximo boot.
+
+### Validação automatizada da preferência persistente
+
+Cinco testes Rust passaram, sem falhas ou ignorados, com 328 testes fora do
+filtro. Incluem persistência real via `SettingsService`/adaptador JSON, leitura
+antecipada, ausência da chave, valores inválidos, retorno ao normal e uma matriz
+de quatro combinações de preferência/override em processos filhos. Um dos
+cinco testes é a entrada do subprocesso, exercitada pela matriz; as execuções
+filhas não são contadas como testes adicionais. Esses processos não criam GUI.
+
+A execução final usou um job Cargo e override temporário de debug apenas para
+o pacote Mundam no perfil de testes, sem modificar os perfis do repositório.
+A compilação levou 17 min 17 s e os testes concluíram em 0,09 s. Uma tentativa
+anterior não produziu resultado final recuperável; o journal registrou ação
+do `systemd-oomd` às 17:29:04, contemporânea à perda das sessões. Essa tentativa
+não está registrada como aprovada. Não se atribui automaticamente a pressão
+a um único processo nem ao novo recurso da aplicação.
+
+Seis testes do painel e quatro do store passaram, totalizando dez testes
+frontend nesta validação. Verificam também leitura independente do painel,
+bloqueio do controle diante de falha de carregamento e confirmação de modo
+apenas após persistência. As tentativas iniciais com workers fork expiraram
+antes de executar os casos; o painel passou com uma thread de worker, sem
+ampliar os timeouts dos testes. A aprovação final corresponde a esse ambiente
+de execução e não converte tentativas sem execução em resultados positivos.
+
+Typecheck final, ESLint dos arquivos alterados, Prettier, formatação Rust e
+`git diff --check` passaram. A build Vite final passou em 33,23 s.
+A validação manual do modo salvo após reinício
+permanece pendente, assim como a validação de bundle e as demais lacunas de
+encerramento já registradas.
+
+### Preferência salva validada no desktop e ressalvas de encerramento (17 de novembro)
+
+Foram analisados `salvar-compatibilidade-20261117-180255.log` e
+`compatibilidade-salva-20261117-182414.log`. A primeira execução registrou no
+startup `compatibility_enabled=false source="settings"`; após os testes, o
+usuário selecionou Compatibility, aguardou a confirmação e fechou. Na segunda,
+o startup registrou `compatibility_enabled=true source="settings"`, comprovando
+leitura e aplicação da preferência salva, sem depender do override manual.
+O usuário confirmou que a opção persistiu no painel.
+
+No modo normal, MP4/M2TS tocaram com imagem preta e MP3 tocou normalmente.
+Após reabrir em Compatibility, os mesmos vídeos apresentaram imagem, som e seek
+normais, e o áudio permaneceu funcional. A comparação confirma o efeito da
+preferência persistente neste host; não exige impor o ajuste aos demais hosts.
+A primeira compilação release levou 14 min 36 s; a segunda, 31,18 s. Esses
+valores não medem latência de boot ou finalização.
+
+| Execução | Pedido até conclusão do backend | Drenagem registrada / pool | Resultado |
+| --- | ---: | --- | --- |
+| Salvar Compatibility, sessão iniciada em Normal | 298,4 ms | 13 tarefas limpas; pool 16/16 ocioso e fechado em 294 ms. | Backend `clean=true`; comando Tauri retornou 0, com erro nativo posterior. |
+| Reabrir com Compatibility salvo | 3.296,1 ms | 13 tarefas limpas; pool 8/8 ocioso antes de `close`, que excedeu 3 s. | Backend `clean=false`; comando Tauri retornou 0, com erro posterior do WebProcess. |
+
+Em ambas, manutenção, servidor e proprietários registrados terminaram, e os
+handlers de assets drenaram antes do pool. Não houve timeout de worker ou
+processo de mídia registrado. Na primeira, houve confirmação pontual de
+apresentação aos 1.263,1 ms após o pedido. Na segunda não há handshake
+registrado. As listagens finais não mostraram os processos dos nomes monitorados,
+mas não abrangem todos os nomes de subprocessos do WebKit.
+
+#### Pressão de memória e erros nativos: limites da conclusão
+
+O usuário relatou alertas de baixa memória simultâneos em outras aplicações
+no segundo fechamento. É evidência de pressão sistêmica percebida, compatível
+com atrasos na saída, mas não identifica o consumidor nem comprova que esse
+fator causou o timeout do SQLite. O journal de `systemd-oomd` consultado após
+18:20 não continha entradas; a consulta ao journal geral no intervalo também
+não recuperou eventos explicativos. A ausência desses registros não invalida
+os alertas observados e não prova ausência de pressão ou de falha nativa.
+
+No primeiro log, depois da conclusão limpa e do handshake, apareceu
+`double free or corruption (out)`. Não é correto tratá-lo como mensagem genérica
+de pouca RAM ou ignorá-lo porque o comando Tauri retornou 0. O log não identifica
+qual processo emitiu a mensagem nem fornece stack trace para localizar a
+liberação inválida. Portanto, não comprova corrupção do catálogo SQLite,
+mas impede afirmar que todo o término nativo ocorreu sem erro.
+
+No segundo, depois da conclusão degradada, o WebKit registrou às 18:32:18
+que o WebProcess não saiu como esperado após fechar a conexão com o processo
+UI. O comando terminou às 18:33:42 locais, cerca de 2 min 13 s após o pedido
+inicial, conforme o timestamp de segundos do cabeçalho final. Isso distingue
+conclusão do coordenador de saída efetiva do comando; não foi uma execução
+completa de aproximadamente 3,3 s. O log não determina a causa dessa demora.
+
+**Resultado:** preferência persistente e efeito funcional no vídeo validados.
+O segundo encerramento permanece degradado, e o primeiro possui erro nativo
+posterior ao backend limpo. Esses resultados não são aceite final de saída
+nativa nem do bundle. As falhas devem ser reavaliadas com execução isolada e
+código de saída do binário capturado diretamente, distinguindo-o do wrapper
+de desenvolvimento. Não houve mudança de código nesta rodada de análise.
+
+### Binário direto: ocioso e M2TS, sem wrapper Tauri (17 de novembro)
+
+O usuário confirmou execução dos procedimentos de binário direto, com Vite
+separado e sem nova compilação, nos logs `direto-ocioso-20261117-184538.log`
+e `direto-video-20261117-184811.log`. O primeiro fechou sem abrir mídia;
+o segundo fechou após reprodução de M2TS. Ambos os startups registraram
+`compatibility_enabled=true source="settings"`, mantendo o modo persistente
+sem override manual.
+
+| Execução | Pedido até conclusão do backend | Pool ocioso / total; fechamento | Handshake após pedido | Saída do binário |
+| --- | ---: | --- | ---: | --- |
+| Direto ocioso | 283,5 ms | 16/16; 275 ms | 1.096,4 ms, pontual | 0 |
+| Direto com vídeo | 372,2 ms | 9/9 após espera de 52 ms; 318 ms | 1.067,4 ms, pontual | 0 |
+
+Cada execução teve um único pedido e uma conclusão `clean=true`, com 13 tarefas
+registradas concluídas. Manutenção, servidor, proprietários registrados,
+handlers de assets e bridge terminaram antes do fechamento do pool. Não havia
+sessões lineares para limpar. A pausa de mídia informou zero elementos no
+ocioso e dois no vídeo, aproximadamente 6,2 ms e 63,8 ms após o pedido.
+A confirmação da apresentação foi seguida do registro de ocultação das janelas
+anteriores, sem erro reportado.
+
+Não houve timeout/abort, pool fechado indevidamente, `double free or corruption`,
+erro interno de WebKit ou erro de saída do WebProcess nestas amostras. O código
+0 foi capturado do binário, independentemente do wrapper npm/Tauri. As listagens
+finais incluíram nomes WebKit, além de Mundam/FFmpeg/FFprobe, sem correspondências
+presentes. Os timestamps finais foram 18:46:51 e 18:49:24 locais, sem a demora
+de mais de dois minutos observada no teste anterior; a resolução desses
+registros não permite medir precisamente a duração total até o retorno.
+
+Os snapshots finais indicaram cerca de 2 GB de RAM em uso, 5,2 GB disponíveis
+e 1,3 GB de swap ocupada. São fotografias antes/depois, não monitoramento de pico
+ou evidência suficiente para identificar o consumidor da pressão anterior.
+O aviso conhecido de fallback do clipboard permaneceu sem falha de fechamento
+associada nestes testes.
+
+**Resultado:** execução direta ociosa e com mídia encerrou limpa, com modo
+persistente aplicado e código real de saída 0. Os erros nativos e o timeout do
+pool anteriores não foram reproduzidos. Permanecem no histórico como ocorrências
+intermitentes sem causa comprovada; estes resultados não demonstram que tenham
+sido causados exclusivamente por pouca RAM, nem que foram definitivamente
+corrigidos. O binário usado ainda é de desenvolvimento com Vite, não um bundle.
+Nenhuma alteração de código foi necessária nesta rodada de análise.
+
+## 18. Início dos bundles Linux (17 de novembro)
+
+O usuário autorizou iniciar os testes de bundle após as duas saídas diretas
+limpas. O primeiro formato selecionado foi `.deb` amd64 para o Ubuntu 26.04.1
+atual. AppImage ainda não foi gerado. Esta rodada é validação de um candidato,
+não aceite final de R1–R9 nem comprovação de compatibilidade com outros hosts.
+A [documentação Debian do Tauri](https://v2.tauri.app/distribute/debian/)
+explica que a base de compilação pode elevar o requisito de glibc; não foi
+produzida uma build em distribuição mais antiga nesta rodada.
+
+### Preparação e recursos conferidos
+
+A configuração Linux já declarava FFmpeg/FFprobe, Assimp e PDFium; a configuração
+principal declara SoundFonts. A CLI instalada confirmou merge automático da
+configuração por plataforma. Os recursos Linux foram encontrados no staging;
+FFmpeg, FFprobe, CLI Assimp e PDFium são ELF x86_64. FFmpeg e Assimp usam
+bibliotecas compartilhadas do sistema; não são executáveis estáticos autônomos.
+O `ldd` do PDFium não indicou biblioteca ausente no host atual. Essa inspeção
+não equivale a validar uma instalação em máquina limpa.
+
+Foram declaradas dependências Debian explícitas para `ffmpeg` e os plugins
+GStreamer base/good/bad/ugly/libav usados no ambiente de reprodução validado.
+`assimp-utils` foi declarado como recomendado, mantendo o tratamento opcional
+do suporte 3D. O objetivo é não depender apenas da presença dos executáveis
+copiados quando eles ainda exigem bibliotecas externas. O control gerado preservou também as dependências padrão
+`libwebkit2gtk-4.1-0` e `libgtk-3-0`.
+
+A build foi iniciada com um job Cargo, resolução offline das dependências Rust
+já presentes e sem overrides de sink GL ou falhas de shutdown no ambiente.
+O frontend de produção compilou em 32,94 s, incluindo as entradas de splash e
+shutdown. A compilação Rust de produção terminou em 14 min 14 s e o empacotamento
+Debian foi concluído com código 0. Não há instalação ou execução empacotada
+aprovada neste ponto.
+
+### Identificação do candidato
+
+O snapshot inicial registra o commit base e as alterações locais em
+`/tmp/mundam-bundle-linux/provenance.json`, com SHA-256 do patch e dos arquivos
+novos. O patch e uma cópia dos arquivos novos foram guardados nessa mesma
+pasta. Isso permite distinguir este candidato de builds anteriores com a mesma
+versão 0.1.0. O log de geração foi preservado em `build-deb.log` nessa pasta.
+Nenhum pacote foi instalado pela preparação.
+
+
+### Inspeção do Debian gerado
+
+O artefato `src-tauri/target/release/bundle/deb/Mundam_0.1.0_amd64.deb`
+tem 40.657.496 bytes e SHA-256
+`743e295c5acd0a80501b333689392164a855b59a23618be66827ce7b61a9c4de`.
+O manifesto de proveniência foi complementado com o hash do pacote e do
+executável extraído. O conteúdo foi extraído sem instalação para inspeção.
+
+Foram confirmados `/usr/bin/mundam`, o desktop entry com `Exec=mundam`, ícones,
+SoundFont e recursos Linux em `/usr/lib/Mundam/resources`. Os executáveis
+empacotados mantiveram permissão de execução. No host atual, o `ldd` do Mundam,
+FFmpeg, FFprobe, Assimp e PDFium não apontou bibliotecas ausentes. As consultas
+de versão dos três utilitários extraídos retornaram código 0. O arquivo
+`libassimp.so` de 14 bytes é texto, não uma biblioteca ELF; a biblioteca com
+SONAME `libassimp.so.6` está presente e a resolução no host atual funciona.
+Isso não comprova isolamento das bibliotecas do sistema ou instalação limpa.
+Os resultados detalhados ficaram em `inspecao-deb.log` na pasta de evidências.
+
+O bundler emitiu aviso de ausência do símbolo `__TAURI_BUNDLE_TYPE`, que pode
+prejudicar a identificação do pacote pelo updater. O pacote foi gerado, mas
+atualização automática não foi validada. Não foi encontrada integração do
+plugin updater no código desta rodada. O aviso permanece registrado e não
+foi tratado como falha de execução já comprovada.
+
+**Resultado desta etapa:** geração e inspeção estrutural do `.deb` concluídas;
+instalação, abertura de produção, reprodução de mídia e fechamento do pacote
+ainda não foram testados. AppImage permanece sem geração ou aceite.
+
+
+### Instalação e execução do Debian no host atual
+
+Evidências recebidas: `instalacao-deb.log`,
+`deb-ocioso-20261117-191638.log` e `deb-midia-20261117-191852.log`,
+em `/tmp/mundam-bundle-linux/`. O apt instalou e configurou `mundam` 0.1.0,
+processando os gatilhos de ícones, menus e desktop. Nenhuma dependência adicional
+precisou ser instalada nesta máquina já preparada; isso não valida resolução
+em ambiente limpo.
+
+O usuário confirmou abertura e fechamento normais no cenário ocioso. No cenário
+de mídia, a preferência Compatibility permaneceu salva; MP3 teve waveform,
+reprodução e seek, e MP4/M2TS tiveram imagem, áudio, seek e alteração de
+velocidade. O fechamento ocorreu com M2TS tocando e a tela de finalização
+terminou, devolvendo o terminal. Os dois boots registraram
+`compatibility_enabled=true source="settings"`.
+
+| Evidência | Ocioso | Mídia |
+| --- | --- | --- |
+| Tarefas registradas encerradas | 13, `clean=true` | 13, `clean=true` |
+| Pool SQLite antes do fechamento | 7 conexões, 7 ociosas | 9 conexões, 9 ociosas |
+| Espera por conexões ociosas | 0 ms | 0 ms |
+| Fechamento do pool | 138 ms | 205 ms |
+| Backend: pedido até conclusão | aproximadamente 141 ms | aproximadamente 211 ms |
+| Apresentação reconhecida | `timely=true` | `timely=true` |
+| Código do executável principal | 0 | 0 |
+
+O fallback conhecido do clipboard Wayland para X11 permaneceu nos dois logs.
+Não houve timeout do pool ou falha das tarefas registradas. Entretanto, a
+listagem imediatamente após o retorno ainda mostrou WebKit: no ocioso,
+PID 117509 com RSS 0; na mídia, PIDs 117866 (RSS 0) e 117875 (RSS 538.684 KiB).
+Todos tinham PPID 80068. Sem estado do processo, linha de comando e observação
+posterior, essa fotografia não distingue processos transitórios, zombies ou
+processos que continuaram ativos, nem prova a origem de todos eles.
+
+Após essa listagem, o log de mídia contém `free(): corrupted unsorted chunks`.
+A mensagem não identifica PID e apareceu depois de `MUNDAM_EXIT_CODE=0`;
+portanto, o código do processo principal não comprova saída limpa de toda a
+árvore WebKit. A ocorrência permanece sem causa atribuída, relacionada no
+histórico aos erros intermitentes de alocador já observados, sem comprovação
+de que seja a mesma falha ou consequência de pouca memória. Os snapshots finais
+mostram 5,2 GiB disponíveis no ocioso e 5,0 GiB na mídia, sem medir picos.
+
+O HlsManager registrou zero sessões rastreadas no fechamento de mídia, apesar
+da reprodução HLS observada. O teste confirma reprodução, mas não demonstra
+cancelamento de transcodificação em andamento nem remoção de seus diretórios.
+
+**Resultado:** instalação, preferência persistente e reprodução do `.deb`
+validadas nestes cenários no host atual. O backend e o processo principal
+encerraram com sucesso. O aceite do fechamento completo permanece pendente
+pela mensagem de corrupção de memória e pela falta de observação posterior
+dos subprocessos. AppImage ainda não foi gerado nesta etapa.
+
+
+### Repetição com mídia e observação posterior dos subprocessos
+
+Evidência: `/tmp/mundam-bundle-linux/deb-saida-midia-20261117-192634.log`.
+A captura inicial não mostrou Mundam, WebKit, FFmpeg ou FFprobe no filtro usado.
+O modo Compatibility foi novamente lido das configurações. Foram registrados
+reprodução HTTP de áudio e vídeo, vídeo com dimensões 1280×720, reprodução HLS
+e avanço de posição HLS para aproximadamente 44,22 s. O log não comprova por
+si só percepção de imagem/áudio ou alteração de velocidade nesta repetição.
+
+O pedido de fechamento ocorreu às 19:28:30.061 locais e o backend concluiu às
+19:28:30.238: aproximadamente 177 ms. As 13 tarefas registradas encerraram com
+`clean=true`; o pool tinha 8 conexões, todas ociosas, e fechou em 153 ms, sem
+espera por conexões ociosas. A apresentação foi reconhecida com `timely=true`
+e o executável principal retornou `MUNDAM_EXIT_CODE=0`.
+
+Diferentemente da amostra anterior, havia um processo de segmento em andamento:
+`process_cancellations=1`. O log registrou sua terminação aguardada com
+`reason=Shutdown`, status SIGKILL, seguida do cancelamento da requisição do
+segmento 23 e da conclusão dos owners registrados. Esse SIGKILL foi registrado
+no fluxo explícito de cancelamento; não é evidência de OOM nesta execução.
+O aviso HLS `fragLoadError`, HTTP 503, `fatal=false`, ocorreu depois do pedido
+de fechamento e corresponde ao cancelamento do segmento. O handler retorna
+503 para esse caso. Não foi tratado como falha de reprodução anterior ao
+fechamento. O HlsManager continuou com zero sessões rastreadas, mas essa métrica
+não abrange o processo de segmento que teve cancelamento e espera comprovados.
+A remoção de diretórios não foi comprovada pela captura.
+
+Na primeira fotografia após o retorno, às 19:28:31, o WebKitWebProcess PID
+118712 ainda estava presente, estado `SLl+`, RSS 559.132 KiB, PPID 80068.
+Não era zombie nessa fotografia. Já às 19:28:32 não apareceu nenhum processo
+no filtro, e a ausência se manteve às 19:28:36 e 19:28:46. Assim, nesta amostra,
+o WebProcess saiu entre as duas primeiras fotografias; não houve processo
+remanescente persistente durante os 15 segundos observados. A RAM disponível
+passou de 4,9 GiB na primeira fotografia para 5,4 GiB na última.
+
+Não apareceu `free(): corrupted unsorted chunks` nem outro erro de alocador
+nesta repetição. Isso demonstra não reprodução, sem corrigir ou explicar a
+ocorrência anterior. Nenhuma alteração de código foi feita para este teste.
+
+**Resultado:** repetição do fechamento com mídia aprovada nesta amostra,
+incluindo cancelamento aguardado de um processo de segmento e saída posterior
+do WebProcess. A suspeita de subprocesso persistentemente ativo não se
+confirmou nesta captura. O erro intermitente de alocador permanece aberto no
+histórico; não há aceite incondicional de estabilidade ou validação de máquina
+limpa. AppImage ainda não foi gerado.
+
+
+## 19. Preparação do AppImage Linux (17 de novembro)
+
+Após a repetição do Debian, o usuário autorizou prosseguir para AppImage e
+reservou a investigação do erro intermitente para depois dessa validação.
+Problemas de disco ou memória são hipóteses do usuário, sem diagnóstico
+confirmado pelas evidências atuais.
+
+Foi habilitado `bundle.linux.appimage.bundleMediaFramework` na configuração
+Linux, conforme a [documentação oficial do Tauri](https://v2.tauri.app/distribute/appimage/)
+para reprodução multimídia. Os recursos já declarados de FFmpeg/FFprobe,
+Assimp, PDFium e SoundFonts foram mantidos. O candidato é amd64, compilado
+no Ubuntu 26.04.1; não demonstra compatibilidade com distribuições mais antigas.
+
+O frontend de produção compilou em 47,45 s. A build foi iniciada com um job
+Cargo e sem overrides de sink GL ou falhas de shutdown. O snapshot de origem,
+patch das alterações locais, arquivos novos e manifesto de hashes foram salvos
+em `/tmp/mundam-appimage-linux/`, junto ao log `build-appimage.log`.
+A compilação Rust terminou em 18 min 21 s. Nenhum teste gráfico do
+AppImage foi realizado nesta preparação.
+
+
+### Geração e inspeção do candidato AppImage
+
+A primeira tentativa concluiu o executável, mas falhou no empacotamento com
+`Read-only file system (os error 30)`. O empacotamento foi retomado usando
+cache em `/tmp/mundam-appimage-linux/cache`, sem recompilação Rust. A tentativa
+restrita de download falhou por resolução DNS; com acesso de rede autorizado,
+as ferramentas oficiais foram baixadas e o empacotamento concluiu com código 0.
+O log dessa retomada é `bundle-appimage.log` na pasta de evidências.
+
+O arquivo `src-tauri/target/release/bundle/appimage/Mundam_0.1.0_amd64.AppImage`
+tem 225.819.128 bytes (aproximadamente 215,4 MiB), SHA-256
+`e5f976c1906bb2c5110c0d12ada6d0830952608f31b2bdaf2d83b7eaec480c24`.
+O manifesto de proveniência foi complementado com o hash do artefato e do
+executável interno. A extração do arquivo final para inspeção retornou código
+0, com conteúdo de aproximadamente 635 MiB. O ambiente restrito emitiu avisos
+`Failed to create stream fd: Operation not permitted`; não houve abertura da
+interface ou teste de montagem FUSE nessa inspeção.
+
+Foram confirmados launcher, executável, FFmpeg, FFprobe, Assimp, PDFium,
+SoundFont e scanner GStreamer dentro do arquivo extraído. Foram encontrados
+273 plugins GStreamer, incluindo playback, libav, isomp4, audioparsers e
+ximagesink. Com o diretório interno de bibliotecas no caminho de resolução,
+o `ldd` do Mundam, FFmpeg, FFprobe, Assimp, PDFium e scanner não mostrou
+bibliotecas ausentes no host atual. As consultas de versão dos utilitários
+FFmpeg, FFprobe e Assimp retornaram código 0. Os resultados foram preservados
+em `inspecao-appimage.log`; isso não prova execução em máquina limpa ou ausência
+de dependências do host.
+
+O AppRun gerado carrega hooks GTK e GStreamer. O hook GTK seleciona
+`GDK_BACKEND=x11` e o hook GStreamer aponta os plugins e scanner para o AppDir.
+Esse comportamento do launcher difere da execução direta do Debian no ambiente
+Wayland e foi preservado, sem override adicional durante a preparação.
+
+O aviso de símbolo `__TAURI_BUNDLE_TYPE` ausente voltou a ocorrer. O plugin
+GStreamer também emitiu avisos de copyright não localizado ao consultar cópias
+de bibliotecas dentro do AppDir, além de avisos do launcher já existente.
+Esses avisos não impediram a geração; não se considera validado o updater nem
+uma auditoria de completude das licenças por esse resultado.
+
+**Resultado:** geração e inspeção estrutural do AppImage concluídas. Abertura
+pela imagem, reprodução, preferência persistente e fechamento com observação
+posterior de subprocessos permanecem sem teste gráfico nesta etapa. A análise
+do erro intermitente anterior foi mantida para depois da validação solicitada.
+
+
+### Primeiras execuções: apresentação visual bloqueada
+
+Evidências: `appimage-ocioso-20261117-201319.log` e
+`appimage-midia-20261117-201644.log`, em `/tmp/mundam-appimage-linux/`.
+Ambas registraram o SHA-256 do candidato descrito acima. O usuário relatou
+corrupção visual em toda a interface desde a abertura, tornando splash,
+janela principal e finalização ilegíveis. A segunda tentativa apresentou o
+mesmo problema e não permitiu testar mídia; o nome do log não representa
+reprodução efetivamente validada.
+
+Nos dois boots, `compatibility_enabled=true source="settings"` confirmou
+aplicação da preferência de vídeo. O backend chegou a BackendReady e concluiu
+o scan de 787 arquivos inalterados, sem erros. Não há evento de reprodução
+nessas capturas. A preferência existente atua no sink GL do vídeo; sua
+aplicação não comprova correção da composição gráfica de toda a interface.
+
+As 13 tarefas registradas terminaram com `clean=true` nos dois testes. Os pools
+SQLite tinham 8 conexões ociosas de 8 e fecharam em 446 ms e 220 ms,
+respectivamente, sem espera por conexões ociosas. O backend concluiu em cerca
+de 448 ms e 221 ms desde o pedido. As duas imagens retornaram
+`APPIMAGE_EXIT_CODE=0`, mas não há registro de reconhecimento da apresentação
+`timely=true` nessas execuções, nem confirmação visual possível pelo usuário.
+
+No ocioso, WebKitWebProcess PID 134280 estava presente na primeira fotografia,
+às 20:15:20, estado `SLl+`, RSS 280.732 KiB. Não apareceu nas fotografias de
+20:15:22, 20:15:26 e 20:15:36. Na segunda tentativa não houve correspondências
+no filtro de processos em nenhuma das quatro fotografias finais. Não houve
+mensagem de corrupção de alocador nesses logs; isso não encerra a investigação
+da ocorrência intermitente anterior.
+
+A inspeção do launcher confirmou `GDK_BACKEND=x11` definido incondicionalmente
+pelo hook GTK do AppImage, além das bibliotecas gráficas empacotadas. Essas são
+diferenças relevantes em relação à execução Debian validada, sem demonstrar
+qual delas causa os glitches. Não há erro explícito de DMABUF, GL ou falha de
+hardware registrado nessas capturas. A
+[documentação de gráficos Linux do Tauri](https://v2.tauri.app/develop/debug/linux-graphics/)
+lista o renderer DMABUF e a composição acelerada entre caminhos relacionados
+a problemas visuais; essa referência sustenta uma hipótese diagnóstica, não
+uma causa comprovada neste host. Nenhuma mudança de renderer foi incorporada
+ao produto nesta análise.
+
+**Resultado:** AppImage reprovado quanto à apresentação visual nestas duas
+execuções; mídia bloqueada, sem aceite. O fechamento do backend e o retorno
+do processo tiveram sucesso, sem comprovação de tela de finalização correta.
+Não se atribuiu a falha a disco, RAM ou GPU física pelas evidências atuais.
+
+
+### AppImage com renderer DMABUF desativado por ambiente
+
+Evidência: `/tmp/mundam-appimage-linux/appimage-sem-dmabuf-20261117-202044.log`.
+A execução foi identificada pelo marcador
+`DIAGNOSTICO: WEBKIT_DISABLE_DMABUF_RENDERER=1`. O usuário confirmou splash,
+janela principal e finalização legíveis, ausência de glitches ao redimensionar
+e funcionamento dos testes de áudio/vídeo solicitados (MP3, MP4 e M2TS,
+reprodução, seek e velocidade). Também relatou melhora percebida de fluidez
+e de artefatos na apresentação/transparência da janela; não houve medição de
+desempenho ou isolamento específico da transparência. Fechou com Alt+F4.
+A preferência existente do sink de vídeo permaneceu aplicada:
+`compatibility_enabled=true source="settings"`.
+
+O log confirma reprodução HTTP de áudio e vídeo, dimensões de vídeo 1280×720,
+manifestos HLS e reprodução com posições avançadas após seek. Houve dois avisos
+HLS `bufferSeekOverHole` e um `bufferStalledError`, todos `fatal=false` e sem
+código de erro do elemento de mídia. Foram seguidos de eventos `playing`;
+não se classificou a sessão como isenta de avisos, nem se inferiu falha fatal
+a partir deles. O relato do usuário não indicou prejuízo perceptível.
+
+O pedido de fechamento foi registrado às 20:23:45.943 locais. As 13 tarefas
+registradas concluíram com `clean=true`. O SQLite tinha 18 conexões, todas
+ociosas, e fechou em 2654 ms, com `idle_wait_ms=0`. O backend concluiu às
+20:23:48.710, aproximadamente 2768 ms após o pedido, e a imagem retornou
+`APPIMAGE_EXIT_CODE=0`. Não houve timeout, mas o fechamento do pool foi
+consideravelmente mais lento que nas amostras anteriores. Não há registro de
+reconhecimento da apresentação `timely=true` nesta captura; a confirmação da
+tela de finalização é o relato visual do usuário.
+
+O primeiro timestamp após o retorno foi 20:23:55, cerca de nove segundos após
+o pedido e seis segundos após a conclusão do backend. Às 20:23:55 e 20:23:56,
+os processos WebKitNetworkProcess PID 135662 e WebKitWebProcess PID 135672
+estavam presentes em estado `DLl+`. Não apareceram às 20:24:00 e 20:24:10.
+Portanto, houve saída posterior dos subprocessos no intervalo observado,
+mas com demora maior que a repetição do Debian. O estado D é uma observação
+de espera ininterruptível; a captura não identifica a operação ou comprova
+falha de disco, RAM ou outro componente. Não houve erro de alocador neste log.
+
+**Resultado:** apresentação, redimensionamento, mídia e fechamento visual do
+AppImage aprovados nesta amostra, condicionados ao override externo de DMABUF
+e à preferência de vídeo já salva. A mudança fornece evidência de um contorno
+para o caminho gráfico afetado neste ambiente, sem provar defeito físico de
+GPU, memória ou disco. O AppImage original, sem esse override, continua com
+as falhas visuais reproduzidas. Nenhum ajuste persistente de DMABUF foi
+incorporado ao produto neste teste. A lentidão de fechamento e o erro de
+alocador anterior permanecem no histórico para investigação separada.
+
+
+## 20. Preferência persistente de compatibilidade gráfica Linux
+
+Foi implementada uma opção independente de compatibilidade gráfica em
+Settings → Performance → Interface rendering. O modo Normal é o padrão;
+Compatibility grava `extra.linux_graphics_compatibility` como booleano no
+settings.json existente e informa que a alteração exige reinício. A opção de
+compatibilidade de vídeo permanece independente. Os controles são exclusivos
+do Linux, aguardam leitura inicial e exibem confirmação apenas após gravação;
+falhas de leitura ou gravação não são apresentadas como sucesso.
+
+O novo bootstrap `linux_graphics` lê a preferência no thread inicial, antes de
+criar o Builder Tauri, GTK, WebViews ou workers. Quando habilitada, define
+`WEBKIT_DISABLE_DMABUF_RENDERER=1`; ausente/desabilitada preserva o caminho
+normal. Uma variável explícita no ambiente tem prioridade, inclusive valor 0.
+A política de sink GStreamer não é modificada por esse bootstrap. As duas
+formas de gravação do serviço (setting individual e objeto completo) validam
+o tipo booleano. Foram adicionados schema, estado e acesso pelo hook de
+settings, sem alteração manual das preferências do usuário nesta preparação.
+
+A rodada de frontend passou 17 testes (6 de interface gráfica, 6 de interface
+de vídeo e 5 do store), incluindo persistência, falhas e visibilidade por
+plataforma. A checagem de tipos passou. O lint inicialmente apontou excesso de
+complexidade em updateSettings; a gravação da nova preferência foi extraída
+para um helper e o lint dos arquivos envolvidos passou após esse ajuste.
+Uma repetição isolada do teste de store após o helper atingiu timeout de
+inicialização do worker Vitest, sem executar testes, portanto não representa
+uma falha de assert nem um resultado aprovado dessa repetição. A execução
+posterior com pool de threads e um worker passou os 5 testes do store, já
+com o helper final.
+
+Foram adicionados testes Rust de default, leitura das preferências gravadas
+pelo serviço, rejeição de valores inválidos e aplicação em subprocessos com
+prioridade do ambiente. As sessões de compilação dos testes foram interrompidas
+sem registrar resultado final, inclusive após retomada; essa validação Rust
+permanece pendente. Não se atribuiu a interrupção a falha de hardware.
+O AppImage já validado com override externo não contém essa alteração nova.
+Nenhum novo bundle ou teste gráfico de persistência foi aprovado nesta etapa.
+
+
+### Retomada dos testes Rust e novo AppImage
+
+Evidências recebidas em `/tmp/mundam-graphics-persist/`: `testes-rust.log`,
+`build-appimage.log` e `sha256.log`. A compilação dos testes terminou em
+12 min 56 s. Os 10 testes selecionados passaram (5 de graphics e 5 de vídeo),
+sem falhas, em 0,14 s, com 328 outros testes filtrados. Os casos de aplicação
+em subprocessos exercitaram a matriz de preferências e overrides de ambiente;
+a entrada auxiliar de teste também aparece nessa contagem. Essa rodada conclui
+a verificação Rust que havia ficado pendente nas sessões interrompidas.
+
+O frontend de produção compilou em 38,58 s; a compilação release terminou em
+14 min 02 s, seguida da geração de um AppImage. O aviso conhecido de ausência
+do símbolo `__TAURI_BUNDLE_TYPE` permaneceu; não houve falha de geração
+registrada. O artefato mantém o nome e versão 0.1.0, mas é um candidato novo,
+contendo a preferência gráfica persistente.
+
+O arquivo `src-tauri/target/release/bundle/appimage/Mundam_0.1.0_amd64.AppImage`
+tem 225.851.896 bytes e SHA-256
+`f8ae4cecbaeafd08c7a35611c9e24fc89107946f6fa35b6cd70b395ce0dff047`.
+O hash foi recalculado nesta análise e coincide com `sha256.log`; distingue
+esse pacote do candidato anterior `e5f976c…`. As capturas anteriores de mídia
+e interface não são consideradas teste gráfico deste novo artefato.
+
+**Resultado:** testes Rust selecionados e geração do novo AppImage concluídos.
+A gravação pela interface e a aplicação da preferência gráfica após reinício,
+sem override externo, ainda não foram validadas pelo usuário neste candidato.
+
+
+### Validação da preferência gráfica salva no AppImage
+
+Evidências: `/tmp/mundam-graphics-persist/salvar-20261117-220500.log` e
+`/tmp/mundam-graphics-persist/persistida-20261117-220711.log`. O usuário
+confirmou execução dos passos propostos: primeira abertura com override
+externo, gravação de Graphics mode → Compatibility e fechamento pelo X;
+segunda abertura sem override externo, recuperação das duas preferências,
+interface legível e sem glitches, reprodução de MP3/MP4/M2TS com waveform,
+seek e velocidade, e fechamento com Alt+F4 com M2TS tocando.
+
+Na primeira execução, o bootstrap gráfico registrou
+`Linux graphics renderer override preserved source="environment"`, enquanto
+o modo de vídeo já vinha das configurações. Na segunda, os dois bootstraps
+registraram `compatibility_enabled=true source="settings"`. Isso confirma
+que o ajuste gráfico passou a ser aplicado pela preferência persistida,
+sem depender do override temporário para essa segunda abertura. O relato
+visual confirma que splash, janela principal e finalização funcionaram.
+
+O log da segunda execução contém reprodução HTTP de áudio/vídeo e HLS por
+MediaSource, com posição HLS avançando para 53,74 e 61,48 s. Um evento registrou
+24 frames totais e zero frames descartados; esse snapshot não é uma medição
+de fluidez da sessão inteira. Waveform e velocidade foram confirmados pelo
+usuário, sem inferir sua validação apenas desses eventos de reprodução.
+
+| Evidência | Gravação | Preferência persistida |
+| --- | --- | --- |
+| Tarefas registradas encerradas | 13, `clean=true` | 13, `clean=true` |
+| Pool SQLite | 20 conexões, 20 ociosas | 20 conexões, 20 ociosas |
+| Espera por conexões ociosas | 0 ms | 0 ms |
+| Fechamento do pool | 293 ms | 498 ms |
+| Pedido até conclusão do backend | aproximadamente 295 ms | aproximadamente 501 ms |
+| Apresentação reconhecida | `timely=true` | `timely=true` |
+| Código da imagem | 0 | 0 |
+
+Nenhum processo Mundam, WebKit, FFmpeg ou FFprobe apareceu no filtro das quatro
+fotografias após cada retorno, incluindo a primeira e a última, cerca de
+15 segundos depois. Não houve erro de alocador, timeout do pool ou aviso HLS
+nesses dois logs. O aviso conhecido de fallback do clipboard Wayland para X11
+permaneceu. Os snapshots finais indicaram cerca de 5,5–5,6 GiB de RAM disponível;
+não representam monitoramento de pico. O fechamento com mídia registrou zero
+cancelamentos de processos de segmento, portanto essa amostra não substitui
+o teste anterior que efetivamente aguardou um processo de segmento ativo.
+
+**Resultado:** preferência gráfica persistente, apresentação, mídia e
+fechamento do novo AppImage aprovados nestes cenários no host atual, com
+compatibilidade gráfica e de vídeo habilitadas. A falha visual do candidato
+anterior foi contornada pela opção persistente neste ambiente. Não se estende
+o aceite a outras máquinas, ao modo Normal neste host ou a toda a matriz de
+shutdown. O erro intermitente de corrupção de memória anterior não foi
+reproduzido nem explicado; permanece separado para investigação, sem atribuição
+confirmada a hardware. O Debian anteriormente testado não contém a nova
+preferência gráfica e não foi regenerado nesta rodada.
+
+
+## 21. Investigação inicial do ambiente: pressão de memória e armazenamento
+
+O usuário relatou alertas frequentes de consumo de memória também no terminal,
+Arquivos e outras aplicações, suspeitando do systemd-oomd e do HD antigo com
+histórico de problemas. Informou que os testes Windows nesta mesma máquina
+usaram um SSD mais novo. Essa comparação altera simultaneamente sistema,
+armazenamento, drivers e WebView; não isola a causa dos erros Linux.
+
+A consulta de leitura ao journal de 17 de novembro, entre 08:00 e 00:00 do dia
+seguinte, encontrou 18 registros de encerramento pelo systemd-oomd. As cópias
+foram preservadas em `/tmp/mundam-diagnostico-host/oomd.log` e `kernel.log`.
+Há encerramentos de scopes Chromium, VS Code e ptyxis-spawn, além do D-Bus
+da sessão e GNOME Shell. Entre os registros relevantes:
+
+| Horário local | Alvo registrado | Pressão informada no user@1000.service |
+| --- | --- | --- |
+| 09:50:03 | ptyxis-spawn | 78,43% |
+| 20:38:25 | Chromium | 58,31% |
+| 20:38:40 | VS Code | 78,42% |
+| 20:54:36 | Chromium | 84,32% |
+| 20:54:52 | GNOME Shell | 67,08% |
+
+Os registros indicam pressão acima de 50% por mais de 20 s com atividade de
+reclaim. Esses percentuais são métricas de pressão, não percentual de RAM
+ocupada. A [documentação do systemd-oomd](https://www.freedesktop.org/software/systemd/man/258/systemd-oomd.html)
+explica sua atuação por cgroups e PSI. Os eventos da noite são temporalmente
+compatíveis com as interrupções de sessão durante as checagens. O registro
+de 09:50 é compatível com o horário da execução de áudio interrompida relatada
+anteriormente, sem identificação suficiente da árvore do Mundam para atribuir
+seu encerramento com certeza. A confirmação de ação do oomd não identifica
+sozinha o consumidor responsável pela pressão ou erro de configuração do daemon.
+
+O lsblk identificou `/dev/sda`, modelo ST1000LM024 HN-M101MBB, 931,5 GiB e
+ROTA=1, com a raiz em sda2. O smartctl não estava disponível para consulta.
+Na captura atual, havia 5,5 GiB de RAM disponível e 2,1 GiB de swap ocupada;
+PSI memória avg10/avg60 era zero, enquanto PSI I/O avg300 indicava some=4,30%
+e full=3,77%. São snapshots sem correlação suficiente com as falhas históricas.
+O filtro dos registros de kernel disponíveis não encontrou erros de I/O,
+ATA, ext4, OOM do kernel ou machine check com os padrões consultados; isso não
+é teste de saúde do disco ou RAM nem exclui falhas intermitentes.
+A consulta oomctl não acessou o system bus dentro do ambiente restrito.
+
+A mensagem `free(): corrupted unsorted chunks` corresponde a uma verificação
+de integridade das estruturas do heap no
+[código do alocador glibc](https://raw.githubusercontent.com/bminor/glibc/master/malloc/malloc.c).
+É distinta de um encerramento por pressão de memória. Nenhum dos 18 registros
+de kill consultados ocorreu no minuto do erro do Debian, às 19:22. Não há
+correlação demonstrada entre o erro do alocador e esses kills ou falha de HD.
+
+**Resultado:** ação recorrente do systemd-oomd no ambiente confirmada;
+instabilidade de sessões possui evidência externa ao Mundam. Saúde do HD e
+integridade física da RAM permanecem sem diagnóstico. A causa da pressão e
+a ocorrência intermitente de corrupção de heap continuam abertas; não foram
+classificadas como defeito comprovado do aplicativo ou de hardware.
+
+
+### SMART, política oomd e amostra de utilização recebidos
+
+Evidências: `smart-sda.log`, `oomctl.log` e `estado-host.log`, na pasta
+`/tmp/mundam-diagnostico-host/`, coletadas às 22:39 locais de 17 de novembro.
+
+O oomctl confirmou modo ativo (`Dry Run: no`), monitoramento de
+`user@1000.service` por pressão com limite de 50% e duração de 20 s. O default
+global exibido era 60%, mas o limite efetivo desse cgroup era 50%. Nenhum
+cgroup apareceu na lista de monitoramento por swap; o limite global de swap
+exibido como 90% não comprova que os kills anteriores tenham ocorrido por esse
+critério. Os registros anteriores identificam explicitamente pressão e reclaim.
+Esses percentuais não são ocupação de RAM. Não foi demonstrado erro de
+configuração do daemon; sua ação é coerente com os limites exibidos.
+
+No snapshot havia cerca de 5,5 GiB de RAM disponível, 2 GiB de swap ocupada e
+PSI de memória zerado nas três médias. Havia dois arquivos de swap, de 4 e 8 GiB.
+As amostras de um segundo do vmstat mostraram swap-out zero e swap-in pontual,
+sem thrashing sustentado nessa janela. A primeira linha do vmstat é uma média
+desde o boot e não foi interpretada como atividade daquele segundo. Houve
+I/O wait pontual de até 10% nas linhas seguintes, com PSI I/O avg60 some=7,23%
+e full=7,01%. Esses dados não diagnosticam falha de HD. A CPU de sistema ficou
+em cerca de 25–26% na maior parte da amostra, apesar do baixo uso de aplicações;
+a origem não foi identificada. A lista de processos não continha Mundam entre
+os maiores consumidores apresentados; ela não identifica os responsáveis
+pelos picos anteriores nem prova ausência de vazamento em outras execuções.
+
+O SMART identificou HD de 5400 rpm e 34.642 horas ligado. O resultado global
+foi PASSED, com zero setores realocados, pendentes e offline incorrigíveis nos
+atributos atuais, temperatura de 32 °C e nenhum self-test registrado. Em
+contrapartida, há histórico de 63.099 erros de dispositivo, com os oito últimos
+registros mostrando erros UNC de leitura às 19.938 horas de vida. São
+registros antigos, aproximadamente 14.704 horas de funcionamento anteriores
+à leitura atual, e não erros demonstrados na sessão de testes. O total não
+representa quantidade de setores defeituosos distintos.
+
+O atributo de CRC UDMA registra 59 ocorrências e Load_Cycle_Count registra
+2.278.977 (normalizado 1, threshold 0). São contadores históricos; não houve
+segunda leitura que demonstrasse crescimento ou diagnóstico do componente
+responsável pelos erros de comunicação. Valores brutos específicos do
+fabricante de outros atributos não foram tratados como contagens universais
+de falhas. PASSED não equivale a uma varredura de superfície bem-sucedida nem
+anula o histórico de erros UNC. Nenhum autoteste adicional ou reparo foi
+executado nesta análise.
+
+**Resultado:** pressão histórica de memória com ação do oomd confirmada;
+sem pressão de memória significativa durante a amostra atual. O HD tem
+histórico comprovado de leituras incorrigíveis e uso prolongado, mas falha
+ativa durante os testes não foi demonstrada. O ambiente é um fator de
+confusão relevante para desempenho e interrupções; não há evidência suficiente
+para atribuir a ele a corrupção de heap ou excluir problemas de software.
+A comparação Windows/SSD não isola armazenamento de diferenças de sistema
+e bibliotecas. A validação funcional já obtida nos cenários limpos permanece
+registrada, sem converter o erro intermitente em defeito de hardware confirmado.

@@ -1,8 +1,36 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { ShutdownSnapshot } from './types';
+import { hasShutdownTestFault } from './testFaults';
 
 const SNAPSHOT_INTERVAL_MILLISECONDS = 1000;
+const IPC_TIMEOUT_MILLISECONDS = 1000;
+const ACKNOWLEDGEMENT_RETRY_MILLISECONDS = 100;
+
+/**
+ * Bounds frontend IPC waits without coupling backend cleanup to a response.
+ * @param command - Restricted shutdown command to invoke.
+ * @returns The response or a timeout/failure; late native responses are ignored.
+ */
+async function invokeShutdown<T>(command: string): Promise<T> {
+    if (hasShutdownTestFault('ipc-unavailable')) {
+        throw new Error('Injected shutdown IPC failure');
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            invoke<T>(command),
+            new Promise<never>((_, reject) => {
+                timer = setTimeout(
+                    () => reject(new Error('Shutdown IPC response timed out')),
+                    IPC_TIMEOUT_MILLISECONDS
+                );
+            })
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
 /**
  * Observes shutdown events and reconciles them against retained state.
@@ -30,14 +58,17 @@ export function observeShutdown(
         if (disposed || queryPending) return;
         queryPending = true;
         try {
-            accept(await invoke<ShutdownSnapshot>('get_shutdown_state'));
+            accept(await invokeShutdown<ShutdownSnapshot>('get_shutdown_state'));
         } catch (error) {
             if (!disposed) onUnavailable(error);
         } finally {
             queryPending = false;
         }
     };
-    void listen<ShutdownSnapshot>('shutdown:changed', event => accept(event.payload))
+    const subscription = hasShutdownTestFault('ipc-unavailable')
+        ? Promise.reject(new Error('Injected shutdown event failure'))
+        : listen<ShutdownSnapshot>('shutdown:changed', event => accept(event.payload));
+    void subscription
         .then(dispose => {
             if (disposed) dispose();
             else unlisten = dispose;
@@ -61,6 +92,12 @@ export function observeShutdown(
  * @example
  * await acknowledgeShutdownPresentation();
  */
-export function acknowledgeShutdownPresentation(): Promise<void> {
-    return invoke('acknowledge_shutdown_presentation');
+export async function acknowledgeShutdownPresentation(): Promise<void> {
+    try {
+        await invokeShutdown<void>('acknowledge_shutdown_presentation');
+    } catch {
+        // Retrying is safe because the backend acknowledgement is idempotent.
+        await new Promise(resolve => setTimeout(resolve, ACKNOWLEDGEMENT_RETRY_MILLISECONDS));
+        await invokeShutdown<void>('acknowledge_shutdown_presentation');
+    }
 }

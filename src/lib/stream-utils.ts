@@ -13,6 +13,7 @@ import {
     type VideoProbeResult
 } from './hls-player';
 import { getAssetUrl } from '../core/utils/assetUrl';
+import { detectPlatform } from '../core/input/utils/platform';
 
 export { HLS_SERVER_URL };
 
@@ -126,6 +127,17 @@ export function isNativeFormat(path: string): boolean {
 }
 
 /**
+ * Serves native Linux media through the authenticated loopback HTTP server.
+ * @param assetId - Catalog identifier used to validate the file scope on the backend.
+ * @returns A native media URL compatible with the current WebView.
+ */
+function getNativeMediaUrl(assetId: string): string {
+    if (detectPlatform() !== 'linux') return getAssetUrl(assetId);
+    const token = encodeURIComponent(getStreamingToken());
+    return `${HLS_SERVER_URL}/stream/${encodeURIComponent(assetId)}?token=${token}`;
+}
+
+/**
  * Get the appropriate audio URL for an asset
  */
 export function getAudioUrl(
@@ -144,8 +156,8 @@ export function getAudioUrl(
         return getHlsPlaylistUrl(assetId, quality);
     }
 
-    // Default to asset protocol (direct file access)
-    return getAssetUrl(assetId);
+    // Keep native decoding while using a transport supported by the WebView.
+    return getNativeMediaUrl(assetId);
 }
 
 function requiresLinearHls(path: string, probe?: VideoProbeResult | null): boolean {
@@ -179,8 +191,8 @@ export function getVideoUrl(
         return getHlsPlaylistUrl(assetId, quality);
     }
 
-    // Native format (MP4/MOV) - Direct file access over custom protocol
-    return getAssetUrl(assetId);
+    // Native format (MP4/MOV) without changing the selected playback strategy.
+    return getNativeMediaUrl(assetId);
 }
 
 /**

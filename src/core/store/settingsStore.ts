@@ -14,24 +14,49 @@ const [cacheRetentionDays, setCacheRetentionDays] = createSignal<number>(30);
 const [indexerConcurrencyLimit, setIndexerConcurrencyLimit] = createSignal<number>(200);
 const [autoDetectDuplicates, setAutoDetectDuplicates] = createSignal<boolean>(true);
 const [developerMode, setDeveloperMode] = createSignal<boolean>(false);
+const [linuxGraphicsCompatibility, setLinuxGraphicsCompatibility] = createSignal<boolean>(false);
+const [linuxVideoCompatibility, setLinuxVideoCompatibility] = createSignal<boolean>(false);
 const [cacheStats, setCacheStats] = createSignal<CacheStats>({
     size_bytes: 0,
     file_count: 0
 });
 
+/** Persists graphics mode before publishing its acknowledged state. */
+const persistGraphicsCompatibility = (enabled?: boolean): Promise<void>[] =>
+    enabled === undefined
+        ? []
+        : [
+              tauriService.setSetting('linux_graphics_compatibility', String(enabled)).then(() => {
+                  setLinuxGraphicsCompatibility(enabled);
+              })
+          ];
+
 export const settingsActions = {
     initialize: async () => {
-        const [threads, retention, concurrency, autoDetect, stats, budget, developerModeSetting] =
-            await Promise.all([
-                tauriService.getSetting('thumbnail_threads'),
-                tauriService.getSetting('cache_retention_days'),
-                tauriService.getSetting('indexer_concurrency_limit'),
-                tauriService.getSetting('auto_detect_duplicates'),
-                tauriService.getCacheStats(),
-                tauriService.getSetting('processing_concurrency'),
-                tauriService.getSetting('developer_mode')
-            ]);
+        const [
+            threads,
+            retention,
+            concurrency,
+            autoDetect,
+            stats,
+            budget,
+            developerModeSetting,
+            videoCompatibility,
+            graphicsCompatibility
+        ] = await Promise.all([
+            tauriService.getSetting('thumbnail_threads'),
+            tauriService.getSetting('cache_retention_days'),
+            tauriService.getSetting('indexer_concurrency_limit'),
+            tauriService.getSetting('auto_detect_duplicates'),
+            tauriService.getCacheStats(),
+            tauriService.getSetting('processing_concurrency'),
+            tauriService.getSetting('developer_mode'),
+            tauriService.getSetting('linux_video_compatibility'),
+            tauriService.getSetting('linux_graphics_compatibility')
+        ]);
 
+        setLinuxGraphicsCompatibility(String(graphicsCompatibility) === 'true');
+        setLinuxVideoCompatibility(String(videoCompatibility) === 'true');
         if (budget !== null) setProcessingConcurrency(Number(budget));
         if (threads !== null) setThumbnailThreads(Number(threads));
         if (retention !== null) setCacheRetentionDays(Number(retention));
@@ -55,7 +80,15 @@ export const settingsActions = {
             };
         }
 
-        const promises: Promise<void>[] = [];
+        const promises = persistGraphicsCompatibility(payload.linuxGraphicsCompatibility);
+        if (payload.linuxVideoCompatibility !== undefined) {
+            const enabled = payload.linuxVideoCompatibility;
+            promises.push(
+                tauriService.setSetting('linux_video_compatibility', String(enabled)).then(() => {
+                    setLinuxVideoCompatibility(enabled);
+                })
+            );
+        }
         if (payload.processingConcurrency !== undefined) {
             const value = payload.processingConcurrency;
             promises.push(
@@ -128,6 +161,8 @@ export const settingsActions = {
 
 export {
     processingConcurrency,
+    linuxVideoCompatibility,
+    linuxGraphicsCompatibility,
     thumbnailThreads,
     cacheRetentionDays,
     indexerConcurrencyLimit,

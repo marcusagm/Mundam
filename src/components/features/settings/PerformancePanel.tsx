@@ -1,5 +1,8 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { PerformanceSettings } from './PerformanceSettings';
+import { LinuxGraphicsSettings } from './LinuxGraphicsSettings';
+import { LinuxVideoSettings } from './LinuxVideoSettings';
+import { detectPlatform } from '../../../core/input/utils/platform';
 
 /**
  * Settings panel dedicated to hardware allocation, background processing concurrency,
@@ -17,6 +20,10 @@ export const PerformancePanel: Component = () => {
             </p>
 
             <PerformanceSettings />
+            <Show when={detectPlatform() === 'linux'}>
+                <LinuxGraphicsSettings />
+                <LinuxVideoSettings />
+            </Show>
         </div>
     );
 };

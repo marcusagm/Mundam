@@ -3621,6 +3621,7 @@ dependencies = [
  "chrono",
  "dashmap",
  "ddsfile",
+ "dirs",
  "fast_image_resize",
  "flashraw",
  "flate2",

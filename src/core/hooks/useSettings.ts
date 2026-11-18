@@ -1,5 +1,7 @@
 import {
     processingConcurrency,
+    linuxVideoCompatibility,
+    linuxGraphicsCompatibility,
     thumbnailThreads,
     cacheRetentionDays,
     indexerConcurrencyLimit,
@@ -19,6 +21,10 @@ export const useSettings = () => {
     return {
         /** Shared media operations; zero selects automatic capacity. */
         processingConcurrency,
+        /** Saved Linux video compatibility mode, applied after restart. */
+        linuxVideoCompatibility,
+        /** Saved Linux interface compatibility mode, applied before splash after restart. */
+        linuxGraphicsCompatibility,
         /** Number of worker threads for thumbnail generation */
         thumbnailThreads,
         /** Number of days to keep transcoded files in cache */

@@ -28,6 +28,12 @@ pub fn run() {
     // Initialize structured tracing
     crate::infra::telemetry::init_telemetry();
 
+    let context = application_context::<tauri::Wry>();
+    #[cfg(target_os = "linux")]
+    crate::bootstrap::linux_video::apply(&context.config().identifier);
+    #[cfg(target_os = "linux")]
+    crate::bootstrap::linux_graphics::apply(&context.config().identifier);
+
     let builder = crate::bootstrap::startup::register_state(tauri::Builder::default())
         .plugin(tauri_plugin_clipboard_manager::init());
     builder
@@ -180,7 +186,7 @@ pub fn run() {
             delivery::tauri::commands::streaming::cleanup_cache_streaming,
             delivery::tauri::commands::streaming::clear_cache_streaming
         ])
-        .build(application_context())
+        .build(context)
         .expect("error while building tauri application")
         .run(|app_handle, event| match event {
             tauri::RunEvent::WindowEvent {

@@ -45,6 +45,17 @@ impl SettingsService {
                 "Invalid processing concurrency".into(),
             ));
         }
+        for key in ["linux_video_compatibility", "linux_graphics_compatibility"] {
+            if settings
+                .extra
+                .get(key)
+                .is_some_and(|value| !value.is_boolean())
+            {
+                return Err(crate::core::AppError::ValidationFailed(format!(
+                    "{key} must be a boolean"
+                )));
+            }
+        }
         self.repository.save(settings).await?;
         if let Some(control) = &self.control {
             control
@@ -112,6 +123,17 @@ impl SettingsService {
                         )
                     })?;
                 settings.processing_concurrency = parsed as usize;
+            }
+            "linux_video_compatibility" | "linux_graphics_compatibility" => {
+                let enabled = value
+                    .as_bool()
+                    .or_else(|| value.as_str().and_then(|raw| raw.parse::<bool>().ok()))
+                    .ok_or_else(|| {
+                        crate::core::AppError::ValidationFailed(format!(
+                            "{key} must be true or false"
+                        ))
+                    })?;
+                settings.extra.insert(key, serde_json::json!(enabled));
             }
             "thumbnail_threads" => {
                 if let Some(parsed_threads_count) = value.as_u64().or_else(|| {
