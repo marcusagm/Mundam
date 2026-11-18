@@ -116,36 +116,6 @@ pub async fn start_server(
         shutdown_token: shutdown_token.clone(),
     };
 
-    // Spawn cleanup tasks inspired by V1
-    let process_cleanup_token = shutdown_token.child_token();
-    let pm_clone = process_manager.clone();
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
-        loop {
-            tokio::select! {
-                _ = process_cleanup_token.cancelled() => break,
-                _ = interval.tick() => {
-                    let mut pm = pm_clone.write().await;
-                    pm.cleanup_stale(30);
-                }
-            }
-        }
-    });
-
-    let linear_cleanup_token = shutdown_token.child_token();
-    let lm_clone = linear_manager.clone();
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-        loop {
-            tokio::select! {
-                _ = linear_cleanup_token.cancelled() => break,
-                _ = interval.tick() => {
-                    lm_clone.cleanup(std::time::Duration::from_secs(60)).await;
-                }
-            }
-        }
-    });
-
     let active_handlers = Arc::new(ActiveHandlers::default());
     let app = Router::new()
         .route("/health", get(health_handler))
@@ -176,67 +146,99 @@ pub async fn start_server(
             Ok(listener) => listener,
             Err(error) => {
                 tracing::error!("Failed to bind streaming server to {}: {}", addr, error);
+                lifecycle.report_failure("streaming server bind");
+                shutdown_token.cancel();
                 return;
             }
         };
-        let server = serve_http_until_shutdown(listener, app, shutdown_token.clone());
-        let cleanup_token = shutdown_token.clone();
-        let cleanup = async move {
-            cleanup_token.cancelled().await;
-            tracing::info!("Streaming server: graceful shutdown initiated");
-            let processes = shutdown_process_manager.write().await.cancel_all();
-            let sessions = shutdown_linear_manager.shutdown().await;
-            if !sessions.is_clean() {
-                shutdown_lifecycle.report_failure("linear streaming cleanup");
-            }
-            tracing::info!(
-                process_cancellations = processes,
-                linear_sessions = sessions.session_count,
-                "Streaming server: cleanup attempts completed; draining HTTP requests"
-            );
-            loop {
-                let manager = shutdown_process_manager.read().await;
-                let active = manager.active_count();
-                if active == 0 {
-                    let failures = manager.owner_failures();
-                    if failures > 0 {
-                        tracing::error!(failures, "Streaming server: process supervision failures");
-                        shutdown_lifecycle.report_failure("streaming process supervision");
+        // These futures are joined inside the registered server owner, never detached.
+        let process_cleanup = super::maintenance::run(
+            "processes",
+            shutdown_token.clone(),
+            Duration::from_secs(10),
+            || async {
+                if !shutdown_token.is_cancelled() {
+                    process_manager.write().await.cleanup_stale(30);
+                }
+            },
+        );
+        let linear_cleanup = super::maintenance::run(
+            "linear",
+            shutdown_token.clone(),
+            Duration::from_secs(30),
+            || async {
+                if !shutdown_token.is_cancelled() {
+                    let report = linear_manager.cleanup(Duration::from_secs(60)).await;
+                    if !report.is_clean() {
+                        lifecycle.report_failure("periodic linear cleanup");
                     }
-                    tracing::info!("Streaming server: all registered process owners finished");
-                    break;
                 }
-                drop(manager);
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        };
-        tokio::pin!(server);
-        tokio::pin!(cleanup);
-        let result = tokio::select! {
-            result = &mut server => {
-                if shutdown_token.is_cancelled() {
-                    cleanup.await;
+            },
+        );
+        let serving = async {
+            let server = serve_http_until_shutdown(listener, app, shutdown_token.clone());
+            let cleanup_token = shutdown_token.clone();
+            let cleanup = async move {
+                cleanup_token.cancelled().await;
+                tracing::info!("Streaming server: graceful shutdown initiated");
+                let processes = shutdown_process_manager.write().await.cancel_all();
+                let sessions = shutdown_linear_manager.shutdown().await;
+                if !sessions.is_clean() {
+                    shutdown_lifecycle.report_failure("linear streaming cleanup");
                 }
-                result
-            }
-            _ = &mut cleanup => {
-                active_handlers.log_active();
-                let mut interval = tokio::time::interval_at(
-                    tokio::time::Instant::now() + Duration::from_secs(1),
-                    Duration::from_secs(1),
+                tracing::info!(
+                    process_cancellations = processes,
+                    linear_sessions = sessions.session_count,
+                    "Streaming server: cleanup attempts completed; draining HTTP requests"
                 );
                 loop {
-                    tokio::select! {
-                        result = &mut server => break result,
-                        _ = interval.tick() => active_handlers.log_active(),
+                    let manager = shutdown_process_manager.read().await;
+                    let active = manager.active_count();
+                    if active == 0 {
+                        let failures = manager.owner_failures();
+                        if failures > 0 {
+                            tracing::error!(
+                                failures,
+                                "Streaming server: process supervision failures"
+                            );
+                            shutdown_lifecycle.report_failure("streaming process supervision");
+                        }
+                        tracing::info!("Streaming server: all registered process owners finished");
+                        break;
+                    }
+                    drop(manager);
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            };
+            tokio::pin!(server);
+            tokio::pin!(cleanup);
+            let result = tokio::select! {
+                result = &mut server => {
+                    shutdown_token.cancel();
+                    cleanup.await;
+                    result
+                }
+                _ = &mut cleanup => {
+                    active_handlers.log_active();
+                    let mut interval = tokio::time::interval_at(
+                        tokio::time::Instant::now() + Duration::from_secs(1),
+                        Duration::from_secs(1),
+                    );
+                    loop {
+                        tokio::select! {
+                            result = &mut server => break result,
+                            _ = interval.tick() => active_handlers.log_active(),
+                        }
                     }
                 }
+            };
+            if let Err(error) = result {
+                tracing::error!("Streaming server exited with error: {}", error);
+                lifecycle.report_failure("streaming server");
             }
         };
-        if let Err(error) = result {
-            tracing::error!("Streaming server exited with error: {}", error);
-            lifecycle.report_failure("streaming server");
-        }
+        tokio::join!(serving, process_cleanup, linear_cleanup);
+        tracing::info!("Streaming server: maintenance owners finished");
         tracing::info!("Streaming server stopped");
     })
 }
@@ -1004,16 +1006,13 @@ mod tests {
         token.cancel();
 
         tokio::time::timeout(Duration::from_secs(3), async {
-            loop {
-                match tokio::time::timeout(
-                    Duration::from_millis(500),
-                    tokio::net::TcpStream::connect(address),
-                )
-                .await
-                {
-                    Ok(Ok(_)) => tokio::time::sleep(Duration::from_millis(10)).await,
-                    Ok(Err(_)) | Err(_) => break,
-                }
+            while let Ok(Ok(_)) = tokio::time::timeout(
+                Duration::from_millis(500),
+                tokio::net::TcpStream::connect(address),
+            )
+            .await
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
         .await

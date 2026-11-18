@@ -50,7 +50,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn shutdown_waits_for_cleanup_and_prevents_another_pass() {
+    async fn shutdown_waits_for_cleanup_and_prevents_another_pass(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let lifecycle = crate::lifecycle::LifecycleRegistry::new();
         let cancellation = lifecycle.child_token();
         let started = Arc::new(Notify::new());
@@ -72,9 +73,7 @@ mod tests {
                 .await;
             })
         );
-        tokio::time::timeout(Duration::from_secs(2), started.notified())
-            .await
-            .expect("cleanup did not start");
+        tokio::time::timeout(Duration::from_secs(2), started.notified()).await?;
         let shutdown = lifecycle.shutdown_all();
         tokio::pin!(shutdown);
         assert!(
@@ -84,10 +83,9 @@ mod tests {
         );
         assert_eq!(finished.load(Ordering::SeqCst), 0);
         release.notify_one();
-        assert!(tokio::time::timeout(Duration::from_secs(2), &mut shutdown)
-            .await
-            .expect("cleanup did not drain"));
+        assert!(tokio::time::timeout(Duration::from_secs(2), &mut shutdown).await?);
         assert_eq!(finished.load(Ordering::SeqCst), 1);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+        Ok(())
     }
 }

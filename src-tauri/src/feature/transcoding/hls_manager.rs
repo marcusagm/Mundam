@@ -1,235 +1,244 @@
-//! HLS Factory and Subprocess Manager
-//!
-//! Lazily instantiates FFmpeg pipelines for on-the-fly streaming of heavy media.
-//! Tracks session activities and implements timeout sweeps to free resources properly.
+//! IPC HLS requests and sessions owned by a single lifecycle-supervised worker.
 
-use dashmap::DashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::process::{Child, Command};
+mod session;
+use crate::core::error::{AppError, AppResult};
+use session::{start_child, StreamSession};
+use std::{
+    collections::HashMap,
+    future::Future,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+use tokio::{
+    process::Child,
+    sync::{mpsc, oneshot},
+};
 use tokio_util::sync::CancellationToken;
 
-use super::profiles::TranscodingProfile;
-use crate::core::error::{AppError, AppResult};
-
-/// A running FFmpeg fragmentation session.
-pub struct StreamSession {
-    /// The subprocess tracking the FFmpeg binary execution.
-    pub process: Child,
-    /// Instantiation of the last time the frontend requested a chunk.
-    pub last_accessed: Instant,
-    /// The directory where the fragments are being temporarily written to.
-    pub output_dir: PathBuf,
+struct StreamInput {
+    asset_id: String,
+    original_path: PathBuf,
+    mime_type: Option<String>,
+}
+struct StreamRequest {
+    input: StreamInput,
+    reply: oneshot::Sender<AppResult<PathBuf>>,
 }
 
-/// The stateful orchestrator of all streaming subprocesses.
-#[derive(Clone)]
+/// Serializes starts, expiration and shutdown without transferring child ownership to callers.
 pub struct HlsManager {
-    /// Concurrent hashmap containing active session ID strings and processes.
-    pub sessions: Arc<DashMap<String, StreamSession>>,
-    /// Base directory where `streams/{asset_id}` fragment folders reside.
-    pub streams_dir: PathBuf,
+    commands: mpsc::Sender<StreamRequest>,
+    receiver: Mutex<Option<mpsc::Receiver<StreamRequest>>>,
+    cancellation: CancellationToken,
+    streams_dir: PathBuf,
 }
 
-/// Implementation of HlsManager.
 impl HlsManager {
-    /// Initializes a new HLS Subprocess Factory.
-    ///
-    /// # Arguments
-    /// * `app_data_dir` - Reconstructed base configuration directory from Tauri.
-    ///
-    /// # Returns
-    /// An Arc-wrapped configured `HlsManager`.
-    pub fn new(app_data_dir: &Path) -> Arc<Self> {
-        let streams_dir = app_data_dir.join("streams");
-        let _ = std::fs::create_dir_all(&streams_dir);
-
+    /// Creates an inactive manager; admit its lifecycle owner before publishing it.
+    pub fn new(app_data_dir: &Path, cancellation: CancellationToken) -> Arc<Self> {
+        let (commands, receiver) = mpsc::channel(32);
         Arc::new(Self {
-            sessions: Arc::new(DashMap::<String, StreamSession>::new()),
-            streams_dir,
+            commands,
+            receiver: Mutex::new(Some(receiver)),
+            cancellation,
+            streams_dir: app_data_dir.join("streams").join("ipc"),
         })
     }
 
-    /// Extends the lifetime of a specific running stream.
-    /// To be called by the `asset://` handler whenever a segment or playlist is fetched.
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - ID of the session to touch.
-    ///
-    /// # Returns
-    ///
-    /// Ok(()) if the session was touched successfully.
-    pub fn touch_session(&self, session_id: &str) {
-        if let Some(mut session) = self.sessions.get_mut(session_id) {
-            session.last_accessed = Instant::now();
-        }
-    }
-
-    /// Checks if an ongoing stream session is active, or fires up FFmpeg lazily.
-    ///
-    /// # Arguments
-    /// * `asset_id` - Unique identifier for the media.
-    /// * `original_path` - Physical location of the legacy unstreamable video/audio file.
-    /// * `mime_type` - Optional MIME detector fallback for audio profiles.
-    ///
+    /// Requests an existing stream or a supervised start.
     /// # Errors
-    /// Returns an `AppError` wrapping std::io if directory permissions fail or FFmpeg crashes.
+    /// Returns cancellation after admission closes, or the setup/owner error.
+    /// Dropping this future never drops a child or an admitted setup operation.
     pub async fn get_or_start_stream(
         &self,
         asset_id: &str,
         original_path: &Path,
         mime_type: Option<&str>,
     ) -> AppResult<PathBuf> {
-        let session_dir = self.streams_dir.join(asset_id);
-
-        // If the streaming engine is mapping it currently...
-        if self.sessions.contains_key(asset_id) {
-            self.touch_session(asset_id);
-            return Ok(session_dir);
-        }
-
-        // Fresh session setup
-        // Nuke previous aborted fragments to avoid H.264 desync crashes.
-        let _ = tokio::fs::remove_dir_all(&session_dir).await;
-        tokio::fs::create_dir_all(&session_dir).await.map_err(|e| {
-            AppError::Generic(format!("Failed to create HLS output directory: {}", e))
-        })?;
-
-        let tools = crate::processing::transcoding::resolve_transcoding_tools::<tauri::Wry>(None)?;
-        let video_encoder = crate::processing::transcoding::resolve_h264_encoder(&tools.ffmpeg)?;
-        let profile = TranscodingProfile::resolve_for_hls(original_path, mime_type, video_encoder);
-        let playlist_path = session_dir.join("playlist.m3u8");
-        let segment_pattern = session_dir.join("segment_%05d.ts");
-
-        let mut cmd = Command::new(tools.ffmpeg);
-
-        cmd.args(&profile.input_args)
-            .arg("-i")
-            .arg(original_path)
-            .args(&profile.output_args)
-            .arg("-hls_segment_filename")
-            .arg(&segment_pattern)
-            .arg(&playlist_path);
-
-        // Crucial: hide output pipelines so we do not freeze Tauri RPC threads implicitly.
-        // Also ensure children die if the manager drops them.
-        cmd.stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .kill_on_drop(true);
-
-        #[cfg(windows)]
-        cmd.creation_flags(0x08000000);
-
-        let child = cmd
-            .spawn()
-            .map_err(|e| AppError::Generic(format!("Fatal spawn of FFmpeg subprocess: {}", e)))?;
-
-        self.sessions.insert(
-            asset_id.to_string(),
-            StreamSession {
-                process: child,
-                last_accessed: Instant::now(),
-                output_dir: session_dir.clone(),
+        let (reply, response) = oneshot::channel();
+        let request = StreamRequest {
+            input: StreamInput {
+                asset_id: asset_id.into(),
+                original_path: original_path.into(),
+                mime_type: mime_type.map(str::to_owned),
             },
-        );
-
-        tracing::info!(
-            "HLS Transcoding Factory invoked explicitly on Demand for AssetID: {}",
-            asset_id
-        );
-
-        Ok(session_dir)
+            reply,
+        };
+        tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => return Err(AppError::Cancelled),
+            sent = self.commands.send(request) => sent.map_err(|_| self.owner_closed())?,
+        }
+        tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => Err(AppError::Cancelled),
+            result = response => result.map_err(|_| self.owner_closed())?,
+        }
     }
 
-    /// Background task to sweep the tracker locking down orphaned unused processes.
-    /// Intended to be invoked via `tokio::spawn(manager.start_cleanup_worker(token, 90))` in boot.
-    ///
-    /// # Arguments
-    ///
-    /// * `token` - Cancellation token to signal shutdown.
-    /// * `timeout_secs` - Timeout in seconds to wait before killing a session.
-    ///
-    /// # Returns
-    ///
-    /// Ok(()) if the cleanup worker was started successfully.
-    pub fn start_cleanup_worker(
+    fn owner_closed(&self) -> AppError {
+        if self.cancellation.is_cancelled() {
+            AppError::Cancelled
+        } else {
+            AppError::Internal("IPC HLS owner is unavailable".into())
+        }
+    }
+
+    /// Runs the sole owner, then awaits children and directory cleanup on cancellation.
+    /// # Errors
+    /// Returns duplicate-owner, process-wait or directory-cleanup failures.
+    /// Already-started native setup is awaited under the lifecycle's shared deadline.
+    pub async fn run(&self, timeout_secs: u64) -> AppResult<()> {
+        self.run_with_factory(
+            Duration::from_secs(timeout_secs),
+            Duration::from_secs(10),
+            start_child,
+        )
+        .await
+    }
+
+    async fn run_with_factory<Factory, Operation>(
         &self,
-        token: CancellationToken,
-        timeout_secs: u64,
-    ) -> tauri::async_runtime::JoinHandle<()> {
-        let sessions = self.sessions.clone();
-        tauri::async_runtime::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        let session_count = sessions.len();
-                        tracing::info!(session_count, "HlsManager: Dropping tracked sessions on shutdown");
-                        sessions.clear();
-                        tracing::info!(
-                            session_count,
-                            "HlsManager: Session handles dropped; process exit and directory cleanup not verified"
-                        );
+        timeout: Duration,
+        sweep_period: Duration,
+        factory: Factory,
+    ) -> AppResult<()>
+    where
+        Factory: Fn(StreamInput, PathBuf, CancellationToken) -> Operation,
+        Operation: Future<Output = AppResult<Child>>,
+    {
+        let mut receiver = self
+            .receiver
+            .lock()
+            .map_err(|_| AppError::Internal("IPC HLS receiver lock failed".into()))?
+            .take()
+            .ok_or_else(|| AppError::Internal("IPC HLS owner already started".into()))?;
+        let mut sessions = HashMap::<String, StreamSession>::new();
+        let mut failed = false;
+        let mut interval = tokio::time::interval(sweep_period);
+        tracing::info!("IPC HLS session owner started");
+        loop {
+            tokio::select! {
+                biased;
+                _ = self.cancellation.cancelled() => break,
+                _ = interval.tick() => {
+                    if self.cancellation.is_cancelled() {
                         break;
                     }
-                    _ = interval.tick() => {
-                        let now = Instant::now();
-                        let mut expired_keys = Vec::new();
-
-                        for entry in sessions.iter() {
-                            if now.duration_since(entry.value().last_accessed).as_secs() > timeout_secs {
-                                expired_keys.push(entry.key().clone());
-                            }
-                        }
-
-                        for key in expired_keys {
-                            if let Some((_, session)) = sessions.remove(&key) {
-                                tracing::info!(
-                                    "Sweeping inactive HLS stream for '{}' to free memory...",
-                                    key
-                                );
-                                // Child process killed on drop thanks to .kill_on_drop(true)
-
-                                // Async FS operations gracefully erasing the fragments
-                                let out_dir = session.output_dir.clone();
-                                tokio::spawn(async move {
-                                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                                    let _ = tokio::fs::remove_dir_all(&out_dir).await;
-                                });
-                            }
-                        }
+                    let expired = sessions.iter()
+                        .filter(|(_, session)| session.last_accessed.elapsed() > timeout)
+                        .map(|(key, _)| key.clone())
+                        .collect();
+                    failed |= !cleanup_sessions(&mut sessions, expired).await;
+                }
+                request = receiver.recv() => {
+                    let Some(request) = request else { break };
+                    if self.cancellation.is_cancelled() {
+                        let _ = request.reply.send(Err(AppError::Cancelled));
+                        break;
                     }
+                    if request.reply.is_closed() {
+                        continue;
+                    }
+                    let key = request.input.asset_id.clone();
+                    let result = self.start_or_touch(request.input, &mut sessions, &factory).await;
+                    if result.is_err() {
+                        failed |= !cleanup_sessions(&mut sessions, vec![key]).await;
+                    }
+                    let _ = request.reply.send(result);
                 }
             }
-        })
+        }
+        self.cancellation.cancel();
+        receiver.close();
+        while let Some(request) = receiver.recv().await {
+            let _ = request.reply.send(Err(AppError::Cancelled));
+        }
+        let session_count = sessions.len();
+        tracing::info!(session_count, "IPC HLS shutdown started; admission closed");
+        let keys = sessions.keys().cloned().collect();
+        failed |= !cleanup_sessions(&mut sessions, keys).await;
+        tracing::info!(
+            session_count,
+            remaining_sessions = sessions.len(),
+            clean = !failed,
+            "IPC HLS shutdown completed; process waits and directory cleanup finished"
+        );
+        if failed {
+            Err(AppError::Internal(
+                "IPC HLS resource cleanup could not be verified".into(),
+            ))
+        } else {
+            Ok(())
+        }
     }
-}
 
-#[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn cancellation_drops_tracked_sessions() -> Result<(), Box<dyn std::error::Error>> {
-        let directory = tempfile::tempdir()?;
-        let manager = HlsManager::new(directory.path());
-        let mut command = Command::new("sleep");
-        command.arg("30").kill_on_drop(true);
-        manager.sessions.insert(
-            "test".into(),
+    async fn start_or_touch<Factory, Operation>(
+        &self,
+        input: StreamInput,
+        sessions: &mut HashMap<String, StreamSession>,
+        factory: &Factory,
+    ) -> AppResult<PathBuf>
+    where
+        Factory: Fn(StreamInput, PathBuf, CancellationToken) -> Operation,
+        Operation: Future<Output = AppResult<Child>>,
+    {
+        if self.cancellation.is_cancelled() {
+            return Err(AppError::Cancelled);
+        }
+        if let Some(session) = sessions.get_mut(&input.asset_id) {
+            if session.process.is_none() {
+                return Err(AppError::Internal(
+                    "Previous IPC HLS cleanup is incomplete".into(),
+                ));
+            }
+            session.last_accessed = Instant::now();
+            return Ok(session.output_dir.clone());
+        }
+        // Internally generated directories cannot alias originals or replacement sessions.
+        let output_dir = self.streams_dir.join(uuid::Uuid::new_v4().to_string());
+        let key = input.asset_id.clone();
+        sessions.insert(
+            key.clone(),
             StreamSession {
-                process: command.spawn()?,
+                process: None,
                 last_accessed: Instant::now(),
-                output_dir: directory.path().join("session"),
+                output_dir: output_dir.clone(),
             },
         );
-        let token = CancellationToken::new();
-        let worker = manager.start_cleanup_worker(token.clone(), 90);
-        token.cancel();
-        tokio::time::timeout(std::time::Duration::from_secs(3), worker).await??;
-        assert!(manager.sessions.is_empty());
-        Ok(())
+        tokio::fs::create_dir_all(&output_dir).await?;
+        if self.cancellation.is_cancelled() {
+            return Err(AppError::Cancelled);
+        }
+        let child = factory(input, output_dir.clone(), self.cancellation.clone()).await?;
+        // No await between obtaining the child and assigning it to its sole owner.
+        if let Some(session) = sessions.get_mut(&key) {
+            session.process = Some(child);
+        }
+        tracing::info!(asset_id = %key, "IPC HLS session started");
+        Ok(output_dir)
     }
 }
+
+async fn cleanup_sessions(
+    sessions: &mut HashMap<String, StreamSession>,
+    keys: Vec<String>,
+) -> bool {
+    let mut clean = true;
+    for key in keys {
+        if let Some(session) = sessions.get_mut(&key) {
+            if let Err(error) = session.stop().await {
+                tracing::error!(asset_id = %key, %error, "IPC HLS cleanup failed; resource retained");
+                clean = false;
+                continue;
+            }
+        }
+        sessions.remove(&key);
+    }
+    clean
+}
+
+#[cfg(test)]
+#[path = "hls_manager/tests.rs"]
+mod tests;

@@ -139,9 +139,25 @@ pub(crate) fn launch_error(program: &std::ffi::OsStr, error: std::io::Error) -> 
 /// # Errors
 /// Retorna `AppError::Transcoding` se o comando falhar, expirar ou emitir erro.
 pub fn run_command_with_timeout(
-    mut command: Command,
+    command: Command,
     timeout_seconds: u64,
 ) -> AppResult<std::process::Output> {
+    run_command_waiting(command, timeout_seconds, |child, timeout| {
+        child.wait_timeout(timeout)
+    })
+}
+
+fn run_command_waiting<Wait>(
+    mut command: Command,
+    timeout_seconds: u64,
+    wait: Wait,
+) -> AppResult<std::process::Output>
+where
+    Wait: FnOnce(
+        &mut std::process::Child,
+        Duration,
+    ) -> std::io::Result<Option<std::process::ExitStatus>>,
+{
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -155,14 +171,13 @@ pub fn run_command_with_timeout(
         .spawn()
         .map_err(|error| launch_error(command.get_program(), error))?;
 
-    let mut stdout_pipe = child_process
-        .stdout
-        .take()
-        .ok_or_else(|| AppError::Transcoding("Failed to open stdout pipe".to_string()))?;
-    let mut stderr_pipe = child_process
-        .stderr
-        .take()
-        .ok_or_else(|| AppError::Transcoding("Failed to open stderr pipe".to_string()))?;
+    let (Some(mut stdout_pipe), Some(mut stderr_pipe)) =
+        (child_process.stdout.take(), child_process.stderr.take())
+    else {
+        let _ = child_process.kill();
+        let _ = child_process.wait();
+        return Err(AppError::Transcoding("Failed to open process pipes".into()));
+    };
 
     let stdout_join_handle = std::thread::spawn(move || {
         let mut stdout_buffer = Vec::new();
@@ -178,16 +193,17 @@ pub fn run_command_with_timeout(
             .map(|_| stderr_buffer)
     });
 
-    match child_process.wait_timeout(Duration::from_secs(timeout_seconds))? {
-        Some(exit_status) => {
-            let stdout_data = stdout_join_handle
-                .join()
+    match wait(&mut child_process, Duration::from_secs(timeout_seconds)) {
+        Ok(Some(exit_status)) => {
+            // Observe both readers before propagating an error from either one.
+            let stdout_result = stdout_join_handle.join();
+            let stderr_result = stderr_join_handle.join();
+            let stdout_data = stdout_result
                 .map_err(|_| AppError::Transcoding("Stdout reader thread panicked".to_string()))?
                 .map_err(|error| {
                     AppError::Transcoding(format!("Failed to read stdout: {}", error))
                 })?;
-            let stderr_data = stderr_join_handle
-                .join()
+            let stderr_data = stderr_result
                 .map_err(|_| AppError::Transcoding("Stderr reader thread panicked".to_string()))?
                 .map_err(|error| {
                     AppError::Transcoding(format!("Failed to read stderr: {}", error))
@@ -199,16 +215,19 @@ pub fn run_command_with_timeout(
                 stderr: stderr_data,
             })
         }
-        None => {
-            // Process timed out. Kill it to prevent zombies.
+        wait_result => {
+            // std::process::Child has no kill-on-drop; wait errors also require cleanup.
             child_process.kill().ok();
             let _ = child_process.wait();
             let _ = stdout_join_handle.join();
             let _ = stderr_join_handle.join();
-            Err(AppError::Transcoding(format!(
-                "Process execution timed out after {}s",
-                timeout_seconds
-            )))
+            match wait_result {
+                Err(error) => Err(error.into()),
+                _ => Err(AppError::Transcoding(format!(
+                    "Process execution timed out after {}s",
+                    timeout_seconds
+                ))),
+            }
         }
     }
 }
@@ -224,6 +243,45 @@ pub fn check_transcoding_availability() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_process_fixture() {
+        if std::env::var_os("MUNDAM_NATIVE_TEST_CHILD").is_some() {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    fn fixture_command() -> std::io::Result<Command> {
+        let mut command = Command::new(std::env::current_exe()?);
+        command
+            .args([
+                "--exact",
+                "processing::transcoding::tests::native_process_fixture",
+            ])
+            .env("MUNDAM_NATIVE_TEST_CHILD", "1");
+        Ok(command)
+    }
+
+    #[test]
+    fn native_wait_error_still_terminates_child_and_joins_both_pipes() -> AppResult<()> {
+        let result = run_command_waiting(fixture_command()?, 30, |_, _| {
+            Err(std::io::Error::other("wait failure fixture"))
+        });
+        assert!(result.is_err());
+        assert!(result
+            .err()
+            .is_some_and(|error| error.to_string().contains("wait failure fixture")));
+        Ok(())
+    }
+
+    #[test]
+    fn native_timeout_terminates_child_and_joins_both_pipes() -> AppResult<()> {
+        let result = run_command_with_timeout(fixture_command()?, 1);
+        assert!(
+            matches!(result, Err(AppError::Transcoding(message)) if message.contains("timed out"))
+        );
+        Ok(())
+    }
 
     /// Testa a detecção de binários de transcoding.
     #[test]

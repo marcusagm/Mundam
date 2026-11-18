@@ -28,13 +28,23 @@ pub async fn init(app: &AppHandle) {
         .clone();
 
     // Initialize HLS On-the-Fly Streaming Manager
-    let hls_manager = crate::feature::transcoding::hls_manager::HlsManager::new(&dirs.app_data);
-    app.manage(hls_manager.clone());
+    let hls_token = lifecycle.child_token();
+    let hls_manager = crate::feature::transcoding::hls_manager::HlsManager::new(
+        &dirs.app_data,
+        hls_token.clone(),
+    );
 
     let manager = hls_manager.clone();
-    let hls_token = lifecycle.child_token();
-    let hls_handle = manager.start_cleanup_worker(hls_token.clone(), 90);
-    lifecycle.register("hls_cleanup_worker".to_string(), hls_token, hls_handle);
+    let hls_lifecycle = lifecycle.clone();
+    if !lifecycle.spawn_unique("hls_cleanup_worker".into(), async move {
+        if let Err(error) = manager.run(90).await {
+            tracing::error!(%error, "IPC HLS owner failed");
+            hls_lifecycle.report_failure("IPC HLS sessions");
+        }
+    }) {
+        hls_token.cancel();
+    }
+    app.manage(hls_manager.clone());
 
     // Generate a session token for streaming server authentication
     let session_token = uuid::Uuid::new_v4().to_string();

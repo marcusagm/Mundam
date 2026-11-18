@@ -95,8 +95,14 @@ encerramento não controla nem bloqueia indefinidamente a limpeza.
 O aceite dos workers acima não equivale a inventário completo dos recursos da
 aplicação. O watcher tem dono registrado, confirmação de liberação do callback
 nativo e espera dos loops de notificações, com registro idempotente de raízes e
-validação dirigida Windows concluída em 18/11/2026. Alguns loops/filhos e admissão de IPC
-ainda têm lacunas de supervisão. O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
+validação dirigida Windows concluída em 18/11/2026. O servidor HTTP aguarda os
+dois loops periódicos de manutenção. O HLS por IPC usa um worker admitido no
+lifecycle que retém preparação, filhos e diretórios até a limpeza, inclusive
+quando o solicitante desiste. A validação Windows de R2 confirmou saída limpa
+com HLS HTTP e sessões lineares em uso. O dono IPC foi validado ocioso no
+aplicativo e com filhos ativos nos testes automatizados, incluindo FFmpeg real.
+Admissão geral de IPC e limites de operações nativas continuam em R3/R4.
+O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
 contém o inventário atualizado, as evidências Windows/macOS, o checklist,
 o aceite Linux e as pendências dos artefatos finais. Testes de acessibilidade não são
 critério de conclusão dessa implementação, por decisão do usuário.

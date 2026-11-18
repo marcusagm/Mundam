@@ -250,7 +250,7 @@ impl LinearManager {
     }
 
     /// Clean up sessions that have been inactive for longer than the timeout
-    pub async fn cleanup(&self, timeout: Duration) {
+    pub async fn cleanup(&self, timeout: Duration) -> LinearShutdownReport {
         let mut sessions = self.sessions.write().await;
         let now = Instant::now();
         let mut to_remove = Vec::new();
@@ -261,22 +261,31 @@ impl LinearManager {
             }
         }
 
-        for key in to_remove {
-            if let Some(mut session) = sessions.remove(&key) {
-                info!("Cleaning up linear session for {}", key);
-                if let Some(mut child) = session.child.take() {
-                    let _ = child.kill().await;
-                    let _ = child.wait().await;
-                }
-                let _ = tokio::fs::remove_dir_all(&session.temp_dir).await;
-            }
+        let expired: Vec<_> = to_remove
+            .into_iter()
+            .filter_map(|key| sessions.remove(&key))
+            .collect();
+        if expired.is_empty() {
+            return LinearShutdownReport {
+                session_count: 0,
+                process_failures: 0,
+                directory_failures: 0,
+            };
         }
+        Self::drain_sessions(expired, "expired").await
     }
-
     /// Terminate every active session and remove its temporary files.
     pub async fn shutdown(&self) -> LinearShutdownReport {
         self.admission.close().await;
         let mut sessions = self.sessions.write().await;
+        let owned = sessions.drain().map(|(_, session)| session).collect();
+        Self::drain_sessions(owned, "shutdown").await
+    }
+
+    async fn drain_sessions(
+        sessions: Vec<LinearSession>,
+        reason: &'static str,
+    ) -> LinearShutdownReport {
         let count = sessions.len();
         let started = Instant::now();
         let mut process_failures = 0;
@@ -287,18 +296,21 @@ impl LinearManager {
         let mut directory_cleanup_ms = 0;
         let mut slowest_session_ms = 0;
         info!(
+            reason,
             session_count = count,
-            "Linear streaming: shutdown cleanup started"
+            "Linear streaming: session cleanup started"
         );
-        for (_, mut session) in sessions.drain() {
+        for mut session in sessions {
             let session_started = Instant::now();
             let process_started = Instant::now();
+            let mut writer_stopped = true;
             if let Some(mut child) = session.child.take() {
                 match child.try_wait() {
                     Ok(Some(_)) => exited_processes += 1,
                     Ok(None) => {
                         running_processes += 1;
                         if let Err(error) = child.kill().await {
+                            writer_stopped = false;
                             process_failures += 1;
                             warn!(%error, "Linear streaming: failed to terminate and wait for child");
                         }
@@ -307,6 +319,7 @@ impl LinearManager {
                         process_failures += 1;
                         warn!(%error, "Linear streaming: failed to check child status");
                         if let Err(error) = child.kill().await {
+                            writer_stopped = false;
                             warn!(%error, "Linear streaming: failed to terminate and wait for child");
                         }
                     }
@@ -315,10 +328,12 @@ impl LinearManager {
             let session_process_ms = process_started.elapsed().as_millis() as u64;
             process_wait_ms += session_process_ms;
             let directory_started = Instant::now();
-            if let Err(error) = tokio::fs::remove_dir_all(&session.temp_dir).await {
-                if error.kind() != std::io::ErrorKind::NotFound {
-                    directory_failures += 1;
-                    warn!(%error, "Linear streaming: failed to remove session directory");
+            if writer_stopped {
+                if let Err(error) = tokio::fs::remove_dir_all(&session.temp_dir).await {
+                    if error.kind() != std::io::ErrorKind::NotFound {
+                        directory_failures += 1;
+                        warn!(%error, "Linear streaming: failed to remove session directory");
+                    }
                 }
             }
             let session_directory_ms = directory_started.elapsed().as_millis() as u64;
@@ -333,6 +348,7 @@ impl LinearManager {
             );
         }
         info!(
+            reason,
             session_count = count,
             process_failures,
             directory_failures,
@@ -342,7 +358,7 @@ impl LinearManager {
             directory_cleanup_ms,
             slowest_session_ms,
             elapsed_ms = started.elapsed().as_millis() as u64,
-            "Linear streaming: shutdown cleanup finished"
+            "Linear streaming: session cleanup finished"
         );
         LinearShutdownReport {
             session_count: count,

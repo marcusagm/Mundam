@@ -149,8 +149,7 @@ pub async fn transcode_file(
 
     hls_manager
         .get_or_start_stream(&asset.id, &asset.path, Some(&mime))
-        .await
-        .map_err(|e| crate::core::error::AppError::Streaming(format!("{:?}", e)))?;
+        .await?;
 
     Ok(())
 }

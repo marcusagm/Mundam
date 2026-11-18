@@ -8,7 +8,7 @@
 //! ## Worker Pattern
 //!
 //! Follows the same lifecycle pattern used by other Mundam workers
-//! (e.g., `HlsManager::start_cleanup_worker`):
+//! (e.g., the supervised IPC HLS session owner):
 //! - Spawned via `tokio::spawn` during application boot.
 //! - Accepts a `CancellationToken` for graceful shutdown.
 //! - Polls at a configurable interval (default: 1 hour).
