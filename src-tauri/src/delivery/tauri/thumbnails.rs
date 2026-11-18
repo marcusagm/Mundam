@@ -1,3 +1,4 @@
+use crate::delivery::tauri::admission::IpcRequest;
 use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
@@ -15,6 +16,7 @@ use crate::core::workflows::thumbnails::priority::ThumbnailPriorityState;
 #[tauri::command]
 #[instrument(skip(priority_state))]
 pub async fn set_thumbnail_priority(
+    _ipc: IpcRequest,
     ids: Vec<String>,
     priority_state: State<'_, Arc<ThumbnailPriorityState>>,
 ) -> AppResult<()> {
@@ -28,6 +30,7 @@ pub async fn set_thumbnail_priority(
 /// Propagates validation and repository errors from the application handler.
 #[tauri::command]
 pub async fn get_thumbnail_processing_status(
+    _ipc: IpcRequest,
     asset_ids: Vec<String>,
     processing: State<'_, Arc<dyn crate::core::processing::ProcessingRepository>>,
 ) -> AppResult<Vec<crate::core::processing::ThumbnailProcessingStatus>> {

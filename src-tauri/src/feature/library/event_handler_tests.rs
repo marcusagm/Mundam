@@ -10,6 +10,45 @@ use crate::infra::{
 };
 
 #[tokio::test]
+async fn listener_cancellation_drains_deferred_deletions_before_pool_close(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = crate::processing::workers::test_support::ProcessingFixture::new().await?;
+    fixture.asset("pending", None).await?;
+    let indexer = Arc::new(LibraryIndexer::new(
+        fixture.queries.clone(),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.registry.clone(),
+    ));
+    let token = tokio_util::sync::CancellationToken::new();
+    indexer
+        .handle_path_deleted(
+            fixture
+                .data
+                .path()
+                .join("pending.png")
+                .to_string_lossy()
+                .into_owned(),
+            &token,
+        )
+        .await;
+    assert_eq!(indexer.pending_deletions.lock().await.len(), 1);
+    token.cancel();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        indexer
+            .clone()
+            .run_event_listener(fixture.event_bus.clone(), token),
+    )
+    .await??;
+    assert!(indexer.pending_deletions.lock().await.is_empty());
+    assert!(indexer.pending_removals.is_empty());
+    assert!(fixture.queries.get_by_id("pending").await?.is_some());
+    fixture.pool.close().await;
+    Ok(())
+}
+
+#[tokio::test]
 async fn hierarchy_creation_preserves_parent_order_and_rejects_unowned_paths(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let fixture = crate::processing::workers::test_support::ProcessingFixture::new().await?;
@@ -125,7 +164,7 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
     tokio::fs::rename(&old_path, &moved_path).await?;
     guard.mark(&root_path);
     indexer
-        .handle_path_deleted(old_path.to_string_lossy().into())
+        .handle_path_deleted(old_path.to_string_lossy().into(), &token)
         .await;
     assert!(queries.get_by_id(&original.id).await?.is_some());
     indexer
@@ -209,7 +248,10 @@ async fn split_delete_create_preserves_identity_and_external_changes_ignore_ance
     assert_ne!(unrelated_id, source_id);
     tokio::fs::remove_file(&external_path).await?;
     indexer
-        .handle_path_deleted(external_path.to_string_lossy().into())
+        .handle_path_deleted(
+            external_path.to_string_lossy().into(),
+            &tokio_util::sync::CancellationToken::new(),
+        )
         .await;
     tokio::time::sleep(std::time::Duration::from_millis(5200)).await;
     assert!(queries

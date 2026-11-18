@@ -1,5 +1,6 @@
 //! Delivery layer for the application.
 
+pub mod admission;
 pub mod commands;
 /// Global activity snapshots and cooperative admission controls.
 pub mod processing;

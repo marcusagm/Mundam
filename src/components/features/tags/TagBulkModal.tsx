@@ -1,6 +1,6 @@
 import { batch, Component, createMemo, createSignal, Show } from 'solid-js';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { writeTextFile } from '../../../lib/text-files';
 import { Button, Checkbox, Modal } from '../../ui';
 import { useFilters, useMetadata, useNotification } from '../../../core/hooks';
 import { parseTagMarkdown, serializeTagMarkdown } from '../../../lib/tagMarkdown';

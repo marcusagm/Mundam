@@ -88,6 +88,12 @@ pub fn request(application: &AppHandle) {
         }
     }
     tracing::info!("Application shutdown requested");
+    let ipc = application
+        .state::<Arc<crate::delivery::tauri::admission::IpcAdmission>>()
+        .inner()
+        .clone();
+    let active = ipc.close();
+    tracing::info!(active, commands = ?ipc.active_commands(), "IPC command admission closed");
     if let Err(error) = application.emit_to("main", "shutdown:requested", ()) {
         tracing::warn!(%error, "Unable to notify main window to pause media");
     }
@@ -128,7 +134,11 @@ pub fn request(application: &AppHandle) {
             tracing::warn!("Asset protocol handlers did not drain within 5s");
             false
         };
-        let mut clean = tasks_clean && boot_clean && protocol_clean;
+        let ipc_clean = ipc.is_drained();
+        if !ipc_clean {
+            tracing::warn!(commands = ?ipc.active_commands(), "IPC commands remain active; explicit pool close is unsafe");
+        }
+        let mut clean = tasks_clean && boot_clean && protocol_clean && ipc_clean;
         if clean {
             if let Some(database) =
                 handle.try_state::<Arc<crate::infra::database::manager::DbManager>>()

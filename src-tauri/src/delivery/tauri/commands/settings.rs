@@ -1,5 +1,6 @@
 use crate::core::error::AppResult;
 use crate::core::settings::AppSettings;
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::feature::settings::SettingsService;
 use tauri::State;
 
@@ -14,6 +15,7 @@ use tauri::State;
 /// Default settings for the application.
 #[tauri::command]
 pub async fn get_app_settings(
+    _ipc: IpcRequest,
     settings_service: State<'_, SettingsService>,
 ) -> AppResult<AppSettings> {
     settings_service.get_settings().await
@@ -31,6 +33,7 @@ pub async fn get_app_settings(
 /// Ok(()) if settings were persisted successfully.
 #[tauri::command]
 pub async fn update_app_settings(
+    _ipc: IpcRequest,
     settings: AppSettings,
     settings_service: State<'_, SettingsService>,
 ) -> AppResult<()> {
@@ -40,6 +43,7 @@ pub async fn update_app_settings(
 /// Retrieves a specific setting by key.
 #[tauri::command]
 pub async fn get_setting(
+    _ipc: IpcRequest,
     key: String,
     settings_service: State<'_, SettingsService>,
 ) -> AppResult<Option<serde_json::Value>> {
@@ -49,6 +53,7 @@ pub async fn get_setting(
 /// Updates a specific setting by key.
 #[tauri::command]
 pub async fn set_setting(
+    _ipc: IpcRequest,
     key: String,
     value: serde_json::Value,
     settings_service: State<'_, SettingsService>,

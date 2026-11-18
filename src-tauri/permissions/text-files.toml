@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-read-text-file"
+description = "Allows authorized text imports through the shutdown-admitted command"
+commands.allow = ["read_text_file"]
+
+[[permission]]
+identifier = "allow-write-text-file"
+description = "Allows authorized text exports through the shutdown-admitted command"
+commands.allow = ["write_text_file"]

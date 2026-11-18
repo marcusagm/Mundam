@@ -114,6 +114,9 @@ fn processing_thumbnail_status_ipc_authorizes_library_windows_and_rejects_splash
         )),
     );
     let app = tauri::test::mock_builder()
+        .manage(Arc::new(
+            crate::delivery::tauri::admission::IpcAdmission::default(),
+        ))
         .manage(repository)
         .manage(service)
         .invoke_handler(tauri::generate_handler![

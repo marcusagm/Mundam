@@ -69,14 +69,21 @@ pub async fn init(app: &AppHandle) {
     app.manage(indexer.clone());
 
     let indexer_token = lifecycle.child_token();
-    let indexer_handle = indexer
-        .clone()
-        .start_event_listener(event_bus.clone(), indexer_token.clone());
-    lifecycle.register(
-        "indexer_event_listener".to_string(),
-        indexer_token,
-        indexer_handle,
-    );
+    let listener = indexer.clone();
+    let listener_bus = event_bus.clone();
+    let listener_token = indexer_token.clone();
+    let listener_lifecycle = lifecycle.clone();
+    if !lifecycle.spawn_unique("indexer_event_listener".into(), async move {
+        if let Err(error) = listener
+            .run_event_listener(listener_bus, listener_token)
+            .await
+        {
+            tracing::error!(%error, "Library event listener failed");
+            listener_lifecycle.report_failure("library event listener");
+        }
+    }) {
+        indexer_token.cancel();
+    }
 
     // One lifetime token owns observation of every root, including reconciled roots.
     let watcher_token = lifecycle.child_token();

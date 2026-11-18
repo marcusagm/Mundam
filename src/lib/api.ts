@@ -44,6 +44,9 @@ export async function invokeCommand<T>(command: string, args?: InvokeArgs): Prom
     try {
         return await tauriInvoke<T>(command, args);
     } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'CANCELLED') {
+            throw error;
+        }
         console.error(`[IPC Error: ${command}]`, error);
         handleBackendError(error);
         throw error;

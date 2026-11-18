@@ -5,6 +5,7 @@ use crate::core::ledger::command::{
 };
 use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::models::{Asset, Tag};
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::feature::assets::queries::AssetQueryService;
 use crate::feature::library::indexer::LibraryIndexer;
 use crate::processing::watcher::WatcherService;
@@ -25,6 +26,7 @@ use crate::core::error::AppResult;
 /// The created folder.
 #[tauri::command]
 pub async fn create_folder(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: CreateFolderPayload,
 ) -> AppResult<Asset> {
@@ -44,6 +46,7 @@ pub async fn create_folder(
 /// The updated asset.
 #[tauri::command]
 pub async fn set_asset_folder(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
     folder_id: Option<String>,
@@ -68,6 +71,7 @@ pub async fn set_asset_folder(
 /// The updated asset.
 #[tauri::command]
 pub async fn update_asset_tags(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: UpdateTagsPayload,
 ) -> AppResult<Asset> {
@@ -92,6 +96,7 @@ pub async fn update_asset_tags(
 /// Returns `AppError` if the tag name is not unique or the DB operation fails.
 #[tauri::command]
 pub async fn create_tag(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     service: State<'_, AssetQueryService>,
     name: String,
@@ -133,6 +138,7 @@ pub async fn create_tag(
 /// Returns `AppError` if the tag doesn't exist or the DB operation fails.
 #[tauri::command]
 pub async fn update_tag(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: UpdateTagPayload,
 ) -> AppResult<()> {
@@ -152,6 +158,7 @@ pub async fn update_tag(
 /// Returns `AppError` if the DB operation fails.
 #[tauri::command]
 pub async fn delete_tag(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     id: String,
 ) -> AppResult<()> {
@@ -172,6 +179,7 @@ pub async fn delete_tag(
 /// Returns `AppError` if the DB operation fails.
 #[tauri::command]
 pub async fn add_tags_to_assets_batch(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: BatchTagsPayload,
 ) -> AppResult<()> {
@@ -194,6 +202,7 @@ pub async fn add_tags_to_assets_batch(
 /// Returns `AppError` if the DB operation fails.
 #[tauri::command]
 pub async fn remove_tags_from_assets_batch(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: BatchTagsPayload,
 ) -> AppResult<()> {
@@ -216,6 +225,7 @@ pub async fn remove_tags_from_assets_batch(
 /// Returns `AppError` if the DB operation fails.
 #[tauri::command]
 pub async fn replace_tags_for_assets_batch(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: BatchTagsPayload,
 ) -> AppResult<()> {
@@ -236,6 +246,7 @@ pub async fn replace_tags_for_assets_batch(
 /// Returns `AppError` if the DB operation fails.
 #[tauri::command]
 pub async fn remove_location(
+    _ipc: IpcRequest,
     folder_id: String,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     queries: State<'_, Arc<dyn crate::core::repository::AssetQueryHandler>>,
@@ -267,6 +278,7 @@ pub async fn remove_location(
 /// Returns `AppError` if the indexing fails.
 #[tauri::command]
 pub async fn start_indexing(
+    _ipc: IpcRequest,
     path: String,
     folder_id: Option<String>,
     indexer: State<'_, Arc<LibraryIndexer>>,
@@ -350,6 +362,7 @@ where
 /// The created smart folder as an Asset placeholder.
 #[tauri::command]
 pub async fn save_smart_folder(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     name: String,
     query: String,
@@ -376,6 +389,7 @@ pub async fn save_smart_folder(
 /// The updated smart folder as an Asset placeholder.
 #[tauri::command]
 pub async fn update_smart_folder(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     id: String,
     name: String,
@@ -402,6 +416,7 @@ pub async fn update_smart_folder(
 /// A tombstone placeholder Asset.
 #[tauri::command]
 pub async fn delete_smart_folder(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     id: String,
 ) -> AppResult<Asset> {
@@ -424,6 +439,7 @@ pub async fn delete_smart_folder(
 /// The updated asset as an Asset placeholder.
 #[tauri::command]
 pub async fn update_asset_rating(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: UpdateAssetRatingPayload,
 ) -> AppResult<Asset> {
@@ -444,6 +460,7 @@ pub async fn update_asset_rating(
 /// The updated asset as an Asset placeholder.
 #[tauri::command]
 pub async fn update_asset_notes(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: UpdateAssetNotesPayload,
 ) -> AppResult<Asset> {
@@ -464,6 +481,7 @@ pub async fn update_asset_notes(
 /// The updated asset as an Asset placeholder.
 #[tauri::command]
 pub async fn reextract_asset_colors(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
 ) -> AppResult<Asset> {
@@ -484,6 +502,7 @@ pub async fn reextract_asset_colors(
 /// The updated asset as an Asset placeholder.
 #[tauri::command]
 pub async fn request_thumbnail_regenerate(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
 ) -> AppResult<Asset> {
@@ -503,6 +522,7 @@ pub async fn request_thumbnail_regenerate(
 /// An empty result.
 #[tauri::command]
 pub async fn run_db_maintenance(
+    _ipc: IpcRequest,
     pool_manager: State<'_, Arc<crate::infra::database::manager::DbManager>>,
 ) -> AppResult<()> {
     pool_manager.run_maintenance().await
@@ -532,7 +552,7 @@ pub fn send_telemetry_log(level: String, component: String, message: String) {
 
 /// RPC Command to clean up old cache entries.
 #[tauri::command]
-pub async fn cleanup_cache(handle: tauri::AppHandle) -> AppResult<()> {
+pub async fn cleanup_cache(_ipc: IpcRequest, handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = handle
         .path()
         .app_local_data_dir()
@@ -549,7 +569,7 @@ pub async fn cleanup_cache(handle: tauri::AppHandle) -> AppResult<()> {
 
 /// RPC Command to clear the entire cache (thumbnails, previews, and HLS).
 #[tauri::command]
-pub async fn clear_cache(handle: tauri::AppHandle) -> AppResult<()> {
+pub async fn clear_cache(_ipc: IpcRequest, handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = handle
         .path()
         .app_local_data_dir()
@@ -576,7 +596,7 @@ pub async fn clear_cache(handle: tauri::AppHandle) -> AppResult<()> {
 
 /// RPC Command to verify all thumbnails in the cache and delete corrupted ones.
 #[tauri::command]
-pub async fn verify_thumbnails(handle: tauri::AppHandle) -> AppResult<usize> {
+pub async fn verify_thumbnails(_ipc: IpcRequest, handle: tauri::AppHandle) -> AppResult<usize> {
     let app_data = handle
         .path()
         .app_local_data_dir()
@@ -623,7 +643,7 @@ pub async fn verify_thumbnails(handle: tauri::AppHandle) -> AppResult<usize> {
 ///
 /// * `paths` - A list of file paths to copy to the clipboard.
 #[tauri::command]
-pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
+pub fn copy_files_to_clipboard(_ipc: IpcRequest, paths: Vec<String>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         if paths.is_empty() {
@@ -659,6 +679,7 @@ pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
 /// The updated asset as an Asset placeholder.
 #[tauri::command]
 pub async fn toggle_favorite(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
 ) -> AppResult<Asset> {
@@ -686,6 +707,7 @@ pub async fn toggle_favorite(
 /// Returns `AppError::NotFound` if the asset does not exist.
 #[tauri::command]
 pub async fn move_to_trash(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
 ) -> AppResult<Asset> {
@@ -713,6 +735,7 @@ pub async fn move_to_trash(
 /// Returns `AppError::NotFound` if the asset does not exist.
 #[tauri::command]
 pub async fn restore_from_trash(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     asset_id: String,
 ) -> AppResult<Asset> {
@@ -741,6 +764,7 @@ pub async fn restore_from_trash(
 /// The number of items successfully deleted.
 #[tauri::command]
 pub async fn empty_trash(
+    _ipc: IpcRequest,
     app_handle: tauri::AppHandle,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     pool_manager: State<'_, Arc<crate::infra::database::manager::DbManager>>,
@@ -789,6 +813,7 @@ pub async fn empty_trash(
 /// Returns validation errors for invalid outlines or database errors on persistence.
 #[tauri::command]
 pub async fn import_tags(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     payload: crate::core::ledger::command::ImportTagsPayload,
 ) -> AppResult<()> {

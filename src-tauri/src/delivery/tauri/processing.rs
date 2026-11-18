@@ -1,6 +1,7 @@
 //! Passive desktop adapter for global worker activity and session pause intent.
 
 use crate::core::{processing::control::WorkerKind, AppResult};
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::feature::processing::control::{ProcessingControlService, ProcessingSnapshot};
 use std::sync::Arc;
 use tauri::State;
@@ -11,6 +12,7 @@ use tauri::State;
 /// Propagates persistence and settings read errors from the application service.
 #[tauri::command]
 pub async fn get_processing_snapshot(
+    _ipc: IpcRequest,
     service: State<'_, Arc<ProcessingControlService>>,
 ) -> AppResult<ProcessingSnapshot> {
     service.snapshot().await
@@ -22,6 +24,7 @@ pub async fn get_processing_snapshot(
 /// Propagates failures to assemble the acknowledged snapshot.
 #[tauri::command]
 pub async fn set_processing_worker_paused(
+    _ipc: IpcRequest,
     worker: WorkerKind,
     paused: bool,
     service: State<'_, Arc<ProcessingControlService>>,
@@ -34,6 +37,7 @@ pub async fn set_processing_worker_paused(
 /// Propagates validation and storage failures from the processing service.
 #[tauri::command]
 pub async fn retry_processing_worker(
+    _ipc: IpcRequest,
     worker: WorkerKind,
     scope: crate::core::processing::diagnostics::ProcessingRetryScope,
     service: State<'_, Arc<ProcessingControlService>>,
@@ -46,6 +50,7 @@ pub async fn retry_processing_worker(
 /// Propagates bounded probe and snapshot failures.
 #[tauri::command]
 pub async fn check_processing_tools(
+    _ipc: IpcRequest,
     service: State<'_, Arc<ProcessingControlService>>,
 ) -> AppResult<ProcessingSnapshot> {
     service.check_tools().await

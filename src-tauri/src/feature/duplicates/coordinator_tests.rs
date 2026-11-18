@@ -1,6 +1,33 @@
 use super::*;
+use crate::core::AppError;
 use crate::infra::database::duplicates::SqliteDuplicatesRepository;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
+
+#[tokio::test]
+async fn cancelled_manual_scans_reject_before_accessing_a_closed_pool() -> TestResult {
+    let fixture = ProcessingFixture::new().await?;
+    let service = DuplicateCommandService::new(
+        Arc::new(SqliteDuplicatesRepository::new(fixture.pool.clone())),
+        fixture.ledger.clone(),
+        fixture.event_bus.clone(),
+        fixture.queries.clone(),
+        fixture.registry.clone(),
+        fixture.processing.clone(),
+    );
+    let token = CancellationToken::new();
+    token.cancel();
+    fixture.pool.close().await;
+    assert!(matches!(
+        service.start_duplicate_scan_with_token(token.clone()).await,
+        Err(AppError::Cancelled)
+    ));
+    assert!(matches!(
+        service.rebuild_duplicate_index_with_token(token).await,
+        Err(AppError::Cancelled)
+    ));
+    assert!(!service.get_scan_status().is_running);
+    Ok(())
+}
 
 #[tokio::test]
 async fn processing_manual_scan_drains_latest_progress_before_reporting_completion() -> TestResult {

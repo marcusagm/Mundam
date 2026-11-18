@@ -52,9 +52,11 @@ usuário. Não são defeitos confirmados da aplicação nem tarefas desta conclu
 O aceite Linux é funcional e limitado aos ambientes/artefatos registrados;
 não comprova suporte universal ou término de todo recurso não supervisionado.
 
-As pendências gerais mantidas são R1–R4 (ownership, admissão e política segura),
-R5 (bundle Windows atualizado), R7 (smoke macOS final), R8 (decidir medições
-restantes fora da sessão Linux encerrada) e R9 (aceite geral). R6 está concluído.
+R1–R3 estão concluídos nos caminhos e cenários registrados, incluindo a
+validação Windows da seção 30. As pendências gerais mantidas são R4 (política
+segura de boot/I/O e recuperação), R5 (bundle Windows atualizado), R7 (smoke
+macOS final), R8 (decidir medições restantes fora da sessão Linux encerrada)
+e R9 (aceite geral). R6 está concluído.
 
 ## 2. Objetivo, limites e critérios de sucesso
 
@@ -289,9 +291,9 @@ Não exibir na janela dados internos de bibliotecas, caminhos, nomes de arquivos
 
 | Etapa                     | Trabalho e evidência                                                                                                        | Estado em 18 de novembro                                                                                                                             |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Inventário e contratos | Entradas, donos, prazos e limitações registrados; evidências das três plataformas.                                          | Atualizado; lacunas compartilhadas delimitadas em R1–R4.                                                                                             |
-| 2. Coordenação            | Coordenador único, snapshot, saída autorizada, registro atômico e supervisor de boot.                                       | Implementada nos caminhos cobertos; admissão global de IPC em R3.                                                                                    |
-| 3. Drenagem real | Protocolos, tarefas registradas, watcher, auxiliares HTTP/HLS por IPC, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | R1 e R2 concluídos nos caminhos/cenários registrados. Admissão geral de IPC e limites nativos continuam em R3/R4. |
+| 1. Inventário e contratos | Entradas, donos, prazos e limitações registrados; evidências das três plataformas.                                          | Atualizado; R1–R3 concluídos nos escopos registrados, política compartilhada restante em R4.                                                                                             |
+| 2. Coordenação            | Coordenador único, snapshot, saída autorizada, registro atômico e supervisor de boot.                                       | Implementada; admissão de comandos de negócio validada em R3 (seções 29–30).                                                                                    |
+| 3. Drenagem real | Protocolos, tarefas registradas, watcher, auxiliares HTTP/HLS por IPC, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | R1–R3 concluídos nos caminhos/cenários registrados (seções 26–30); limites nativos em R4. |
 | 4. Janela e protocolo     | Entrada Vite, capability, consulta/evento, handshake, mínimo, fallback e pausa de mídia.                                    | Implementados; saída autônoma com falhas injetadas validada no Linux.                                                                                |
 | 5. Apresentação funcional | Janela observada nas três plataformas; preferências Linux de vídeo/gráfica persistentes.                                    | Sessão Linux concluída; acessibilidade dispensada; observações intermitentes sem bloqueio.                                                           |
 | 6. Integração e aceite    | Windows dev e evidências macOS anteriores preservados; Linux dev/release/Debian/AppImage validado.                          | R6 concluído. Restam os itens gerais da seção 14, sem reabrir a sessão Linux.                                                                        |
@@ -404,7 +406,8 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Revalidar R1 no aplicativo após corrigir registro duplicado de raízes: duas saídas Windows v2 com clean=true (seção 26); bundle final continua em R5.
 - [x] Implementar supervisão dos auxiliares HTTP/HLS por IPC e registrar auditoria dos caminhos alcançáveis e limites nativos (R2; seção 27).
 - [x] Confirmar no aplicativo os auxiliares HTTP e o dono IPC antes do bridge/pool, com HLS e linear em uso: duas saídas clean=true (R2; seção 28).
-- [ ] Resolver a admissão/drenagem de IPC que pode criar recursos ou acessar o banco durante a saída (R3).
+- [x] Implementar admissão/drenagem de IPC que pode criar recursos ou acessar o banco durante a saída (R3; seção 29).
+- [x] Confirmar no aplicativo a integração de R3: uso normal e transferências de texto relatados pelo usuário, scans manuais registrados, recusa tardia e fechamento limpo (seção 30). Scans terminaram antes do X; concorrência ativa coberta automaticamente.
 - [ ] Concluir política e cobertura de boot/I/O não interrompível, falhas e recuperação (R4).
 - [x] Preservar leases ao adiar thumbnails por cancelamento entre fases, sem consumir nova tentativa.
 - [ ] Confirmar recuperação de pendências e integridade no reinício dos artefatos finais.
@@ -461,7 +464,7 @@ esta seção como aceite final.
 | Limpeza periódica HTTP e HLS do IPC | Cancelamento fecha agendamento HTTP e admissão do worker IPC; preparações/limpezas admitidas permanecem com seus donos. | Dois auxiliares HTTP e dono IPC concluídos antes do bridge nos dois logs Windows; testes com filhos IPC e FFmpeg real aprovados. | Prazo global existente; I/O nativo iniciado pode excedê-lo (R4). | R2 concluído no escopo auditado e cenários validados; runtime IPC ocioso, filhos ativos na cobertura automatizada (seções 27–28). |
 | Manutenção SQLite                      | library_cleanup e saga_recovery admitidos no lifecycle; limpeza não inicia nova rodada após cancelamento.                                                                                          | Dois testes e runtime Linux, com espera antes do fechamento do pool.                                                            | Rodada já iniciada é aguardada sob o orçamento existente.                                                           | Corrigido e validado; não é mais lacuna autônoma de R2.                                                         |
 | Workers e extratores                   | Handles principais registrados; thumbnails verificam cancelamento entre fases e preservam leases. Runner síncrono passou a tentar cleanup também em erro de espera e a observar ambos os leitores. | Testes de cancelamento anteriores e auditoria R2 na seção 27; novos testes do runner com filho real e falha injetada.           | Operações bloqueantes/filhos podem ultrapassar abort do dono superior; não há garantia universal de interrupção.    | Auditoria e limites de R2 documentados; política de I/O, falhas e recuperação continua em R4.                   |
-| Banco SQLite e IPC                     | Pool fecha só após tarefas/protocolos limpos e snapshot totalmente ocioso.                                                                                                                         | Últimos três pools Windows fecharam; teste rejeita fechamento com conexão adquirida.                                            | Espera de ociosidade até 250 ms e close até 3 s; omissão/falha não implica corrupção.                               | Implementado com limite conhecido: não há barreira atômica para todos os comandos IPC (R3).                     |
+| Banco SQLite e IPC | Pool fecha só após tarefas/protocolos limpos, admissão IPC fechada e drenada e snapshot totalmente ocioso. | Duas saídas Windows com pool fechado e recusa tardia real; teste IPC retém transação e bridge (seções 29–30). | Orçamento compartilhado de 5 s para drenagem; chamadas ativas impedem fechamento explícito do pool. Ociosidade até 250 ms e close até 3 s preservados. | R3 concluído nos caminhos registrados. I/O não interrompível em R4. |
 
 ### Alterações realizadas
 
@@ -2232,9 +2235,10 @@ suporte a formatos, thumbnails ou desempenho de rede.
 aceita pelo usuário (R6). A documentação foi reconciliada com as rodadas de
 17–18 de novembro e com o checkout `a1af219`, acrescido da implementação R1
 das seções 24–25, validada na seção 26, e de R2, implementado/auditado na seção 27
-e validado na seção 28. R1 e R2 estão concluídos nos escopos registrados;
-R3–R4 abaixo continuam como trabalho de implementação compartilhada e
-não derivam dos erros intermitentes não atribuídos da máquina Linux.
+e validado na seção 28. R3 foi implementado e verificado automaticamente na
+seção 29, com integração Windows validada na seção 30. R1–R3 estão concluídos
+nos escopos registrados. R4 continua como implementação compartilhada e não
+deriva dos erros intermitentes não atribuídos da máquina Linux.
 A conclusão funcional da sessão Linux não é uma afirmação de drenagem universal.
 
 ### Implementação e auditoria: estado dos itens
@@ -2242,8 +2246,8 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | ID  | Trabalho restante                                                                                          | Evidência e critério de conclusão                                                                                                                                                                                                                                                                                                                                 |
 | --- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | R1  | **Concluído nos cenários dirigidos.**                                                                      | Implementação e correção do registro duplicado validadas em duas execuções Windows com backend release (seção 26): callback nativo liberado, loops aguardados, library_watcher concluído antes do bridge, SQLite fechado explicitamente e clean=true. Não equivale ao aceite dos demais donos ou do bundle final.                                                 |
-| R2  | **Concluído nos caminhos e cenários registrados.** | Implementação/auditoria e 34 testes aprovados na seção 27; dois encerramentos Windows com backend release, HLS e linear, auxiliares HTTP concluídos, IPC ocioso limpo, bridge após produtores e SQLite fechado com clean=true (seção 28). Filhos IPC ativos cobertos automaticamente, incluindo FFmpeg real. Limites nativos e admissão geral permanecem em R4/R3. |
-| R3  | Admissão e drenagem de comandos IPC que criam recursos ou usam SQLite durante a saída.                     | Guards de protocolos e lifecycle cobrem caminhos específicos, não todos os comandos. Demonstrar recusa de trabalho novo e espera do admitido por caminho, com testes de corrida com fechamento do pool. A resiliência do cliente IPC da tela de finalização foi corrigida e validada; não é este item.                                                            |
+| R2  | **Concluído nos caminhos e cenários registrados.** | Implementação/auditoria e 34 testes aprovados na seção 27; dois encerramentos Windows com backend release, HLS e linear, auxiliares HTTP concluídos, IPC ocioso limpo, bridge após produtores e SQLite fechado com clean=true (seção 28). Filhos IPC ativos cobertos automaticamente, incluindo FFmpeg real. Limites nativos em R4; admissão geral de R3 validada na seção 30. |
+| R3  | **Concluído nos caminhos e cenários registrados.** | 98 testes Rust e 24 de frontend aprovados (seção 29); duas saídas Windows clean=true, IPC drenado antes do bridge/pool e recusa real de get_processing_snapshot após fechamento do banco (seção 30). Três scans manuais registrados e aguardados, já concluídos antes do X; concorrência ativa e transação retida cobertas automaticamente. |
 | R4  | Completar política/testes de boot parcial, I/O nativo não interrompível e recuperação transacional/leases. | StartupTask::wait não tem limite próprio; abort de future não encerra chamada nativa. Documentar política segura e testar os marcos/recuperação ainda não cobertos. Splash, saída autônoma com IPC/apresentação injetados e retomadas já observadas são evidências concluídas, sem exigir nova campanha Linux. Falha real de criação do WebView não foi simulada. |
 
 ### Validação e encerramento restantes
@@ -2254,7 +2258,7 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
 | R7  | Pendente         | Smoke macOS do código compartilhado final, preservando o aceite anterior. Cobrir mídia/pausa/saída e os caminhos alterados desde a validação anterior, sem repetir suporte a todos os formatos.                                                                                                                                  |
 | R8  | Decisão pendente | Definir coleta ou dispensa das medições gerais ainda previstas: série fria/quente, consumo e comparação com baseline. Tempos amostrais já constam do relatório. A ausência da série Linux não reabre a sessão aceita; não se registra como coletada uma série inexistente.                                                       |
-| R9  | Parcial | R1 e R2 concluídos nos escopos registrados; relatório, tabelas e checklist atualizados. Restam R3–R5/R7/R8, regressões pertinentes ao código final e aceite geral do responsável, distinto do aceite Linux já dado. |
+| R9  | Parcial | R1–R3 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R4–R5/R7/R8, regressões pertinentes ao código final e aceite geral do responsável, distinto do aceite Linux já dado. |
 
 ### Fora da lista de pendências
 
@@ -4363,3 +4367,185 @@ macOS final permanecem distintos desta rodada em desenvolvimento.
 que criam recursos ou acessam SQLite durante a saída. Esta revisão alterou
 somente documentação; não houve nova alteração de código, build ou testes
 automatizados, pois os logs validaram a implementação já verificada na seção 27.
+
+## 29. R3: admissão e drenagem dos comandos IPC (18 de novembro)
+
+**Estado:** implementação realizada e verificada automaticamente; validação
+Windows concluída na seção 30. R3 concluído nos caminhos e cenários registrados.
+R1/R2 e o aceite Linux permanecem preservados. R4 não foi iniciado nesta etapa.
+
+### Barreira de admissão e ordem de fechamento
+
+Os 84 comandos de negócio agora recebem um guard extraído pelo Tauri antes
+dos demais argumentos. A autorização não depende de um campo enviado pelo
+frontend: uma chamada admitida mantém sua contagem até o retorno da função,
+inclusive em erro de decodificação ou de negócio. Os retornos existentes
+(incluindo booleanos, strings e listas) foram preservados.
+
+O pedido de saída fecha a admissão sob trava antes do cancelamento dos
+produtores. Chamadas posteriores retornam o erro estruturado `CANCELLED`, sem
+iniciar consultas SQLite, extrações ou alterações de recursos. O cliente IPC
+propaga esse cancelamento sem apresentá-lo como toast genérico de falha.
+Os sete comandos de controle — quatro de startup, dois de apresentação de
+shutdown e telemetria — permanecem fora dessa barreira, sem acesso a SQLite
+nesses caminhos. A proteção existente contra conclusão do startup após pedido
+de saída foi mantida.
+
+O dono `ipc_commands` é registrado antes do boot e aguarda os guards admitidos.
+Assim, o lifecycle mantém o bridge enquanto esses comandos ainda podem
+publicar eventos. O fechamento explícito do pool exige também admissão fechada
+e contagem zerada. O orçamento compartilhado de cinco segundos foi preservado;
+se ele expirar, não se abortam comandos IPC para forçar commit/rollback nem se
+fecha explicitamente o pool com chamadas ativas. O resultado continua
+degradado, com os nomes/contagens pendentes registrados sem seus argumentos.
+
+### Produtores derivados e acessos alternativos
+
+O scan manual de duplicatas deixou de usar uma tarefa destacada: sua admissão
+agora é atômica no lifecycle, com cancelamento herdado do encerramento. O
+rebuild síncrono por IPC também usa esse token, retendo seu guard durante a
+operação. A reconciliação de progresso e a manutenção/liberação de reservas
+de matching são aguardadas pelo respectivo scan/worker. Cancelamento anterior
+ao início não acessa o banco.
+
+As exclusões adiadas pelo indexador permanecem num conjunto de tarefas retido.
+Ao cancelar o listener, seus timers são interrompidos e suas tarefas aguardadas,
+incluindo qualquer consulta/mutação já iniciada; os registros transitórios são
+limpos antes da conclusão do dono. Falhas de supervisão degradam o lifecycle.
+Essa mudança trata ownership, sem alterar a política de correlação de renames.
+
+O plugin SQL, sem consumidor no frontend, deixou de ser registrado e suas
+permissões foram removidas. As transferências de texto usadas na exportação
+de tags e importação/exportação de temas passaram a comandos próprios com
+admissão, leitura/escrita aguardadas e autorização pelo diálogo nativo.
+O plugin filesystem permanece para receber essas autorizações; suas rotas
+diretas de leitura/escrita foram retiradas das capabilities. As negativas
+globais de acesso aos dados sensíveis do WebView foram preservadas, inclusive
+quando existe uma autorização dinâmica para o mesmo caminho.
+
+### Verificações e análise
+
+Os seis testes de admissão passaram. Eles exerceram comandos
+reais pelo IPC, argumentos inválidos, retornos distintos, rejeição após
+fechamento, disponibilidade do controle de startup e transferências de texto
+autorizadas. Um teste manteve uma transação SQLite aberta, iniciou o shutdown,
+confirmou que bridge/pool ainda estavam disponíveis, liberou o commit e só
+então observou a drenagem e fechou o pool. Uma nova chamada foi rejeitada com
+`CANCELLED` mesmo após o banco já estar fechado.
+
+A auditoria automatizada confere todos os comandos registrados contra os
+guards de negócio e a lista explícita de exceções de controle. A rodada final
+incluiu regressões de exclusão adiada e scans previamente cancelados. A
+negativa global do filesystem foi exercitada com arquivo temporário existente,
+autorização dinâmica concorrente e tentativas de leitura/escrita: ambas foram
+recusadas e o conteúdo foi preservado. Um caminho inicialmente inexistente
+produziu erro de leitura e não demonstrava essa propriedade; o teste foi
+ajustado para distinguir recusa de acesso de falha de I/O.
+
+| Verificação | Resultado | Evidência |
+| --- | --- | --- |
+| Features Rust | 73 aprovados | Duplicatas, matching, progresso, indexador, exclusões adiadas, settings, startup/shutdown e regressões HLS existentes, incluindo FFmpeg real. |
+| Adaptadores IPC, lifecycle, pool e worker de duplicatas | 25 aprovados | Seis testes de admissão, transação retida, autorização IPC, scans dinâmicos, ordem do bridge, deadline compartilhado e processamento de duplicatas. O teste de negativas foi corrigido e reexecutado com sucesso. |
+| Frontend | 24 aprovados | Cancelamento sem toast, erros reais preservados, clientes de startup/shutdown e controles de duplicatas. |
+| Verificação estática e build | Aprovados | Clippy sem avisos em biblioteca/testes, formatação Rust, checagem de tipos, lint, build frontend e diff sem erros de whitespace. |
+
+No frontend, 24 testes passaram: cliente de startup, cliente de shutdown,
+cancelamento no wrapper IPC e controles de processamento/scan de duplicatas.
+O cancelamento preservou sua rejeição sem toast e falhas reais de banco
+continuaram apresentadas. Checagem de tipos, lint e build frontend passaram.
+Os testes de componentes emitiram o aviso conhecido de computações Solid fora
+de uma raiz; ele não impediu a conclusão.
+
+### Validação dirigida e limites
+
+A validação dirigida foi analisada na seção 30: o usuário relatou sucesso dos
+dois cenários e os logs confirmaram admissão fechada, comandos drenados antes
+do bridge, recusa de chamada tardia e pool fechado com resultado limpo. Os scans
+manuais concluíram antes do pedido de saída; não se afirma cancelamento ativo
+no aplicativo. As corridas de cancelamento e transação retida permanecem na
+cobertura automatizada, sem depender de acertar esse intervalo manualmente.
+
+Não foram incluídos testes de acessibilidade, campanhas de formatos/thumbnails
+ou otimização de rede. Boot parcial, I/O nativo não interrompível e recuperação
+transacional/leases continuam delimitados em R4. Bundle Windows atualizado,
+smoke macOS final, decisão sobre medições e aceite geral continuam em R5/R7–R9.
+
+## 30. R3: validação Windows e recusa de IPC tardio (18 de novembro)
+
+**Resultado:** R3 concluído nos caminhos e cenários registrados. O usuário
+informou que ambos os cenários ocorreram como esperado. Foram analisados
+integralmente os logs `mundam-shutdown-r3-20261118-193056.log` e
+`mundam-shutdown-r3-20261118-201749.log`, com aplicação em desenvolvimento e
+backend compilado em release. Não se trata de validação do bundle instalado.
+
+### Cenários e resultados
+
+O primeiro cenário previa navegação/consulta de assets e importação/exportação
+de um tema pelos diálogos nativos. Seu funcionamento foi confirmado pelo relato
+do usuário; essas transferências não possuem eventos próprios nos logs, que
+não são usados como prova independente de seu conteúdo ou persistência.
+A execução também contém reprodução de mídia, pausa de um componente no
+encerramento e limpeza de uma sessão linear, cujo FFmpeg já havia terminado
+com código zero. A limpeza registrou zero falhas de processo e de diretório.
+
+No segundo cenário, foram iniciados três scans manuais de duplicatas, todos
+admitidos com nomes únicos no lifecycle e concluídos com sucesso. O último
+terminou às `23:19:40.930003Z`, antes do pedido de saída às
+`23:19:41.631172Z`: intervalo de aproximadamente 701 ms. Seus três handles
+foram aguardados pelo lifecycle antes do bridge. Portanto, essa execução
+valida admissão/registro e fechamento após os scans, sem demonstrar
+cancelamento de um scan ainda ativo. Essa corrida permanece coberta pelos
+testes automatizados de cancelamento, admissão dinâmica e drenagem da seção 29.
+
+| Evidência | Execução 193056 | Execução 201749 |
+| --- | --- | --- |
+| Pedido de saída, UTC | 23:17:36.450697 | 23:19:41.631172 |
+| Comandos IPC no fechamento da admissão | `active=0`, `commands={}` | `active=0`, `commands={}` |
+| Drenagem IPC concluída, UTC | 23:17:36.454254 | 23:19:41.632901 |
+| Bridge concluído, UTC | 23:17:36.481126 | 23:19:41.634157 |
+| Tarefas concluídas normalmente | 15/15; `clean=true` | 18/18; `clean=true`, incluindo os três scans |
+| Pool antes do fechamento | 20 conexões; 20 ociosas | 20 conexões; 20 ociosas |
+| Fechamento explícito do pool | Concluído; 74 ms | Concluído; 58 ms |
+| Pedido até conclusão do backend | 104,6 ms | 61,6 ms |
+| Resultado do encerramento | `clean=true` | `clean=true` |
+
+Esses tempos medem pedido até conclusão da limpeza do backend; não incluem
+a duração mínima da apresentação nem medem o término de todos os processos
+do ambiente de desenvolvimento. Em ambas as execuções a apresentação foi
+confirmada dentro do prazo (`timely=true`).
+
+### Recusa tardia e limites da evidência
+
+Na primeira execução, o pool terminou de fechar às `23:17:36.555247Z`.
+Às `23:17:36.823910Z`, a barreira recusou `get_processing_snapshot`, com o
+registro `IPC command rejected after admission closed`. Isso demonstra no
+aplicativo que uma consulta tardia não alcançou o banco já fechado. Não foi
+registrado `PoolClosed`, timeout de drenagem, abort forçado, pânico ou
+resultado degradado em nenhuma das duas saídas.
+
+Os logs também confirmam drenagem das exclusões adiadas do indexador antes da
+conclusão de seu dono, sem informar se havia alguma exclusão pendente naquele
+instante. Como ambas as contagens IPC eram zero no pedido de saída, a espera
+por uma transação admitida ainda ativa é demonstrada pelo teste determinístico
+da seção 29, não por essas execuções manuais.
+
+Erros de thumbnails/extratores Assimp, avisos de SVG/fontes, extração de cores
+e decodificação de fingerprint aparecem durante o uso na primeira execução.
+Há também avisos de foco do Tao e, ao final de ambos os logs, a mensagem
+`Chrome_WidgetWin_0 / Error = 1412`. Não impediram a ordem de drenagem e o
+fechamento limpo observados; permanecem fora do escopo desta etapa. O registro
+`NativeCommandError` no começo da captura acompanha a saída stderr do launcher,
+seguida de inicialização e execução normais; não representa falha do shutdown.
+
+### Estado consolidado e próxima etapa
+
+R1–R3 estão concluídos nos escopos registrados, com relatório, tabelas,
+inventário e checklist reconciliados. R6/Linux continua concluído e aceito.
+Não é necessário repetir a campanha de formatos, rede ou acessibilidade para
+concluir R3. O encerramento geral da implementação permanece condicionado
+aos itens explicitamente mantidos na seção 14.
+
+**Próxima etapa de implementação:** R4, política e testes de boot parcial,
+I/O nativo não interrompível e recuperação transacional/leases. Permanecem
+depois R5, R7, R8 e R9. Esta análise alterou somente documentação; não houve
+mudança de código, novo build ou reexecução de testes automatizados.

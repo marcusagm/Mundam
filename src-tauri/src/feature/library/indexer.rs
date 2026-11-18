@@ -62,6 +62,9 @@ pub struct LibraryIndexer {
     pub(crate) concurrency_limit: usize,
     /// Generation tokens fence deferred deletions; native identities perform move correlation.
     pub(crate) pending_removals: Arc<DashMap<PathBuf, uuid::Uuid>>,
+    /// Delayed removals remain owned until their timer is cancelled or their SQL finishes.
+    pub(crate) pending_deletions: tokio::sync::Mutex<JoinSet<()>>,
+    pub(crate) pending_deletion_failed: std::sync::atomic::AtomicBool,
     /// Shared compatibility hints; catalog reconciliation decides whether an observation is stale.
     pub(crate) path_guard: Arc<crate::core::path_guard::LedgerPathGuard>,
 }
@@ -96,6 +99,8 @@ impl LibraryIndexer {
             registry,
             concurrency_limit: 200,
             pending_removals: Arc::new(DashMap::new()),
+            pending_deletions: tokio::sync::Mutex::new(JoinSet::new()),
+            pending_deletion_failed: std::sync::atomic::AtomicBool::new(false),
             path_guard: Arc::new(crate::core::path_guard::LedgerPathGuard::new()),
         }
     }

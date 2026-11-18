@@ -101,7 +101,23 @@ lifecycle que retém preparação, filhos e diretórios até a limpeza, inclusiv
 quando o solicitante desiste. A validação Windows de R2 confirmou saída limpa
 com HLS HTTP e sessões lineares em uso. O dono IPC foi validado ocioso no
 aplicativo e com filhos ativos nos testes automatizados, incluindo FFmpeg real.
-Admissão geral de IPC e limites de operações nativas continuam em R3/R4.
+R3 adiciona admissão atômica aos comandos de negócio: um argumento extraído
+pelo framework retém a chamada até sua conclusão. O pedido de saída fecha a
+admissão antes de cancelar produtores; o dono `ipc_commands` aguarda as
+chamadas admitidas antes do bridge e do fechamento explícito do pool.
+Chamadas tardias recebem `CANCELLED`, sem toast genérico de falha. Os comandos
+de startup, apresentação de shutdown e telemetria permanecem disponíveis.
+Scans manuais de duplicatas são registrados no lifecycle; sua reconciliação de
+progresso, manutenção de reservas de matching e exclusões adiadas do indexador
+são aguardadas por seus donos. Importação/exportação de texto também passa
+pela barreira, preservando autorizações dos diálogos e negativas globais do
+filesystem. O acesso direto não utilizado ao plugin SQL foi removido.
+A validação Windows de R3 confirmou duas saídas limpas, admissão/drenagem IPC
+antes do bridge/pool e recusa real de uma consulta posterior ao fechamento do
+banco. Os três scans manuais da segunda execução já haviam terminado ao fechar;
+concorrência ativa e transação retida permanecem na cobertura automatizada.
+R3 está concluído nos caminhos registrados; limites de operações nativas e boot
+parcial continuam em R4.
 O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
 contém o inventário atualizado, as evidências Windows/macOS, o checklist,
 o aceite Linux e as pendências dos artefatos finais. Testes de acessibilidade não são

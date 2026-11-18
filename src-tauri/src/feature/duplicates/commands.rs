@@ -461,10 +461,25 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::DatabaseError` if the scan fails.
     pub async fn start_duplicate_scan(&self) -> AppResult<()> {
-        self.run_duplicate_scan(false).await
+        self.run_duplicate_scan(false, CancellationToken::new())
+            .await
     }
 
-    async fn run_duplicate_scan(&self, rebuild: bool) -> AppResult<()> {
+    /// Starts a scan owned by a caller's cooperative lifetime.
+    /// # Errors
+    /// Propagates cancellation and the same persistence errors as a manual scan.
+    pub async fn start_duplicate_scan_with_token(&self, token: CancellationToken) -> AppResult<()> {
+        self.run_duplicate_scan(false, token).await
+    }
+
+    async fn run_duplicate_scan(
+        &self,
+        rebuild: bool,
+        cancellation_token: CancellationToken,
+    ) -> AppResult<()> {
+        if cancellation_token.is_cancelled() {
+            return Err(crate::core::AppError::Cancelled);
+        }
         self.ensure_processing_resumed()?;
         if self
             .scan_status
@@ -481,7 +496,6 @@ impl DuplicateCommandService {
         }
         tracing::info!("DuplicateCommandService: start_duplicate_scan requested");
 
-        let cancellation_token = CancellationToken::new();
         let run_id = uuid::Uuid::new_v4().to_string();
         {
             let mut cancellation_guard = self
@@ -532,23 +546,25 @@ impl DuplicateCommandService {
         if rebuild {
             self.duplicates_repo.reset_duplicate_index().await?;
         }
+        if cancellation_token.is_cancelled() {
+            return Ok(());
+        }
 
         tracing::info!("DuplicateCommandService: [1/4] backfilling missing fingerprints");
         self.duplicates_repo.backfill_missing_fingerprints().await?;
 
         let (progress_sender, progress_receiver) = tokio::sync::watch::channel((0, 0));
-        let progress_handle = tokio::spawn(super::scan_progress::reconcile(
+        let progress = super::scan_progress::reconcile(
             progress_receiver,
             self.scan_status.clone(),
             run_id.clone(),
-        ));
+        );
 
         tracing::info!("DuplicateCommandService: [2/4] rehashing pending fingerprints");
-        let rehash_result = self
+        let rehash = self
             .fingerprint_processor
-            .rehash_pending(&cancellation_token, Some(progress_sender))
-            .await;
-        let _ = progress_handle.await;
+            .rehash_pending(&cancellation_token, Some(progress_sender));
+        let (rehash_result, ()) = tokio::join!(rehash, progress);
         let rehashed_count = rehash_result?;
 
         tracing::info!(
@@ -689,7 +705,18 @@ impl DuplicateCommandService {
     /// # Errors
     /// Returns `AppError::Database` if resetting or scanning fails.
     pub async fn rebuild_duplicate_index(&self) -> AppResult<()> {
-        self.run_duplicate_scan(true).await
+        self.run_duplicate_scan(true, CancellationToken::new())
+            .await
+    }
+
+    /// Rebuilds using the caller's lifetime, without dropping an admitted database operation.
+    /// # Errors
+    /// Propagates cancellation and persistence failures.
+    pub async fn rebuild_duplicate_index_with_token(
+        &self,
+        token: CancellationToken,
+    ) -> AppResult<()> {
+        self.run_duplicate_scan(true, token).await
     }
 
     fn ensure_processing_resumed(&self) -> AppResult<()> {

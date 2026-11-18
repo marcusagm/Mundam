@@ -26,51 +26,70 @@ impl LibraryIndexer {
     ///
     /// This mirrors the V1 behavior where each event (add, rename, delete)
     /// was processed as a single, targeted operation — NOT a full re-scan.
-    pub fn start_event_listener(
+    pub async fn run_event_listener(
         self: Arc<Self>,
         event_bus: Arc<dyn AppEventBus>,
         token: tokio_util::sync::CancellationToken,
-    ) -> tauri::async_runtime::JoinHandle<()> {
+    ) -> AppResult<()> {
         let mut receiver = event_bus.subscribe();
         let mut repair_interval = tokio::time::interval_at(
             tokio::time::Instant::now() + std::time::Duration::from_secs(600),
             std::time::Duration::from_secs(600),
         );
-        tauri::async_runtime::spawn(async move {
-            let mut last_reconciliation: Option<tokio::time::Instant> = None;
-            info!("IndexerEventListener: started and listening for filesystem events");
+        let mut last_reconciliation: Option<tokio::time::Instant> = None;
+        info!("IndexerEventListener: started and listening for filesystem events");
 
-            loop {
-                tokio::select! {
-                    recv_result = receiver.recv() => {
-                        match recv_result {
-                            Ok(event) => {
-                                self.handle_single_event(event, &token).await;
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
-                                if last_reconciliation.is_none_or(|instant| instant.elapsed() >= std::time::Duration::from_secs(60)) { repair_interval.reset_immediately(); }
-                                warn!(
-                                    "IndexerEventListener: lagged behind {} events, continuing",
-                                    skipped_count
-                                );
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                                info!("IndexerEventListener: channel closed, shutting down");
-                                break;
-                            }
+        loop {
+            tokio::select! {
+                biased;
+                _ = token.cancelled() => {
+                    info!("IndexerEventListener: cancelled, shutting down");
+                    break;
+                }
+                recv_result = receiver.recv() => {
+                    match recv_result {
+                        Ok(event) => {
+                            self.handle_single_event(event, &token).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped_count)) => {
+                            if last_reconciliation.is_none_or(|instant| instant.elapsed() >= std::time::Duration::from_secs(60)) { repair_interval.reset_immediately(); }
+                            warn!(
+                                "IndexerEventListener: lagged behind {} events, continuing",
+                                skipped_count
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            info!("IndexerEventListener: channel closed, shutting down");
+                            break;
                         }
                     }
-                    _ = repair_interval.tick() => {
-                        self.reconcile_observed_roots(&token).await;
-                        last_reconciliation = Some(tokio::time::Instant::now());
-                    }
-                    _ = token.cancelled() => {
-                        info!("IndexerEventListener: cancelled, shutting down");
-                        break;
-                    }
+                }
+                _ = repair_interval.tick() => {
+                    self.reconcile_observed_roots(&token).await;
+                    last_reconciliation = Some(tokio::time::Instant::now());
                 }
             }
-        })
+        }
+        token.cancel();
+        let mut pending = self.pending_deletions.lock().await;
+        while let Some(result) = pending.join_next().await {
+            if let Err(error) = result {
+                self.pending_deletion_failed
+                    .store(true, std::sync::atomic::Ordering::Release);
+                error!(%error, "Deferred deletion owner failed");
+            }
+        }
+        self.pending_removals.clear();
+        info!("IndexerEventListener: deferred deletions drained");
+        if self
+            .pending_deletion_failed
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(crate::core::AppError::Internal(
+                "Deferred deletion supervision failed".into(),
+            ));
+        }
+        Ok(())
     }
 
     async fn reconcile_observed_roots(&self, token: &tokio_util::sync::CancellationToken) {
@@ -119,7 +138,7 @@ impl LibraryIndexer {
             DomainEvent::FsPathDeleted { path } => {
                 match self.query_handler.find_folder_by_path(&path).await {
                     Ok(Some(_)) => self.handle_directory_deleted(path).await,
-                    Ok(None) => self.handle_path_deleted(path).await,
+                    Ok(None) => self.handle_path_deleted(path, token).await,
                     Err(error) => error!(%error, "Cannot classify removal observation"),
                 }
             }
@@ -214,7 +233,10 @@ impl LibraryIndexer {
     }
 
     /// Defers catalog removal so native-identity move recovery retains user metadata.
-    async fn handle_path_deleted(&self, path: String) {
+    async fn handle_path_deleted(&self, path: String, token: &tokio_util::sync::CancellationToken) {
+        if token.is_cancelled() {
+            return;
+        }
         let entry_path = PathBuf::from(&path);
         if tokio::fs::try_exists(&entry_path).await.unwrap_or(true) {
             return;
@@ -232,8 +254,24 @@ impl LibraryIndexer {
         let removals = self.pending_removals.clone();
         let ledger = self.ledger.clone();
         let queries = self.query_handler.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        let cancellation = token.clone();
+        let mut pending = self.pending_deletions.lock().await;
+        while let Some(result) = pending.try_join_next() {
+            if let Err(error) = result {
+                self.pending_deletion_failed
+                    .store(true, std::sync::atomic::Ordering::Release);
+                error!(%error, "Deferred deletion owner failed");
+            }
+        }
+        pending.spawn(async move {
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {}
+            }
+            if cancellation.is_cancelled() {
+                return;
+            }
             if removals
                 .remove_if(&entry_path, |_, current| *current == generation)
                 .is_none()
@@ -311,7 +349,7 @@ impl LibraryIndexer {
 
             if let Err(error) = update_result {
                 warn!(%error, "Rename hint was not verified; reconciling separate observations");
-                self.handle_path_deleted(from).await;
+                self.handle_path_deleted(from, token).await;
                 info!(
                     "Indexer: Rename source '{}' not in DB — treating as new file creation for '{}'",
                     from_path.display(),

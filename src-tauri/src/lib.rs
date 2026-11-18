@@ -35,6 +35,9 @@ pub fn run() {
     crate::bootstrap::linux_graphics::apply(&context.config().identifier);
 
     let builder = crate::bootstrap::startup::register_state(tauri::Builder::default())
+        .manage(std::sync::Arc::new(
+            crate::delivery::tauri::admission::IpcAdmission::default(),
+        ))
         .plugin(tauri_plugin_clipboard_manager::init());
     builder
         .register_asynchronous_uri_scheme_protocol(
@@ -78,6 +81,13 @@ pub fn run() {
             std::env::set_var("MUNDAM_RESOURCE_DIR", resource_dir);
 
             crate::bootstrap::system::init_lifecycle(app_handle);
+            app_handle
+                .state::<std::sync::Arc<crate::delivery::tauri::admission::IpcAdmission>>()
+                .register_lifecycle_owner(
+                    app_handle
+                        .state::<std::sync::Arc<crate::lifecycle::LifecycleRegistry>>()
+                        .inner(),
+                );
             app_handle.manage(std::sync::Arc::new(
                 crate::delivery::protocols::admission::ProtocolAdmission::default(),
             ));
@@ -89,7 +99,6 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
@@ -101,6 +110,8 @@ pub fn run() {
             delivery::tauri::shutdown::get_shutdown_state,
             delivery::tauri::shutdown::acknowledge_shutdown_presentation,
             // IPC Commands
+            delivery::tauri::commands::text_files::read_text_file,
+            delivery::tauri::commands::text_files::write_text_file,
             delivery::tauri::commands::queries::get_assets,
             delivery::tauri::commands::queries::get_asset,
             delivery::tauri::commands::queries::get_assets_by_ids,

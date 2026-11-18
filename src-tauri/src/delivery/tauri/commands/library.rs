@@ -4,6 +4,7 @@ use crate::core::{
     ledger::{library_operation::LibraryOperation, port::TransactionalAssetLedger},
     repository::AssetQueryHandler,
 };
+use crate::delivery::tauri::admission::IpcRequest;
 use std::sync::Arc;
 use tauri::State;
 
@@ -13,6 +14,7 @@ use tauri::State;
 /// Propagates validation, filesystem and persistence failures from the handler.
 #[tauri::command]
 pub async fn library_operation(
+    _ipc: IpcRequest,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     queries: State<'_, Arc<dyn AssetQueryHandler>>,
     watcher: State<'_, Arc<dyn crate::core::library::RootObservation>>,
@@ -33,6 +35,7 @@ pub async fn library_operation(
 /// Propagates storage availability errors.
 #[tauri::command]
 pub async fn folder_recovery_directory(
+    _ipc: IpcRequest,
     storage: State<'_, Arc<dyn crate::core::library::RecoveryStorage>>,
 ) -> AppResult<std::path::PathBuf> {
     crate::feature::library::operations::recovery_directory(storage.inner().as_ref()).await
@@ -44,6 +47,7 @@ pub async fn folder_recovery_directory(
 /// Propagates catalog read failures.
 #[tauri::command]
 pub async fn folder_recovery_history(
+    _ipc: IpcRequest,
     queries: State<'_, Arc<dyn AssetQueryHandler>>,
     offset: u32,
 ) -> AppResult<Vec<crate::core::library::FolderRecoveryEntry>> {

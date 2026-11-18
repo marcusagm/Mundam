@@ -20,5 +20,6 @@ pub mod settings;
 pub mod shutdown;
 /// Application startup readiness and retained progress.
 pub mod startup;
+pub mod text_files;
 /// Module for transcoding functionality.
 pub mod transcoding;

@@ -42,10 +42,12 @@ pub async fn process(
     let heartbeat_repository = repository.clone();
     let heartbeat_ticket = input.ticket.clone();
     let heartbeat_computation = computation.clone();
-    tokio::spawn(async move {
+    let heartbeat_stop = stop.clone();
+    let heartbeat = async move {
         loop {
             tokio::select! {
-                _ = stop.cancelled() => break,
+                biased;
+                _ = heartbeat_stop.cancelled() => break,
                 _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {}
             }
             match heartbeat_repository.renew_matching(&heartbeat_ticket).await {
@@ -62,50 +64,56 @@ pub async fn process(
         {
             tracing::warn!(%error, "Matching reservation will recover through expiry");
         }
-    });
-    let result = async {
-        let worker_input = input.clone();
-        let worker_token = computation.clone();
-        let (groups, compare_ms) = tokio::task::spawn_blocking(move || {
-            let started = std::time::Instant::now();
-            let groups = super::matching::compare(&worker_input, &worker_token);
-            (groups, started.elapsed().as_millis() as u64)
-        })
-        .await
-        .map_err(|error| AppError::Internal(format!("Matching computation failed: {error}")))?;
-        let Some(groups) = groups else {
-            return Ok(None);
-        };
-        if computation.is_cancelled() {
-            return Ok(None);
+    };
+    let work = async {
+        let result = async {
+            let worker_input = input.clone();
+            let worker_token = computation.clone();
+            let (groups, compare_ms) = tokio::task::spawn_blocking(move || {
+                let started = std::time::Instant::now();
+                let groups = super::matching::compare(&worker_input, &worker_token);
+                (groups, started.elapsed().as_millis() as u64)
+            })
+            .await
+            .map_err(|error| AppError::Internal(format!("Matching computation failed: {error}")))?;
+            let Some(groups) = groups else {
+                return Ok(None);
+            };
+            if computation.is_cancelled() {
+                return Ok(None);
+            }
+            let count = groups.len();
+            let publish_started = std::time::Instant::now();
+            let published = repository.publish_matching(&input, groups).await?;
+            tracing::info!(
+                phase = kind.as_str(),
+                revision = input.ticket.revision,
+                fingerprints = input.fingerprints.len(),
+                groups = count,
+                claim_ms,
+                compare_ms,
+                publish_ms = publish_started.elapsed().as_millis() as u64,
+                published,
+                "Duplicate matching measurement"
+            );
+            if published {
+                Ok(Some(count))
+            } else {
+                Ok(None)
+            }
         }
-        let count = groups.len();
-        let publish_started = std::time::Instant::now();
-        let published = repository.publish_matching(&input, groups).await?;
-        tracing::info!(
-            phase = kind.as_str(),
-            revision = input.ticket.revision,
-            fingerprints = input.fingerprints.len(),
-            groups = count,
-            claim_ms,
-            compare_ms,
-            publish_ms = publish_started.elapsed().as_millis() as u64,
-            published,
-            "Duplicate matching measurement"
-        );
-        if published {
-            Ok(Some(count))
-        } else {
-            Ok(None)
-        }
-    }
-    .await;
-    repository
-        .release_matching(
-            &input.ticket,
-            result.as_ref().err().map(ToString::to_string),
-        )
-        .await?;
+        .await;
+        let release = repository
+            .release_matching(
+                &input.ticket,
+                result.as_ref().err().map(ToString::to_string),
+            )
+            .await;
+        stop.cancel();
+        release?;
+        result
+    };
+    let (result, ()) = tokio::join!(work, heartbeat);
     result
 }
 

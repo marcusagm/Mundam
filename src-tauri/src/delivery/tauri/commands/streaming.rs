@@ -5,6 +5,7 @@
 
 use crate::core::error::AppResult;
 use crate::core::repository::AssetQueryHandler;
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::delivery::tauri::commands::queries::StreamingSessionToken;
 use crate::feature::transcoding::cache::{CacheStats, TranscodeCache};
 use crate::feature::transcoding::detector::{self, MediaKind};
@@ -15,6 +16,7 @@ use tauri::{AppHandle, Manager, State};
 /// Checks if a file needs transcoding for playback.
 #[tauri::command]
 pub async fn needs_transcoding(
+    _ipc: IpcRequest,
     registry: State<'_, Arc<crate::core::formats::registry::FormatRegistry>>,
     path: String,
 ) -> AppResult<bool> {
@@ -27,6 +29,7 @@ pub async fn needs_transcoding(
 /// Checks if a file is natively supported by the webview.
 #[tauri::command]
 pub async fn is_native_format(
+    _ipc: IpcRequest,
     registry: State<'_, Arc<crate::core::formats::registry::FormatRegistry>>,
     path: String,
 ) -> AppResult<bool> {
@@ -38,7 +41,11 @@ pub async fn is_native_format(
 
 /// Generates a streaming URL for an asset.
 #[tauri::command]
-pub async fn get_stream_url(app_handle: AppHandle, asset_id: String) -> AppResult<String> {
+pub async fn get_stream_url(
+    _ipc: IpcRequest,
+    app_handle: AppHandle,
+    asset_id: String,
+) -> AppResult<String> {
     let session_token = app_handle.state::<StreamingSessionToken>();
     let registry = app_handle.state::<Arc<crate::core::formats::registry::FormatRegistry>>();
     let port = 9876; // Default port
@@ -86,7 +93,7 @@ pub async fn get_stream_url(app_handle: AppHandle, asset_id: String) -> AppResul
 
 /// Returns available quality options for a video asset.
 #[tauri::command]
-pub async fn get_quality_options(_asset_id: String) -> Vec<TranscodeQuality> {
+pub async fn get_quality_options(_ipc: IpcRequest, _asset_id: String) -> Vec<TranscodeQuality> {
     vec![
         TranscodeQuality::Low,
         TranscodeQuality::Medium,
@@ -97,13 +104,14 @@ pub async fn get_quality_options(_asset_id: String) -> Vec<TranscodeQuality> {
 
 /// Checks if FFmpeg is available on the system.
 #[tauri::command]
-pub async fn ffmpeg_available() -> bool {
+pub async fn ffmpeg_available(_ipc: IpcRequest) -> bool {
     crate::processing::transcoding::check_transcoding_availability()
 }
 
 /// Checks if a cached version of the file exists for a given quality.
 #[tauri::command]
 pub async fn is_cached(
+    _ipc: IpcRequest,
     app_handle: AppHandle,
     asset_id: String,
     quality: TranscodeQuality,
@@ -122,6 +130,7 @@ pub async fn is_cached(
 /// Returns statistics about the transcode cache.
 #[tauri::command]
 pub async fn get_streaming_cache_stats(
+    _ipc: IpcRequest,
     cache: State<'_, Arc<TranscodeCache>>,
 ) -> AppResult<CacheStats> {
     Ok(cache.get_stats())
@@ -130,6 +139,7 @@ pub async fn get_streaming_cache_stats(
 /// Manually triggers transcoding for a file (useful for pre-caching).
 #[tauri::command]
 pub async fn transcode_file(
+    _ipc: IpcRequest,
     app_handle: AppHandle,
     asset_id: String,
     _quality: TranscodeQuality,
@@ -157,6 +167,7 @@ pub async fn transcode_file(
 /// Cleans up the transcode cache.
 #[tauri::command]
 pub async fn cleanup_cache_streaming(
+    _ipc: IpcRequest,
     cache: State<'_, Arc<TranscodeCache>>,
     max_age_days: u64,
 ) -> AppResult<usize> {
@@ -165,6 +176,9 @@ pub async fn cleanup_cache_streaming(
 
 /// Clears the entire transcode cache.
 #[tauri::command]
-pub async fn clear_cache_streaming(cache: State<'_, Arc<TranscodeCache>>) -> AppResult<usize> {
+pub async fn clear_cache_streaming(
+    _ipc: IpcRequest,
+    cache: State<'_, Arc<TranscodeCache>>,
+) -> AppResult<usize> {
     Ok(cache.clear_all())
 }

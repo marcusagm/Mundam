@@ -2,6 +2,7 @@ use crate::core::error::AppResult;
 use crate::core::models::{
     DuplicateCandidate, DuplicateGroup, DuplicateResolutionAction, MetadataMergePayload,
 };
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::feature::duplicates::commands::{DuplicateCommandService, DuplicateScanStatus};
 use crate::feature::duplicates::queries::DuplicateQueryService;
 use tauri::State;
@@ -9,6 +10,7 @@ use tauri::State;
 /// Retrieves duplicate groups by status.
 #[tauri::command]
 pub async fn get_duplicate_groups(
+    _ipc: IpcRequest,
     status: String,
     query_service: State<'_, DuplicateQueryService>,
 ) -> AppResult<Vec<DuplicateGroup>> {
@@ -18,6 +20,7 @@ pub async fn get_duplicate_groups(
 /// Retrieves candidates for a duplicate group.
 #[tauri::command]
 pub async fn get_duplicate_candidates(
+    _ipc: IpcRequest,
     group_id: String,
     query_service: State<'_, DuplicateQueryService>,
 ) -> AppResult<Vec<DuplicateCandidate>> {
@@ -42,6 +45,7 @@ pub async fn get_duplicate_candidates(
 /// Returns `AppError::ValidationFailed` if the action string is invalid.
 #[tauri::command]
 pub async fn resolve_duplicate_group(
+    _ipc: IpcRequest,
     group_id: String,
     action: String,
     kept_asset_ids: Option<Vec<String>>,
@@ -70,6 +74,7 @@ pub async fn resolve_duplicate_group(
 /// Returns `AppError::Database` if database updates or restorations fail.
 #[tauri::command]
 pub async fn undo_duplicate_resolution(
+    _ipc: IpcRequest,
     group_id: String,
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
@@ -79,20 +84,30 @@ pub async fn undo_duplicate_resolution(
 /// Dispara uma varredura por duplicados no repositório em segundo plano.
 #[tauri::command]
 pub async fn start_duplicate_scan(
+    _ipc: IpcRequest,
     command_service: State<'_, DuplicateCommandService>,
+    lifecycle: State<'_, std::sync::Arc<crate::lifecycle::LifecycleRegistry>>,
 ) -> AppResult<()> {
     let service_clone = command_service.inner().clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(scan_error) = service_clone.start_duplicate_scan().await {
-            tracing::error!("Background duplicate scan error: {}", scan_error);
+    let cancellation = lifecycle.child_token();
+    if !lifecycle.spawn_unique(format!("manual_duplicate_scan:{}", uuid::Uuid::new_v4()), async move {
+        if let Err(scan_error) = service_clone.start_duplicate_scan_with_token(cancellation.clone()).await {
+            if cancellation.is_cancelled() {
+                tracing::debug!(%scan_error, "Background duplicate scan stopped during shutdown");
+            } else {
+                tracing::error!(%scan_error, "Background duplicate scan error");
+            }
         }
-    });
+    }) {
+        return Err(crate::core::AppError::Cancelled);
+    }
     Ok(())
 }
 
 /// Cancela a varredura de duplicados.
 #[tauri::command]
 pub async fn cancel_duplicate_scan(
+    _ipc: IpcRequest,
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
     command_service.cancel_duplicate_scan().await?;
@@ -108,6 +123,7 @@ pub async fn cancel_duplicate_scan(
 /// Returns `AppResult<DuplicateScanStatus>` representing current scanning state.
 #[tauri::command]
 pub async fn get_duplicate_scan_status(
+    _ipc: IpcRequest,
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<DuplicateScanStatus> {
     Ok(command_service.get_scan_status())
@@ -124,6 +140,7 @@ pub async fn get_duplicate_scan_status(
 /// * `merge_payload` - The user-confirmed merge decisions from the UI modal.
 #[tauri::command]
 pub async fn apply_duplicate_metadata_merge(
+    _ipc: IpcRequest,
     kept_asset_ids: Vec<String>,
     merge_payload: MetadataMergePayload,
     command_service: State<'_, DuplicateCommandService>,
@@ -136,6 +153,7 @@ pub async fn apply_duplicate_metadata_merge(
 /// Updates a duplicate rule set (e.g. from the settings modal).
 #[tauri::command]
 pub async fn update_duplicate_rule_set(
+    _ipc: IpcRequest,
     rule_set: crate::core::models::DuplicateRuleSet,
     command_service: State<'_, DuplicateCommandService>,
 ) -> AppResult<()> {
@@ -151,6 +169,7 @@ pub async fn update_duplicate_rule_set(
 /// Returns `AppError::Database` if the query fails.
 #[tauri::command]
 pub async fn get_active_duplicate_rule_set(
+    _ipc: IpcRequest,
     query_service: State<'_, DuplicateQueryService>,
 ) -> AppResult<Option<crate::core::models::DuplicateRuleSet>> {
     query_service.get_active_rule_set().await
@@ -165,7 +184,11 @@ pub async fn get_active_duplicate_rule_set(
 /// Returns `AppError::Database` if the index reset or rescan fails.
 #[tauri::command]
 pub async fn rebuild_duplicate_index(
+    _ipc: IpcRequest,
     command_service: State<'_, DuplicateCommandService>,
+    lifecycle: State<'_, std::sync::Arc<crate::lifecycle::LifecycleRegistry>>,
 ) -> AppResult<()> {
-    command_service.rebuild_duplicate_index().await
+    command_service
+        .rebuild_duplicate_index_with_token(lifecycle.child_token())
+        .await
 }

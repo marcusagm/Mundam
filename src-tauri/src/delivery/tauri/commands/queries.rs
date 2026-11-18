@@ -3,6 +3,7 @@ use crate::core::models::{
     Asset, AssetColor, AssetFilter, Folder, LibraryStats, PageParams, PaginatedAssetsDto,
     SmartFolder, Tag,
 };
+use crate::delivery::tauri::admission::IpcRequest;
 use crate::feature::assets::queries::AssetQueryService;
 use std::sync::Arc;
 use tauri::{Manager, State};
@@ -14,7 +15,10 @@ pub struct StreamingSessionToken(pub String);
 
 /// Returns the streaming session token to the frontend.
 #[tauri::command]
-pub fn get_streaming_token(token_state: State<'_, StreamingSessionToken>) -> String {
+pub fn get_streaming_token(
+    _ipc: IpcRequest,
+    token_state: State<'_, StreamingSessionToken>,
+) -> String {
     token_state.0.clone()
 }
 
@@ -32,6 +36,7 @@ pub fn get_streaming_token(token_state: State<'_, StreamingSessionToken>) -> Str
 /// * `Err(AppError)` if the assets could not be found.
 #[tauri::command]
 pub async fn get_assets(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     filter: AssetFilter,
     page: PageParams,
@@ -52,6 +57,7 @@ pub async fn get_assets(
 /// * `Err(AppError)` if the asset could not be found.
 #[tauri::command]
 pub async fn get_asset(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     id: String,
 ) -> AppResult<Option<Asset>> {
@@ -71,6 +77,7 @@ pub async fn get_asset(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_assets_by_ids(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     asset_ids: Vec<String>,
 ) -> AppResult<Vec<Asset>> {
@@ -90,6 +97,7 @@ pub async fn get_assets_by_ids(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_tags_for_assets(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     asset_ids: Vec<String>,
 ) -> AppResult<std::collections::HashMap<String, Vec<Tag>>> {
@@ -109,6 +117,7 @@ pub async fn get_tags_for_assets(
 /// * `Err(AppError)` if the folders could not be found.
 #[tauri::command]
 pub async fn list_folders(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     parent_id: Option<String>,
 ) -> AppResult<Vec<Folder>> {
@@ -126,7 +135,10 @@ pub async fn list_folders(
 /// * `Ok(Vec<Tag>)` if the tags were found successfully.
 /// * `Err(AppError)` if the tags could not be found.
 #[tauri::command]
-pub async fn list_tags(service: State<'_, AssetQueryService>) -> AppResult<Vec<Tag>> {
+pub async fn list_tags(
+    _ipc: IpcRequest,
+    service: State<'_, AssetQueryService>,
+) -> AppResult<Vec<Tag>> {
     service.list_tags().await
 }
 
@@ -144,6 +156,7 @@ pub async fn list_tags(service: State<'_, AssetQueryService>) -> AppResult<Vec<T
 /// * `Err(AppError)` if the search fails.
 #[tauri::command]
 pub async fn search_assets(
+    _ipc: IpcRequest,
     service: State<'_, crate::feature::search::SearchQueryHandler>,
     criteria: crate::core::models::SearchCriteria,
     page: PageParams,
@@ -164,6 +177,7 @@ pub async fn search_assets(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_tags_for_asset(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     asset_id: String,
 ) -> AppResult<Vec<Tag>> {
@@ -181,7 +195,10 @@ pub async fn get_tags_for_asset(
 /// * `Ok(Vec<Folder>)` if the folders were found successfully.
 /// * `Err(AppError)` if the folders could not be found.
 #[tauri::command]
-pub async fn get_all_subfolders(service: State<'_, AssetQueryService>) -> AppResult<Vec<Folder>> {
+pub async fn get_all_subfolders(
+    _ipc: IpcRequest,
+    service: State<'_, AssetQueryService>,
+) -> AppResult<Vec<Folder>> {
     service.list_all_subfolders().await
 }
 
@@ -197,6 +214,7 @@ pub async fn get_all_subfolders(service: State<'_, AssetQueryService>) -> AppRes
 /// * `Err(AppError)` if the counts could not be found.
 #[tauri::command]
 pub async fn get_subfolder_counts(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
 ) -> AppResult<Vec<(String, i64)>> {
     service.get_subfolder_asset_counts().await
@@ -214,6 +232,7 @@ pub async fn get_subfolder_counts(
 /// * `Err(AppError)` if the counts could not be found.
 #[tauri::command]
 pub async fn get_location_root_counts(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
 ) -> AppResult<Vec<(String, i64)>> {
     service.get_location_root_counts().await
@@ -231,6 +250,7 @@ pub async fn get_location_root_counts(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_smart_folders(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
 ) -> AppResult<Vec<SmartFolder>> {
     service.list_smart_folders().await
@@ -249,6 +269,7 @@ pub async fn get_smart_folders(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_asset_count_filtered(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     filter: AssetFilter,
 ) -> AppResult<i64> {
@@ -266,7 +287,10 @@ pub async fn get_asset_count_filtered(
 /// * `Ok(LibraryStats)` object containing aggregates.
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
-pub async fn get_library_stats(service: State<'_, AssetQueryService>) -> AppResult<LibraryStats> {
+pub async fn get_library_stats(
+    _ipc: IpcRequest,
+    service: State<'_, AssetQueryService>,
+) -> AppResult<LibraryStats> {
     service.get_library_stats().await
 }
 
@@ -283,6 +307,7 @@ pub async fn get_library_stats(service: State<'_, AssetQueryService>) -> AppResu
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_asset_colors(
+    _ipc: IpcRequest,
     service: State<'_, AssetQueryService>,
     asset_id: String,
 ) -> AppResult<Vec<AssetColor>> {
@@ -303,6 +328,7 @@ pub async fn get_asset_colors(
 /// * `Err(AppError)` if the query fails.
 #[tauri::command]
 pub async fn get_asset_exif(
+    _ipc: IpcRequest,
     app_handle: tauri::AppHandle,
     service: State<'_, AssetQueryService>,
     registry: State<'_, Arc<FormatRegistry>>,
@@ -345,7 +371,10 @@ pub async fn get_asset_exif(
 
 /// RPC Command to get statistics about the transcoding and thumbnail cache.
 #[tauri::command]
-pub async fn get_library_cache_stats(handle: tauri::AppHandle) -> AppResult<serde_json::Value> {
+pub async fn get_library_cache_stats(
+    _ipc: IpcRequest,
+    handle: tauri::AppHandle,
+) -> AppResult<serde_json::Value> {
     let app_data = handle
         .path()
         .app_local_data_dir()
@@ -396,6 +425,7 @@ pub async fn get_library_cache_stats(handle: tauri::AppHandle) -> AppResult<serd
 /// RPC Command to get all supported file formats.
 #[tauri::command]
 pub fn get_library_supported_formats(
+    _ipc: IpcRequest,
     registry: State<'_, Arc<FormatRegistry>>,
 ) -> Vec<SupportedFormat> {
     registry.get_supported_formats()
@@ -409,6 +439,7 @@ pub fn get_library_supported_formats(
 /// instead of using the original (now missing) library path.
 #[tauri::command]
 pub async fn get_audio_waveform_data(
+    _ipc: IpcRequest,
     app_handle: tauri::AppHandle,
     service: State<'_, AssetQueryService>,
     asset_id: Option<String>,

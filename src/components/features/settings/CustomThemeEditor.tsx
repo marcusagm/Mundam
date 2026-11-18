@@ -1,6 +1,6 @@
 import { Component, Show, createMemo } from 'solid-js';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile } from '../../../lib/text-files';
 import { Button } from '../../ui/Button';
 import { Select } from '../../ui/Select';
 import { toast } from '../../ui/Sonner';
