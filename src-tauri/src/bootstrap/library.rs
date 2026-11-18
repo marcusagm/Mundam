@@ -78,10 +78,25 @@ pub async fn init(app: &AppHandle) {
         indexer_handle,
     );
 
-    // Initialize Watcher Service
+    // One lifetime token owns observation of every root, including reconciled roots.
+    let watcher_token = lifecycle.child_token();
     let watcher = Arc::new(crate::processing::watcher::WatcherService::new(
         event_bus.clone(),
+        watcher_token.clone(),
     ));
+    let watcher_shutdown = watcher.clone();
+    let watcher_lifecycle = lifecycle.clone();
+    let watcher_shutdown_token = watcher_token.clone();
+    if !lifecycle.spawn_unique("library_watcher".into(), async move {
+        watcher_shutdown_token.cancelled().await;
+        if let Err(error) = watcher_shutdown.shutdown().await {
+            tracing::error!(%error, "Library watcher shutdown failed");
+            watcher_lifecycle.report_failure("library watcher");
+        }
+    }) {
+        watcher_token.cancel();
+        tracing::warn!("Watcher admission closed because its lifecycle owner was not admitted");
+    }
     app.manage(watcher.clone());
 
     let observer: Arc<dyn crate::core::library::RootObservation> = watcher.clone();
@@ -122,11 +137,7 @@ pub async fn init(app: &AppHandle) {
         for folder in &roots {
             let root_path = std::path::PathBuf::from(&folder.path);
 
-            let watcher_token = lifecycle.child_token();
-            if let Err(e) = watcher
-                .watch(root_path.clone(), watcher_token.clone())
-                .await
-            {
+            if let Err(e) = watcher.watch(root_path.clone()).await {
                 tracing::error!("Failed to start watcher for {}: {}", root_path.display(), e);
             }
         }

@@ -93,10 +93,12 @@ quando as verificações de drenagem e ociosidade permitem. A apresentação de
 encerramento não controla nem bloqueia indefinidamente a limpeza.
 
 O aceite dos workers acima não equivale a inventário completo dos recursos da
-aplicação. Watcher nativo, alguns loops/filhos e admissão de IPC ainda têm lacunas
-de supervisão. O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
-contém o inventário atualizado, as evidências Windows/macOS, o checklist e as
-pendências para Linux e artefatos finais. Testes de acessibilidade não são
+aplicação. O watcher tem dono registrado, confirmação de liberação do callback
+nativo e espera dos loops de notificações, com registro idempotente de raízes e
+validação dirigida Windows concluída em 18/11/2026. Alguns loops/filhos e admissão de IPC
+ainda têm lacunas de supervisão. O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
+contém o inventário atualizado, as evidências Windows/macOS, o checklist,
+o aceite Linux e as pendências dos artefatos finais. Testes de acessibilidade não são
 critério de conclusão dessa implementação, por decisão do usuário.
 
 ## Architeture details
@@ -400,7 +402,9 @@ Interface de baixo nível com ferramentas de processamento de sinal.
 
 Responsável por manter a biblioteca sincronizada com as mudanças no disco em tempo real.
 
-*   **`sensor.rs`**: Interface direta com as APIs de notificação do Sistema Operacional (FSEvents no Mac, Inotify no Linux).
+*   **`sensor.rs`**: Controla admissão, raízes e handles retidos. O dono `library_watcher` aguarda `shutdown` antes da conclusão dos produtores no lifecycle.
+*   **`native.rs`**: Executa operações bloqueantes de FSEvents, inotify e ReadDirectoryChanges em um dono retido. Ao parar, destrói o watcher e aguarda a liberação do callback nativo, inclusive suas referências em requisições pendentes.
+*   **`runtime.rs`**: Mantém debouncer e publicador como futures unidas em uma tarefa aguardada. No cancelamento, fecha as filas e descarta notificações voláteis; o boot scan existente reconcilia o estado no próximo início. Operações de filesystem já iniciadas são aguardadas, sob o orçamento geral de encerramento.
 *   **`debouncer.rs`**: Componente crítico que filtra a "tempestade" de eventos brutos do S.O., agrupando operações atômicas e resolvendo heurísticas de renomeação/movimentação para evitar redundância no banco de dados.
 
 ### Workers

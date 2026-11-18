@@ -282,11 +282,10 @@ pub async fn start_indexing(
         })?;
     let watcher = watcher.inner().clone();
     let indexer_ref = indexer.inner().clone();
-    let watcher_token = lifecycle.child_token();
     let scan_token = lifecycle.child_token();
     let watcher_path = path_buf.clone();
     let setup = async move {
-        if let Err(watcher_error) = watcher.watch(watcher_path.clone(), watcher_token).await {
+        if let Err(watcher_error) = watcher.watch(watcher_path.clone()).await {
             tracing::error!(
                 "Failed to start watcher for {}: {}",
                 watcher_path.display(),

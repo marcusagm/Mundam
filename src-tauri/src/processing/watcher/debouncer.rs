@@ -20,6 +20,13 @@ pub struct EventDebouncer {
 }
 
 impl EventDebouncer {
+    /// Counts volatile hints discarded on shutdown and reconciled by the next boot scan.
+    pub(super) fn pending_count(&self) -> usize {
+        self.buffer.len()
+            + self.pending_tracked_renames.len()
+            + self.pending_untracked_removes.len()
+    }
+
     /// Creates a bounded notification producer whose receiver must run concurrently.
     pub fn new(output_sender: mpsc::Sender<DomainEvent>) -> Self {
         Self {

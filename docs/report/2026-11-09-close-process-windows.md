@@ -291,7 +291,7 @@ Não exibir na janela dados internos de bibliotecas, caminhos, nomes de arquivos
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | 1. Inventário e contratos | Entradas, donos, prazos e limitações registrados; evidências das três plataformas.                                 | Atualizado; lacunas compartilhadas delimitadas em R1–R4.                                   |
 | 2. Coordenação            | Coordenador único, snapshot, saída autorizada, registro atômico e supervisor de boot.                              | Implementada nos caminhos cobertos; admissão global de IPC em R3.                          |
-| 3. Drenagem real          | Protocolos, tarefas registradas, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | Parcial quanto ao inventário universal: watcher e donos auxiliares permanecem em R1/R2.    |
+| 3. Drenagem real | Protocolos, tarefas registradas, watcher, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | R1 implementado e validado na rodada v2 (seção 26). Donos auxiliares permanecem em R2; inventário universal não concluído. |
 | 4. Janela e protocolo     | Entrada Vite, capability, consulta/evento, handshake, mínimo, fallback e pausa de mídia.                           | Implementados; saída autônoma com falhas injetadas validada no Linux.                      |
 | 5. Apresentação funcional | Janela observada nas três plataformas; preferências Linux de vídeo/gráfica persistentes.                           | Sessão Linux concluída; acessibilidade dispensada; observações intermitentes sem bloqueio. |
 | 6. Integração e aceite    | Windows dev e evidências macOS anteriores preservados; Linux dev/release/Debian/AppImage validado.                 | R6 concluído. Restam os itens gerais da seção 14, sem reabrir a sessão Linux.              |
@@ -400,7 +400,8 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Fechar admissão dos protocolos de assets/thumbnails e aguardar handlers admitidos.
 - [x] Supervisionar e aguardar processos de segmentos, probes e sessões lineares do servidor HTTP.
 - [x] Pausar mídia da principal quando o pedido de encerramento for aceito.
-- [ ] Encerrar e aguardar o watcher nativo e seus loops com propriedade verificável (R1).
+- [x] Implementar encerramento e espera do watcher nativo e seus loops com propriedade verificável (R1; seção 24).
+- [x] Revalidar R1 no aplicativo após corrigir registro duplicado de raízes: duas saídas Windows v2 com clean=true (seção 26); bundle final continua em R5.
 - [ ] Supervisionar loops auxiliares e completar a auditoria dos demais subprocessos alcançáveis (R2).
 - [ ] Resolver a admissão/drenagem de IPC que pode criar recursos ou acessar o banco durante a saída (R3).
 - [ ] Concluir política e cobertura de boot/I/O não interrompível, falhas e recuperação (R4).
@@ -455,7 +456,7 @@ esta seção como aceite final.
 | Asset/thumbnail protocols             | `ProtocolAdmission` fecha a admissão e conta guards já admitidos.                                                                            | Drenagem de handlers registrada nos três últimos logs Windows.                                 | Até 5 s; falha degrada o resultado e impede fechamento explícito do pool.                      | Implementado; não prova conclusão de todo corpo HTTP já entregue.                               |
 | Servidor HTTP, segmentos e FFprobe    | Token raiz fecha servidor; processos registrados recebem cancelamento e seus donos aguardam saída/saídas de pipes.                           | 19 testes de streaming; servidor e donos concluíram nas três novas execuções Windows.          | Drenagem dentro do orçamento do lifecycle; falhas de supervisão degradam resultado.            | Implementado para esses donos, com validação Linux concluída; bundle Windows atualizado em R5.  |
 | Sessões lineares HTTP                 | Admissão serializada e fechada; filhos e diretórios tratados em `LinearManager::shutdown`.                                                   | Relatório de falhas de processo/diretório; testes e logs de sessões reais.                     | Lifecycle limita espera; falhas são propagadas.                                                | Implementado para o caminho HTTP; processo já encerrado não exercita kill de filho ativo.       |
-| Watcher nativo e debouncer            | `WatcherService::watch` ignora `_token`; loops e publicador usam `tokio::spawn` sem handles retidos no lifecycle.                            | Ainda não há confirmação explícita de término.                                                 | Drop no fim do processo não comprova drenagem antes de fechar banco/bridge.                    | Lacuna de implementação compartilhada (R1).                                                     |
+| Watcher nativo, debouncer e publicador | Token único, admissão fechada no cancelamento e dono library_watcher registrado. Registro repetido do mesmo caminho não chama novamente o backend nativo. | Liberação do callback, conclusão dos loops e do dono antes do bridge confirmadas nos dois logs Windows v2. | Hints voláteis reconciliados no boot; timeout continua degradando o resultado, sem prometer interromper I/O nativo. | R1 concluído nos cenários dirigidos: clean=true nas duas execuções, com pool fechado explicitamente (seção 26). |
 | Limpeza periódica HTTP e HLS do IPC   | Dois loops periódicos do servidor têm token, mas seus handles não são aguardados; `HlsManager` do IPC limpa sessões por drop/`kill_on_drop`. | Drop e cancelamento registrados; espera de todos esses donos não comprovada.                   | A política de recursos registrados não se estende automaticamente a esses caminhos.            | Auditar e supervisionar caminhos alcançáveis (R2).                                              |
 | Manutenção SQLite                     | library_cleanup e saga_recovery admitidos no lifecycle; limpeza não inicia nova rodada após cancelamento.                                    | Dois testes e runtime Linux, com espera antes do fechamento do pool.                           | Rodada já iniciada é aguardada sob o orçamento existente.                                      | Corrigido e validado; não é mais lacuna autônoma de R2.                                         |
 | Workers e extratores                  | Handles principais registrados; thumbnails verificam cancelamento entre fases e preservam leases.                                            | Testes de cancelamento e logs limpos sob carga; histórico também contém resultados degradados. | Operações bloqueantes/filhos podem ultrapassar abort do handle principal.                      | Cobertura parcial de ownership e recuperação (R2/R4).                                           |
@@ -494,8 +495,8 @@ posteriores têm token cancelado e handle abortado (teste
 `DbManager::close` fecha o pool SQLite com limite de 3 s (estouro marca
 `clean=false`). Se qualquer tarefa falhar ou exceder o orçamento, o fechamento
 explícito do pool é ignorado, pois recursos órfãos ainda podem tentar liberar
-leases antes da saída do processo. `cargo clippy --lib --tests` sem avisos;
-`cargo test --lib`:
+leases antes da saída do processo. Clippy incluindo testes sem avisos;
+execução da suíte Rust da biblioteca:
 269 aprovados (uma execução anterior teve 1 falha não identificada, não
 reproduzida na reexecução).
 
@@ -566,44 +567,44 @@ operações em conexões já adquiridas; é necessária supervisão explícita.
 
 | Data                     | Comando / cenário                                                                        | Plataforma / ambiente                                                                                                              | Resultado e evidência                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------------ | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-09               | `npm run typecheck`                                                                      | Ambiente de desenvolvimento macOS                                                                                                  | Aprovado.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 2026-11-09               | `npm run lint`                                                                           | Ambiente de desenvolvimento macOS                                                                                                  | Aprovado após formatação.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 2026-11-09               | `npm run test -- src/core/startup/client.test.ts src/core/shutdown/client.test.ts`       | Vitest                                                                                                                             | 7 testes aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 2026-11-09               | `npm run test -- src/components/features/shutdown/ShutdownScreen.spec.tsx`               | Vitest/jsdom                                                                                                                       | 1 teste aprovado; não substitui leitor de tela real.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 2026-11-09               | `npm run build`                                                                          | Vite                                                                                                                               | Aprovado; `dist/shutdown.html` presente.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-11-09               | verificação de tipos TypeScript                                                                      | Ambiente de desenvolvimento macOS                                                                                                  | Aprovado.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-09               | análise estática do frontend com ESLint                                                                           | Ambiente de desenvolvimento macOS                                                                                                  | Aprovado após formatação.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-09               | testes dos clientes de startup e encerramento       | Vitest                                                                                                                             | 7 testes aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-11-09               | testes da tela de encerramento               | Vitest/jsdom                                                                                                                       | 1 teste aprovado; não substitui leitor de tela real.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-11-09               | build do frontend com Vite                                                                          | Vite                                                                                                                               | Aprovado; `dist/shutdown.html` presente.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 2026-11-09               | Prévia HTTP de `shutdown.html`                                                           | Navegador, sem runtime Tauri                                                                                                       | Layout e árvore acessível observados; estado de espera por IPC demonstrado. Não valida janela nativa nem a ponte Tauri.                                                                                                                                                                                                                                                                                                                                                                        |
-| 2026-11-09               | `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` e `git diff --check`         | Ambiente de desenvolvimento macOS                                                                                                  | Aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| 2026-11-09               | `cargo test --manifest-path src-tauri/Cargo.toml feature::shutdown::tests --lib`         | Ambiente de desenvolvimento macOS                                                                                                  | 4 testes aprovados, incluindo pedidos concorrentes e limite da confirmação.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 2026-11-09               | `cargo test --manifest-path src-tauri/Cargo.toml feature::startup::tests --lib`          | Ambiente de desenvolvimento macOS                                                                                                  | 3 testes de regressão aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 2026-11-09               | verificação de formatação Rust e verificação de whitespace do diff         | Ambiente de desenvolvimento macOS                                                                                                  | Aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2026-11-09               | execução dos testes do coordenador de encerramento         | Ambiente de desenvolvimento macOS                                                                                                  | 4 testes aprovados, incluindo pedidos concorrentes e limite da confirmação.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-11-09               | execução dos testes de startup          | Ambiente de desenvolvimento macOS                                                                                                  | 3 testes de regressão aprovados.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-11-09               | Fechamento pelo botão da titlebar                                                        | macOS, relato do usuário                                                                                                           | Janela apareceu corretamente e duração foi considerada agradável; teste anterior à alteração de AppKit.                                                                                                                                                                                                                                                                                                                                                                                        |
 | 2026-11-09               | Dock → Encerrar e Cmd+Q                                                                  | macOS, relato do usuário                                                                                                           | Antes da correção, janela não apareceu e a limpeza aparentemente não foi executada.                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 2026-11-09               | Titlebar, Dock → Encerrar e Cmd+Q, após correção                                         | macOS, `npm run tauri dev`; relato e saída de terminal fornecidos pelo usuário                                                     | Janela exibida nos três casos; logs mostram um pedido de encerramento por execução, 12 handles registrados concluídos e `clean=true`. Dock e Cmd+Q também registram o pedido nativo do macOS.                                                                                                                                                                                                                                                                                                  |
+| 2026-11-09               | Titlebar, Dock → Encerrar e Cmd+Q, após correção                                         | macOS, execução do aplicativo em desenvolvimento; relato e saída de terminal fornecidos pelo usuário                                                     | Janela exibida nos três casos; logs mostram um pedido de encerramento por execução, 12 handles registrados concluídos e `clean=true`. Dock e Cmd+Q também registram o pedido nativo do macOS.                                                                                                                                                                                                                                                                                                  |
 | 2026-11-09               | Titlebar, Dock → Encerrar e Cmd+Q em build empacotado                                    | macOS, bundle; relato do usuário, sem logs                                                                                         | Janela exibida corretamente com duração considerada agradável; encerramento concluído nos três casos.                                                                                                                                                                                                                                                                                                                                                                                          |
-| 2026-11-09               | `cargo check --manifest-path src-tauri/Cargo.toml --lib`                                 | macOS                                                                                                                              | Compilação da ponte AppKit aprovada.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 2026-11-09               | `cargo test --manifest-path src-tauri/Cargo.toml bootstrap::macos_shutdown::tests --lib` | macOS                                                                                                                              | Teste Objective-C de herança e recusa de sobrescrita aprovado; não simula Dock, Cmd+Q nem exibição da janela.                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-11-09               | verificação de compilação da biblioteca Rust                                 | macOS                                                                                                                              | Compilação da ponte AppKit aprovada.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-11-09               | execução dos testes de encerramento nativo macOS | macOS                                                                                                                              | Teste Objective-C de herança e recusa de sobrescrita aprovado; não simula Dock, Cmd+Q nem exibição da janela.                                                                                                                                                                                                                                                                                                                                                                                  |
 | 2026-11-09               | Testes `feature::shutdown::tests` e `feature::startup::tests`                            | macOS                                                                                                                              | 4 e 3 testes aprovados após integração AppKit.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 2026-11-10               | Encerramento após alterações no lifecycle e pool                                         | macOS, `npm run tauri dev`; relato e saída colada pelo usuário                                                                     | Usuário relata funcionamento correto. Logs mostram pedido nativo, 12 handles registrados concluídos e `clean=true`; servidor informa zero processos de segmento e zero sessões lineares. O meio de encerramento não foi especificado.                                                                                                                                                                                                                                                          |
-| 2026-11-10               | Execução com reprodução de mídia e encerramento                                          | macOS, `npm run tauri dev`; logs colados pelo usuário                                                                              | O servidor drenou 2 sessões lineares e 0 processos de segmento. Dois workers (`duplicate_worker`, `thumbnail_worker`) excederam o limite global de 5 s; resultado `clean=false`. Depois, três liberações de lease falharam porque o pool já estava fechado. Isso evidencia trabalho filho/desanexado fora do handle do worker; não é um encerramento limpo.                                                                                                                                    |
-| 2026-11-10               | Build após correção para não fechar pool quando a drenagem falha                         | `cargo fmt`, `cargo check --lib`, `cargo clippy --lib --tests` em macOS                                                            | Formatação, compilação e clippy concluídos sem avisos. O caminho degradado foi observado nos logs posteriores; ainda requer validação abrangente.                                                                                                                                                                                                                                                                                                                                              |
-| 2026-11-10               | Novo encerramento com sessões lineares                                                   | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Servidor relata 2 sessões lineares e 0 processos de segmento; `duplicate_worker` concluiu em aproximadamente 3,3 s, mas `thumbnail_worker` excedeu o prazo e foi abortado. Resultado `clean=false`; log confirma que o fechamento explícito do pool foi omitido. Não houve avisos de falha de release de lease nesta amostra.                                                                                                                                                                  |
-| 2026-11-10               | Encerramento durante transcodificação de segmento                                        | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Gerenciador registrou cancelamento de 1 segmento; requisição registrou falha de FFmpeg e o servidor terminou. Os workers de thumbnails e duplicatas excederam o prazo e foram abortados; `clean=false` e fechamento explícito do pool omitido. Nenhuma falha de release de lease apareceu no log.                                                                                                                                                                                              |
-| 2026-11-10               | Encerramento durante reprodução e processamento                                          | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Gerenciador relatou cancelamento de 1 segmento e limpeza de 3 sessões lineares; `duplicate_worker` concluiu, mas `thumbnail_worker` e `color_worker` excederam o prazo e foram abortados. Resultado `clean=false`; fechamento explícito do pool omitido. A finalização dos subprocessos não foi confirmada independentemente.                                                                                                                                                                  |
-| 2026-11-10               | Testes de processamento e clippy após acompanhamento dos leases                          | macOS                                                                                                                              | `cargo test --lib processing_`: 81 aprovados; `cargo test --lib processing::`: 102 aprovados, incluindo espera por liberação de lease e falha do pool. `cargo clippy --lib --tests` sem avisos. Os testes não reproduzem o timeout nativo observado nos logs.                                                                                                                                                                                                                                  |
-| 2026-11-10               | Encerramento após acompanhamento de leases                                               | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Thumbnail informou 2 tarefas em drenagem e excedeu o orçamento; foi abortado e o resultado foi `clean=false`. Duplicatas e cores concluíram; fechamento explícito do pool foi omitido. Servidor relatou 1 segmento e 0 sessões lineares; a requisição registrou `SEGMENT_ERROR` após o cancelamento. Não houve falha de release de lease no log.                                                                                                                                               |
-| 2026-11-10               | Nova execução com streaming e processamento                                              | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Uma tarefa de thumbnail em drenagem e extração nativa de cores concluíram; o worker de duplicatas excedeu 5 s e foi abortado. Servidor relatou limpeza de 2 sessões lineares e nenhum segmento; resultado `clean=false` e fechamento explícito do pool omitido. Ainda não havia identificação da fase de duplicatas nem confirmação detalhada da limpeza.                                                                                                                                      |
-| 2026-11-10               | Testes após atualização da observabilidade                                               | macOS, `cargo test --lib` e `cargo clippy --lib --tests`                                                                           | 274 testes aprovados, 2 ignorados; clippy sem avisos. Entre os ignorados, o novo teste de espera por conexão adquirida falhou duas vezes quando executado anteriormente e requer investigação. Novas mensagens ainda não foram validadas no app em execução.                                                                                                                                                                                                                                   |
-| 2026-11-10               | Encerramento durante reprodução de vídeo HLS, após atualização da observabilidade        | macOS, `npm run tauri dev`; relato e logs fornecidos pelo usuário                                                                  | HLS factory: 0 sessões rastreadas; servidor: 2 tentativas de cancelamento de segmentos, sendo uma com comando aceito e outra com retorno não zero. Sessões lineares: 0. Thumbnails e duplicatas excederam o prazo; `clean=false` e fechamento explícito do pool omitido.                                                                                                                                                                                                                       |
-| 2026-11-10               | Instrumentação por fase e correção da remoção de segmento                                | macOS, `cargo test --lib`, testes de streaming e `cargo clippy --lib --tests`                                                      | Suíte: 276 aprovados e 2 ignorados; testes de streaming após ajustes finais: 4 aprovados; clippy aprovado. O linker emitiu o aviso já registrado de versão mínima de macOS. Diagnósticos ainda precisam de validação no aplicativo.                                                                                                                                                                                                                                                            |
-| 2026-11-10               | Execução com logs de fase e segmentos em DEBUG                                           | macOS, `npm run tauri dev`; logs fornecidos pelo usuário                                                                           | Logs mostram segmentos transcodificados e servidos pelo cache. Após cancelamento, duas tarefas de thumbnail permaneceram em `thumbnail_extraction` e um fingerprint em `visual_hash` até o prazo; os dois workers foram abortados e `clean=false`. Limpeza linear informou 2 sessões, sem falhas relatadas; HLS factory e processos de segmento rastreados estavam vazios no shutdown.                                                                                                         |
-| 2026-11-10               | Encerramento com processamento e reprodução ativos em perfil release                     | macOS, `RUST_LOG=info,mundam_lib::delivery::streaming::segment=debug npm run tauri dev -- --release`; logs fornecidos pelo usuário | Backend Rust em `release`, frontend servido pelo Vite de desenvolvimento. Thumbnail informou 0 tarefas no `JoinSet` e terminou; duplicatas aguardou `fingerprint_batch`, com observação em `provider_extraction`, e concluiu antes do prazo. Os 12 handles registrados terminaram com `clean=true`; pool informou 20 conexões ociosas de 20 e fechamento retornou em 63 ms. Servidor registrou uma tentativa de cancelamento de segmento e limpeza de 3 sessões lineares sem falhas relatadas. |
+| 2026-11-10               | Encerramento após alterações no lifecycle e pool                                         | macOS, execução do aplicativo em desenvolvimento; relato e saída colada pelo usuário                                                                     | Usuário relata funcionamento correto. Logs mostram pedido nativo, 12 handles registrados concluídos e `clean=true`; servidor informa zero processos de segmento e zero sessões lineares. O meio de encerramento não foi especificado.                                                                                                                                                                                                                                                          |
+| 2026-11-10               | Execução com reprodução de mídia e encerramento                                          | macOS, execução do aplicativo em desenvolvimento; logs colados pelo usuário                                                                              | O servidor drenou 2 sessões lineares e 0 processos de segmento. Dois workers (`duplicate_worker`, `thumbnail_worker`) excederam o limite global de 5 s; resultado `clean=false`. Depois, três liberações de lease falharam porque o pool já estava fechado. Isso evidencia trabalho filho/desanexado fora do handle do worker; não é um encerramento limpo.                                                                                                                                    |
+| 2026-11-10               | Build após correção para não fechar pool quando a drenagem falha                         | verificação de formatação Rust, verificação de compilação da biblioteca Rust, Clippy incluindo testes em macOS                                                            | Formatação, compilação e clippy concluídos sem avisos. O caminho degradado foi observado nos logs posteriores; ainda requer validação abrangente.                                                                                                                                                                                                                                                                                                                                              |
+| 2026-11-10               | Novo encerramento com sessões lineares                                                   | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Servidor relata 2 sessões lineares e 0 processos de segmento; `duplicate_worker` concluiu em aproximadamente 3,3 s, mas `thumbnail_worker` excedeu o prazo e foi abortado. Resultado `clean=false`; log confirma que o fechamento explícito do pool foi omitido. Não houve avisos de falha de release de lease nesta amostra.                                                                                                                                                                  |
+| 2026-11-10               | Encerramento durante transcodificação de segmento                                        | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Gerenciador registrou cancelamento de 1 segmento; requisição registrou falha de FFmpeg e o servidor terminou. Os workers de thumbnails e duplicatas excederam o prazo e foram abortados; `clean=false` e fechamento explícito do pool omitido. Nenhuma falha de release de lease apareceu no log.                                                                                                                                                                                              |
+| 2026-11-10               | Encerramento durante reprodução e processamento                                          | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Gerenciador relatou cancelamento de 1 segmento e limpeza de 3 sessões lineares; `duplicate_worker` concluiu, mas `thumbnail_worker` e `color_worker` excederam o prazo e foram abortados. Resultado `clean=false`; fechamento explícito do pool omitido. A finalização dos subprocessos não foi confirmada independentemente.                                                                                                                                                                  |
+| 2026-11-10               | Testes de processamento e clippy após acompanhamento dos leases                          | macOS                                                                                                                              | execução dos testes Rust com filtro `processing_`: 81 aprovados; execução dos testes Rust do módulo de processamento: 102 aprovados, incluindo espera por liberação de lease e falha do pool. Clippy incluindo testes sem avisos. Os testes não reproduzem o timeout nativo observado nos logs.                                                                                                                                                                                                                                  |
+| 2026-11-10               | Encerramento após acompanhamento de leases                                               | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Thumbnail informou 2 tarefas em drenagem e excedeu o orçamento; foi abortado e o resultado foi `clean=false`. Duplicatas e cores concluíram; fechamento explícito do pool foi omitido. Servidor relatou 1 segmento e 0 sessões lineares; a requisição registrou `SEGMENT_ERROR` após o cancelamento. Não houve falha de release de lease no log.                                                                                                                                               |
+| 2026-11-10               | Nova execução com streaming e processamento                                              | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Uma tarefa de thumbnail em drenagem e extração nativa de cores concluíram; o worker de duplicatas excedeu 5 s e foi abortado. Servidor relatou limpeza de 2 sessões lineares e nenhum segmento; resultado `clean=false` e fechamento explícito do pool omitido. Ainda não havia identificação da fase de duplicatas nem confirmação detalhada da limpeza.                                                                                                                                      |
+| 2026-11-10               | Testes após atualização da observabilidade                                               | macOS, execução da suíte Rust da biblioteca e Clippy incluindo testes                                                                           | 274 testes aprovados, 2 ignorados; clippy sem avisos. Entre os ignorados, o novo teste de espera por conexão adquirida falhou duas vezes quando executado anteriormente e requer investigação. Novas mensagens ainda não foram validadas no app em execução.                                                                                                                                                                                                                                   |
+| 2026-11-10               | Encerramento durante reprodução de vídeo HLS, após atualização da observabilidade        | macOS, execução do aplicativo em desenvolvimento; relato e logs fornecidos pelo usuário                                                                  | HLS factory: 0 sessões rastreadas; servidor: 2 tentativas de cancelamento de segmentos, sendo uma com comando aceito e outra com retorno não zero. Sessões lineares: 0. Thumbnails e duplicatas excederam o prazo; `clean=false` e fechamento explícito do pool omitido.                                                                                                                                                                                                                       |
+| 2026-11-10               | Instrumentação por fase e correção da remoção de segmento                                | macOS, execução da suíte Rust da biblioteca, testes de streaming e Clippy incluindo testes                                                      | Suíte: 276 aprovados e 2 ignorados; testes de streaming após ajustes finais: 4 aprovados; clippy aprovado. O linker emitiu o aviso já registrado de versão mínima de macOS. Diagnósticos ainda precisam de validação no aplicativo.                                                                                                                                                                                                                                                            |
+| 2026-11-10               | Execução com logs de fase e segmentos em DEBUG                                           | macOS, execução do aplicativo em desenvolvimento; logs fornecidos pelo usuário                                                                           | Logs mostram segmentos transcodificados e servidos pelo cache. Após cancelamento, duas tarefas de thumbnail permaneceram em `thumbnail_extraction` e um fingerprint em `visual_hash` até o prazo; os dois workers foram abortados e `clean=false`. Limpeza linear informou 2 sessões, sem falhas relatadas; HLS factory e processos de segmento rastreados estavam vazios no shutdown.                                                                                                         |
+| 2026-11-10               | Encerramento com processamento e reprodução ativos em perfil release                     | macOS, desenvolvimento com backend release e logs de segmentos em DEBUG; logs fornecidos pelo usuário | Backend Rust em `release`, frontend servido pelo Vite de desenvolvimento. Thumbnail informou 0 tarefas no `JoinSet` e terminou; duplicatas aguardou `fingerprint_batch`, com observação em `provider_extraction`, e concluiu antes do prazo. Os 12 handles registrados terminaram com `clean=true`; pool informou 20 conexões ociosas de 20 e fechamento retornou em 63 ms. Servidor registrou uma tentativa de cancelamento de segmento e limpeza de 3 sessões lineares sem falhas relatadas. |
 | 2026-11-10               | Primeira indexação após zerar dados da aplicação                                         | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário                                                  | `BatchCreate` registrou `database is locked` durante o scan. No encerramento, thumbnails, cores e duplicatas concluíram; 11 handles, `clean=true`. Pool informou 6 conexões, 5 ociosas, e retorno do fechamento em 17 ms.                                                                                                                                                                                                                                                                      |
 | 2026-11-10               | Reinício, processamento e reprodução                                                     | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário                                                  | Boot scan falhou com `database is locked`. No encerramento, workers concluíram, mas `streaming_server` excedeu 5 s após iniciar drenagem HTTP e foi abortado; `clean=false` e fechamento explícito do pool omitido. Duas tentativas de cancelamento de segmento e uma sessão linear sem falhas de limpeza relatadas.                                                                                                                                                                           |
 | 2026-11-10               | Nova execução com processamento e reprodução                                             | macOS, `tauri dev` com backend `release`; logs e contexto fornecidos pelo usuário                                                  | Boot scan concluiu sem erros relatados; thumbnails e duplicatas terminaram antes do prazo; 12 handles, `clean=true`. Uma tentativa de cancelamento de segmento e duas sessões lineares sem falhas relatadas. Pool informou 20 conexões, 19 ociosas, e retorno do fechamento em 52 ms.                                                                                                                                                                                                          |
-| 2026-11-10               | Testes de streaming após tornar esperas lineares canceláveis                             | macOS, `cargo test --lib delivery::streaming::`, `cargo clippy --lib --tests`, `cargo fmt --check` e `git diff --check`            | 7 testes aprovados, incluindo arquivo pronto, timeout, cancelamento e teste HTTP local que valida resposta 503 e término do servidor. Clippy e verificações de formatação aprovados. Não substitui teste do handler real com Tauri, player e FFmpeg.                                                                                                                                                                                                                                           |
+| 2026-11-10               | Testes de streaming após tornar esperas lineares canceláveis                             | macOS, execução dos testes Rust de streaming, Clippy incluindo testes, verificação de formatação Rust e verificação de whitespace do diff            | 7 testes aprovados, incluindo arquivo pronto, timeout, cancelamento e teste HTTP local que valida resposta 503 e término do servidor. Clippy e verificações de formatação aprovados. Não substitui teste do handler real com Tauri, player e FFmpeg.                                                                                                                                                                                                                                           |
 | 2026-11-10               | Dados zerados, primeira indexação após alteração do streaming                            | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário                                                             | `BatchCreate` falhou com SQLite 517. Encerramento: 11 handles, `clean=true`; thumbnail e cores concluíram e fingerprint em `provider_extraction` concluiu; servidor terminou com 0 segmentos e sessões lineares registrados. Pool: 11 conexões, todas ociosas; fechamento retornou em 47 ms.                                                                                                                                                                                                   |
 | 2026-11-10               | Segunda execução após alteração do streaming                                             | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário                                                             | Boot scan falhou com SQLite 5. Encerramento: 12 handles, `clean=true`; servidor terminou após duas tentativas de cancelamento de segmento, uma delas com comando não bem-sucedido, e limpeza de uma sessão linear sem falhas relatadas. Diagnóstico observou um handler `segment` ativo antes da parada. Pool: 9 conexões, 8 ociosas; fechamento retornou em 58 ms.                                                                                                                            |
 | 2026-11-10               | Terceira execução após alteração do streaming                                            | macOS, `tauri dev` com backend `release`; logs fornecidos pelo usuário                                                             | `Final BatchCreate` falhou com SQLite 517, seguido de scan que reportou `Errors: 0`. Encerramento: 12 handles, `clean=true`; servidor terminou após tentativa de cancelamento de um segmento e limpeza de duas sessões lineares sem falhas relatadas. Pool: 20 conexões, todas ociosas; fechamento retornou em 234 ms.                                                                                                                                                                         |
-| 2026-11-10               | Regressão de snapshot SQLite e recuperação de scan                                       | macOS, `cargo test --lib`, testes direcionados e `cargo clippy --lib --tests`                                                      | Suíte: 282 aprovados e 2 ignorados antes do último ajuste no progresso; testes direcionados e clippy aprovados após o ajuste. Testes reproduziram SQLite 517 com WAL e transação diferida, verificaram lote concorrente com outro escritor e falhas injetadas de lote cheio e final seguidas de novo scan. Execução real no aplicativo continua pendente.                                                                                                                                      |
+| 2026-11-10               | Regressão de snapshot SQLite e recuperação de scan                                       | macOS, execução da suíte Rust da biblioteca, testes direcionados e Clippy incluindo testes                                                      | Suíte: 282 aprovados e 2 ignorados antes do último ajuste no progresso; testes direcionados e clippy aprovados após o ajuste. Testes reproduziram SQLite 517 com WAL e transação diferida, verificaram lote concorrente com outro escritor e falhas injetadas de lote cheio e final seguidas de novo scan. Execução real no aplicativo continua pendente.                                                                                                                                      |
 | Atualizado em 2026-11-18 | Matriz desktop                                                                           | macOS, Windows e Linux                                                                                                             | Windows dev e evidências macOS preservados; sessão Linux concluída. Bundle Windows atualizado e smoke macOS final permanecem em R5/R7. Estado vigente nas seções 10.2 e 14.                                                                                                                                                                                                                                                                                                                    |
 
 Na amostra fornecida, o intervalo entre o log do pedido e o log de conclusão
@@ -851,7 +852,7 @@ depois de `ScanStarted`, falhas de lote e de identidade, preservação do erro,
 ausência de conclusão falsa e recuperação posterior. Cinco testes frontend
 cobrem progresso, resultado, notificações e erro ao atualizar os dados;
 typecheck, ESLint, Clippy em release com `-D warnings`, formatação Rust e
-`git diff --check` passaram.
+verificação de whitespace do diff passaram.
 Os dois testes ignorados incluem o teste do pool com conexão adquirida, cuja
 limitação permanece aberta. A validação desktop parcial é descrita a seguir.
 
@@ -997,11 +998,11 @@ de streaming não cobertos por esse registro. Uma requisição tardia para
 segmento que chega à admissão fechada ainda é registrada como `SEGMENT_ERROR`;
 isso não significa que um processo novo tenha sido iniciado.
 
-**Testes automatizados:** `cargo clippy --release --lib --tests -- -D warnings`
+**Testes automatizados:** Clippy em release incluindo testes, com avisos tratados como erros
 passou; os nove testes direcionados de streaming em release passaram no
 macOS. Eles incluem cancelamento e espera de filho real, falha genuína,
 requisição descartada, supersessão e recusa de admissão após shutdown.
-`cargo fmt --check` e `git diff --check` passaram. O linker voltou a avisar
+verificação de formatação Rust e verificação de whitespace do diff passaram. O linker voltou a avisar
 sobre a versão mínima de macOS do objeto `zstd`; não houve falha no teste.
 
 A validação nativa dessa alteração foi realizada nas rodadas macOS abaixo,
@@ -1262,7 +1263,7 @@ integral de trabalho não supervisionado. A queda do processo ao sair ainda
 libera recursos; omitir o fechamento explícito não garante a conclusão
 de operações em andamento.
 
-**Validação no macOS:** `cargo fmt --check`, `git diff --check` e Clippy
+**Validação no macOS:** verificação de formatação Rust, verificação de whitespace do diff e Clippy
 em release com `-D warnings` passaram; os 14 testes direcionados de
 streaming e o teste de conexão adquirida do coordenador passaram em
 release. A primeira versão do teste evidenciou que a devolução da conexão
@@ -1326,7 +1327,7 @@ identificada. A mudança na admissão HTTP ainda precisa de validação real.
 
 **Validação no macOS:** os 15 testes direcionados de streaming passaram em
 release, inclusive o novo teste TCP; Clippy em release com `-D warnings`,
-`cargo fmt --check` e `git diff --check` passaram. O linker emitiu o aviso
+verificação de formatação Rust e verificação de whitespace do diff passaram. O linker emitiu o aviso
 conhecido de objeto zstd compilado para macOS 13.1 em alvo 10.12; não houve
 falha de compilação.
 
@@ -1376,7 +1377,7 @@ outras operações IPC também ainda exigem uma barreira de admissão própria.
 
 **Validação no macOS:** os seis testes direcionados do lifecycle e os cinco
 testes do indexador passaram em release; Clippy em release com `-D warnings`,
-`cargo fmt --check` e `git diff --check` passaram. Os novos testes verificam
+verificação de formatação Rust e verificação de whitespace do diff passaram. Os novos testes verificam
 que o shutdown aguarda uma tarefa dinâmica admitida, que uma tarefa tardia
 não é executada e que nomes duplicados não substituem o handle existente.
 Não exercitam o comando Tauri completo nem a corrida com um scan real ativo.
@@ -1426,7 +1427,7 @@ continuam sem barreira abrangente; o snapshot do pool também não é atômico.
 
 **Validação no macOS:** os dois testes direcionados da admissão de indexação
 e os seis testes de lifecycle passaram em release; Clippy em release com
-`-D warnings`, `cargo fmt --check` e `git diff --check` passaram. O teste
+`-D warnings`, verificação de formatação Rust e verificação de whitespace do diff passaram. O teste
 controla a preparação e o scan separadamente e verifica que o shutdown
 aguarda ambos; outro verifica que preparação e scan não executam após
 cancelamento. Não há teste do comando Tauri completo nem validação runtime
@@ -1474,7 +1475,7 @@ operações de scan.
 
 **Validação no macOS:** oito testes do lifecycle e dois testes do bridge
 passaram em release; Clippy em release com `-D warnings`,
-`cargo fmt --check` e `git diff --check` passaram. Os testes cobrem a ordem
+verificação de formatação Rust e verificação de whitespace do diff passaram. Os testes cobrem a ordem
 de término dos produtores, o prazo compartilhado, a fila pendente e o
 registro de lag. Eles não executam o frontend nem comprovam a recepção de
 eventos por uma janela real; a nova ordem ainda requer validação runtime.
@@ -1520,7 +1521,7 @@ recursos. Outras operações IPC continuam também sem barreira abrangente.
 
 **Validação no macOS:** três testes do bridge e oito testes do lifecycle
 passaram em release; Clippy em release com `-D warnings`,
-`cargo fmt --check` e `git diff --check` passaram. O teste novo verifica a
+verificação de formatação Rust e verificação de whitespace do diff passaram. O teste novo verifica a
 classificação das contagens; os logs reais com o novo resumo e a liberação
 do watcher nativo ainda não foram validados.
 
@@ -1583,7 +1584,7 @@ incluindo o cenário em que o produtor excede o prazo e o bridge ainda consegue
 drenar. Depois da alteração de cancelamento, Clippy, os sete testes de
 `feature::library::indexer::tests`, os dois testes de
 `feature::library::event_handler::tests`, os nove testes de
-`lifecycle::shutdown_budget_tests`, `cargo fmt --check` e `git diff --check`
+`lifecycle::shutdown_budget_tests`, verificação de formatação Rust e verificação de whitespace do diff
 passaram.
 
 ### Novos logs e cancelamento cooperativo (12 de novembro)
@@ -1942,8 +1943,7 @@ Esta alteração não comprova qual etapa reteve a playlist no quarto teste,
 nem resolve os timeouts de thumbnails, scan ou a contenção SQLite. A validação
 em desenvolvimento e em bundle continua pendente.
 
-Na suíte focada `cargo test --manifest-path src-tauri\Cargo.toml --lib
-delivery::streaming::`, os 17 testes passaram no Windows, incluindo filhos de
+Na suíte focada de streaming, os 17 testes passaram no Windows, incluindo filhos de
 teste reais, pedido descartado, cancelamento por idade e corrida de admissão.
 Um teste anterior de drenagem HTTP exigia recusa imediata de conexão e falhou:
 neste Windows, uma nova conexão ao listener fechado permaneceu pendente mesmo
@@ -2027,15 +2027,15 @@ o relatório mantém apenas cenários e análises.
 
 #### Verificação automatizada desta continuação
 
-- `cargo test --manifest-path src-tauri/Cargo.toml --lib delivery::streaming::`:
+- execução dos testes Rust de streaming:
   17 testes aprovados no Windows.
-- `npm test -- src/components/ui/VideoPlayer/playback.spec.tsx src/lib/hls-manager.spec.ts src/lib/stream-utils.spec.ts`:
+- Testes de reprodução de vídeo, gerenciamento HLS e utilitários de streaming:
   9 testes aprovados na versão final, incluindo retorno de fonte nativa para HLS.
-- `npm run typecheck`: aprovado.
-- `npm run build`: aprovado na versão final; 2.753 módulos transformados.
+- verificação de tipos TypeScript: aprovado.
+- build do frontend com Vite: aprovado na versão final; 2.753 módulos transformados.
 - ESLint dos cinco arquivos TypeScript/TSX alterados: aprovado, sem warnings.
 - Prettier dos cinco arquivos TypeScript/TSX alterados: aprovado.
-- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` e `git diff --check`:
+- verificação de formatação Rust e verificação de whitespace do diff:
   aprovados após os ajustes de formatação.
 
 O teste que falhou ao recolocar intencionalmente o retry antigo foi uma
@@ -2135,12 +2135,11 @@ Os sete arquivos de teste focados do frontend passaram: 19 testes, incluindo
 seleção de engine por plataforma, passagem pelo gerenciador mesmo com suporte
 nativo anunciado, preview com probe lento/falho, pausa de mídia e descarte dos
 listeners. Typecheck, ESLint dos arquivos alterados e build Vite foram aprovados.
-Os dois testes novos da playlist também passaram em compilação isolada com
-`rustc --test src-tauri/src/delivery/streaming/playlist.rs`.
+Os dois testes novos da playlist também passaram em compilação isolada do
+módulo de playlist com o compilador Rust.
 
-Na compilação completa do aplicativo, `cargo test --manifest-path
-src-tauri/Cargo.toml --lib delivery::streaming::` passou com 19 testes, e
-`cargo test --manifest-path src-tauri/Cargo.toml --lib shutdown` passou com
+Na compilação completa do aplicativo, a suíte Rust de streaming passou com 19 testes, e
+a suíte Rust de encerramento passou com
 23 testes. As suítes têm testes em comum; as contagens não representam 42
 testes distintos. Nenhum teste foi ignorado nessas duas execuções.
 
@@ -2230,16 +2229,17 @@ suporte a formatos, thumbnails ou desempenho de rede.
 
 **Estado consolidado em 18 de novembro:** a sessão Linux está concluída e
 aceita pelo usuário (R6). A documentação foi reconciliada com as rodadas de
-17–18 de novembro e com o checkout `a1af219`. As lacunas R1–R4 abaixo são
-limites concretos de implementação compartilhada, conferidos no código;
+17–18 de novembro e com o checkout `a1af219`, acrescido da implementação R1
+das seções 24–25, validada na seção 26. R1 está concluído nos cenários dirigidos;
+R2–R4 abaixo continuam como trabalho de implementação compartilhada e
 não derivam dos erros intermitentes não atribuídos da máquina Linux.
 A conclusão funcional da sessão Linux não é uma afirmação de drenagem universal.
 
-### Pendências concretas de implementação e auditoria
+### Implementação e auditoria: estado dos itens
 
 | ID  | Trabalho restante                                                                                          | Evidência e critério de conclusão                                                                                                                                                                                                                                                                                                                                 |
 | --- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Encerramento explícito do watcher nativo, debouncer e publicador.                                          | sensor.rs ainda recebe _token sem usá-lo e inicia loops sem handles supervisionados. Encerrar a origem e aguardar os loops, preservando filas e impedindo publicação após término comprovado.                                                                                                                                                                     |
+| R1  | **Concluído nos cenários dirigidos.** | Implementação e correção do registro duplicado validadas em duas execuções Windows com backend release (seção 26): callback nativo liberado, loops aguardados, library_watcher concluído antes do bridge, SQLite fechado explicitamente e clean=true. Não equivale ao aceite dos demais donos ou do bundle final. |
 | R2  | Completar ownership dos loops auxiliares, HLS acionado por IPC e trabalho nativo/filhos alcançáveis.       | Dois loops periódicos HTTP continuam sem espera dos handles; HlsManager usa clear/kill_on_drop. Auditar, supervisionar ou delimitar cada caminho. library_cleanup e saga_recovery já foram corrigidos e validados no Linux e não ficam como subpendência.                                                                                                         |
 | R3  | Admissão e drenagem de comandos IPC que criam recursos ou usam SQLite durante a saída.                     | Guards de protocolos e lifecycle cobrem caminhos específicos, não todos os comandos. Demonstrar recusa de trabalho novo e espera do admitido por caminho, com testes de corrida com fechamento do pool. A resiliência do cliente IPC da tela de finalização foi corrigida e validada; não é este item.                                                            |
 | R4  | Completar política/testes de boot parcial, I/O nativo não interrompível e recuperação transacional/leases. | StartupTask::wait não tem limite próprio; abort de future não encerra chamada nativa. Documentar política segura e testar os marcos/recuperação ainda não cobertos. Splash, saída autônoma com IPC/apresentação injetados e retomadas já observadas são evidências concluídas, sem exigir nova campanha Linux. Falha real de criação do WebView não foi simulada. |
@@ -2252,7 +2252,7 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
 | R7  | Pendente         | Smoke macOS do código compartilhado final, preservando o aceite anterior. Cobrir mídia/pausa/saída e os caminhos alterados desde a validação anterior, sem repetir suporte a todos os formatos.                                                                                                                                  |
 | R8  | Decisão pendente | Definir coleta ou dispensa das medições gerais ainda previstas: série fria/quente, consumo e comparação com baseline. Tempos amostrais já constam do relatório. A ausência da série Linux não reabre a sessão aceita; não se registra como coletada uma série inexistente.                                                       |
-| R9  | Parcial          | Revisão documental desta sessão concluída. Restam consolidação das decisões sobre R1–R5/R7/R8, regressões pertinentes ao código final e aceite geral do responsável, distinto do aceite Linux já dado.                                                                                                                           |
+| R9  | Parcial | R1 concluído tecnicamente nos cenários dirigidos; revisão documental atualizada com a rodada v2. Restam decisões sobre R2–R5/R7/R8, regressões pertinentes ao código final e aceite geral do responsável, distinto do aceite Linux já dado. |
 
 ### Fora da lista de pendências
 
@@ -2485,7 +2485,7 @@ anterior em `publication` ou da pressão de memória.
 
 Foram adicionadas regressões para impedir limpeza após cancelamento prévio e
 para verificar que o shutdown aguarda uma limpeza em andamento antes de retornar,
-sem executar uma segunda rodada. A formatação Rust e `git diff --check` passaram.
+sem executar uma segunda rodada. A formatação Rust e verificação de whitespace do diff passaram.
 
 **Validação automatizada recebida em 17 de novembro:** o log
 `mundam-database-tasks-tests.log` confirma compilação em perfil de testes
@@ -2720,7 +2720,7 @@ novamente, sem tentar usar IPC nativo no jsdom. Essas três verificações se
 sobrepõem aos 26 testes e não representam casos adicionais.
 
 Typecheck, ESLint dos arquivos de implementação e testes alterados, Prettier e
-`git diff --check` passaram. A build Vite final passou em 50,63 s, inclusive
+verificação de whitespace do diff passaram. A build Vite final passou em 50,63 s, inclusive
 com a variável de falha IPC presente no ambiente de produção. A inspeção da
 entrada de shutdown gerada não encontrou os marcadores de injeção de falha.
 Nenhum teste Rust foi necessário nesta rodada, que não alterou o backend.
@@ -2803,7 +2803,7 @@ nos arquivos de URLs/HLS, gerenciador e cliente de shutdown; outros dois testes
 do hook nativo passaram, totalizando 32 nesta execução focada. A regressão de
 URL verifica também o classificador real usado pelos consumidores, cobrindo
 a interação ausente nos testes anteriores. Typecheck final, ESLint dos arquivos
-alterados, formatação e `git diff --check` passaram. A build Vite passou em
+alterados, formatação e verificação de whitespace do diff passaram. A build Vite passou em
 1 min 3 s, com 2.756 módulos transformados. Não houve alteração Rust nesta
 correção. O comportamento com arquivos reais foi validado pelo usuário na
 rodada seguinte; a etapa automatizada isolada não havia dado esse aceite.
@@ -3004,7 +3004,7 @@ ampliar os timeouts dos testes. A aprovação final corresponde a esse ambiente
 de execução e não converte tentativas sem execução em resultados positivos.
 
 Typecheck final, ESLint dos arquivos alterados, Prettier, formatação Rust e
-`git diff --check` passaram. A build Vite final passou em 33,23 s.
+verificação de whitespace do diff passaram. A build Vite final passou em 33,23 s.
 A validação manual após reinício e os testes de bundle foram concluídos
 nas rodadas posteriores. Lacunas compartilhadas vigentes constam da seção 14.
 
@@ -3975,6 +3975,221 @@ Não há obrigação de continuar investigando hardware/Ubuntu ou de provar sua
 culpa para concluir a sessão. Os limites arquiteturais concretos de R1–R4
 são independentes dessas ocorrências e permanecem listados como trabalho geral.
 
-**Pendências vigentes:** somente R1, R2, R3, R4, R5, R7, R8 e R9, com escopo
-na seção 14. R6 encerrado. Esta revisão modificou apenas documentação;
-nenhum teste adicional, alteração de código ou nova build foi realizado.
+**Pendências ao fim desta revisão Linux:** R1, R2, R3, R4, R5, R7, R8 e R9.
+R6 encerrado. Esta revisão Linux modificou apenas documentação; nenhum teste
+adicional, alteração de código ou nova build foi realizado nela. Posteriormente,
+R1 foi implementado e concluído nos cenários da seção 26; o estado vigente dos
+itens está na seção 14.
+
+## 24. R1: propriedade e encerramento explícito do watcher (18 de novembro)
+
+**Escopo:** implementação compartilhada de R1. O aceite Linux de R6 permanece
+concluído. Esta etapa não altera suporte a formatos, thumbnails, políticas de
+rede, apresentação de encerramento nem admissão geral de IPC (R3).
+
+### Implementação e política
+
+- `bootstrap/library.rs` admite um único dono `library_watcher` no lifecycle
+  antes de observar qualquer raiz. O mesmo token governa raízes do boot,
+  indexação manual e reconciliação. Se o dono não for admitido, o token é
+  cancelado e nenhuma observação é iniciada.
+- `sensor.rs` serializa registro, remoção e encerramento. Após cancelamento,
+  recusa novas raízes e reconciliação. Retém os handles da operação nativa e do
+  pipeline; cancelar o pedido ou a espera de shutdown não destaca esses donos.
+- `native.rs` executa registro, remoção e destruição em `spawn_blocking` retido.
+  O `Drop` de notify 8.2.0 no Windows/Linux solicita parada, mas não oferece
+  join público. Por isso, além de destruir o watcher, a operação aguarda uma
+  confirmação enviada na destruição do callback, incluindo suas referências
+  em requisições nativas pendentes. Isso comprova liberação da origem/callback,
+  sem afirmar um join do último epílogo da thread interna da dependência.
+- `runtime.rs` mantém debouncer e publicador como futures unidas numa única
+  tarefa aguardada. O cancelamento fecha as filas, liberando também callbacks
+  presos em `blocking_send` por fila cheia. O publicador verifica cancelamento
+  antes de publicar; `shutdown` só conclui depois da espera dos dois loops.
+- Notificações e renomes ainda voláteis são descartados, com contadores de
+  diagnóstico. Não se força leitura nem publicação desses hints ao sair.
+  A reconciliação continua a cargo do boot scan existente; não foi adicionada
+  fila persistente nem garantia nova de identidade para renomes não consolidados.
+  Arquivos originais, transações e leases não são modificados por essa política.
+- Uma leitura de filesystem já iniciada pelo debouncer é aguardada. O orçamento
+  geral de cinco segundos do lifecycle continua vigente: timeout ou falha de
+  dono degrada o encerramento. Não se promete interromper I/O nativo bloqueado;
+  esse limite permanece em R4. Falhas de supervisão são preservadas em chamadas
+  repetidas de shutdown e comunicadas ao lifecycle.
+
+### Verificação automatizada
+
+Cobertura dirigida: eventos reais antes/depois da parada no Windows, remoção de
+raízes adotadas, recusa de admissão e reconciliação tardias, shutdown concorrente
+e idempotente, corrida com registro nativo, cancelamento do solicitante/espera
+sem perda do handle, filas bruta/de domínio cheias, renome pendente, falhas dos
+donos e espera pelo lifecycle.
+
+Testes Rust dirigidos ao módulo do watcher:
+**17 aprovados**, nenhum erro ou teste ignorado, incluindo a confirmação de
+liberação nativa e integração com o lifecycle. Execução Windows com toolchain
+`stable-x86_64-pc-windows-gnu`, perfil de teste não otimizado; não é uma build
+release/MSVC nem validação do aplicativo empacotado.
+
+Clippy do código de produção, com avisos tratados como erros:
+**aprovado**, sem avisos no código de produção.
+Testes Rust dirigidos ao registro lifecycle:
+**9 aprovados**, incluindo deadline compartilhado, falhas propagadas, recusa de
+registro tardio e bridge mantido até o fim dos produtores. Total dirigido desta
+etapa: **26 testes aprovados**. Não foi executada a suíte completa da aplicação.
+As verificações de formatação Rust e whitespace do diff passaram.
+O Clippy incluindo testes, com avisos tratados como erros,
+encontrou três ocorrências preexistentes, confirmadas no HEAD desta sessão:
+dois `expect_used` em `bootstrap/database_tasks.rs:75,87` e um `while_let_loop`
+em `delivery/streaming/server.rs:1007`. Não apontou ocorrência nos arquivos de
+R1. Esses testes não foram modificados nesta etapa; a análise incluindo testes
+não é registrada como aprovada.
+
+### Validação dirigida no aplicativo
+
+Primeira rodada executada e analisada na seção 25: funcionamento visual confirmado,
+mas liberação nativa não comprovada devido ao timeout. A correção e a revalidação
+da rodada v2 estão concluídas nos cenários dirigidos da seção 26.
+Os testes cobriram encerramento com uma raiz local ativa, após criação e renomeação
+de cópias descartáveis, seguido de reabertura para verificar a reconciliação e
+encerramento ocioso. A análise verificou fechamento da admissão, liberação da
+observação nativa, conclusão dos loops e de `library_watcher` antes do bridge e
+do fechamento explícito do pool, sem timeout e com `clean=true`.
+Essa evidência integra o histórico de R5, cuja validação do bundle Windows
+continua pendente; o aceite Linux permanece preservado.
+
+**Próxima etapa prevista após concluir R1:** R2, ownership dos loops auxiliares
+HTTP e dos caminhos HLS por IPC, respeitando os limites da seção 14.
+
+## 25. R1: validação Windows e correção de registro duplicado (18 de novembro)
+
+**Relato do usuário:** os dois cenários funcionaram como esperado na interface.
+A inspeção dos logs, porém, demonstrou que o critério de encerramento de R1
+não foi atendido naquela rodada. A liberação do watcher ficou pendente até a
+revalidação v2 da seção 26; o aceite Linux e as delimitações de escopo foram preservados.
+
+| Log | Pedido até conclusão do backend | Resultado do watcher e encerramento |
+| --- | ---: | --- |
+| `mundam-watcher-r1-20261118-030526.log` | 5.013,3 ms | Raiz adicionada durante a sessão; mesmo caminho registrado duas vezes. Timeout/abort de `library_watcher`, `clean=false`. |
+| `mundam-watcher-r1-20261118-033850.log` | 5.004,3 ms | Raiz recuperada no boot; mesmo caminho novamente registrado duas vezes. Timeout/abort de `library_watcher`, `clean=false`. |
+
+As duas execuções usaram desenvolvimento com backend release. Não houve
+`Watcher native observation released`, conclusão dos loops nem
+`Watcher shutdown completed`. O bridge terminou após o timeout, e o fechamento
+explícito do pool foi corretamente dispensado devido à drenagem incompleta.
+Isso não é evidência de corrupção ou erro SQLite. A segunda abertura confirmou
+uma raiz persistida e boot scan com 12 arquivos inalterados e zero erros;
+a confirmação visual de funcionamento/reconciliação é atribuída ao usuário.
+
+Os avisos Tao da primeira execução e `Chrome_WidgetWin_0 / Error = 1412` ao fim
+das duas ficam registrados como observações de runtime, sem causa estabelecida
+para o timeout nem nova frente de suporte a mídia/gráfica.
+
+### Causa e correção
+
+Boot/indexação e reconciliação podiam pedir a observação da mesma raiz usando
+snapshots diferentes. A serialização em `WatcherService` não verificava se o
+caminho já havia sido registrado. Em notify 8.2.0, o backend Windows executa
+`watches.insert(path, ws)` sem parar o registro anterior da mesma chave. Com
+isso, seu handle/pedido anterior deixa de constar do conjunto que é encerrado;
+uma referência ao callback pode permanecer retida e impedir a confirmação de
+liberação aguardada por R1. Os dois registros do mesmo caminho constam em cada
+log. Essa sequência no código explica o timeout observado; não foi obtido dump
+das threads do processo do usuário.
+
+`watch` agora verifica o conjunto de caminhos registrados sob a mesma trava
+que serializa operações, depois de aguardar e incorporar a operação anterior.
+Um pedido repetido retorna sem chamar novamente o backend nativo. A comparação
+usa o caminho registrado, sem inferir identidade por conversão de caixa ou por
+contenção: grafias diferentes continuam com registros próprios, inclusive em
+diretórios Windows com sensibilidade a caixa habilitada.
+
+Foram acrescentados logs debug antes da destruição nativa e antes da espera
+pelo callback. A regressão de eventos reais agora repete `watch` na mesma raiz;
+um teste adicional cobre pedidos simultâneos, repetição de grafias variantes
+no Windows e encerramento com confirmação de liberação. A cobertura anterior
+da seção 24 não incluía esse registro duplicado.
+
+**Verificação da correção:**
+
+- Testes Rust dirigidos ao módulo do watcher:
+  **18 aprovados**, nenhum erro/ignorado, incluindo repetição sequencial,
+  pedidos simultâneos, grafias variantes Windows e liberação nativa real.
+  Toolchain GNU Windows, perfil de testes não otimizado; não substitui o reteste
+  do aplicativo em release. Os nove testes do lifecycle aprovados na seção 24
+  não foram repetidos, pois seu código não mudou nesta correção.
+- Verificações de formatação e whitespace do diff aprovadas.
+- Clippy do código de produção, com avisos tratados como erros:
+  **aprovado**, sem avisos no código de produção. Os três achados preexistentes
+  do Clippy de testes continuam documentados na seção 24, sem alteração nesta rodada.
+
+Durante a verificação, o Clippy falhou ao escrever `full.rmeta` por falta de
+espaço (`os error 112`); C: reportou zero bytes livres. Foi removido somente o
+executável GNU de testes gerado nesta rodada (1.120.699.449 bytes), após seus
+18 testes terem terminado, liberando cerca de 1,1 GB para repetir a checagem.
+Esse limite do ambiente não é classificado como defeito do watcher. A build
+release e os dados da aplicação não foram removidos. A repetição do Clippy passou;
+restaram aproximadamente 973 MB livres em C:, exigindo atenção ao espaço antes
+da próxima compilação release.
+
+### Escopo da revalidação
+
+A correção foi revalidada em duas execuções com a pasta local monitorada e o
+banco existente. A primeira cobriu alterações de arquivos descartáveis seguidas
+de encerramento; a segunda, reabertura, reconciliação e saída ociosa.
+A análise verificou a supressão do registro nativo repetido, a liberação do
+callback, a conclusão dos loops e a ordem de drenagem em relação ao bridge e
+ao SQLite. Os resultados e a conclusão de R1 estão registrados na seção 26.
+
+## 26. R1: revalidação Windows v2 concluída (18 de novembro)
+
+**Resultado técnico:** R1 concluído nos dois cenários dirigidos, após a proteção
+contra registro duplicado da mesma raiz. Os logs mostram que o pedido repetido
+foi recusado antes de chegar ao backend nativo em ambas as aberturas.
+
+| Log | Watcher: início até conclusão | Pedido até conclusão do backend | SQLite: conexões ociosas/total; fechamento | Resultado |
+| --- | ---: | ---: | --- | --- |
+| `mundam-watcher-r1-v2-20261118-041631.log` | 2,8 ms | 48,2 ms | 12/12; 45 ms | Watcher e aplicação `clean=true`; 14 tarefas concluídas. |
+| `mundam-watcher-r1-v2-20261118-051741.log` | 2,2 ms | 27,7 ms | 17/17; 23 ms | Watcher e aplicação `clean=true`; 14 tarefas concluídas. |
+
+Os tempos são diferenças entre timestamps dos logs, referentes ao backend;
+não medem a duração total da apresentação nem o retorno do terminal. As duas
+execuções usaram `tauri dev` com backend release, sem comprovação de bundle
+instalado nem medição externa dos processos após a saída.
+
+### Critérios confirmados
+
+- `Watcher root already registered; native registration skipped` em cada boot,
+  exercitando o caminho que antes produzia dois registros nativos.
+- Pedido de parada, destruição do watcher, confirmação de liberação do callback
+  e conclusão dos loops em ambas as saídas. Nenhum timeout/abort de dono nem
+  falha de publicação nas duas amostras.
+- `library_watcher` concluído antes da drenagem do bridge e do fechamento
+  explícito do SQLite. Todas as conexões estavam ociosas antes de fechar o pool.
+- Na primeira execução houve atividade da biblioteca antes do pedido de saída
+  e um hint pendente descartado (`pending_discarded=1`); filas bruta/de domínio
+  vazias e zero falhas de publicação. Na segunda, todos os contadores de
+  descarte ficaram em zero. Não se afirma carga sustentada ou fila cheia nessa
+  validação manual; esses caminhos têm testes automatizados na seção 25.
+- A segunda abertura concluiu o boot scan com 22 arquivos inalterados e zero
+  erros, após a primeira partir de 12 e registrar atividade até 22 fingerprints.
+  É evidência de persistência/reconciliação nos arquivos exercitados, sem nova
+  garantia universal de identidade de renomes ou recuperação transacional.
+
+Os avisos Tao da primeira execução e `Chrome_WidgetWin_0 / Error = 1412` ao fim
+das duas persistem como observações de runtime. Não impediram as confirmações
+de liberação/drenagem nem geram nova frente de correção sem impacto comprovado.
+Não há relato textual adicional do usuário nessa entrega; a conclusão desta
+rodada fundamenta-se nos dois logs, sem atribuir novo aceite visual ou geral.
+
+### Estado consolidado
+
+Checklist, plano de execução e inventário foram atualizados. R1 deixa a lista
+de trabalho pendente; a regressão do bundle Windows continua em R5, e o smoke
+macOS das mudanças compartilhadas continua em R7. R6/Linux permanece concluído,
+sem reabertura de campanha. Restam R2, R3, R4, R5, R7, R8 e R9 conforme a seção 14.
+
+**Próxima implementação:** R2, supervisão dos loops auxiliares HTTP e dos
+caminhos HLS por IPC. Esta análise alterou somente documentação; não houve
+nova alteração de código, build ou execução de testes automatizados, pois os
+logs validaram a correção já testada e registrada na seção 25.
