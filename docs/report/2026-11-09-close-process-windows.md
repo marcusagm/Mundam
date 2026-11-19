@@ -58,9 +58,9 @@ R5 está concluído nos cenários registrados: quatro encerramentos iniciais e u
 boot parcial antes de Media/BackendReady (seções 34 e 36). A regressão de streaming
 do pacote foi reproduzida como bloqueio CORS da origem Windows e corrigida;
 o usuário confirmou funcionamento correto no pacote instalado, com mídia/processamento e IPC ativo drenados antes do pool.
-Restam R7 (smoke
-macOS final), R8 (decidir medições restantes fora da sessão Linux encerrada)
-e R9 (aceite geral). R6 está concluído.
+R7 foi concluído nos cenários macOS da seção 37. R8 foi decidido: o usuário
+dispensou a série adicional para este aceite. Resta R9 (verificações finais
+de integridade/recuperação e aceite geral). R6 está concluído.
 
 ## 2. Objetivo, limites e critérios de sucesso
 
@@ -341,12 +341,12 @@ comprova repetição integral da matriz em todos os artefatos ou distribuições
 
 | Cenário                                                      | Windows                                                                                      | macOS                                                               | Linux — sessão concluída                                                                                                                               |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Saída ociosa e entradas normais                              | Dev e instalação R5 observados; quatro saídas limpas na seção 34.                                   | Titlebar, Dock e Cmd+Q observados em dev e bundle anterior.         | X e Alt+F4 em dev/release; ocioso instalado em Debian e AppImage.                                                                                      |
-| Indexação/processing e mídia ativos                          | R5 concluído: reprodução/seek confirmados pelo usuário e saída sob mídia/processamento no pacote corrigido (seção 36).                             | Evidências anteriores sob carga; smoke final em R7.                 | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados.                                       |
-| Fechamento na splash/boot                                    | R4 com backend pronto; R5 instalado cancelou em Database, antes de Media/BackendReady, com saída limpa (seção 34).                     | Evidência parcial preservada; política compartilhada verificada em R4, smoke final em R7.             | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite.                              |
-| Pedidos repetidos e auxiliares                               | Unidade e fluxos principais cobertos; complementar no bundle atualizado.                     | Entradas principais observadas; smoke final delimitado às mudanças. | Alt+F4 repetido, um único coordenador e uma única tela confirmados em desenvolvimento.                                                                 |
-| Reabertura e recuperação                                     | Retomada em R4 e reaberturas instaladas R5; integridade integral no artefato final continua pendente.                     | Persistência e retomada observadas; recuperação compartilhada verificada em R4, smoke final em R7.    | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases.                                   |
-| Principal minimizada e indisponibilidade de apresentação/IPC | Minimizada/auxiliares relatados como corretos no instalado R5, com saída limpa; falhas injetadas preservadas em testes anteriores.                                              | Evidência anterior; smoke final em R7.                              | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento.                                      |
+| Saída ociosa e entradas normais                              | Dev e instalação R5 observados; quatro saídas limpas na seção 34.                                   | Titlebar, Dock e Cmd+Q em bundle final R7; primeira saída teve processamento ativo, não ociosidade integral. | X e Alt+F4 em dev/release; ocioso instalado em Debian e AppImage. |
+| Indexação/processing e mídia ativos                          | R5 concluído: reprodução/seek confirmados pelo usuário e saída sob mídia/processamento no pacote corrigido (seção 36). | R7: reprodução/seek, pausa e saída com segmento e workers ativos no bundle final (seção 37). | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados. |
+| Fechamento na splash/boot                                    | R4 com backend pronto; R5 instalado cancelou em Database, antes de Media/BackendReady, com saída limpa (seção 34). | Evidência anterior parcial; política compartilhada verificada em R4. Fechamento na splash não repetido em R7. | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite. |
+| Pedidos repetidos e auxiliares                               | Unidade e fluxos principais cobertos; complementar no bundle atualizado. | Entradas principais observadas; pedidos repetidos e auxiliares não foram exercitados em R7. | Alt+F4 repetido, um único coordenador e uma única tela confirmados em desenvolvimento. |
+| Reabertura e recuperação                                     | Retomada em R4 e reaberturas instaladas R5; integridade integral no artefato final continua pendente. | R7: reaberturas, assets e preferências conferidos pelo usuário; não é auditoria integral nem replay de falhas (seção 37). | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases. |
+| Principal minimizada e indisponibilidade de apresentação/IPC | Minimizada/auxiliares relatados como corretos no instalado R5, com saída limpa; falhas injetadas preservadas em testes anteriores. | Evidência anterior; não repetidos na rodada R7. | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento. |
 | Processos, servidor, handlers e SQLite                       | Saídas limpas dos recursos registrados; R1–R4 concluídos nos escopos registrados, com limites nativos explícitos. | Mesma delimitação de implementação compartilhada.                   | Drenagem, terminação aguardada de segmentos e ausência de remanescentes em amostras limpas. Ocorrências intermitentes são notas, não pendências Linux. |
 | Logout/terminação forçada                                    | Fora da garantia de saída normal, salvo requisito específico futuro.                         | Mesmo limite.                                                       | Mesmo limite; não reabre R6.                                                                                                                           |
 
@@ -359,10 +359,10 @@ instalação limpa, outras distribuições ou uma matriz completa de hardware.
 ### 10.3 Medições de aceite
 
 **Estado vigente:** medições amostrais Linux foram aceitas para encerrar R6.
-A série estatística originalmente proposta não foi coletada integralmente e
-não será exigida como pendência desta sessão Linux. R8 permanece somente para
-decidir coleta ou dispensa das medições restantes no encerramento geral.
-Os tópicos abaixo preservam a metodologia original, não novos roteiros Linux.
+Em 19 de novembro, o usuário dispensou a coleta da série estatística adicional
+para o aceite geral. R8 está concluído como decisão de escopo, não como medição:
+a série fria/quente, consumo e comparação com baseline não foram coletados.
+Os tópicos abaixo preservam a metodologia original, sem impor nova campanha.
 
 - Instrumentar: `pedido → primeira apresentação confirmada`, `pedido → cancelamento`, `pedido → término da drenagem`, `pedido → saída`; distinguir confirmação do frontend de visibilidade observada.
 - Confirmar por teste automatizado que, em saída normal com apresentação confirmada, a janela permanece pelo menos **600 ms** a partir da confirmação; que a ausência de confirmação não adiciona mais de **1.500 ms desde o pedido** por motivo de apresentação; que a limpeza começa sem esperar handshake. Considerar precisão dos timers e registrar a tolerância adotada no teste.
@@ -399,7 +399,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Registrar entradas conhecidas, inventário de recursos, políticas e lacunas verificadas.
 - [ ] Concluir cobertura nativa das entradas restantes e das plataformas finais.
 - [x] Registrar tempos amostrais de encerramento em macOS, Windows e Linux.
-- [ ] Decidir coleta ou dispensa das medições gerais restantes (R8); não reabrir a sessão Linux já aceita.
+- [x] Decidir coleta ou dispensa das medições gerais restantes (R8): usuário dispensou a série adicional para este aceite, sem reabrir Linux.
 - [x] Implementar coordenador único, estado revisionado e saída final sem recursão.
 - [x] Fechar atomicamente o registro e admitir scans dinâmicos sob a mesma trava; reter e aguardar o supervisor do boot.
 - [x] Drenar tarefas registradas concorrentemente, distinguir resultado degradado e drenar bridge por último.
@@ -422,7 +422,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Implementar mínimo de 600 ms, handshake limitado a 1.500 ms, fallback e mensagens factuais.
 - [x] Testar concorrência, timeouts e ausência de confirmação sem bloqueio indefinido.
 - [x] Validar no Linux splash, pedidos repetidos, minimizada e falhas injetadas de apresentação/IPC nos cenários registrados.
-- [ ] Completar o smoke macOS final de R7; Windows R5 concluído, preservando a política e os limites de R4.
+- [x] Completar o smoke macOS final de R7 nos cenários registrados; Windows R5 concluído, preservando a política e os limites de R4.
 - [x] Executar testes automatizados, typecheck, lint e build pertinentes.
 - [x] Registrar a rodada final de desenvolvimento Windows: três encerramentos `clean=true`.
 - [x] Concluir R5: quatro encerramentos iniciais e reteste do pacote corrigido aprovados; funcionamento confirmado pelo usuário, saída zero e clean=true sob mídia/processamento (seção 36).
@@ -431,7 +431,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Concluir Linux em desenvolvimento/release, binário direto, Debian e AppImage, com limitações aceitas (R6).
 - [x] Validar mídia nativa Linux e preferências persistentes independentes de vídeo e gráfica.
 - [x] Supervisionar library_cleanup e saga_recovery, com regressões e validação runtime Linux.
-- [ ] Fazer smoke macOS das mudanças compartilhadas posteriores à validação anterior (R7).
+- [x] Fazer smoke macOS das mudanças compartilhadas posteriores à validação anterior (R7; seção 37).
 - [x] Atualizar tabelas, checklist, inventário e referências de startup/backend nesta revisão.
 - [ ] Registrar decisões finais, desvios, riscos residuais, resultados e aprovação.
 
@@ -2266,9 +2266,9 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | --- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | R5  | **Concluído nos cenários registrados** | Quatro encerramentos iniciais instalados (seção 34) e reteste do pacote CORS corrigido (seções 35–36). Usuário confirmou funcionamento correto; mídia com avanço de quadros, sessão linear ativa limpa, IPC e workers drenados antes do pool, saída zero e clean=true em 1.469 ms. Avisos/falhas de segmentos preservados, sem reabrir suporte a formatos ou exigir instalação MSI separada. |
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
-| R7  | Pendente         | Smoke macOS do código compartilhado final, preservando o aceite anterior. Cobrir mídia/pausa/saída e os caminhos alterados desde a validação anterior, sem repetir suporte a todos os formatos.                                                                                                                                  |
-| R8  | Decisão pendente | Definir coleta ou dispensa das medições gerais ainda previstas: série fria/quente, consumo e comparação com baseline. Tempos amostrais já constam do relatório. A ausência da série Linux não reabre a sessão aceita; não se registra como coletada uma série inexistente.                                                       |
-| R9  | Parcial | R1–R5 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R7/R8, verificações finais de integridade/recuperação e aceite geral do responsável, distinto dos aceites Windows/Linux já registrados. |
+| R7  | **Concluído nos cenários registrados** | Bundle macOS final: quatro encerramentos clean=true, titlebar, Cmd+Q com mídia/seek e segmento ativo, Dock com processamento, reabertura e preferências conferidas; seção 37. Não houve teste de ociosidade integral ou splash nesta rodada. |
+| R8  | **Decidido** | Usuário dispensou a série adicional para este aceite em 19/11; tempos amostrais preservados. Série fria/quente, consumo e comparação com baseline não foram coletados; aceite Linux não é reaberto. |
+| R9  | Parcial | R1–R7 concluídos nos escopos registrados e R8 decidido. Integridade estrutural e chaves estrangeiras do banco macOS passaram em leitura imutável (seção 37); restam as verificações finais de integridade/recuperação no escopo dos artefatos finais e o aceite geral. |
 
 ### Fora da lista de pendências
 
@@ -5102,10 +5102,89 @@ sem falha de encerramento associada nesta execução.
 ### Estado consolidado
 
 Resumo executivo, matriz desktop, inventário, checklist e tabela da seção 14
-atualizados. R1–R5 estão concluídos nos escopos registrados; R6/Linux permanece
-concluído e aceito. A próxima etapa é **R7, smoke macOS das mudanças
-compartilhadas finais**. Permanecem a decisão de medições R8 e as verificações
-finais de integridade/recuperação e aceite geral R9. Acessibilidade, suporte
-adicional a formatos e desempenho de rede continuam fora dos critérios desta
-conclusão. Esta análise alterou somente documentação; não houve nova build
-nem reexecução de testes automatizados.
+foram atualizados nesta rodada. R1–R5 estavam concluídos nos escopos registrados
+e R6/Linux permanecia concluído e aceito. R7 foi validado posteriormente na
+seção 37; o estado vigente está na seção 14. Acessibilidade, suporte adicional
+a formatos e desempenho de rede continuam fora dos critérios desta conclusão.
+Esta análise alterou somente documentação; não houve nova build nem reexecução
+de testes automatizados.
+
+## 37. R7: smoke do bundle macOS final (19 de novembro)
+
+**Estado:** R7 concluído nos cenários registrados, sem alterar o aceite Linux.
+O usuário gerou e executou o bundle de produção no checkout `c81e7c6`; o
+executável tem SHA-256
+`cf1e7a88e70c7ab14fdf3179ee3f1b4e47b069c6ae9381a00f6234b61e09b6c9`,
+conferido também após a rodada. O hash identifica o executável presente e
+informado pelo usuário, não constitui prova independente de todos os recursos
+do bundle ou de cada processo capturado.
+
+### Cenários e resultados
+
+| Log | Cenário informado | Pedido até conclusão do backend | Pool no fechamento / duração |
+| --- | --- | ---: | --- |
+| `mundam-r7-20261119-125819.log` | Titlebar após abertura, com processamento em andamento | 552 ms | 17/17 conexões ociosas; 83 ms |
+| `mundam-r7-20261119-130121.log` | Cmd+Q com vídeo e seek | 1.927 ms | 14/14 ociosas; 53 ms |
+| `mundam-r7-20261119-130348.log` | Dock, com mais de mil trabalhos pendentes relatados | 777 ms | 20/20 ociosas; 57 ms |
+| `mundam-r7-20261119-130608.log` | Reabertura, inspeção de assets e preferências; saída normal | 179 ms | 20/20 ociosas; 38 ms |
+
+O usuário relatou funcionamento esperado nos quatro cenários. A primeira
+amostra não é ociosa: duas extrações de thumbnail e um lote de fingerprints
+estavam ativos na drenagem. Os tempos são diferenças entre logs do pedido e
+da conclusão da limpeza do backend, não a duração visual da janela nem o tempo
+até término do processo; os arquivos capturados não registram código de saída.
+
+Nos quatro logs, os 15 donos registrados terminaram com `clean=true`; IPC
+fechou admissão com zero chamadas ativas, watcher liberou observação e loops,
+bridge foi aguardado depois dos produtores e o pool foi fechado explicitamente
+após a drenagem. O bridge reportou zero eventos recebidos durante a drenagem
+e zero lag, sem provar entrega frontend. A apresentação foi confirmada
+`timely=true` nas quatro execuções; na quarta, a confirmação ocorreu depois
+da conclusão da limpeza, como permitido pelo protocolo.
+
+No Cmd+Q, o frontend registrou pausa de dois elementos de mídia. A telemetria
+de reprodução HTTP registrou quadros e avanço de tempo; o usuário confirmou
+reprodução e seek. Um processo de segmento recebeu cancelamento por shutdown
+e sua terminação foi aguardada antes da parada do servidor. No quarto cenário,
+uma sessão linear foi limpa sem falhas de processo ou diretório; seu processo
+já havia terminado antes da limpeza. Os logs não comprovam ausência universal
+de processos externos após a saída.
+
+### Reabertura, erros e limites
+
+O scan inicial concluiu em todas as aberturas: no primeiro log registrou um
+asset descoberto e 787 inalterados; nos três seguintes, zero descobertos e
+788 inalterados, sem pruning ou erros de scan. Isso não mede a quantidade de
+trabalhos de processamento pendentes. Nas quatro inicializações a recuperação
+de sagas informou não haver operações pendentes; não houve teste de replay
+de uma saga interrompida ou de lease expirado. O usuário conferiu alguns
+assets, preferências e configurações e relatou resultado normal; não foi
+feita auditoria de todos os dados ou bytes dos originais.
+
+Os logs de processamento registram erros de thumbnails, incluindo ausência
+de preview em Blender/Penpot/CorelDRAW, falha de decodificação JPEG e conflito
+de filtros do FFmpeg, além de avisos de fontes SVG, EXIF e extração de cores.
+São erros reais de processamento, distintos da limpeza; suporte a formatos
+e thumbnails permanece fora deste escopo. Não foram observados `database is
+locked`, timeout ou abort forçado nos quatro registros. `clean=true` não
+representa sucesso dessas extrações nem conclusão de toda a fila.
+
+A rodada não repetiu saída durante splash, principal minimizada, pedidos
+repetidos ou falhas injetadas de apresentação; mantêm-se as evidências
+anteriores e os limites da matriz. A execução foi iniciada diretamente pelo
+executável dentro do bundle; não representa instalação via DMG. Não foram
+feitas medições estatísticas nem uma inspeção independente de processos
+remanescentes.
+
+Após a rodada, com o banco macOS sem processo listado pelo `lsof` e sem
+arquivos WAL/SHM presentes na inspeção, foi feita uma consulta SQLite somente
+de leitura em modo imutável: `integrity_check` retornou `ok` e a verificação
+de chaves estrangeiras retornou zero violações. A tentativa de leitura normal
+somente de leitura havia falhado com código SQLite 14; não se atribui uma
+causa específica sem investigação. A consulta imutável verificou o arquivo
+principal neste momento, sem provar recuperação de falha, integridade lógica
+de todos os assets ou estado dos bancos de outras plataformas.
+
+Em 19 de novembro, o usuário dispensou a série de medições adicionais de R8
+para este aceite. A decisão não transforma as amostras existentes numa série
+estatística. R9 permanece parcial conforme a seção 14.
