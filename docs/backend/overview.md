@@ -131,8 +131,10 @@ saídas limpas, processamento aguardado, nova raiz retomada na reabertura e uma
 consulta IPC ativa drenada antes do bridge/pool. O backend já estava pronto no
 teste pela splash; cancelamento das fases iniciais, deadline e expiração de
 leases permanecem na cobertura automatizada. R1–R4 estão concluídos nos caminhos
-registrados; R5/Windows também foi concluído no escopo registrado. Smoke macOS,
-medições e aceite geral continuam delimitados na seção 14 do relatório.
+registrados; R5/Windows e R7/macOS também foram concluídos nos cenários aceitos.
+A série adicional de medições R8 foi dispensada pelo usuário. A conferência
+funcional final Windows também foi aprovada; restam consolidar os testes
+finais Linux anunciados e o aceite geral de R9, delimitados na seção 14.
 R5 gerou os instaladores Windows x64 MSI/NSIS sobre o código R1–R4 e teve quatro
 encerramentos instalados com código zero e `clean=true`, incluindo cancelamento
 real antes de Media/BackendReady. A rodada revelou bloqueio CORS de streaming:
@@ -141,8 +143,13 @@ A origem foi incluída na lista explícita, com regressão HTTP aprovada. No
 reteste instalado do pacote corrigido, o usuário confirmou funcionamento
 correto; mídia, sessão linear ativa, workers e uma chamada IPC foram drenados
 antes do pool, com saída zero e `clean=true` em 1.469 ms. R5 está concluído nos
-cenários registrados. As seções 33–36 identificam artefatos, resultados, avisos
-de segmentos e limites das verificações. O loader não foi alterado.
+cenários registrados. As seções 33–39 identificam artefatos, resultados, avisos
+de segmentos e limites das verificações. A integridade estrutural e as chaves
+estrangeiras dos bancos macOS/Windows passaram em leitura imutável; isso não
+substitui a conferência funcional de retomada. Na seção 39, o usuário confirmou
+pastas/assets/configurações preservados e retomada de pendências no Windows;
+a saída pelo X terminou com código zero e `clean=true` em 602 ms, com uma
+consulta IPC ativa aguardada antes do pool. O loader não foi alterado.
 O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
 contém o inventário atualizado, as evidências Windows/macOS, o checklist,
 o aceite Linux e as pendências dos artefatos finais. Testes de acessibilidade não são

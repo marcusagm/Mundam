@@ -59,8 +59,12 @@ boot parcial antes de Media/BackendReady (seções 34 e 36). A regressão de str
 do pacote foi reproduzida como bloqueio CORS da origem Windows e corrigida;
 o usuário confirmou funcionamento correto no pacote instalado, com mídia/processamento e IPC ativo drenados antes do pool.
 R7 foi concluído nos cenários macOS da seção 37. R8 foi decidido: o usuário
-dispensou a série adicional para este aceite. Resta R9 (verificações finais
-de integridade/recuperação e aceite geral). R6 está concluído.
+dispensou a série adicional para este aceite. A integridade estrutural e as
+chaves estrangeiras dos bancos macOS e Windows passaram nas consultas somente
+de leitura registradas nas seções 37–38. A conferência funcional final Windows
+de reabertura e retomada também foi aprovada (seção 39). Resta R9: consolidar
+os testes finais Linux anunciados pelo usuário e registrar o aceite geral.
+R6 está concluído; essa complementação não reabre seu aceite.
 
 ## 2. Objetivo, limites e critérios de sucesso
 
@@ -345,7 +349,7 @@ comprova repetição integral da matriz em todos os artefatos ou distribuições
 | Indexação/processing e mídia ativos                          | R5 concluído: reprodução/seek confirmados pelo usuário e saída sob mídia/processamento no pacote corrigido (seção 36). | R7: reprodução/seek, pausa e saída com segmento e workers ativos no bundle final (seção 37). | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados. |
 | Fechamento na splash/boot                                    | R4 com backend pronto; R5 instalado cancelou em Database, antes de Media/BackendReady, com saída limpa (seção 34). | Evidência anterior parcial; política compartilhada verificada em R4. Fechamento na splash não repetido em R7. | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite. |
 | Pedidos repetidos e auxiliares                               | Unidade e fluxos principais cobertos; complementar no bundle atualizado. | Entradas principais observadas; pedidos repetidos e auxiliares não foram exercitados em R7. | Alt+F4 repetido, um único coordenador e uma única tela confirmados em desenvolvimento. |
-| Reabertura e recuperação                                     | Retomada em R4 e reaberturas instaladas R5; integridade integral no artefato final continua pendente. | R7: reaberturas, assets e preferências conferidos pelo usuário; não é auditoria integral nem replay de falhas (seção 37). | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases. |
+| Reabertura e recuperação                                     | Reabertura final Windows aprovada: pastas/assets/preferências conferidos, pendências retomadas e saída limpa; integridade estrutural aprovada (seções 38–39). | R7: reaberturas, assets e preferências conferidos pelo usuário; não é auditoria integral nem replay de falhas (seção 37). | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases. |
 | Principal minimizada e indisponibilidade de apresentação/IPC | Minimizada/auxiliares relatados como corretos no instalado R5, com saída limpa; falhas injetadas preservadas em testes anteriores. | Evidência anterior; não repetidos na rodada R7. | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento. |
 | Processos, servidor, handlers e SQLite                       | Saídas limpas dos recursos registrados; R1–R4 concluídos nos escopos registrados, com limites nativos explícitos. | Mesma delimitação de implementação compartilhada.                   | Drenagem, terminação aguardada de segmentos e ausência de remanescentes em amostras limpas. Ocorrências intermitentes são notas, não pendências Linux. |
 | Logout/terminação forçada                                    | Fora da garantia de saída normal, salvo requisito específico futuro.                         | Mesmo limite.                                                       | Mesmo limite; não reabre R6.                                                                                                                           |
@@ -397,7 +401,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 
 - [x] Confirmar decisões de UX, tempos e cobertura de saída com o responsável pelo produto.
 - [x] Registrar entradas conhecidas, inventário de recursos, políticas e lacunas verificadas.
-- [ ] Concluir cobertura nativa das entradas restantes e das plataformas finais.
+- [x] Concluir cobertura das entradas e plataformas nos cenários aceitos de R5–R7, preservando os limites da matriz desktop.
 - [x] Registrar tempos amostrais de encerramento em macOS, Windows e Linux.
 - [x] Decidir coleta ou dispensa das medições gerais restantes (R8): usuário dispensou a série adicional para este aceite, sem reabrir Linux.
 - [x] Implementar coordenador único, estado revisionado e saída final sem recursão.
@@ -415,7 +419,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Implementar política e cobertura automatizada de boot/I/O não interrompível, falhas e recuperação (R4; seção 31).
 - [x] Validar a integração de R4 no aplicativo: saída pela splash relatada, processamento ativo drenado e reabertura com nova raiz/pendências preservadas (seção 32). As fases iniciais do backend já haviam terminado no primeiro fechamento; seu cancelamento e deadlines permanecem cobertos automaticamente.
 - [x] Preservar leases ao adiar thumbnails por cancelamento entre fases, sem consumir nova tentativa.
-- [ ] Confirmar recuperação de pendências e integridade no reinício dos artefatos finais.
+- [x] Confirmar reabertura/retomada funcional final Windows, com pastas/assets/preferências conferidos e pendências retomadas; integridade estrutural macOS/Windows aprovada (seções 37–39).
 - [x] Implementar janela independente, entrada Vite e empacotamento.
 - [x] Criar capability mínima e validar autorização de IPC por janela.
 - [x] Implementar protocolo evento + consulta, reconciliação e descarte dos listeners.
@@ -2268,7 +2272,7 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
 | R7  | **Concluído nos cenários registrados** | Bundle macOS final: quatro encerramentos clean=true, titlebar, Cmd+Q com mídia/seek e segmento ativo, Dock com processamento, reabertura e preferências conferidas; seção 37. Não houve teste de ociosidade integral ou splash nesta rodada. |
 | R8  | **Decidido** | Usuário dispensou a série adicional para este aceite em 19/11; tempos amostrais preservados. Série fria/quente, consumo e comparação com baseline não foram coletados; aceite Linux não é reaberto. |
-| R9  | Parcial | R1–R7 concluídos nos escopos registrados e R8 decidido. Integridade estrutural e chaves estrangeiras do banco macOS passaram em leitura imutável (seção 37); restam as verificações finais de integridade/recuperação no escopo dos artefatos finais e o aceite geral. |
+| R9  | Parcial; Windows final aprovado | R1–R7 concluídos nos escopos registrados e R8 decidido. Integridade estrutural macOS/Windows aprovada (seções 37–38); reabertura Windows, configurações e retomada de pendências confirmadas pelo usuário, saída zero e clean=true em 602 ms (seção 39). Restam consolidar os testes finais Linux anunciados e registrar o aceite geral, preservando R6; nenhuma nova implementação ou interrupção forçada da biblioteca real exigida. |
 
 ### Fora da lista de pendências
 
@@ -5188,3 +5192,111 @@ de todos os assets ou estado dos bancos de outras plataformas.
 Em 19 de novembro, o usuário dispensou a série de medições adicionais de R8
 para este aceite. A decisão não transforma as amostras existentes numa série
 estatística. R9 permanece parcial conforme a seção 14.
+
+## 38. R9: integridade do banco Windows e consolidação restante (19 de novembro)
+
+**Estado nesta revisão, anterior à seção 39:** R9 parcial. O relatório atualizado e a resposta da sessão macOS
+compartilhada em `windows.md` foram confrontados: R7 foi concluído, R8 foi
+dispensado como série adicional e a sugestão seguinte era conferir o banco
+Windows. Essa sugestão foi avaliada como verificação complementar, não como
+nova exigência de implementação ou repetição integral de R5.
+
+### Consulta estrutural Windows
+
+Na inspeção não havia processo principal `mundam` listado nem arquivos
+`mundam.db-wal`/`mundam.db-shm`. O caminho foi confirmado com
+`bootstrap/system.rs`, que resolve o banco em app-local-data. A consulta
+utilizou o arquivo existente em
+`%LOCALAPPDATA%/com.marcusmaia.mundam/mundam.db`, sem abrir a aplicação,
+reinstalar o pacote ou limpar dados.
+
+O launcher Python disponível não conseguiu iniciar o interpretador por
+acesso negado. A consulta foi executada com o SQLite já instalado no host,
+em modo somente leitura e imutável, com os seguintes resultados:
+
+| Verificação | Resultado |
+| --- | --- |
+| `PRAGMA integrity_check` | `ok` |
+| Violações de chaves estrangeiras | 0 |
+| SHA-256 antes/depois do arquivo principal | `96035783ED04CEDFE8EBB11FC141A0E5AA5D738A51844EE5AD4344F01E24B049`, idêntico |
+
+A consulta terminou com código zero em 19 de novembro, às 14:10 no fuso de
+São Paulo. Isso verifica a estrutura do arquivo principal naquele momento;
+não comprova a integridade lógica de cada asset, os bytes dos originais ou
+replay de uma operação interrompida. A cobertura automatizada de recuperação
+e os limites de I/O nativo de R4 permanecem válidos. Não foi provocado crash
+ou encerramento forçado sobre a biblioteca real.
+
+### Próximo passo e critérios restantes
+
+O próximo passo Windows é uma conferência funcional curta do artefato
+instalado: reabertura, presença das raízes/assets, preferências preservadas,
+retomada do processamento recuperável quando houver pendências e saída normal.
+Não se exige que toda a fila conclua para aceitar o fechamento. Na ausência
+de pendências não se registrará esse caso como prova de retomada ativa.
+
+O usuário anunciou testes finais no Linux, a serem incorporados como evidência
+complementar de R9. R6 continua aceito, sem nova campanha obrigatória de
+formatos, desempenho, distribuições ou acessibilidade. Após consolidar essas
+conferências, resta registrar o aceite geral do responsável com os limites
+conhecidos. Não há nova implementação identificada com base nas evidências
+atuais. Esta revisão atualizou somente documentação, sem nova build ou
+reexecução de testes automatizados.
+
+## 39. R9: reabertura e retomada final Windows aprovadas (19 de novembro)
+
+**Estado:** conferência final Windows aprovada nos cenários registrados. O
+usuário verificou pastas, assets, preferências e configurações, encontrou tudo
+normal, confirmou a retomada correta do processamento pendente e informou
+fechamento pelo X. Isso conclui a conferência funcional Windows prevista na
+seção 38, sem representar auditoria de todos os dados ou dos bytes dos originais.
+
+### Evidências da reabertura
+
+Foram analisados `mundam-bundle-r5-reopen-20261119-141256-e70479.log` e os
+respectivos fluxos originais stdout/stderr. O executável instalado tem SHA-256
+`8B2C225C60953529B5DFD87924FA5FFE483935F884E754F90054E4BBF1BE47E7`,
+igual ao pacote corrigido. Os seis recursos amostrados estão presentes e seus
+hashes coincidem com o manifesto.
+
+O scan registrado concluiu com 42.568 arquivos inalterados, zero descobertos,
+zero pruning e zero erros. A telemetria registra matching de duplicatas
+publicado e workers de thumbnail, cores e fingerprints ativos no fechamento,
+compatíveis com a retomada relatada. Não se infere disso conclusão de toda
+a fila. A recuperação de sagas informou ausência de operações pendentes:
+retomada de processamento não equivale a replay de uma saga interrompida.
+
+### Encerramento
+
+| Verificação | Resultado |
+| --- | --- |
+| Pedido até conclusão da limpeza do backend | 602 ms |
+| Processo principal | Código de saída 0 |
+| Lifecycle / shutdown | 15 tarefas; `clean=true` |
+| IPC na admissão fechada | Uma consulta `get_processing_snapshot`, aguardada antes do bridge/pool |
+| SQLite | 20/20 conexões ociosas; fechamento explícito em 72 ms após a drenagem |
+| Snapshots finais de processos monitorados | Vazios; sem novos candidatos |
+
+O watcher liberou observação nativa e loops, e o servidor aguardou os donos
+registrados e a manutenção. Não havia sessões lineares ou IPC HLS nessa saída.
+Thumbnail, extração de cores e lote de fingerprints foram aguardados;
+a thumbnail ainda em andamento foi adiada após cancelamento. A apresentação
+de shutdown foi confirmada com `timely=true` e ocultação das janelas anteriores.
+O frontend registrou zero elementos de mídia pausados, coerente com uma
+conferência de reabertura sem reprodução exigida.
+
+O stderr contém o aviso conhecido `Chrome_WidgetWin_0 / Error = 1412`, sem
+falha de encerramento associada. Snapshots vazios são evidência pontual dos
+nomes monitorados, sem prova de ancestralidade ou ausência universal de
+processos externos. A integridade estrutural Windows já havia sido verificada
+na seção 38; esta rodada complementa a evidência com uso e retomada funcionais.
+
+### Consolidação restante
+
+Resumo executivo, checklist, tabela R9 e visão geral do backend atualizados.
+Não há nova implementação ou reteste Windows identificado a partir desta
+rodada. Restam incorporar os testes finais Linux anunciados pelo usuário
+como complemento de R9 e registrar o aceite geral com os limites conhecidos.
+R6 continua concluído e aceito. As exclusões de formatos, thumbnails conhecidos,
+desempenho de rede e acessibilidade permanecem. As alterações desta análise
+foram documentais, sem nova build ou reexecução de testes automatizados.
