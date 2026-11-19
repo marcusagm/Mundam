@@ -116,8 +116,23 @@ A validação Windows de R3 confirmou duas saídas limpas, admissão/drenagem IP
 antes do bridge/pool e recusa real de uma consulta posterior ao fechamento do
 banco. Os três scans manuais da segunda execução já haviam terminado ao fechar;
 concorrência ativa e transação retida permanecem na cobertura automatizada.
-R3 está concluído nos caminhos registrados; limites de operações nativas e boot
-parcial continuam em R4.
+R3 está concluído nos caminhos registrados. R4 limita a espera pelo supervisor
+de boot a cinco segundos, retendo seu handle e omitindo o fechamento explícito
+do pool quando a inicialização continua ativa. As fases verificam cancelamento
+antes de admitir dependências posteriores. O probe síncrono de FFmpeg do boot
+é aguardado fora do executor assíncrono.
+No descarte anormal, leases de processamento recuperam pela expiração sem
+destacar liberação SQL. Sagas com contexto ausente ou replay não implementado
+preservam diagnóstico de falha e degradam o resultado do lifecycle. Operações
+de biblioteca continuam usando journal/recibos para recuperação idempotente;
+I/O nativo já iniciado não ganha interrupção universal. R4 foi verificado
+automaticamente na seção 31 e validado em três execuções Windows na seção 32:
+saídas limpas, processamento aguardado, nova raiz retomada na reabertura e uma
+consulta IPC ativa drenada antes do bridge/pool. O backend já estava pronto no
+teste pela splash; cancelamento das fases iniciais, deadline e expiração de
+leases permanecem na cobertura automatizada. R1–R4 estão concluídos nos caminhos
+registrados; bundle Windows final, smoke macOS, medições e aceite geral continuam
+delimitados na seção 14 do relatório.
 O [relatório de fechamento](../report/2026-11-09-close-process-windows.md)
 contém o inventário atualizado, as evidências Windows/macOS, o checklist,
 o aceite Linux e as pendências dos artefatos finais. Testes de acessibilidade não são

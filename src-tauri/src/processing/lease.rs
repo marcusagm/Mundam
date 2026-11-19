@@ -7,14 +7,14 @@ use crate::core::{
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
-/// Keeps ownership alive during native work and releases it on normal exit or unwinding.
+/// Keeps ownership alive during native work; abnormal drops recover through durable expiry.
 pub struct ProcessingLease {
     stop: CancellationToken,
     task: Option<tokio::task::JoinHandle<AppResult<()>>>,
 }
 
 impl ProcessingLease {
-    /// Call immediately after `begin`; a dropped guard never renews or releases another owner.
+    /// Call immediately after `begin`; `finish` is the only awaited release path.
     pub fn start(repository: Arc<dyn ProcessingRepository>, ticket: ProcessingTicket) -> Self {
         Self::start_with_interval(repository, ticket, std::time::Duration::from_secs(30))
     }
@@ -29,6 +29,7 @@ impl ProcessingLease {
         let task = tokio::spawn(async move {
             loop {
                 tokio::select! {
+                    biased;
                     _ = stopped.cancelled() => break,
                     _ = tokio::time::sleep(interval) => {}
                 }
@@ -54,9 +55,11 @@ impl ProcessingLease {
     }
 
     /// Stops renewal and waits for release before the owner reports completion.
+    /// # Errors
+    /// Propagates renewal-task failures and database errors while releasing ownership.
     pub async fn finish(mut self) -> AppResult<()> {
         self.stop.cancel();
-        if let Some(task) = self.task.take() {
+        let result = if let Some(task) = self.task.as_mut() {
             task.await.map_err(|error| {
                 AppError::Internal(format!("Processing lease task failed: {error}"))
             })?
@@ -64,13 +67,20 @@ impl ProcessingLease {
             Err(AppError::Internal(
                 "Processing lease task is missing".into(),
             ))
-        }
+        };
+        self.task.take();
+        result
     }
 }
 
 impl Drop for ProcessingLease {
     fn drop(&mut self) {
-        self.stop.cancel();
+        if let Some(task) = self.task.take() {
+            // Aborting the caller does not stop its spawn_blocking/FFI work. Do not
+            // detach a SQL release or expose that work as immediately available.
+            task.abort();
+            tracing::warn!("Processing lease owner dropped without finish; renewal abort requested, ownership recovers through expiry");
+        }
     }
 }
 
@@ -126,7 +136,54 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn processing_heartbeat_renews_ownership_and_drop_releases_without_retry() -> TestResult {
+    async fn abnormal_drop_retains_reservation_until_expiry_without_detached_release() -> TestResult
+    {
+        let fixture = ProcessingFixture::new().await?;
+        fixture.asset("asset", None).await?;
+        let ticket = fixture
+            .processing
+            .begin(ProcessingKind::Thumbnail, "asset")
+            .await?
+            .ok_or("No reservation")?;
+        let lease = ProcessingLease::start(fixture.processing.clone(), ticket.clone());
+        let task = lease.task.as_ref().ok_or("No lease task")?.abort_handle();
+        drop(lease);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !task.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        assert!(fixture.processing.is_current(&ticket).await?);
+        assert!(fixture
+            .processing
+            .begin(ProcessingKind::Thumbnail, "asset")
+            .await?
+            .is_none());
+        sqlx::query("UPDATE processing_tasks SET lease_expires_at = unixepoch() - 1")
+            .execute(&fixture.pool)
+            .await?;
+        let successor = fixture
+            .processing
+            .begin(ProcessingKind::Thumbnail, "asset")
+            .await?
+            .ok_or("No recovery after expiry")?;
+        assert_ne!(ticket.lease_id, successor.lease_id);
+        assert!(!fixture.processing.renew(&ticket).await?);
+        fixture.processing.release(&ticket).await?;
+        assert!(fixture.processing.is_current(&successor).await?);
+        let attempts: i64 = sqlx::query_scalar("SELECT attempts FROM processing_tasks")
+            .fetch_one(&fixture.pool)
+            .await?;
+        assert_eq!(attempts, 0);
+        fixture.processing.release(&successor).await?;
+        fixture.pool.close().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn processing_heartbeat_renews_ownership_and_finish_releases_without_retry() -> TestResult
+    {
         let fixture = ProcessingFixture::new().await?;
         fixture.asset("asset", None).await?;
         let ticket = fixture
@@ -158,7 +215,7 @@ mod tests {
         })
         .await??;
         assert!(fixture.processing.is_current(&ticket).await?);
-        drop(guard);
+        guard.finish().await?;
         tokio::time::timeout(std::time::Duration::from_secs(4), async {
             while fixture
                 .processing

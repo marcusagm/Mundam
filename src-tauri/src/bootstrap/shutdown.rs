@@ -76,6 +76,21 @@ async fn close_pool_if_idle(pool: &sqlx::SqlitePool) -> bool {
     }
 }
 
+/// A timed-out owner may still publish state or hold native work: never close its pool.
+pub(super) async fn finish_pool(drained: bool, pool: Option<&sqlx::SqlitePool>) -> bool {
+    if !drained {
+        tracing::warn!("Skipping explicit database pool close after incomplete task shutdown");
+        return false;
+    }
+    match pool {
+        Some(pool) => close_pool_if_idle(pool).await,
+        None => {
+            tracing::info!("SQLite pool: not initialized; no explicit close required");
+            true
+        }
+    }
+}
+
 /// Claims and starts shutdown once; subsequent requests join the active operation.
 pub fn request(application: &AppHandle) {
     let service = application.state::<ShutdownService>();
@@ -138,18 +153,12 @@ pub fn request(application: &AppHandle) {
         if !ipc_clean {
             tracing::warn!(commands = ?ipc.active_commands(), "IPC commands remain active; explicit pool close is unsafe");
         }
-        let mut clean = tasks_clean && boot_clean && protocol_clean && ipc_clean;
-        if clean {
-            if let Some(database) =
-                handle.try_state::<Arc<crate::infra::database::manager::DbManager>>()
-            {
-                clean = close_pool_if_idle(database.pool()).await;
-            } else {
-                tracing::info!("SQLite pool: not initialized; no explicit close required");
-            }
-        } else {
-            tracing::warn!("Skipping explicit database pool close after incomplete task shutdown");
-        }
+        let database = handle.try_state::<Arc<crate::infra::database::manager::DbManager>>();
+        let clean = finish_pool(
+            tasks_clean && boot_clean && protocol_clean && ipc_clean,
+            database.as_ref().map(|database| database.pool()),
+        )
+        .await;
         tracing::info!(clean, "Application shutdown completed");
         match service.finish(!clean) {
             Ok(snapshot) => publish(&handle, &snapshot),

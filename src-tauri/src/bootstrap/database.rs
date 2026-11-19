@@ -109,9 +109,11 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     // Recovery already admitted to the lifecycle finishes before the pool closes.
     let recovery_service =
         crate::infra::database::saga_recovery::SagaRecoveryService::new(db_manager.pool().clone());
+    let recovery_lifecycle = lifecycle.inner().clone();
     lifecycle.spawn_unique("saga_recovery".to_string(), async move {
         if let Err(error) = recovery_service.run_recovery().await {
             tracing::error!(%error, "Failed to run saga recovery");
+            recovery_lifecycle.report_failure("saga recovery");
         }
     });
 

@@ -6,10 +6,9 @@ use tracing::{info, warn};
 
 /// Service responsible for recovering and completing pending Sagas (Outbox pattern).
 ///
-/// This guarantees atomicity between database transactions and filesystem operations.
-/// If a process crashes after a database commit but before the filesystem operation
-/// completes, this service will pick up the `PENDING` operations on startup
-/// and either retry them or execute compensating actions.
+/// Replays supported durable intents after a commit interrupted before its filesystem step.
+/// Missing or unsupported recovery context is retained as a diagnostic failure;
+/// it is never treated as proof that an unimplemented filesystem action completed.
 pub struct SagaRecoveryService {
     pool: SqlitePool,
 }
@@ -66,6 +65,7 @@ impl SagaRecoveryService {
             pending_operations.len()
         );
 
+        let mut failed_operations = 0;
         for operation in pending_operations {
             match self
                 .process_operation(
@@ -84,6 +84,7 @@ impl SagaRecoveryService {
                     self.mark_completed(&operation.id).await?;
                 }
                 Err(e) => {
+                    failed_operations += 1;
                     warn!(
                         "SagaRecovery: Failed to process operation {} ({}): {}",
                         operation.id, operation.operation_type, e
@@ -94,6 +95,11 @@ impl SagaRecoveryService {
         }
 
         info!("SagaRecovery: Recovery process finished.");
+        if failed_operations > 0 {
+            return Err(AppError::Internal(format!(
+                "Saga recovery requires repair for {failed_operations} operation(s)"
+            )));
+        }
         Ok(())
     }
 
@@ -128,35 +134,37 @@ impl SagaRecoveryService {
                 let physical_delete = payload
                     .get("physical")
                     .and_then(|value| value.as_bool())
-                    .unwrap_or(false);
-                let path_string = payload.get("path").and_then(|value| value.as_str());
-
+                    .ok_or_else(|| {
+                        AppError::ValidationFailed(
+                            "Delete recovery is missing its physical flag".into(),
+                        )
+                    })?;
                 if physical_delete {
-                    if let Some(path_reference) = path_string {
-                        let path_buffer = std::path::PathBuf::from(path_reference);
-                        if path_buffer.exists() {
-                            info!(
-                                "SagaRecovery: Executing pending physical delete for: {}",
-                                path_reference
-                            );
-                            if let Err(error) = fs::remove_file(&path_buffer).await {
-                                warn!(
-                                    "SagaRecovery: Failed to delete file {}: {}",
-                                    path_reference, error
-                                );
-                                // If it fails because of permission or lock, we might want to return Error so it stays PENDING.
-                                // For now, we return error so it goes to FAILED.
-                                return Err(AppError::Io(error));
-                            }
-                        } else {
-                            info!("SagaRecovery: File {} already deleted.", path_reference);
-                        }
+                    let path = payload
+                        .get("path")
+                        .and_then(|value| value.as_str())
+                        .filter(|path| !path.is_empty())
+                        .ok_or_else(|| {
+                            AppError::ValidationFailed(
+                                "Physical delete recovery is missing its path".into(),
+                            )
+                        })?;
+                    if !std::path::Path::new(path).is_absolute() {
+                        return Err(AppError::ValidationFailed(
+                            "Physical delete recovery requires an absolute path".into(),
+                        ));
+                    }
+                    match fs::remove_file(path).await {
+                        Ok(()) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(AppError::Io(error)),
                     }
                 }
             }
-            // Add other operations here (RenameFolder, CreateAsset, etc.)
             _ => {
-                info!("SagaRecovery: Operation type '{}' requires no recovery or is not implemented yet.", operation_type);
+                return Err(AppError::ValidationFailed(format!(
+                    "Unsupported saga recovery operation: {operation_type}"
+                )));
             }
         }
 
@@ -203,3 +211,7 @@ impl SagaRecoveryService {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "saga_recovery_tests.rs"]
+mod tests;

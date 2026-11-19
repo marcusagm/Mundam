@@ -18,12 +18,29 @@ A migration `20261103010000_processing_leases.sql` acrescenta `lease_id`, `lease
 | Aquisição | Prazo de 120 segundos, exclusividade por `(asset_id, kind)` |
 | Renovação | A cada 30 segundos durante a execução; exige reserva ainda válida, geração atual e origem ativa |
 | Liberação | Condicionada ao UUID e à geração; não consome tentativa de erro |
-| Encerramento normal | Libera a reserva após sucesso, erro ou cancelamento |
-| Unwinding/abort do worker | O guard interrompe o heartbeat e solicita liberação assíncrona |
+| Encerramento normal | `finish` aguarda a liberação após sucesso, erro ou cancelamento cooperativo |
+| Unwinding/abort do worker | Solicita abort do heartbeat, sem destacar liberação SQL; a reserva é recuperada pela expiração (revisão R4 de 18/11) |
 | Crash ou falha de liberação | A reserva expira; a consulta periódica permite nova aquisição |
 | Tentativa superada | Renovação, commit e desfecho não alteram a nova propriedade |
 
 O guard [`ProcessingLease`](../../../src-tauri/src/processing/lease.rs) é usado nos três processadores. Falha de renovação encerra a renovação e libera aquela propriedade; o resultado só será aceito se a validação transacional ainda o permitir. Operações nativas já iniciadas não são interrompidas à força. Se continuarem depois da perda da reserva, seus resultados não podem substituir os da nova tentativa.
+
+Na revisão R4 do encerramento, em 18/11/2026, o descarte anormal deixou de
+iniciar liberação SQL sem espera. O handle do heartbeat é retido também durante
+`finish`, permitindo solicitar seu abort se a própria espera for cancelada.
+Isso não comprova interrupção de uma consulta já enviada ao SQLite nem de
+FFI/`spawn_blocking`; o encerramento degradado não fecha explicitamente o pool.
+A reserva pode permanecer indisponível até seu prazo de 120 segundos, contado
+da última aquisição/renovação. A política e as evidências dessa revisão ficam
+na seção 31 do [relatório de fechamento](../../report/2026-11-09-close-process-windows.md).
+
+A integração Windows dessa política foi validada em 19/11/2026, conforme a
+seção 32 do mesmo relatório: workers ativos foram aguardados e a nova raiz
+retomou processamento na reabertura. As três saídas foram limpas, sem descarte
+anormal ou expiração de lease observados; esses casos permanecem na cobertura
+automatizada. Dois erros `database is locked` no worker de thumbnails foram
+registrados separadamente da conclusão de drenagem, sem afirmar sucesso das
+operações que falharam.
 
 A pausa continua sendo um controle da sessão. Ela impede novas admissões e permite que as operações admitidas terminem com seus heartbeats ativos. Não muda a política de até três falhas e backoff de cinco e trinta segundos. Reservas válidas são excluídas da contagem de pendências; a atividade exibida pela statusbar continua sendo a atividade local, sem um painel de executores de outros processos.
 

@@ -271,6 +271,37 @@ mod shutdown_budget_tests {
     use super::*;
 
     #[tokio::test]
+    async fn native_work_outlives_async_abort_and_shutdown_remains_degraded(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry = LifecycleRegistry::new();
+        let (release, receiver) = std::sync::mpsc::channel();
+        let (entered, entered_receiver) = tokio::sync::oneshot::channel();
+        let (finished, finished_receiver) = tokio::sync::oneshot::channel();
+        let task = tauri::async_runtime::spawn(async move {
+            let _ = tokio::task::spawn_blocking(move || {
+                let _ = entered.send(());
+                let _ = receiver.recv_timeout(Duration::from_secs(5));
+                let _ = finished.send(());
+            })
+            .await;
+        });
+        registry.register("native_fixture".into(), registry.child_token(), task);
+        tokio::time::timeout(Duration::from_secs(2), entered_receiver).await??;
+        assert!(!registry.shutdown_within(Duration::from_millis(30)).await);
+        let mut finished_receiver = finished_receiver;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut finished_receiver)
+                .await
+                .is_err()
+        );
+        release
+            .send(())
+            .map_err(|_| "Native fixture ended before release")?;
+        tokio::time::timeout(Duration::from_secs(2), finished_receiver).await??;
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn slow_tasks_share_one_budget_and_are_aborted() {
         let registry = LifecycleRegistry::new();
         for index in 0..3 {

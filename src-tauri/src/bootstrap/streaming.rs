@@ -62,7 +62,11 @@ pub async fn init(app: &AppHandle) {
     lifecycle.register("streaming_server".to_string(), server_token, server_handle);
 
     // FFmpeg Health Check
-    if !crate::processing::transcoding::check_transcoding_availability() {
+    let availability = tauri::async_runtime::spawn_blocking(
+        crate::processing::transcoding::check_transcoding_availability,
+    )
+    .await;
+    if !matches!(availability, Ok(true)) {
         tracing::warn!("FFmpeg not found. Video transcoding unavailable.");
         let _ = event_bus.publish(crate::core::events::DomainEvent::SystemHealthIssue {
             component: "ffmpeg".to_string(),

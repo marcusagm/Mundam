@@ -2,31 +2,80 @@
 
 use crate::core::error::{AppError, AppResult};
 use crate::feature::startup::{StartupService, StartupSnapshot, StartupStage};
-use std::sync::Mutex;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 /// Retains the boot supervisor so shutdown can await late service registration.
-pub struct StartupTask(Mutex<Option<tauri::async_runtime::JoinHandle<()>>>);
+pub struct StartupTask(tokio::sync::Mutex<StartupCompletion>);
+
+enum StartupCompletion {
+    Running(tauri::async_runtime::JoinHandle<()>),
+    Finished(bool),
+}
 
 impl StartupTask {
-    /// Waits for the boot supervisor before draining the lifecycle registry.
+    fn new(handle: tauri::async_runtime::JoinHandle<()>) -> Self {
+        Self(tokio::sync::Mutex::new(StartupCompletion::Running(handle)))
+    }
+
+    /// Bounds shutdown's boot wait without aborting admitted native work or losing its owner.
+    /// A timeout prevents explicit pool closure even if the supervisor finishes later.
     pub async fn wait(&self) -> bool {
-        let handle = self
-            .0
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take();
-        match handle {
-            Some(handle) => match handle.await {
-                Ok(()) => true,
-                Err(error) => {
-                    tracing::error!(%error, "Startup supervisor failed during shutdown");
-                    false
-                }
-            },
-            None => true,
+        self.wait_within(Duration::from_secs(5)).await
+    }
+
+    async fn wait_within(&self, budget: Duration) -> bool {
+        let completion = async {
+            let mut state = self.0.lock().await;
+            if let StartupCompletion::Running(handle) = &mut *state {
+                let clean = match handle.await {
+                    Ok(()) => true,
+                    Err(error) => {
+                        tracing::error!(%error, "Startup supervisor failed during shutdown");
+                        false
+                    }
+                };
+                *state = StartupCompletion::Finished(clean);
+            }
+            match *state {
+                StartupCompletion::Finished(clean) => clean,
+                StartupCompletion::Running(_) => false,
+            }
+        };
+        match tokio::time::timeout(budget, completion).await {
+            Ok(clean) => clean,
+            Err(_) => {
+                tracing::warn!(budget_ms = budget.as_millis() as u64,
+                    "Startup supervisor still active; retaining owner and skipping explicit pool close");
+                false
+            }
         }
     }
+}
+
+/// Each admitted phase finishes before cancellation is checked; no later phase is started.
+async fn run_stages<F, Work>(
+    token: &tokio_util::sync::CancellationToken,
+    mut initialize: F,
+) -> AppResult<()>
+where
+    F: FnMut(StartupStage) -> Work,
+    Work: std::future::Future<Output = AppResult<()>>,
+{
+    for stage in [
+        StartupStage::Preparing,
+        StartupStage::Database,
+        StartupStage::Media,
+        StartupStage::Library,
+        StartupStage::BackendReady,
+    ] {
+        if token.is_cancelled() {
+            tracing::info!(?stage, "Startup stopped before admitting next phase");
+            return Ok(());
+        }
+        initialize(stage).await?;
+    }
+    Ok(())
 }
 
 /// Registers startup state before configured windows can issue IPC requests.
@@ -62,7 +111,7 @@ pub fn start(application: &AppHandle) {
             Err(error) => tracing::error!(%error, "Unable to retain startup failure"),
         }
     });
-    application.manage(StartupTask(Mutex::new(Some(task))));
+    application.manage(StartupTask::new(task));
 }
 
 /// Publishes a retained snapshot; a missed event is recoverable through querying.
@@ -105,36 +154,48 @@ async fn initialize(application: &AppHandle) -> AppResult<()> {
     let token = application
         .state::<std::sync::Arc<crate::lifecycle::LifecycleRegistry>>()
         .root_token();
-    let directory_handle = application.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        super::system::init_directories(&directory_handle)
-    })
-    .await
-    .map_err(|error| AppError::Internal(error.to_string()))??;
-    if token.is_cancelled() {
-        return Ok(());
-    }
-    super::system::init_settings(application);
-    super::system::init_events(application);
-    super::system::init_formats(application);
-    advance(application, StartupStage::Database)?;
-    super::database::init(application).await?;
-    if token.is_cancelled() {
-        return Ok(());
-    }
-    advance(application, StartupStage::Media)?;
-    super::streaming::init(application).await;
-    if token.is_cancelled() {
-        return Ok(());
-    }
-    super::workers::init(application);
-    advance(application, StartupStage::Library)?;
-    super::library::init(application).await;
-    if token.is_cancelled() {
-        return Ok(());
-    }
-    advance(application, StartupStage::BackendReady)
+    run_stages(&token, |stage| initialize_stage(application, stage)).await
 }
+
+async fn initialize_stage(application: &AppHandle, stage: StartupStage) -> AppResult<()> {
+    match stage {
+        StartupStage::Preparing => {
+            let directory_handle = application.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                super::system::init_directories(&directory_handle)
+            })
+            .await
+            .map_err(|error| AppError::Internal(error.to_string()))??;
+        }
+        StartupStage::Database => {
+            super::system::init_settings(application);
+            super::system::init_events(application);
+            super::system::init_formats(application);
+            advance(application, stage)?;
+            super::database::init(application).await?;
+        }
+        StartupStage::Media => {
+            advance(application, stage)?;
+            super::streaming::init(application).await;
+        }
+        StartupStage::Library => {
+            advance(application, stage)?;
+            super::workers::init(application);
+            super::library::init(application).await;
+        }
+        StartupStage::BackendReady => advance(application, stage)?,
+        _ => {
+            return Err(AppError::Internal(
+                "Unexpected backend startup phase".into(),
+            ))
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "startup_shutdown_tests.rs"]
+mod shutdown_tests;
 
 #[cfg(test)]
 mod tests {

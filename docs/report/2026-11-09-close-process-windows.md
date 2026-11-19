@@ -1,12 +1,12 @@
 # Levantamento e plano: janela de finalização do Mundam
 
 **Data:** 9 de novembro de 2026  
-**Última revisão:** 18 de novembro de 2026
+**Última revisão:** 19 de novembro de 2026
 **Estado:** sessão Linux concluída e aceita pelo usuário em desenvolvimento/release, binário direto, Debian e AppImage; pendências gerais restantes consolidadas na seção 14
 **Escopo:** aplicações desktop Tauri em macOS, Windows e Linux  
 **Destino:** `docs/report/`, conforme solicitado; este documento combina levantamento e planejamento técnico.
 
-**Leitura atual (18 de novembro):** as seções 1, 9, 10, 12, 14 e 23
+**Leitura atual (19 de novembro):** as seções 1, 9, 10, 12, 14 e 23
 consolidam o estado vigente. As seções 4 a 8 preservam o levantamento/proposta
 originais; a seção 13 mantém a evolução macOS/Windows e as seções 15 a 22
 mantêm as rodadas Linux, inclusive resultados intermediários depois superados.
@@ -52,9 +52,9 @@ usuário. Não são defeitos confirmados da aplicação nem tarefas desta conclu
 O aceite Linux é funcional e limitado aos ambientes/artefatos registrados;
 não comprova suporte universal ou término de todo recurso não supervisionado.
 
-R1–R3 estão concluídos nos caminhos e cenários registrados, incluindo a
-validação Windows da seção 30. As pendências gerais mantidas são R4 (política
-segura de boot/I/O e recuperação), R5 (bundle Windows atualizado), R7 (smoke
+R1–R4 estão concluídos nos caminhos e cenários registrados, com implementação
+e cobertura automatizada de R4 na seção 31 e validação Windows na seção 32.
+Restam R5 (bundle Windows atualizado), R7 (smoke
 macOS final), R8 (decidir medições restantes fora da sessão Linux encerrada)
 e R9 (aceite geral). R6 está concluído.
 
@@ -291,9 +291,9 @@ Não exibir na janela dados internos de bibliotecas, caminhos, nomes de arquivos
 
 | Etapa                     | Trabalho e evidência                                                                                                        | Estado em 18 de novembro                                                                                                                             |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Inventário e contratos | Entradas, donos, prazos e limitações registrados; evidências das três plataformas.                                          | Atualizado; R1–R3 concluídos nos escopos registrados, política compartilhada restante em R4.                                                                                             |
+| 1. Inventário e contratos | Entradas, donos, prazos e limitações registrados; evidências das três plataformas.                                          | Atualizado; R1–R4 concluídos nos escopos registrados, com limites nativos e política de saída degradada explícitos.                                                                                             |
 | 2. Coordenação            | Coordenador único, snapshot, saída autorizada, registro atômico e supervisor de boot.                                       | Implementada; admissão de comandos de negócio validada em R3 (seções 29–30).                                                                                    |
-| 3. Drenagem real | Protocolos, tarefas registradas, watcher, auxiliares HTTP/HLS por IPC, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | R1–R3 concluídos nos caminhos/cenários registrados (seções 26–30); limites nativos em R4. |
+| 3. Drenagem real | Protocolos, tarefas registradas, watcher, auxiliares HTTP/HLS por IPC, bridge, segmentos/probes, sessões lineares e manutenção de banco supervisionados. | R1–R4 concluídos nos caminhos/cenários registrados (seções 26–32); limites nativos e saída degradada documentados. |
 | 4. Janela e protocolo     | Entrada Vite, capability, consulta/evento, handshake, mínimo, fallback e pausa de mídia.                                    | Implementados; saída autônoma com falhas injetadas validada no Linux.                                                                                |
 | 5. Apresentação funcional | Janela observada nas três plataformas; preferências Linux de vídeo/gráfica persistentes.                                    | Sessão Linux concluída; acessibilidade dispensada; observações intermitentes sem bloqueio.                                                           |
 | 6. Integração e aceite    | Windows dev e evidências macOS anteriores preservados; Linux dev/release/Debian/AppImage validado.                          | R6 concluído. Restam os itens gerais da seção 14, sem reabrir a sessão Linux.                                                                        |
@@ -339,11 +339,11 @@ comprova repetição integral da matriz em todos os artefatos ou distribuições
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Saída ociosa e entradas normais                              | Dev e bundle anterior observados; bundle atualizado em R5.                                   | Titlebar, Dock e Cmd+Q observados em dev e bundle anterior.         | X e Alt+F4 em dev/release; ocioso instalado em Debian e AppImage.                                                                                      |
 | Indexação/processing e mídia ativos                          | Dev validado, inclusive rede; repetir artefato atualizado em R5.                             | Evidências anteriores sob carga; smoke final em R7.                 | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados.                                       |
-| Fechamento na splash/boot                                    | Cobertura nativa restante no bundle em R5; política compartilhada em R4.                     | Evidência parcial preservada; regressão conforme R7/R4.             | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite.                              |
+| Fechamento na splash/boot                                    | Splash relatada e saída limpa em R4; backend já pronto. Fases iniciais cobertas automaticamente; bundle em R5.                     | Evidência parcial preservada; política compartilhada verificada em R4, smoke final em R7.             | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite.                              |
 | Pedidos repetidos e auxiliares                               | Unidade e fluxos principais cobertos; complementar no bundle atualizado.                     | Entradas principais observadas; smoke final delimitado às mudanças. | Alt+F4 repetido, um único coordenador e uma única tela confirmados em desenvolvimento.                                                                 |
-| Reabertura e recuperação                                     | Reinícios observados; comprovação dirigida de leases/originais em R4/R5.                     | Persistência e retomada observadas; regressão dirigida em R4/R7.    | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases.                                   |
+| Reabertura e recuperação                                     | Nova raiz e processamento retomados em R4; leases/transações/originais nas fixtures automatizadas; bundle em R5.                     | Persistência e retomada observadas; recuperação compartilhada verificada em R4, smoke final em R7.    | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases.                                   |
 | Principal minimizada e indisponibilidade de apresentação/IPC | Fallback implementado; cobrir o restante em R5.                                              | Evidência anterior; smoke final em R7.                              | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento.                                      |
-| Processos, servidor, handlers e SQLite                       | Saídas limpas dos recursos registrados; inventário compartilhado ainda delimitado por R1–R4. | Mesma delimitação de implementação compartilhada.                   | Drenagem, terminação aguardada de segmentos e ausência de remanescentes em amostras limpas. Ocorrências intermitentes são notas, não pendências Linux. |
+| Processos, servidor, handlers e SQLite                       | Saídas limpas dos recursos registrados; R1–R4 concluídos nos escopos registrados, com limites nativos explícitos. | Mesma delimitação de implementação compartilhada.                   | Drenagem, terminação aguardada de segmentos e ausência de remanescentes em amostras limpas. Ocorrências intermitentes são notas, não pendências Linux. |
 | Logout/terminação forçada                                    | Fora da garantia de saída normal, salvo requisito específico futuro.                         | Mesmo limite.                                                       | Mesmo limite; não reabre R6.                                                                                                                           |
 
 Testes de acessibilidade estão dispensados. O ambiente Linux registrado foi
@@ -380,13 +380,13 @@ Os tópicos abaixo preservam a metodologia original, não novos roteiros Linux.
 
 **Decisões vigentes:** janela independente, 600 ms/1.500 ms, ausência de ação
 genérica de fechamento forçado e prioridade à integridade foram aprovadas e
-implementadas. A política completa para operações não interrompíveis continua
-delimitada por R4. A compatibilidade Linux é opt-in, persistente e validada;
+implementadas. A política para operações não interrompíveis foi definida e
+verificada em R4, com os limites e resultados das seções 31–32. A compatibilidade Linux é opt-in, persistente e validada;
 não há aprovação pendente desses controles ou da sessão Linux.
 
 ## 12. Lista de entregas e acompanhamento
 
-Atualizado em 18 de novembro contra o código e as evidências das três plataformas.
+Atualizado em 19 de novembro contra o código e as evidências das três plataformas.
 A sessão Linux foi encerrada por decisão do usuário; itens de implementação
 compartilhada não são defeitos inferidos dos erros intermitentes do host.
 As pendências detalhadas e a ordem de execução estão na seção 14.
@@ -408,7 +408,8 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Confirmar no aplicativo os auxiliares HTTP e o dono IPC antes do bridge/pool, com HLS e linear em uso: duas saídas clean=true (R2; seção 28).
 - [x] Implementar admissão/drenagem de IPC que pode criar recursos ou acessar o banco durante a saída (R3; seção 29).
 - [x] Confirmar no aplicativo a integração de R3: uso normal e transferências de texto relatados pelo usuário, scans manuais registrados, recusa tardia e fechamento limpo (seção 30). Scans terminaram antes do X; concorrência ativa coberta automaticamente.
-- [ ] Concluir política e cobertura de boot/I/O não interrompível, falhas e recuperação (R4).
+- [x] Implementar política e cobertura automatizada de boot/I/O não interrompível, falhas e recuperação (R4; seção 31).
+- [x] Validar a integração de R4 no aplicativo: saída pela splash relatada, processamento ativo drenado e reabertura com nova raiz/pendências preservadas (seção 32). As fases iniciais do backend já haviam terminado no primeiro fechamento; seu cancelamento e deadlines permanecem cobertos automaticamente.
 - [x] Preservar leases ao adiar thumbnails por cancelamento entre fases, sem consumir nova tentativa.
 - [ ] Confirmar recuperação de pendências e integridade no reinício dos artefatos finais.
 - [x] Implementar janela independente, entrada Vite e empacotamento.
@@ -417,7 +418,7 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Implementar mínimo de 600 ms, handshake limitado a 1.500 ms, fallback e mensagens factuais.
 - [x] Testar concorrência, timeouts e ausência de confirmação sem bloqueio indefinido.
 - [x] Validar no Linux splash, pedidos repetidos, minimizada e falhas injetadas de apresentação/IPC nos cenários registrados.
-- [ ] Completar apenas verificações finais macOS/Windows e políticas compartilhadas ainda descritas em R4/R5/R7.
+- [ ] Completar as verificações finais macOS/Windows descritas em R5/R7, preservando a política e os limites de R4.
 - [x] Executar testes automatizados, typecheck, lint e build pertinentes.
 - [x] Registrar a rodada final de desenvolvimento Windows: três encerramentos `clean=true`.
 - [ ] Repetir o bundle Windows atual, incluindo fechamento sob carga (R5).
@@ -454,7 +455,7 @@ esta seção como aceite final.
 
 | Recurso / dono                         | Admissão e cancelamento                                                                                                                                                                            | Evidência de término                                                                                                            | Timeout / recuperação                                                                                               | Estado                                                                                                          |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Inicialização                          | Token raiz cancelado; `StartupTask` aguardado antes da drenagem; avanços/apresentação protegidos pelo estado de shutdown.                                                                          | Supervisor retido; teste de estado disponível antes de setup.                                                                   | Espera do supervisor sem timeout próprio; I/O em andamento não é interrompido automaticamente.                      | Splash Linux exercitada; política dos marcos iniciais/I/O permanece delimitada em R4.                           |
+| Inicialização | Token raiz cancelado; fase admitida é aguardada e fases posteriores verificam cancelamento. Supervisor retido, inclusive após timeout. | Testes em cada fronteira, falhas por fase, esperas concorrentes e I/O nativo retido após deadline (seção 31). | Espera de startup de até 5 s; timeout degrada a saída e impede fechamento explícito do pool. Não aborta I/O nativo. | R4 concluído no escopo registrado; backend já pronto no teste pela splash, fases iniciais cobertas automaticamente (seção 32). |
 | Registro de tarefas e scans dinâmicos  | `shutdown_all` fecha o registro sob trava; `spawn_unique` verifica cancelamento e reserva/inicia sob a mesma trava.                                                                                | Handles aguardados; testes de concorrência, rejeição tardia e nomes duplicados.                                                 | 5 s compartilhados, abort aguardado; grace de 250 ms para bridge.                                                   | Implementado para recursos admitidos por esses caminhos; não equivale a barreira global de IPC.                 |
 | Bridge de eventos                      | Cancelado após os produtores registrados; fila consumida antes de parar.                                                                                                                           | Handle registrado e testes de ordem/drenagem.                                                                                   | Orçamento compartilhado mais grace limitado.                                                                        | Implementado; produtores não supervisionados continuam como limite.                                             |
 | Asset/thumbnail protocols              | `ProtocolAdmission` fecha a admissão e conta guards já admitidos.                                                                                                                                  | Drenagem de handlers registrada nos três últimos logs Windows.                                                                  | Até 5 s; falha degrada o resultado e impede fechamento explícito do pool.                                           | Implementado; não prova conclusão de todo corpo HTTP já entregue.                                               |
@@ -463,8 +464,8 @@ esta seção como aceite final.
 | Watcher nativo, debouncer e publicador | Token único, admissão fechada no cancelamento e dono library_watcher registrado. Registro repetido do mesmo caminho não chama novamente o backend nativo.                                          | Liberação do callback, conclusão dos loops e do dono antes do bridge confirmadas nos dois logs Windows v2.                      | Hints voláteis reconciliados no boot; timeout continua degradando o resultado, sem prometer interromper I/O nativo. | R1 concluído nos cenários dirigidos: clean=true nas duas execuções, com pool fechado explicitamente (seção 26). |
 | Limpeza periódica HTTP e HLS do IPC | Cancelamento fecha agendamento HTTP e admissão do worker IPC; preparações/limpezas admitidas permanecem com seus donos. | Dois auxiliares HTTP e dono IPC concluídos antes do bridge nos dois logs Windows; testes com filhos IPC e FFmpeg real aprovados. | Prazo global existente; I/O nativo iniciado pode excedê-lo (R4). | R2 concluído no escopo auditado e cenários validados; runtime IPC ocioso, filhos ativos na cobertura automatizada (seções 27–28). |
 | Manutenção SQLite                      | library_cleanup e saga_recovery admitidos no lifecycle; limpeza não inicia nova rodada após cancelamento.                                                                                          | Dois testes e runtime Linux, com espera antes do fechamento do pool.                                                            | Rodada já iniciada é aguardada sob o orçamento existente.                                                           | Corrigido e validado; não é mais lacuna autônoma de R2.                                                         |
-| Workers e extratores                   | Handles principais registrados; thumbnails verificam cancelamento entre fases e preservam leases. Runner síncrono passou a tentar cleanup também em erro de espera e a observar ambos os leitores. | Testes de cancelamento anteriores e auditoria R2 na seção 27; novos testes do runner com filho real e falha injetada.           | Operações bloqueantes/filhos podem ultrapassar abort do dono superior; não há garantia universal de interrupção.    | Auditoria e limites de R2 documentados; política de I/O, falhas e recuperação continua em R4.                   |
-| Banco SQLite e IPC | Pool fecha só após tarefas/protocolos limpos, admissão IPC fechada e drenada e snapshot totalmente ocioso. | Duas saídas Windows com pool fechado e recusa tardia real; teste IPC retém transação e bridge (seções 29–30). | Orçamento compartilhado de 5 s para drenagem; chamadas ativas impedem fechamento explícito do pool. Ociosidade até 250 ms e close até 3 s preservados. | R3 concluído nos caminhos registrados. I/O não interrompível em R4. |
+| Workers e extratores | Cancelamento cooperativo e handles retidos nos donos; finish aguarda liberação de lease. Drop anormal solicita abort do heartbeat e deixa recuperação pela expiração. | Regressões de workers/leases, abort assíncrono com native ainda ativo, transações e tickets antigos (seção 31). | I/O/FFI e filhos já iniciados podem exceder o prazo; resultado degradado sem fechamento explícito do pool. Reservas de processamento expiram até 120 s após aquisição/renovação. | R4 concluído no escopo registrado, com drenagem sob processamento validada (seção 32); sem interrupção universal de operações nativas. |
+| Banco SQLite e IPC | Pool fecha só após tarefas/protocolos limpos, admissão IPC fechada e drenada e snapshot totalmente ocioso. | Saídas Windows com pool fechado, recusa tardia real e consulta IPC ativa aguardada antes do bridge/pool; transação retida coberta automaticamente (seções 29–32). | Orçamento compartilhado de 5 s para drenagem; chamadas ativas impedem fechamento explícito do pool. Ociosidade até 250 ms e close até 3 s preservados. | R3 concluído nos caminhos registrados. I/O não interrompível em R4. |
 
 ### Alterações realizadas
 
@@ -512,8 +513,10 @@ operação retorna erro. A falha de liberação é registrada e propagada ao
 chamador. Testes do lease verificam espera pela conexão SQLite e propagação de
 falha; os testes de processamento foram executados após a alteração.
 
-Esse acompanhamento cobre o caminho de conclusão dos executores, não o abort
-forçado: nesse caso o `Drop` ainda dispara liberação assíncrona sem aguardar.
+Esse acompanhamento cobria o caminho de conclusão dos executores, não o abort
+forçado: naquele estado o `Drop` disparava liberação assíncrona sem aguardar.
+R4 substituiu esse fallback por abort solicitado ao heartbeat e recuperação da
+reserva pela expiração, conforme a seção 31.
 Extrações e computações em `spawn_blocking` também não são interrompidas pelo
 abort de uma tarefa assíncrona. As durações excessivas observadas nos logs
 ainda não têm causa específica confirmada. Foram adicionados logs para informar
@@ -2231,14 +2234,15 @@ suporte a formatos, thumbnails ou desempenho de rede.
 
 ## 14. Pendências gerais após a conclusão Linux
 
-**Estado consolidado em 18 de novembro:** a sessão Linux está concluída e
+**Estado consolidado em 19 de novembro:** a sessão Linux está concluída e
 aceita pelo usuário (R6). A documentação foi reconciliada com as rodadas de
 17–18 de novembro e com o checkout `a1af219`, acrescido da implementação R1
 das seções 24–25, validada na seção 26, e de R2, implementado/auditado na seção 27
 e validado na seção 28. R3 foi implementado e verificado automaticamente na
-seção 29, com integração Windows validada na seção 30. R1–R3 estão concluídos
-nos escopos registrados. R4 continua como implementação compartilhada e não
-deriva dos erros intermitentes não atribuídos da máquina Linux.
+seção 29, com integração Windows validada na seção 30. R4 foi implementado e
+verificado automaticamente na seção 31, com integração Windows validada na
+seção 32. R1–R4 estão concluídos nos escopos registrados. Essa etapa não deriva
+dos erros intermitentes não atribuídos da máquina Linux.
 A conclusão funcional da sessão Linux não é uma afirmação de drenagem universal.
 
 ### Implementação e auditoria: estado dos itens
@@ -2248,7 +2252,7 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | R1  | **Concluído nos cenários dirigidos.**                                                                      | Implementação e correção do registro duplicado validadas em duas execuções Windows com backend release (seção 26): callback nativo liberado, loops aguardados, library_watcher concluído antes do bridge, SQLite fechado explicitamente e clean=true. Não equivale ao aceite dos demais donos ou do bundle final.                                                 |
 | R2  | **Concluído nos caminhos e cenários registrados.** | Implementação/auditoria e 34 testes aprovados na seção 27; dois encerramentos Windows com backend release, HLS e linear, auxiliares HTTP concluídos, IPC ocioso limpo, bridge após produtores e SQLite fechado com clean=true (seção 28). Filhos IPC ativos cobertos automaticamente, incluindo FFmpeg real. Limites nativos em R4; admissão geral de R3 validada na seção 30. |
 | R3  | **Concluído nos caminhos e cenários registrados.** | 98 testes Rust e 24 de frontend aprovados (seção 29); duas saídas Windows clean=true, IPC drenado antes do bridge/pool e recusa real de get_processing_snapshot após fechamento do banco (seção 30). Três scans manuais registrados e aguardados, já concluídos antes do X; concorrência ativa e transação retida cobertas automaticamente. |
-| R4  | Completar política/testes de boot parcial, I/O nativo não interrompível e recuperação transacional/leases. | StartupTask::wait não tem limite próprio; abort de future não encerra chamada nativa. Documentar política segura e testar os marcos/recuperação ainda não cobertos. Splash, saída autônoma com IPC/apresentação injetados e retomadas já observadas são evidências concluídas, sem exigir nova campanha Linux. Falha real de criação do WebView não foi simulada. |
+| R4  | **Concluído nos caminhos e cenários registrados.** | 113 testes Rust, Clippy e política de boot/I/O/recuperação na seção 31. Três saídas Windows clean=true, scan/workers ativos aguardados, nova raiz retomada e uma chamada IPC ativa drenada antes do bridge/pool (seção 32). Backend já pronto ao fechar pela splash; fases iniciais, deadline, abort e expiração de leases cobertos automaticamente. |
 
 ### Validação e encerramento restantes
 
@@ -2258,7 +2262,7 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
 | R7  | Pendente         | Smoke macOS do código compartilhado final, preservando o aceite anterior. Cobrir mídia/pausa/saída e os caminhos alterados desde a validação anterior, sem repetir suporte a todos os formatos.                                                                                                                                  |
 | R8  | Decisão pendente | Definir coleta ou dispensa das medições gerais ainda previstas: série fria/quente, consumo e comparação com baseline. Tempos amostrais já constam do relatório. A ausência da série Linux não reabre a sessão aceita; não se registra como coletada uma série inexistente.                                                       |
-| R9  | Parcial | R1–R3 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R4–R5/R7/R8, regressões pertinentes ao código final e aceite geral do responsável, distinto do aceite Linux já dado. |
+| R9  | Parcial | R1–R4 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R5/R7/R8, regressões pertinentes aos artefatos finais e aceite geral do responsável, distinto do aceite Linux já dado. |
 
 ### Fora da lista de pendências
 
@@ -4549,3 +4553,230 @@ aos itens explicitamente mantidos na seção 14.
 I/O nativo não interrompível e recuperação transacional/leases. Permanecem
 depois R5, R7, R8 e R9. Esta análise alterou somente documentação; não houve
 mudança de código, novo build ou reexecução de testes automatizados.
+
+## 31. R4: boot parcial, I/O nativo e recuperação após saída incompleta (18 de novembro)
+
+**Estado:** implementação realizada e verificada automaticamente; integração
+Windows validada na seção 32. R4 concluído nos caminhos e cenários registrados,
+com os limites nativos descritos abaixo. R1–R3 e o aceite Linux permanecem preservados.
+
+### Espera limitada e propriedade do startup
+
+O supervisor de startup era aguardado sem prazo próprio. Além disso, retirar
+seu handle de um `Option` permitia que uma segunda espera interpretasse a
+ausência do handle como conclusão enquanto a primeira ainda aguardava.
+Agora o estado de conclusão é retido sob mutex assíncrono. A espera de shutdown
+tem prazo de cinco segundos, incluindo eventual disputa pelo mutex; timeout
+devolve resultado não limpo sem descartar ou abortar o supervisor. Uma espera
+posterior pode observar sua conclusão real, mas o shutdown em andamento mantém
+o resultado degradado já recebido e não fecha explicitamente o pool.
+
+O fluxo de composição passou a usar um sequenciador de fases: diretórios,
+banco/dependências básicas, mídia, workers/biblioteca e backend pronto. Cada
+fase admitida termina antes da checagem de cancelamento seguinte. Uma falha
+interrompe o fluxo e os dependentes não são iniciados. Os avanços e a apresentação
+continuam protegidos pelo coordenador de shutdown. O probe síncrono de FFmpeg
+no boot passou a ser aguardado em `spawn_blocking`, preservando a responsividade
+do executor assíncrono durante essa chamada.
+
+O pool só é obtido para finalização depois das esperas de startup/lifecycle e
+protocolos. Se qualquer uma falhar, o fechamento explícito é omitido, inclusive
+se o supervisor publicar o banco tardiamente. Boot encerrado antes da criação
+do banco não exige fechar um pool inexistente. Admissões tardias no lifecycle
+continuam recusadas atomicamente, e a admissão IPC de R3 permanece fechada.
+
+### Política para operações nativas e reservas persistentes
+
+O prazo de startup é separado do orçamento compartilhado de cinco segundos
+do lifecycle e da graça já existente para o bridge. Cancelamento cooperativo
+continua sendo a primeira ação. Abortar uma future após o prazo não comprova
+parada de `spawn_blocking`, FFI, chamada de filesystem ou processo externo;
+esse resultado permanece degradado. Não se solicita fechamento explícito do
+pool nem se declara interrupção física apenas pelo descarte do handle assíncrono.
+
+No caminho normal, thumbnails, cores e fingerprints continuam aguardando
+`ProcessingLease::finish`, incluindo liberação SQL. No descarte anormal,
+o guard agora solicita abort do heartbeat, retém o handle durante uma espera
+de `finish` cancelável e deixa a reserva persistente recuperar por expiração.
+Deixou de destacar uma liberação SQL que poderia ocorrer enquanto a operação
+nativa original ainda estava ativa. Isso não desfaz uma consulta já enviada ao
+SQLite; a saída incompleta mantém a política de não fechar explicitamente o pool.
+
+A reserva de processamento dura 120 segundos desde a última aquisição ou
+renovação. No reinício, uma reserva ainda válida não é tomada de outro dono;
+após expirar, somente um novo executor obtém um novo UUID. Renovação, liberação,
+falha ou publicação com ticket antigo não modificam o sucessor. Temporários
+órfãos continuam sujeitos à reconciliação existente; não se remove um original
+nem se publica resultado antigo para acelerar o encerramento.
+
+### Recuperação transacional e falhas explícitas
+
+O journal de operações de biblioteca permanece como barreira durável antes
+do efeito nativo. Recibos SQLite distinguem commit de compensação no boot;
+manifests ambíguos são retidos para reparo, e a falha interrompe a inicialização
+antes dos consumidores dependentes. Os testes existentes de saída real de um
+subprocesso nos marcos preparado, movido e commitado são parte desta verificação.
+
+A auditoria das sagas legadas encontrou sucesso indevido para tipos cujo replay
+não estava implementado. Esses registros agora recebem `FAILED` e diagnóstico;
+o subsistema reporta a falha ao lifecycle, que preserva resultado degradado.
+Operações independentes ainda são tentadas. Tipos legados como movimentação e
+restauração da lixeira sem contexto suficiente não ganham replay especulativo;
+exigem análise/reparo do registro em falha. Não foram redesenhadas as operações
+de lixeira nem criada uma interface de reparo nesta etapa.
+
+Exclusões suportadas usam filesystem assíncrono, validam flag e caminho absoluto,
+aceitam arquivo já removido como replay idempotente e propagam erros reais.
+Payload sem contexto ou operação desconhecida não é prova de conclusão do
+efeito nativo. Falhas ficam persistidas, sem serem automaticamente reclassificadas
+como sucesso numa execução posterior sem pendências.
+
+### Verificações e análise
+
+A rodada final aprovou 113 testes Rust, sem falhas. Cobriu fases de startup,
+espera limitada com chamada nativa retida, mutex disputado, falha do supervisor,
+ausência de banco, política de fechamento do pool, leases normais/anormais e
+reabertura SQLite para thumbnails, cores e fingerprints. Também passaram as
+regressões IPC de R3, workers, matching persistente, rollback de fingerprint,
+replay e falhas de sagas, conflitos de recuperação e journals de biblioteca.
+
+| Verificação | Resultado | Evidência |
+| --- | --- | --- |
+| Regressões Rust de boot, shutdown, IPC, workers e recuperação | 111 aprovados; 1 helper ignorado como teste isolado | O teste-pai executou esse helper em três subprocessos, encerrados nos marcos preparado, movido e commitado; recuperação repetida preservou o conteúdo original. |
+| Recuperação persistente de matching | 2 aprovados | Reabertura preserva intenção manual, recupera lease expirado com UUID novo e rejeita publicação antiga; fingerprint/intenção de comparação sofrem commit e rollback juntos. |
+| Clippy, formatação e diff | Aprovados | Biblioteca/testes sem avisos, Rustfmt consistente e diff sem erros de whitespace. |
+
+O teste de restart verificou `PRAGMA integrity_check`, preservação de alterações
+commitadas, rollback da transação abandonada, admissão exclusiva após expiração,
+ausência de consumo de retry pelo dono antigo e bytes do original inalterados.
+O teste de saga preservou diagnósticos de seis contextos inseguros ou falhos,
+continuou a operação independente suportada e confirmou replay idempotente de
+exclusão antes/depois do efeito nativo. O teste de native após abort comprovou
+resultado degradado enquanto a chamada bloqueante ainda aguardava liberação.
+
+As injeções de falha usam fixtures temporárias e o sequenciador empregado pelo
+boot real; não foi adicionada uma chave de falha em produção nem simulado um
+travamento do sistema operacional. A fixture nativa é liberada e aguardada ao
+fim do teste; demonstrar que ela persiste após abort não deixa trabalho nativo
+executando ao término da verificação.
+
+### Validação dirigida e limites
+
+A integração foi validada na seção 32: o usuário relatou sucesso nos três
+cenários e os logs confirmaram saída limpa, drenagem sob processamento e
+retomada de uma nova raiz na reabertura. No teste pela splash, o backend já
+estava pronto; não se afirma interrupção manual de cada fase inicial.
+Não houve deadline excedido nem descarte anormal de lease nesses logs. O
+resultado degradado, a omissão do fechamento explícito do pool, a expiração e
+as operações nativas retidas permanecem na cobertura automatizada. Essa
+injeção não simula falhas reais do kernel/FFI nem exige travar ou terminar à
+força a biblioteca real.
+
+Essa rodada não reabre o aceite Linux nem inclui acessibilidade, suporte a
+formatos/thumbnails ou desempenho de rede. Depois da conclusão de R4 nos
+escopos registrados, permanecem bundle Windows atualizado (R5), smoke macOS final (R7), decisão sobre
+medições (R8) e aceite geral (R9).
+
+## 32. R4: validação Windows com processamento e reabertura (19 de novembro)
+
+**Resultado:** R4 concluído nos caminhos e cenários registrados. O usuário
+informou ter seguido os três cenários e observado funcionamento esperado, sem
+problemas visíveis. Foram analisados os logs
+`mundam-shutdown-r4-20261119-022247.log`,
+`mundam-shutdown-r4-20261119-024119.log` e
+`mundam-shutdown-r4-20261119-024250.log`. As execuções usaram desenvolvimento
+com backend release, não o bundle instalado. Esta rodada não alterou código.
+
+### Cenários observados e limites
+
+**Saída pela splash:** conforme o relato do usuário, a saída ocorreu durante
+a apresentação de startup. No primeiro log, o backend alcançou `BackendReady`
+às `05:40:13.545853Z` e o pedido de saída ocorreu às `05:40:18.341160Z`, cerca
+de 4,8 s depois. O scan inicial já havia concluído, preservando 803 assets e
+sem erros. Essa execução confirma a integração da saída nesse cenário de
+apresentação; não demonstra cancelamento das fases iniciais do backend nem
+expiração dos cinco segundos de espera do supervisor. Essas condições
+permanecem nos testes automatizados da seção 31.
+
+**Processamento ativo:** no segundo log, uma nova raiz foi adicionada e seu
+scan ainda estava em execução no pedido de saída. O cancelamento interrompeu
+o scan e o dono `manual_scan` foi aguardado. Thumbnails ainda estavam nas fases
+de publicação e reconciliação após o cancelamento; thumbnails, cores e
+fingerprints terminaram antes do bridge e do pool. O bridge recebeu dois
+eventos durante a drenagem (um de thumbnail e um de metadados), sem lag
+registrado; isso não é prova de entrega desses eventos ao frontend.
+
+**Reabertura e retomada:** o terceiro log registra duas raízes recuperadas no
+startup, incluindo a adicionada na execução anterior. O scan da raiz anterior
+preservou os mesmos 803 assets, e o da nova raiz foi retomado pelo boot. Seu
+processamento ainda estava ativo no novo pedido de saída e foi cancelado e
+aguardado, junto dos workers. O relato do usuário confirma o comportamento
+esperado da biblioteca e das preferências; não há nesses logs uma auditoria
+independente dos bytes de cada original ou dos valores de todas as preferências.
+
+### Ordem de drenagem e tempos
+
+| Evidência | Execução 022247 | Execução 024119 | Execução 024250 |
+| --- | --- | --- | --- |
+| Pedido de saída, UTC | 05:40:18.341160 | 05:42:38.807647 | 05:47:44.732888 |
+| IPC no fechamento da admissão | `active=0` | `active=0` | `active=1`, `get_processing_snapshot` |
+| Tarefas concluídas normalmente | 15/15 | 16/16, incluindo scan dinâmico | 15/15, incluindo boot scan retomado |
+| Resultado do lifecycle | `clean=true` | `clean=true` | `clean=true` |
+| Pool antes do fechamento | 6 conexões; 6 ociosas | 20 conexões; 20 ociosas | 20 conexões; 20 ociosas |
+| Espera por ociosidade / fechamento do pool | 67 ms / 210 ms | 0 ms / 26 ms | 25 ms / 88 ms |
+| Pedido até conclusão da limpeza do backend | 294,9 ms | 697,1 ms | 1.014,2 ms |
+| Resultado final | `clean=true` | `clean=true` | `clean=true` |
+
+No terceiro encerramento, a consulta IPC já admitida terminou às
+`05:47:45.633120Z`, aproximadamente 900,2 ms após o pedido de saída. Seu dono
+foi confirmado antes do bridge (`05:47:45.633237Z`) e do fechamento do pool,
+iniciado às `05:47:45.658574Z` e concluído às `05:47:45.747008Z`. A execução
+acrescenta evidência real da espera de um comando ativo, além da transação
+retida nos testes automatizados de R3.
+
+Os tempos acima medem a limpeza do backend, não o fim de todos os processos
+do ambiente de desenvolvimento. As duas últimas execuções registram
+confirmação de apresentação com `timely=true`. O primeiro log não contém essa
+confirmação; a saída sem dependência dela já possui espera limitada e cobertura
+automatizada, e o usuário não relatou problema de apresentação ou fechamento.
+
+Não houve timeout de startup/drenagem, abort forçado, pânico, `PoolClosed`,
+descarte anormal de lease ou falha de saga reportada ao lifecycle. Nas três
+aberturas, a recuperação de sagas informou ausência de operações pendentes;
+essas execuções não exercitaram replay de saga interrompida nem expiração de
+lease. As evidências correspondentes continuam na seção 31.
+
+### Erros e observações preservadas
+
+O terceiro log contém dois erros SQLite `database is locked` no worker de
+thumbnails: às `05:46:36.951937Z`, durante o uso, e às `05:47:45.180089Z`,
+durante a drenagem. Também há uma renovação de lease que demorou 17,93 s
+antes do fechamento, com uma linha afetada. São erros/latência reais registrados,
+sem causa específica demonstrada por esses logs. Não foram tratados como
+problemas de formato nem corrigidos nesta análise.
+
+O caminho revisado do worker aguarda `lease.finish` antes de devolver o erro
+do processamento. O log confirma seu dono concluído antes do pool, sem
+diagnóstico de falha de liberação do lease ou resultado degradado. Isso
+sustenta a conclusão sobre a ordem de finalização, mas não comprova sucesso
+das duas operações que reportaram erro. `clean=true` não significa ausência
+de erros de negócio/transação nem conclusão de toda a fila. A observação fica
+registrada para investigação de contenção, sem evidência de falha na drenagem.
+
+Os avisos de foco do Tao, a mensagem `Chrome_WidgetWin_0 / Error = 1412` no fim
+dos três logs e a captura inicial `NativeCommandError` do stderr do launcher
+também foram preservados. Não impediram a inicialização e os encerramentos
+verificados, e não motivaram nova campanha de formatos, rede ou acessibilidade.
+
+### Estado consolidado e próxima etapa
+
+R1–R4 concluídos nos escopos registrados; relatório, tabelas, inventário e
+checklist atualizados. O aceite Linux permanece preservado. Interrupção
+universal de kernel/FFI, recuperação automática de contexto ambíguo e prova
+de término de todo processo externo continuam como limites explícitos da
+política, não garantias acrescentadas a partir de uma saída limpa.
+
+**Próxima etapa:** R5, gerar e validar o bundle Windows atualizado com o código
+final. Permanecem também smoke macOS (R7), decisão sobre medições (R8) e aceite
+geral (R9). Não houve novo build nem reexecução de testes automatizados nesta
+análise, pois as alterações foram somente documentais.
