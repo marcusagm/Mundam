@@ -54,7 +54,11 @@ não comprova suporte universal ou término de todo recurso não supervisionado.
 
 R1–R4 estão concluídos nos caminhos e cenários registrados, com implementação
 e cobertura automatizada de R4 na seção 31 e validação Windows na seção 32.
-Restam R5 (bundle Windows atualizado), R7 (smoke
+R5 está concluído nos cenários registrados: quatro encerramentos iniciais e um reteste do pacote corrigido com saída zero e `clean=true`, incluindo
+boot parcial antes de Media/BackendReady (seções 34 e 36). A regressão de streaming
+do pacote foi reproduzida como bloqueio CORS da origem Windows e corrigida;
+o usuário confirmou funcionamento correto no pacote instalado, com mídia/processamento e IPC ativo drenados antes do pool.
+Restam R7 (smoke
 macOS final), R8 (decidir medições restantes fora da sessão Linux encerrada)
 e R9 (aceite geral). R6 está concluído.
 
@@ -337,12 +341,12 @@ comprova repetição integral da matriz em todos os artefatos ou distribuições
 
 | Cenário                                                      | Windows                                                                                      | macOS                                                               | Linux — sessão concluída                                                                                                                               |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Saída ociosa e entradas normais                              | Dev e bundle anterior observados; bundle atualizado em R5.                                   | Titlebar, Dock e Cmd+Q observados em dev e bundle anterior.         | X e Alt+F4 em dev/release; ocioso instalado em Debian e AppImage.                                                                                      |
-| Indexação/processing e mídia ativos                          | Dev validado, inclusive rede; repetir artefato atualizado em R5.                             | Evidências anteriores sob carga; smoke final em R7.                 | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados.                                       |
-| Fechamento na splash/boot                                    | Splash relatada e saída limpa em R4; backend já pronto. Fases iniciais cobertas automaticamente; bundle em R5.                     | Evidência parcial preservada; política compartilhada verificada em R4, smoke final em R7.             | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite.                              |
+| Saída ociosa e entradas normais                              | Dev e instalação R5 observados; quatro saídas limpas na seção 34.                                   | Titlebar, Dock e Cmd+Q observados em dev e bundle anterior.         | X e Alt+F4 em dev/release; ocioso instalado em Debian e AppImage.                                                                                      |
+| Indexação/processing e mídia ativos                          | R5 concluído: reprodução/seek confirmados pelo usuário e saída sob mídia/processamento no pacote corrigido (seção 36).                             | Evidências anteriores sob carga; smoke final em R7.                 | Biblioteca nova de 787 assets, trabalhos pendentes, reprodução nativa/HLS/linear; Debian e AppImage exercitados.                                       |
+| Fechamento na splash/boot                                    | R4 com backend pronto; R5 instalado cancelou em Database, antes de Media/BackendReady, com saída limpa (seção 34).                     | Evidência parcial preservada; política compartilhada verificada em R4, smoke final em R7.             | Splash fechada com backend já pronto; não equivale a falha em cada marco anterior do boot. Sessão aceita com esse limite.                              |
 | Pedidos repetidos e auxiliares                               | Unidade e fluxos principais cobertos; complementar no bundle atualizado.                     | Entradas principais observadas; smoke final delimitado às mudanças. | Alt+F4 repetido, um único coordenador e uma única tela confirmados em desenvolvimento.                                                                 |
-| Reabertura e recuperação                                     | Nova raiz e processamento retomados em R4; leases/transações/originais nas fixtures automatizadas; bundle em R5.                     | Persistência e retomada observadas; recuperação compartilhada verificada em R4, smoke final em R7.    | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases.                                   |
-| Principal minimizada e indisponibilidade de apresentação/IPC | Fallback implementado; cobrir o restante em R5.                                              | Evidência anterior; smoke final em R7.                              | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento.                                      |
+| Reabertura e recuperação                                     | Retomada em R4 e reaberturas instaladas R5; integridade integral no artefato final continua pendente.                     | Persistência e retomada observadas; recuperação compartilhada verificada em R4, smoke final em R7.    | Reabertura, catálogo preservado e preferências recuperadas; não comprova recuperação universal de transações/leases.                                   |
+| Principal minimizada e indisponibilidade de apresentação/IPC | Minimizada/auxiliares relatados como corretos no instalado R5, com saída limpa; falhas injetadas preservadas em testes anteriores.                                              | Evidência anterior; smoke final em R7.                              | Minimizada e saída pelo dock; falhas injetadas de IPC e montagem com saída autônoma validadas em desenvolvimento.                                      |
 | Processos, servidor, handlers e SQLite                       | Saídas limpas dos recursos registrados; R1–R4 concluídos nos escopos registrados, com limites nativos explícitos. | Mesma delimitação de implementação compartilhada.                   | Drenagem, terminação aguardada de segmentos e ausência de remanescentes em amostras limpas. Ocorrências intermitentes são notas, não pendências Linux. |
 | Logout/terminação forçada                                    | Fora da garantia de saída normal, salvo requisito específico futuro.                         | Mesmo limite.                                                       | Mesmo limite; não reabre R6.                                                                                                                           |
 
@@ -418,10 +422,12 @@ As pendências detalhadas e a ordem de execução estão na seção 14.
 - [x] Implementar mínimo de 600 ms, handshake limitado a 1.500 ms, fallback e mensagens factuais.
 - [x] Testar concorrência, timeouts e ausência de confirmação sem bloqueio indefinido.
 - [x] Validar no Linux splash, pedidos repetidos, minimizada e falhas injetadas de apresentação/IPC nos cenários registrados.
-- [ ] Completar as verificações finais macOS/Windows descritas em R5/R7, preservando a política e os limites de R4.
+- [ ] Completar o smoke macOS final de R7; Windows R5 concluído, preservando a política e os limites de R4.
 - [x] Executar testes automatizados, typecheck, lint e build pertinentes.
 - [x] Registrar a rodada final de desenvolvimento Windows: três encerramentos `clean=true`.
-- [ ] Repetir o bundle Windows atual, incluindo fechamento sob carga (R5).
+- [x] Concluir R5: quatro encerramentos iniciais e reteste do pacote corrigido aprovados; funcionamento confirmado pelo usuário, saída zero e clean=true sob mídia/processamento (seção 36).
+- [x] Gerar e identificar os instaladores Windows, verificar recursos e preparar captura; pacote inicial na seção 33 e pacote corrigido na seção 35 (R5).
+- [x] Analisar os quatro cenários instalados de R5: saída zero, clean=true, boot parcial cancelado, carga, auxiliares e minimizada registrados; regressão de mídia isolada para reteste após correção CORS (seção 34).
 - [x] Concluir Linux em desenvolvimento/release, binário direto, Debian e AppImage, com limitações aceitas (R6).
 - [x] Validar mídia nativa Linux e preferências persistentes independentes de vídeo e gráfica.
 - [x] Supervisionar library_cleanup e saga_recovery, com regressões e validação runtime Linux.
@@ -459,8 +465,8 @@ esta seção como aceite final.
 | Registro de tarefas e scans dinâmicos  | `shutdown_all` fecha o registro sob trava; `spawn_unique` verifica cancelamento e reserva/inicia sob a mesma trava.                                                                                | Handles aguardados; testes de concorrência, rejeição tardia e nomes duplicados.                                                 | 5 s compartilhados, abort aguardado; grace de 250 ms para bridge.                                                   | Implementado para recursos admitidos por esses caminhos; não equivale a barreira global de IPC.                 |
 | Bridge de eventos                      | Cancelado após os produtores registrados; fila consumida antes de parar.                                                                                                                           | Handle registrado e testes de ordem/drenagem.                                                                                   | Orçamento compartilhado mais grace limitado.                                                                        | Implementado; produtores não supervisionados continuam como limite.                                             |
 | Asset/thumbnail protocols              | `ProtocolAdmission` fecha a admissão e conta guards já admitidos.                                                                                                                                  | Drenagem de handlers registrada nos três últimos logs Windows.                                                                  | Até 5 s; falha degrada o resultado e impede fechamento explícito do pool.                                           | Implementado; não prova conclusão de todo corpo HTTP já entregue.                                               |
-| Servidor HTTP, segmentos e FFprobe     | Token raiz fecha servidor; processos registrados recebem cancelamento e seus donos aguardam saída/saídas de pipes.                                                                                 | 19 testes de streaming; servidor e donos concluíram nas três novas execuções Windows.                                           | Drenagem dentro do orçamento do lifecycle; falhas de supervisão degradam resultado.                                 | Implementado para esses donos, com validação Linux concluída; bundle Windows atualizado em R5.                  |
-| Sessões lineares HTTP                  | Admissão serializada e fechada; filhos e diretórios tratados em `LinearManager::shutdown`.                                                                                                         | Relatório de falhas de processo/diretório; testes e logs de sessões reais.                                                      | Lifecycle limita espera; falhas são propagadas.                                                                     | Implementado para o caminho HTTP; processo já encerrado não exercita kill de filho ativo.                       |
+| Servidor HTTP, segmentos e FFprobe     | Token raiz fecha servidor; processos registrados recebem cancelamento e seus donos aguardam saída/saídas de pipes.                                                                                 | 19 testes de streaming; servidor e donos concluíram nas três novas execuções Windows.                                           | Drenagem dentro do orçamento do lifecycle; falhas de supervisão degradam resultado.                                 | Implementado; CORS corrigido e pacote instalado validado em R5, com donos aguardados antes do pool (seção 36).                  |
+| Sessões lineares HTTP                  | Admissão serializada e fechada; filhos e diretórios tratados em `LinearManager::shutdown`.                                                                                                         | Relatório de falhas de processo/diretório; testes e logs de sessões reais.                                                      | Lifecycle limita espera; falhas são propagadas.                                                                     | Implementado para HTTP; sessão com processo ativo aguardada e limpa no instalado R5 (seção 34).                       |
 | Watcher nativo, debouncer e publicador | Token único, admissão fechada no cancelamento e dono library_watcher registrado. Registro repetido do mesmo caminho não chama novamente o backend nativo.                                          | Liberação do callback, conclusão dos loops e do dono antes do bridge confirmadas nos dois logs Windows v2.                      | Hints voláteis reconciliados no boot; timeout continua degradando o resultado, sem prometer interromper I/O nativo. | R1 concluído nos cenários dirigidos: clean=true nas duas execuções, com pool fechado explicitamente (seção 26). |
 | Limpeza periódica HTTP e HLS do IPC | Cancelamento fecha agendamento HTTP e admissão do worker IPC; preparações/limpezas admitidas permanecem com seus donos. | Dois auxiliares HTTP e dono IPC concluídos antes do bridge nos dois logs Windows; testes com filhos IPC e FFmpeg real aprovados. | Prazo global existente; I/O nativo iniciado pode excedê-lo (R4). | R2 concluído no escopo auditado e cenários validados; runtime IPC ocioso, filhos ativos na cobertura automatizada (seções 27–28). |
 | Manutenção SQLite                      | library_cleanup e saga_recovery admitidos no lifecycle; limpeza não inicia nova rodada após cancelamento.                                                                                          | Dois testes e runtime Linux, com espera antes do fechamento do pool.                                                            | Rodada já iniciada é aguardada sob o orçamento existente.                                                           | Corrigido e validado; não é mais lacuna autônoma de R2.                                                         |
@@ -2258,11 +2264,11 @@ A conclusão funcional da sessão Linux não é uma afirmação de drenagem univ
 
 | ID  | Estado           | Trabalho restante ou decisão                                                                                                                                                                                                                                                                                                     |
 | --- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R5  | Pendente         | Revalidar o bundle Windows atualizado após as correções compartilhadas: abertura, saída ociosa/sob carga, boot, pedidos repetidos, auxiliares/minimizada e reabertura, registrando artefato e evidências. O bundle anterior não comprova as mudanças posteriores.                                                                |
+| R5  | **Concluído nos cenários registrados** | Quatro encerramentos iniciais instalados (seção 34) e reteste do pacote CORS corrigido (seções 35–36). Usuário confirmou funcionamento correto; mídia com avanço de quadros, sessão linear ativa limpa, IPC e workers drenados antes do pool, saída zero e clean=true em 1.469 ms. Avisos/falhas de segmentos preservados, sem reabrir suporte a formatos ou exigir instalação MSI separada. |
 | R6  | **Concluído**    | Linux testado em desenvolvimento com backend release, binário direto, Debian instalado e AppImage. Preferências persistentes, mídia e encerramentos sob processamento foram validados. Aceite do usuário em 18/11 com observações intermitentes transferidas para notas futuras. Não há reteste Linux obrigatório nesta revisão. |
 | R7  | Pendente         | Smoke macOS do código compartilhado final, preservando o aceite anterior. Cobrir mídia/pausa/saída e os caminhos alterados desde a validação anterior, sem repetir suporte a todos os formatos.                                                                                                                                  |
 | R8  | Decisão pendente | Definir coleta ou dispensa das medições gerais ainda previstas: série fria/quente, consumo e comparação com baseline. Tempos amostrais já constam do relatório. A ausência da série Linux não reabre a sessão aceita; não se registra como coletada uma série inexistente.                                                       |
-| R9  | Parcial | R1–R4 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R5/R7/R8, regressões pertinentes aos artefatos finais e aceite geral do responsável, distinto do aceite Linux já dado. |
+| R9  | Parcial | R1–R5 concluídos nos escopos registrados; relatório, tabelas, inventário e checklist atualizados. Restam R7/R8, verificações finais de integridade/recuperação e aceite geral do responsável, distinto dos aceites Windows/Linux já registrados. |
 
 ### Fora da lista de pendências
 
@@ -4780,3 +4786,326 @@ política, não garantias acrescentadas a partir de uma saída limpa.
 final. Permanecem também smoke macOS (R7), decisão sobre medições (R8) e aceite
 geral (R9). Não houve novo build nem reexecução de testes automatizados nesta
 análise, pois as alterações foram somente documentais.
+
+## 33. R5: preparação do bundle Windows final (19 de novembro)
+
+**Estado desta preparação:** build de produção MSI/NSIS concluída, payload MSI e fontes NSIS
+conferidos. A rodada instalada posterior está analisada na seção 34; os hashes
+abaixo identificam o pacote inicial, anterior à correção CORS. Esta etapa verifica
+o artefato Windows depois das mudanças R1–R4;
+as execuções anteriores em desenvolvimento com backend release não substituem
+essa validação. O aceite Linux e o smoke macOS restante permanecem separados.
+
+### Fonte e empacotamento
+
+A build usa o checkout `ecc98340c7417597246bf0058f91a6f9a5c4d574`, com as mudanças
+R1–R4 já registradas. Nesta preparação não foi alterado o comportamento do
+backend/frontend, a versão `0.1.0` ou o identificador
+`com.marcusmaia.mundam`. Os destinos de bundle configurados são MSI e NSIS,
+com Rust `1.94.0`, target Windows x64 MSVC e dependências Rust travadas/offline.
+O frontend de produção passou pela compilação Vite, incluindo as entradas
+principal, splash e shutdown. A build empacotada usa esses assets, sem depender
+do servidor de desenvolvimento.
+
+A compilação Vite terminou em 34,12 s; a compilação release Rust informou
+18 min 50 s. O CLI concluiu os dois bundles. O PE de `mundam.exe` foi identificado
+como x64 e subsistema Windows GUI. Os três artefatos estão sem assinatura
+Authenticode nesta build local.
+
+| Artefato, relativo ao repositório | Tamanho em bytes | SHA-256 |
+| --- | ---: | --- |
+| `src-tauri/target/release/mundam.exe` | 64.418.816 | `F2E41F79577A8B9E0A29277042D8429B79EE827F349799434290150EA092640F` |
+| `src-tauri/target/release/bundle/nsis/Mundam_0.1.0_x64-setup.exe` | 82.486.415 | `1B736FB3C48D07466336DE9D078D910C09321CFD38045516ADD09CC0C756EE4F` |
+| `src-tauri/target/release/bundle/msi/Mundam_0.1.0_x64_en-US.msi` | 110.637.056 | `4F0C59558F3FFA32B61F50EFB55CB1CB720846AF5FC374AFD7AF676697856149` |
+
+O manifesto inicial foi preservado em
+`src-tauri/target/r5-diagnostics/r5-initial-artifacts.json`;
+`src-tauri/target/release/bundle/r5-artifacts.json` identifica agora o pacote
+corrigido da seção 35, com hashes, versões e inventário. O NSIS está
+configurado como `currentUser`, com destino padrão na pasta Mundam do
+LocalAppData; o MSI usa `perMachine` e Program Files. O roteiro de validação
+foi preparado para o NSIS. Nenhum dos dois foi instalado nesta preparação.
+
+A configuração Windows inclui FFmpeg/FFprobe e suas DLLs compartilhadas,
+Assimp com sua DLL, PDFium e o SoundFont. A inspeção do Assimp preparado
+confirmou import de `assimp-vc143-mt.dll`, presente junto do executável;
+não foi encontrado o import incompatível `assimp-vc145-mt.dll` diagnosticado
+na rodada histórica. Isso não substitui execução dos extratores no aplicativo
+instalado nem prova os pré-requisitos em outra máquina.
+
+O MSI foi extraído estaticamente com WiX Dark, sem executar sua instalação:
+os 17 arquivos extraídos coincidiram por SHA-256 com as fontes indicadas na
+definição WiX, incluindo executável, DLL Rust, ferramentas e dados. A definição
+NSIS contém 15 recursos, mais o executável principal; todas as fontes existem
+e seus hashes foram registrados. O NSIS inclui os mesmos componentes nativos
+necessários, sem a DLL Rust adicional presente no MSI; a inspeção de imports
+do executável não mostrou dependência dessa DLL Rust.
+
+O CLI Tauri `2.9.6`, com crate Tauri `2.10.2`, emitiu aviso de que não encontrou
+`__TAURI_BUNDLE_TYPE` para marcar o executável durante os dois empacotamentos.
+O aviso menciona possível impacto no updater; a aplicação não registra plugin
+de updater e esse comportamento não foi validado nem corrigido nesta etapa.
+A geração dos instaladores terminou com sucesso. A decompilação MSI também
+emitiu `DARK1059` sobre referências de controles de UI; a extração e os hashes
+foram concluídos, sem tratar essa análise estática como validação da UI do MSI.
+
+### Captura do executável instalado
+
+Foi adicionado `scripts/test-bundle-windows.ps1`, que inicia o executável
+informado, redireciona stdout/stderr mesmo sem console e aguarda seu término.
+O registro inclui cenário, caminho e SHA-256 do executável, presença/hashes de
+recursos instalados, código de saída e snapshots de processos antes/depois.
+O filtro de logs do PowerShell é restaurado ao final. Processos preexistentes
+são separados dos candidatos novos; os snapshots não verificam ancestralidade
+nem, isoladamente, comprovam processos órfãos do Mundam.
+
+O capturador não instala o aplicativo, não remove dados da biblioteca e não
+encerra processos. Sua verificação usou um executável GUI temporário que
+escreve marcadores em stdout/stderr e termina com código 7. Os dois fluxos,
+o código de saída, o inventário e a restauração do ambiente foram conferidos.
+O caminho final passou em PowerShell 7 e Windows PowerShell 5.1. A verificação
+no 5.1 exigiu reter o handle do processo antes da espera para preservar a
+leitura de `ExitCode`; o ajuste foi aplicado e a repetição confirmou o código 7.
+Isso valida a captura e não representa teste visual ou abertura do Mundam
+instalado. A fixture e seus logs ficaram no diretório de build ignorado pelo Git.
+
+### Validação dirigida prevista
+
+Os cenários do aplicativo instalado cobrem saída pela splash, uso ocioso,
+janela auxiliar, processamento/mídia ativos, reabertura, principal minimizada
+e pedidos repetidos. A comparação de hashes identificará o executável do
+pacote efetivamente usado. O relatório registrará o instalador escolhido e
+os resultados observados, distinguindo geração de MSI/NSIS de instalação real
+de cada formato.
+
+O encerramento deve manter admissão fechada, espera dos donos, bridge após
+produtores e pool fechado apenas após drenagem limpa, ou registrar o resultado
+degradado previsto. A etapa não inclui nova campanha de formatos/thumbnails,
+otimização de rede, acessibilidade ou instalação limpa em outra máquina.
+
+## 34. R5: rodada instalada e correção do transporte de mídia (19 de novembro)
+
+**Estado da rodada inicial, anterior ao reteste da seção 36:** os quatro encerramentos foram aprovados nos
+cenários relatados. R5 permanece pendente de reprodução/seek e saída sob carga
+no pacote corrigido, pois a rodada revelou uma regressão de transporte no
+aplicativo instalado. Não foi reaberta uma campanha de suporte a formatos,
+thumbnails ou desempenho de rede.
+
+### Amostras e identificação
+
+Foram analisados os registros consolidados e os fluxos originais stdout/stderr:
+
+| Cenário | Registro consolidado |
+| --- | --- |
+| Boot/splash | `mundam-bundle-r5-boot-20261119-053247-0bfd41.log` |
+| Janela auxiliar | `mundam-bundle-r5-auxiliary-20261119-053410-82082e.log` |
+| Carga e mídia | `mundam-bundle-r5-load-20261119-053513-615266.log` |
+| Minimizada | `mundam-bundle-r5-minimized-20261119-053821-5971b1.log` |
+
+As quatro execuções identificam o executável instalado no LocalAppData, com
+SHA-256 `F2E41F79577A8B9E0A29277042D8429B79EE827F349799434290150EA092640F`,
+igual ao artefato inicial da seção 33. Os seis recursos amostrados estão
+presentes e seus hashes coincidem com o manifesto da build: FFmpeg, FFprobe,
+Assimp e sua DLL, PDFium e SoundFont. Essa comparação não representa nova
+verificação de todos os arquivos instalados nem validação da instalação MSI.
+
+### Encerramento e reabertura
+
+O usuário relatou encerramentos rápidos e corretos nos quatro cenários,
+com ressalva de reprodução/carregamento no cenário de carga. Todos os logs
+terminam com código de saída zero, lifecycle e encerramento `clean=true`.
+O tempo abaixo é a diferença entre o pedido de shutdown e sua conclusão no
+backend; não mede instalação, tempo total de abertura nem percepção visual.
+
+| Cenário | Tarefas registradas na drenagem | Pedido até conclusão do backend |
+| --- | ---: | ---: |
+| Boot/splash | 2 | 2.417 ms |
+| Janela auxiliar | 15 | 1.711 ms |
+| Carga e mídia | 16 | 1.272 ms |
+| Minimizada | 15 | 4.375 ms |
+
+No boot, o pedido ocorreu durante Database. `library_cleanup` e `saga_recovery`
+tiveram admissão recusada, e a inicialização parou antes de Media, sem atingir
+BackendReady. IPC e bridge foram aguardados e o pool foi fechado explicitamente.
+Esta amostra acrescenta cancelamento real de boot parcial à cobertura
+automatizada de R4; na rodada anterior o backend já estava pronto.
+
+Nas três execuções seguintes o backend atingiu BackendReady. A sequência de
+aberturas é evidência de reabertura funcional. As recuperações registraram
+ausência de sagas pendentes, mas não foi feita auditoria de todos os dados ou
+preferências persistidos. O comportamento de janelas auxiliares, minimização
+e pedidos de saída segue o relato do usuário; os logs não distinguem cada
+gesto nem provam visualmente a apresentação da janela de encerramento.
+
+Sob carga, a sessão linear ativa foi encerrada e aguardada, com zero falhas de
+processo e de diretório. `running_processes=1` é a contagem dos processos vivos
+encontrados para limpeza, não de processos remanescentes após ela. O processamento
+em andamento foi aguardado antes do bridge e do pool. No cenário minimizado,
+o boot scan terminou após o cancelamento e explica a maior parte da espera;
+as consultas tardias de processamento foram recusadas pela barreira IPC.
+Não houve resultado degradado nem fechamento do pool antes da drenagem.
+
+Os quatro snapshots finais não listam novos candidatos entre os nomes de
+processos monitorados. São amostras pontuais, sem prova de ancestralidade ou
+de término universal de processos externos. Os stderr contêm apenas o aviso
+conhecido `Chrome_WidgetWin_0 / Error = 1412`; os avisos Tao de foco também
+permanecem registrados, sem falha de encerramento demonstrada nesta rodada.
+
+### Falha de reprodução e diagnóstico
+
+O usuário relatou que vídeos antes funcionais nos modos escolhidos pelos
+providers não reproduziram no cenário de carga, e que o loader pareceu estático
+nesse contexto. Em testes adicionais, esclareceu que o loader funciona ao
+executar o programa e associou a aparência estática ao player. Não foi alterado
+CSS, animação ou preferência de acessibilidade, nem foi criado requisito
+independente de validação do loader.
+
+O log de carga registra HLS com `manifestLoadError`, fatal, e status HTTP zero;
+o modo linear chegou a analisar o manifesto, mas falhou em segmentos com
+`fragLoadError` e status zero. Há também eventos do transporte nativo HTTP
+com metadados, `playing` e nove quadros em aproximadamente 0,1 s. Esse avanço
+breve não comprova reprodução sustentada nem invalida a falha observada pelo
+usuário. Status zero, isoladamente, não identifica a causa.
+
+Em diagnóstico controlado do mesmo executável instalado, o WebView2 confirmou
+a origem `http://tauri.localhost`. Uma consulta ao servidor local falhou com
+`MissingAllowOriginHeader`: a lista CORS autorizava `tauri://localhost`,
+`https://tauri.localhost` e a origem de desenvolvimento, mas omitia a origem
+HTTP efetivamente usada pelo pacote Windows. Isso explica a diferença de
+transporte entre desenvolvimento e instalação, sem atribuí-la aos codecs.
+
+Na mesma sessão, a inclusão temporária apenas do cabeçalho de autorização
+para essa origem permitiu resposta HTTP 200. Uma amostra MKV via HLS completou
+13,35 s com 400 quadros decodificados; após seek para 5 s, o contador avançou
+até 680 quadros e o vídeo voltou ao fim. Houve avisos não fatais de buffer,
+sem falha fatal. Uma amostra MPG pelo endpoint linear também completou
+13,35 s com 400 quadros, sem erros do player de diagnóstico. Uma amostra MP4
+nativa decodificou 42 quadros em 1,19 s sem intervenção nos seus cabeçalhos.
+
+Essas verificações usaram elementos temporários e o Hls.js já empacotado;
+isolam transporte/decodificação e não substituem o fluxo completo da interface
+nem o reteste do novo instalador. Os elementos e a interceptação temporária
+foram removidos e o aplicativo foi fechado pelo fluxo normal, com `clean=true`.
+Não foram alterados os arquivos originais de mídia para realizar o diagnóstico.
+
+### Implementação e validação automática
+
+`delivery/streaming/server.rs` passou a autorizar explicitamente
+`http://tauri.localhost`, preservando as demais origens e sem liberar origem
+arbitrária. Providers, seleção nativo/linear/HLS, codecs, loader e política de
+shutdown permanecem com o comportamento anterior.
+
+O teste de regressão usa servidor HTTP real em porta efêmera. Verifica GET
+e preflight OPTIONS para as quatro origens do aplicativo, cabeçalho Range
+e ausência de autorização CORS para uma origem externa. Os sete testes
+direcionados do servidor de streaming passaram; Clippy de biblioteca/testes
+com avisos tratados como erro e a verificação de formatação Rust passaram.
+
+**Próxima validação:** pacote corrigido, reprodução e seek de amostras antes
+funcionais nos providers existentes, seguidos de fechamento durante uso e
+processamento. Os quatro encerramentos iniciais permanecem como evidência;
+R5 não foi marcado concluído apenas pelo diagnóstico controlado. R6/Linux
+continua aceito, e permanecem R7/macOS, decisão de medições R8 e aceite geral R9.
+
+## 35. R5: instaladores com correção CORS (19 de novembro)
+
+**Estado na preparação, anterior ao reteste da seção 36:** executável e instaladores MSI/NSIS corrigidos gerados; validação
+instalada de reprodução/seek e fechamento sob carga pendente do usuário.
+Os artefatos substituem os arquivos dos mesmos caminhos da seção 33.
+
+A fonte continua baseada em `ecc98340c7417597246bf0058f91a6f9a5c4d574`, com a
+correção local da origem CORS e seu teste registrados na seção 34. A versão
+`0.1.0`, o identificador e os providers foram preservados. A build de produção
+Windows x64 MSVC, com dependências Rust travadas/offline, terminou com código
+zero. O frontend Vite também foi compilado, mantendo as entradas principal,
+splash e shutdown. Os artefatos locais continuam sem assinatura Authenticode.
+
+| Artefato, relativo ao repositório | Tamanho em bytes | SHA-256 |
+| --- | ---: | --- |
+| `src-tauri/target/release/mundam.exe` | 64.418.816 | `8B2C225C60953529B5DFD87924FA5FFE483935F884E754F90054E4BBF1BE47E7` |
+| `src-tauri/target/release/bundle/nsis/Mundam_0.1.0_x64-setup.exe` | 82.476.266 | `42A7654397BA29E873A7D742A2AF7733E22F62F4BCBDEC2DB3EEC5132A43DADF` |
+| `src-tauri/target/release/bundle/msi/Mundam_0.1.0_x64_en-US.msi` | 110.637.056 | `702660C0E6FAB9D6693F9064195F3A72B66E0308FE0121924BCB4EDF54255BD1` |
+
+O MSI corrigido foi novamente extraído sem instalação: os 17 arquivos
+coincidiram por SHA-256 com suas fontes, incluindo o executável corrigido.
+As 15 fontes de recursos NSIS foram conferidas, e os seis recursos amostrados
+pelo capturador mantiveram os hashes da rodada inicial. A decompilação repetiu
+os avisos `DARK1059` sobre referências da UI; essa inspeção não valida a
+instalação ou a interface do MSI. O manifesto vigente registra também que
+a reprodução no pacote corrigido ainda aguarda reteste.
+
+O aceite de R5 depende de confirmar o fluxo normal da interface instalada
+com arquivos antes funcionais, seek e saída durante mídia/processamento.
+Não se exige repetir toda a campanha inicial por essa alteração restrita
+ao transporte. Permanecem as evidências e os limites das seções 33–34.
+
+## 36. R5: reteste instalado aprovado e conclusão Windows (19 de novembro)
+
+**Estado:** R5 concluído nos cenários registrados. O usuário confirmou que
+tudo funcionou corretamente após o reteste solicitado de reprodução/seek e
+fechamento sob carga no pacote corrigido. Essa confirmação, somada aos quatro
+encerramentos iniciais, encerra a pendência Windows de R5; não representa
+compatibilidade universal de mídia nem validação visual da instalação MSI.
+
+### Identificação e reprodução
+
+Foram analisados `mundam-bundle-r5-load-20261119-100332-be276f.log` e seus
+fluxos originais `-stdout.log` e `-stderr.log`. O executável instalado no
+LocalAppData tem SHA-256
+`8B2C225C60953529B5DFD87924FA5FFE483935F884E754F90054E4BBF1BE47E7`,
+igual ao pacote corrigido da seção 35. Os seis recursos amostrados estão
+presentes e seus hashes coincidem com o manifesto.
+
+Há manifestos HLS analisados e reprodução com avanço de tempo e quadros nos
+transportes blob e HTTP. Os eventos de vídeo registram até 452 quadros e
+84,45 s em blob, e até 223 quadros e 78 s em HTTP, em diferentes aberturas.
+Esses máximos não são somados como duração ou quadros de um único arquivo.
+O relato de reprodução/seek dos arquivos testados é do usuário; a telemetria
+complementa esse relato sem identificar independentemente cada gesto/provider.
+Não se repetiram `manifestLoadError` nem `fragLoadError` com status zero.
+
+O registro não está livre de erros de mídia: há quatro `bufferStalledError`,
+três `bufferSeekOverHole` e onze `fragLoadError` com HTTP 500, todos não fatais
+nos eventos Hls.js. O backend registra saídas FFmpeg com código 1, inclusive
+diagnóstico `Invalid stream index 2` e avisos OpenH264; há também terminação
+aguardada por `Superseded`. Não se atribuem todas essas falhas a uma única
+causa nem se declara que cada segmento foi recuperado. O usuário não relatou
+falha funcional no reteste. As ocorrências permanecem como observações de
+mídia fora do escopo desta conclusão, sem impacto demonstrado no shutdown.
+O loader permaneceu sem alterações.
+
+### Saída sob mídia e processamento
+
+O pedido foi registrado às 13:08:14.975792 UTC e a conclusão do backend às
+13:08:16.444464 UTC: aproximadamente **1.469 ms**. O processo principal terminou
+com código **0**, e lifecycle/encerramento registraram **`clean=true`**.
+
+- A admissão IPC fechou com uma consulta `get_processing_snapshot` ativa;
+  sua drenagem terminou antes do bridge e do pool.
+- O frontend registrou pausa de dois elementos de mídia e confirmação da
+  apresentação de shutdown, com ocultação das janelas anteriores.
+- A sessão linear com processo ativo foi encerrada e aguardada: 170 ms de
+  espera de processo, 2 ms de diretório e zero falhas nessas duas limpezas.
+  Donos HTTP e manutenção terminaram antes da conclusão do servidor.
+- O watcher liberou observação nativa e loops com `clean=true`. Havia thumbnail,
+  extração de cores e fingerprint em andamento; seus donos foram aguardados,
+  com thumbnail adiada após cancelamento.
+- As 15 tarefas registradas concluíram antes do fechamento explícito do pool
+  SQLite, cujo close levou 654 ms. Não houve fechamento antecipado do banco
+  nem resultado degradado registrado.
+
+Os snapshots após a saída estão vazios, sem novos candidatos entre os nomes
+monitorados; permanece o limite de amostragem e ausência de ancestralidade
+verificada. O stderr contém o aviso conhecido `Chrome_WidgetWin_0 / Error = 1412`,
+sem falha de encerramento associada nesta execução.
+
+### Estado consolidado
+
+Resumo executivo, matriz desktop, inventário, checklist e tabela da seção 14
+atualizados. R1–R5 estão concluídos nos escopos registrados; R6/Linux permanece
+concluído e aceito. A próxima etapa é **R7, smoke macOS das mudanças
+compartilhadas finais**. Permanecem a decisão de medições R8 e as verificações
+finais de integridade/recuperação e aceite geral R9. Acessibilidade, suporte
+adicional a formatos e desempenho de rede continuam fora dos critérios desta
+conclusão. Esta análise alterou somente documentação; não houve nova build
+nem reexecução de testes automatizados.

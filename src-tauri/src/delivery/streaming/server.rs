@@ -257,6 +257,7 @@ async fn serve_http_until_shutdown(
 fn build_cors_layer() -> CorsLayer {
     let allowed_origins = [
         "tauri://localhost",
+        "http://tauri.localhost",
         "https://tauri.localhost",
         "http://localhost:1420",
     ]
@@ -952,6 +953,63 @@ async fn serve_file(
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[tokio::test]
+    async fn cors_allows_packaged_and_development_origins_without_opening_other_sites(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let router = Router::new()
+            .route("/playlist", get(|| async { "#EXTM3U" }))
+            .layer(build_cors_layer());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address = listener.local_addr()?;
+        let stop = CancellationToken::new();
+        let shutdown = stop.clone();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, router)
+                .with_graceful_shutdown(shutdown.cancelled_owned())
+                .await
+        });
+        let result = async {
+            for origin in [
+                "http://tauri.localhost",
+                "https://tauri.localhost",
+                "tauri://localhost",
+                "http://localhost:1420",
+                "https://unrelated.example",
+            ] {
+                for method in ["GET", "OPTIONS"] {
+                    let mut client = tokio::net::TcpStream::connect(address).await?;
+                    let preflight = if method == "OPTIONS" {
+                        "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: range\r\n"
+                    } else {
+                        ""
+                    };
+                    let request = format!(
+                        "{method} /playlist HTTP/1.1\r\nHost: localhost\r\nOrigin: {origin}\r\n{preflight}Connection: close\r\n\r\n"
+                    );
+                    client.write_all(request.as_bytes()).await?;
+                    let mut response = Vec::new();
+                    tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut response))
+                        .await??;
+                    let response = String::from_utf8(response)?.to_lowercase();
+                    let allowed = response.contains(&format!("access-control-allow-origin: {origin}"));
+                    assert_eq!(
+                        allowed,
+                        origin != "https://unrelated.example",
+                        "{method} {origin}"
+                    );
+                    if allowed && method == "OPTIONS" {
+                        assert!(response.contains("access-control-allow-headers: range"));
+                    }
+                }
+            }
+            Ok::<(), Box<dyn std::error::Error>>(())
+        }.await;
+        stop.cancel();
+        tokio::time::timeout(Duration::from_secs(2), server).await???;
+        result
+    }
 
     #[test]
     fn segment_admission_and_real_failures_have_distinct_http_statuses() {
