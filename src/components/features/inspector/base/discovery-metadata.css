@@ -1,0 +1,37 @@
+.inspector-source-row {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-xs);
+    min-width: 0;
+}
+
+.inspector-source-input,
+.inspector-source-link,
+.inspector-source-empty {
+    flex: 1;
+    min-width: 0;
+}
+
+.inspector-source-link {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+.inspector-source-empty,
+.inspector-discovery-hint {
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+}
+
+.inspector-discovery-hint {
+    margin-top: var(--p-space-s);
+}
+
+.inspector-discovery-error {
+    color: var(--text-destructive);
+    font-size: var(--p-font-size-xs);
+    margin-top: var(--p-space-s);
+}

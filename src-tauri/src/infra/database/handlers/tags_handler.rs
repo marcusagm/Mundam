@@ -159,6 +159,8 @@ pub async fn handle_create_tag(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })
@@ -287,6 +289,8 @@ pub async fn handle_update_tag(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })
@@ -347,6 +351,8 @@ pub async fn handle_delete_tag(tx: &mut Transaction<'_, Sqlite>, id: String) -> 
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })
@@ -419,6 +425,8 @@ pub async fn handle_add_tags_to_assets_batch(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })
@@ -491,6 +499,8 @@ pub async fn handle_remove_tags_from_assets_batch(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })
@@ -572,6 +582,8 @@ pub async fn handle_replace_tags_for_assets_batch(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })

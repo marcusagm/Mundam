@@ -212,6 +212,7 @@ export const SearchToolbar: Component = () => {
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
                     leftIcon={<Search size={14} />}
+                    aria-label="Search filenames, notes, and keywords"
                     class="search-input"
                 />
                 <div class="search-actions">

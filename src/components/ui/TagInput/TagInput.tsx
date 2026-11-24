@@ -24,6 +24,8 @@ import { useTagNavigation } from './hooks/useTagNavigation';
 export const TagInput: Component<TagInputProps> = props => {
     // Separate specialized tag logic properties from standard attributes.
     const [localTagInputProperties] = splitProps(props, [
+        'allowCustomValues',
+        'ariaLabel',
         'value',
         'onChange',
         'placeholder',
@@ -104,6 +106,16 @@ export const TagInput: Component<TagInputProps> = props => {
      */
     const handleLocalKeyDown = (event: KeyboardEvent) => {
         if (
+            localTagInputProperties.allowCustomValues &&
+            event.key === 'Enter' &&
+            !event.isComposing
+        ) {
+            event.preventDefault();
+            event.stopPropagation();
+            commitCustomValues(inputValue());
+            return;
+        }
+        if (
             event.key === 'Backspace' &&
             !inputValue() &&
             localTagInputProperties.value.length > 0
@@ -133,6 +145,27 @@ export const TagInput: Component<TagInputProps> = props => {
         inputFieldReference?.focus();
     };
 
+    /** Commits one batch so paste and duplicate removal use a consistent selection. */
+    const commitCustomValues = (text: string, keepLast = false): void => {
+        const segments = text.split(',');
+        const remainder = keepLast ? segments.pop() || '' : '';
+        const selection = [...localTagInputProperties.value];
+        for (const segment of segments) {
+            const label = segment.trim();
+            if (!label || selection.some(tag => tag.label.toLowerCase() === label.toLowerCase()))
+                continue;
+            if (
+                localTagInputProperties.max !== undefined &&
+                selection.length >= localTagInputProperties.max
+            )
+                break;
+            selection.push({ id: label.toLowerCase(), label });
+        }
+        if (selection.length !== localTagInputProperties.value.length)
+            localTagInputProperties.onChange(selection);
+        setInputValue(remainder);
+    };
+
     return (
         <div class={cn('ui-tag-input-wrapper', localTagInputProperties.class)}>
             <div
@@ -159,13 +192,26 @@ export const TagInput: Component<TagInputProps> = props => {
                     class="ui-tag-input"
                     value={inputValue()}
                     onInput={event => {
-                        setInputValue(event.currentTarget.value);
+                        if (
+                            localTagInputProperties.allowCustomValues &&
+                            !event.isComposing &&
+                            event.currentTarget.value.includes(',')
+                        ) {
+                            commitCustomValues(event.currentTarget.value, true);
+                        } else {
+                            setInputValue(event.currentTarget.value);
+                        }
                         setShowSuggestions(true);
                         setHighlightedSuggestionIndex(-1);
                     }}
                     onKeyDown={handleLocalKeyDown}
                     onFocus={handleFocus}
-                    onBlur={handleBlur}
+                    onBlur={event => {
+                        if (localTagInputProperties.allowCustomValues)
+                            commitCustomValues(inputValue());
+                        handleBlur(event);
+                    }}
+                    aria-label={localTagInputProperties.ariaLabel}
                     placeholder={
                         localTagInputProperties.value.length === 0
                             ? localTagInputProperties.placeholder

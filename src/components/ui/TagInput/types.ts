@@ -17,6 +17,12 @@ export interface TagInputProps {
     /** Currently selected tags */
     value: TagOption[];
 
+    /** Opt-in free-text chips committed with comma, Enter or blur. */
+    allowCustomValues?: boolean;
+
+    /** Accessible name for the editable field. */
+    ariaLabel?: string;
+
     /** Callback executed when the tag list changes */
     onChange: (tags: TagOption[]) => void;
 

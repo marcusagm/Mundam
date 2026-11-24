@@ -391,6 +391,11 @@ impl SqliteAssetLedger {
                     asset_id: p.asset_id.clone(),
                 })?;
             }
+            LedgerCommand::UpdateAssetDiscovery(p) => {
+                self.event_bus.publish(DomainEvent::AssetMetadataUpdated {
+                    asset_id: p.asset_id.clone(),
+                })?;
+            }
             LedgerCommand::UpdateAssetNotes(p) => {
                 self.event_bus.publish(DomainEvent::AssetMetadataUpdated {
                     asset_id: p.asset_id.clone(),
@@ -522,6 +527,9 @@ impl SqliteAssetLedger {
             }
             LedgerCommand::UpdateAssetRating(payload) => {
                 metadata_handler::handle_update_rating(tx, payload).await
+            }
+            LedgerCommand::UpdateAssetDiscovery(payload) => {
+                super::handlers::discovery_handler::handle_update_discovery(tx, payload).await
             }
             LedgerCommand::UpdateAssetNotes(payload) => {
                 metadata_handler::handle_update_notes(tx, payload).await

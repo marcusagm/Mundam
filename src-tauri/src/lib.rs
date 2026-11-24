@@ -145,6 +145,7 @@ pub fn run() {
             delivery::tauri::commands::mutations::delete_smart_folder,
             delivery::tauri::commands::mutations::update_asset_rating,
             delivery::tauri::commands::mutations::update_asset_notes,
+            delivery::tauri::commands::mutations::update_asset_discovery,
             delivery::tauri::commands::mutations::reextract_asset_colors,
             delivery::tauri::commands::mutations::request_thumbnail_regenerate,
             delivery::tauri::commands::mutations::run_db_maintenance,

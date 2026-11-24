@@ -26,6 +26,8 @@ pub(crate) fn folder(id: String, name: String, path: PathBuf, parent_id: Option<
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     }

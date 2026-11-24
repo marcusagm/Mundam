@@ -5,16 +5,18 @@
  * @description
  * The TagInput component is a specialized Input component that allows the user to enter tags.
  * It provides controls for adding/removing tags and filtering suggestions.
+ * Enable `allowCustomValues` to commit free-text chips with commas, Enter or blur.
+ * This mode trims whitespace and deduplicates labels without changing taxonomy inputs.
  *
  * @example
  * ```tsx
  * import { TagInput } from '@/components/ui';
  *
  * <TagInput
- *   value={['tag1', 'tag2']}
+ *   value={[{ id: 'nature', label: 'Nature' }]}
  *   onChange={handleChange}
  *   placeholder="Enter tags"
- *   suggestions={['tag1', 'tag2', 'tag3']}
+ *   suggestions={[{ id: 'nature', label: 'Nature' }]}
  *   onCreate={handleCreate}
  *   disabled={false}
  *   max={10}

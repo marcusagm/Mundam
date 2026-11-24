@@ -34,7 +34,7 @@ pub async fn search_assets(
             a.folder_id as folder_id, a.thumbnail_path as thumbnail_path, 
             a.file_size as file_size, 
             m.width as width, m.height as height, 
-            a.rating as rating,             a.notes as notes,
+            a.rating as rating,             a.notes as notes, a.keywords as keywords, a.source_url as source_url,
                         a.is_favorite as is_favorite, a.deleted_at as deleted_at
                     FROM assets a
         LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id

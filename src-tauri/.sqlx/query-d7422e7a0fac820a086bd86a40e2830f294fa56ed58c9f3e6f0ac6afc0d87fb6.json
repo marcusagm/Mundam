@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\",\n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\",\n            a.created_at as \"created_at: DateTime<Utc>\",\n            a.modified_at as \"modified_at: DateTime<Utc>\",\n            a.added_at as \"added_at: DateTime<Utc>\",\n            a.updated_at as \"updated_at: DateTime<Utc>\",\n            a.folder_id as \"folder_id?\",\n            a.thumbnail_path as \"thumbnail_path?\",\n            a.rating as \"rating: i64\",\n            a.notes as \"notes?\",\n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at?: DateTime<Utc>\",\n            m.width as \"width: i64\",\n            m.height as \"height: i64\",\n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        WHERE a.format_type = 'unknown' OR a.thumbnail_path IS NULL\n        ",
+  "query": "\n        SELECT\n            a.id as \"id!\", a.name as \"name!\", a.path as \"path!\", a.state as \"state!\",\n            a.format_type as \"format_type!\", a.family as \"family!\", a.file_size as \"file_size!\",\n            a.created_at as \"created_at: DateTime<Utc>\",\n            a.modified_at as \"modified_at: DateTime<Utc>\",\n            a.added_at as \"added_at: DateTime<Utc>\",\n            a.updated_at as \"updated_at: DateTime<Utc>\",\n            a.folder_id as \"folder_id?\",\n            a.thumbnail_path as \"thumbnail_path?\",\n            a.rating as \"rating: i64\",\n            a.notes as \"notes?\", a.keywords as \"keywords!\", a.source_url as \"source_url?\",\n            a.is_favorite as \"is_favorite: bool\",\n            a.deleted_at as \"deleted_at?: DateTime<Utc>\",\n            m.width as \"width: i64\",\n            m.height as \"height: i64\",\n            m.duration_secs as \"duration_secs: f64\",\n            m.technical_payload as \"technical_payload: serde_json::Value\",\n            m.semantic_payload as \"semantic_payload: serde_json::Value\",\n            a.dominant_color as \"dominant_color: serde_json::Value\"\n        FROM assets a\n        LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id\n        WHERE a.format_type = 'unknown' OR a.thumbnail_path IS NULL\n        ",
   "describe": {
     "columns": [
       {
@@ -79,43 +79,53 @@
         "type_info": "Text"
       },
       {
-        "name": "is_favorite: bool",
+        "name": "keywords!",
         "ordinal": 15,
+        "type_info": "Text"
+      },
+      {
+        "name": "source_url?",
+        "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_favorite: bool",
+        "ordinal": 17,
         "type_info": "Bool"
       },
       {
         "name": "deleted_at?: DateTime<Utc>",
-        "ordinal": 16,
+        "ordinal": 18,
         "type_info": "Datetime"
       },
       {
         "name": "width: i64",
-        "ordinal": 17,
+        "ordinal": 19,
         "type_info": "Integer"
       },
       {
         "name": "height: i64",
-        "ordinal": 18,
+        "ordinal": 20,
         "type_info": "Integer"
       },
       {
         "name": "duration_secs: f64",
-        "ordinal": 19,
+        "ordinal": 21,
         "type_info": "Float"
       },
       {
         "name": "technical_payload: serde_json::Value",
-        "ordinal": 20,
+        "ordinal": 22,
         "type_info": "Text"
       },
       {
         "name": "semantic_payload: serde_json::Value",
-        "ordinal": 21,
+        "ordinal": 23,
         "type_info": "Text"
       },
       {
         "name": "dominant_color: serde_json::Value",
-        "ordinal": 22,
+        "ordinal": 24,
         "type_info": "Text"
       }
     ],
@@ -140,6 +150,8 @@
       true,
       false,
       true,
+      false,
+      true,
       true,
       true,
       true,
@@ -148,5 +160,5 @@
       true
     ]
   },
-  "hash": "a4243359a107829272a556f264e0f9ba5abfa3a07142f2b5b2687f023f6eaced"
+  "hash": "d7422e7a0fac820a086bd86a40e2830f294fa56ed58c9f3e6f0ac6afc0d87fb6"
 }

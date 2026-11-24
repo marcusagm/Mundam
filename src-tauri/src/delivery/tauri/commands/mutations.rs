@@ -882,3 +882,17 @@ mod tests {
         assert!(!scan_ran.load(Ordering::SeqCst));
     }
 }
+
+/// Dispatches user metadata changes through the transactional ledger.
+///
+/// # Errors
+/// Propagates validation, missing-asset and persistence failures.
+#[tauri::command]
+pub async fn update_asset_discovery(
+    _ipc: IpcRequest,
+    ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
+    payload: crate::core::ledger::command::UpdateAssetDiscoveryPayload,
+) -> AppResult<Asset> {
+    crate::feature::assets::discovery_commands::update_discovery(ledger.inner().as_ref(), payload)
+        .await
+}

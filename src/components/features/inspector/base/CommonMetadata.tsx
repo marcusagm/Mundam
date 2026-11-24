@@ -1,4 +1,4 @@
-import { Component, createSignal, createEffect, untrack } from 'solid-js';
+import { Component, createSignal, createEffect, untrack, Show } from 'solid-js';
 import { Info, FileText, Calendar, HardDrive, Heart } from 'lucide-solid';
 import { AccordionItem, AccordionHeader, AccordionContent, Toggle } from '../../../ui';
 import { Input } from '../../../ui/Input';
@@ -7,6 +7,7 @@ import { useLibrary } from '../../../../core/hooks';
 import { itemActions } from '../../../../core/store/library/itemActions';
 import { type AssetItem } from '../../../../types';
 import { formatFileSize, formatToDisplay } from '../../../../utils/format';
+import { DiscoveryMetadata } from './DiscoveryMetadata';
 import './CommonMetadata.css';
 
 /**
@@ -19,28 +20,7 @@ interface CommonMetadataProps {
     item: AssetItem | null;
 }
 
-/**
- * CommonMetadata component
- *
- * @module CommonMetadata
- * @description
- * The CommonMetadata component is a modular color selection system using the Compound Component pattern.
- * It provides a graphical picker for color selection with support for various color formats.
- *
- * @example
- * ```tsx
- * import { ColorPicker } from '@/components/ui';
- *
- * <ColorPicker
- *   class="custom-class"
- *   allowNoColor={false}
- *   showInput={true}
- *   color="#ff0000"
- *   onChange={(value) => console.log(value)}
- *   presets={["#ff0000", "#00ff00", "#0000ff"]}
- * />
- * ```
- */
+/** Displays shared asset identity, user metadata and filesystem dates. */
 // eslint-disable-next-line complexity
 export const CommonMetadata: Component<CommonMetadataProps> = props => {
     /**
@@ -159,6 +139,9 @@ export const CommonMetadata: Component<CommonMetadataProps> = props => {
                     </div>
                 </div>
 
+                <Show when={props.item} keyed>
+                    {item => <DiscoveryMetadata item={item} />}
+                </Show>
                 <div class="inspector-field-group inspector-notes-group">
                     <label class="inspector-label">Notes</label>
                     <textarea

@@ -57,6 +57,10 @@ fn build_search_criterion_clause<'a>(
     query_builder: &mut QueryBuilder<'a, Sqlite>,
     registry: &crate::core::formats::registry::FormatRegistry,
 ) {
+    if c.key == "keywords" {
+        build_keyword_clause(c, query_builder);
+        return;
+    }
     match c.key.as_str() {
         "name" | "filename" | "path" | "format_type" | "format" | "extension" | "family"
         | "media_type" | "mediaType" | "notes" => {
@@ -494,4 +498,25 @@ mod tests {
         ));
         assert!(sql.contains("< ?"));
     }
+}
+
+/// Matches individual keywords; negative containment also includes empty lists.
+fn build_keyword_clause<'a>(criterion: &'a SearchCriterion, query: &mut QueryBuilder<'a, Sqlite>) {
+    let value = criterion.value.as_str().unwrap_or("");
+    let pattern = match criterion.operator.as_str() {
+        "contains" | "not_contains" => format!("%{}%", value),
+        "starts_with" => format!("{}%", value),
+        "ends_with" => format!("%{}", value),
+        _ => value.to_owned(),
+    };
+    if criterion.operator == "not_contains" {
+        query.push(" NOT ");
+    }
+    query.push(" EXISTS (SELECT 1 FROM json_each(a.keywords) keyword WHERE keyword.value ");
+    if criterion.operator == "equals" {
+        query.push("= ");
+    } else {
+        query.push("LIKE ");
+    }
+    query.push_bind(pattern).push(" COLLATE NOCASE)");
 }

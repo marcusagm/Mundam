@@ -37,6 +37,10 @@ pub struct AssetDb {
     pub rating: Option<i64>,
     /// Free-text personal notes
     pub notes: Option<String>,
+    /// JSON encoded user keywords.
+    pub keywords: String,
+    /// Original HTTP(S) page.
+    pub source_url: Option<String>,
     /// Is favorite
     pub is_favorite: bool,
     /// Deleted at
@@ -93,6 +97,10 @@ pub struct AssetSummaryDb {
     pub rating: Option<i64>,
     /// Free-text personal notes
     pub notes: Option<String>,
+    /// JSON encoded user keywords.
+    pub keywords: String,
+    /// Original HTTP(S) page.
+    pub source_url: Option<String>,
     /// Is favorite
     pub is_favorite: bool,
     /// Deleted at
@@ -218,6 +226,8 @@ impl From<AssetDb> for crate::core::models::Asset {
             thumbnail_path: row.thumbnail_path,
             rating: row.rating.map(|v| v as i32),
             notes: row.notes,
+            keywords: serde_json::from_str(&row.keywords).unwrap_or_default(),
+            source_url: row.source_url,
             is_favorite: row.is_favorite,
             deleted_at: row.deleted_at,
         }
@@ -246,6 +256,8 @@ impl From<AssetSummaryDb> for crate::core::models::AssetSummaryDto {
             height: row.height.map(|v| v as i32),
             rating: row.rating.unwrap_or(0) as i32,
             notes: row.notes,
+            keywords: serde_json::from_str(&row.keywords).unwrap_or_default(),
+            source_url: row.source_url,
             is_favorite: row.is_favorite,
             deleted_at: row.deleted_at,
         }

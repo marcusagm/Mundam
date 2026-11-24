@@ -451,3 +451,7 @@ commands.allow = ["folder_recovery_directory"]
 identifier = "allow-folder-recovery-history"
 description = "Lists persistent folder recovery entries in settings"
 commands.allow = ["folder_recovery_history"]
+[[permission]]
+identifier = "allow-update-asset-discovery"
+description = "Enables user-authored asset keywords and source URL updates"
+commands.allow = ["update_asset_discovery"]

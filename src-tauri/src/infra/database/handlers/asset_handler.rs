@@ -169,6 +169,8 @@ pub async fn handle_create(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     };
@@ -356,6 +358,8 @@ pub async fn handle_delete_asset(
         thumbnail_path: None,
         rating: None,
         notes: None,
+        keywords: Vec::new(),
+        source_url: None,
         is_favorite: false,
         deleted_at: None,
     })

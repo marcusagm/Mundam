@@ -14,3 +14,6 @@ pub use port::TransactionalAssetLedger;
 
 /// Pure taxonomy import validation.
 pub mod tag_validation;
+
+/// Pure validation and normalization of user-authored discovery metadata.
+pub mod discovery_metadata;

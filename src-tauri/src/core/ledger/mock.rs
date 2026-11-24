@@ -83,6 +83,8 @@ impl TransactionalAssetLedger for MockAssetLedger {
                     thumbnail_path: None,
                     rating: None,
                     notes: None,
+                    keywords: Vec::new(),
+                    source_url: None,
                     is_favorite: false,
                     deleted_at: None,
                 };
@@ -152,6 +154,8 @@ impl TransactionalAssetLedger for MockAssetLedger {
                     thumbnail_path: None,
                     rating: None,
                     notes: None,
+                    keywords: Vec::new(),
+                    source_url: None,
                     is_favorite: false,
                     deleted_at: None,
                 })

@@ -78,6 +78,11 @@ pub struct Asset {
     pub rating: Option<i32>,
     /// Free-text personal notes
     pub notes: Option<String>,
+    /// User keywords independent of taxonomy tags.
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    /// Original HTTP(S) page.
+    pub source_url: Option<String>,
     /// Is favorite
     pub is_favorite: bool,
     /// Timestamp of when the asset was sent to trash
@@ -181,6 +186,11 @@ pub struct AssetSummaryDto {
     pub rating: i32,
     /// Free-text personal notes
     pub notes: Option<String>,
+    /// User keywords independent of taxonomy tags.
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    /// Original HTTP(S) page.
+    pub source_url: Option<String>,
     /// Is favorite
     pub is_favorite: bool,
     /// Timestamp of when the asset was sent to trash

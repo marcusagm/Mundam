@@ -53,7 +53,7 @@ pub async fn find_all(
             m.width as "width: i64",
             m.height as "height: i64",
             a.rating as "rating: i64",
-            a.notes as "notes?",
+            a.notes as "notes?", a.keywords as "keywords!", a.source_url as "source_url?",
             a.is_favorite as "is_favorite: bool",
             a.deleted_at as "deleted_at?: DateTime<Utc>",
             m.duration_secs as "duration_secs: f64",
@@ -85,6 +85,8 @@ pub async fn find_all(
             thumbnail_path: r.thumbnail_path,
             rating: r.rating,
             notes: r.notes,
+            keywords: r.keywords,
+            source_url: r.source_url,
             is_favorite: r.is_favorite,
             deleted_at: r.deleted_at,
             width: r.width,
@@ -125,7 +127,7 @@ pub async fn get_by_id(
             a.folder_id as "folder_id?",
             a.thumbnail_path as "thumbnail_path?",
             a.rating as "rating: i64",
-            a.notes as "notes?",
+            a.notes as "notes?", a.keywords as "keywords!", a.source_url as "source_url?",
             a.is_favorite as "is_favorite: bool",
             a.deleted_at as "deleted_at?: DateTime<Utc>",
             m.width as "width: i64",
@@ -160,6 +162,8 @@ pub async fn get_by_id(
             thumbnail_path: r.thumbnail_path,
             rating: r.rating,
             notes: r.notes,
+            keywords: r.keywords,
+            source_url: r.source_url,
             is_favorite: r.is_favorite,
             deleted_at: r.deleted_at,
             width: r.width,
@@ -201,7 +205,7 @@ pub async fn list_paginated(
             a.folder_id as folder_id, a.thumbnail_path as thumbnail_path, 
             a.file_size as file_size, 
             m.width as width, m.height as height, 
-            a.rating as rating, a.notes as notes, a.is_favorite as is_favorite, a.deleted_at as deleted_at 
+            a.rating as rating, a.notes as notes, a.keywords as keywords, a.source_url as source_url, a.is_favorite as is_favorite, a.deleted_at as deleted_at
         FROM assets a
         LEFT JOIN asset_metadata_envelope m ON a.id = m.asset_id
         WHERE 1=1 
@@ -236,6 +240,9 @@ pub async fn list_paginated(
             } else {
                 query_builder.push(" AND (a.name LIKE ");
                 query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(" OR EXISTS (SELECT 1 FROM json_each(a.keywords) keyword WHERE keyword.value LIKE ");
+                query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(")");
                 query_builder.push(" OR a.notes LIKE ");
                 query_builder.push_bind(format!("%{}%", search));
                 query_builder.push(")");
@@ -382,7 +389,7 @@ pub async fn get_asset_by_id(
             a.folder_id as "folder_id?",
             a.thumbnail_path as "thumbnail_path?",
             a.rating as "rating: i64",
-            a.notes as "notes?",
+            a.notes as "notes?", a.keywords as "keywords!", a.source_url as "source_url?",
             a.is_favorite as "is_favorite: bool",
             a.deleted_at as "deleted_at?: DateTime<Utc>",
             m.width as "width: i64",
@@ -417,6 +424,8 @@ pub async fn get_asset_by_id(
         thumbnail_path: row.thumbnail_path,
         rating: row.rating,
         notes: row.notes,
+        keywords: row.keywords,
+        source_url: row.source_url,
         is_favorite: row.is_favorite,
         deleted_at: row.deleted_at,
         width: row.width,
@@ -466,7 +475,7 @@ pub async fn find_assets_by_size(
             a.added_at as "added_at: DateTime<Utc>", 
             a.updated_at as "updated_at: DateTime<Utc>", 
             a.folder_id as "folder_id?", a.thumbnail_path as "thumbnail_path?", 
-            a.rating as "rating?", a.notes as "notes?", 
+            a.rating as "rating?", a.notes as "notes?", a.keywords as "keywords!", a.source_url as "source_url?",
             a.is_favorite as "is_favorite: bool",
             a.deleted_at as "deleted_at?: DateTime<Utc>", 
             m.width as "width?", m.height as "height?", 
@@ -504,6 +513,8 @@ pub async fn find_assets_by_size(
             thumbnail_path: r.thumbnail_path,
             rating: r.rating,
             notes: r.notes,
+            keywords: r.keywords,
+            source_url: r.source_url,
             is_favorite: r.is_favorite,
             deleted_at: r.deleted_at,
             width: r.width,
@@ -563,6 +574,9 @@ pub async fn get_asset_count(
             } else {
                 query_builder.push(" AND (name LIKE ");
                 query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(" OR EXISTS (SELECT 1 FROM json_each(keywords) keyword WHERE keyword.value LIKE ");
+                query_builder.push_bind(format!("%{}%", search));
+                query_builder.push(")");
                 query_builder.push(" OR notes LIKE ");
                 query_builder.push_bind(format!("%{}%", search));
                 query_builder.push(")");
@@ -636,7 +650,7 @@ pub async fn get_assets_needing_repair(
             a.folder_id as "folder_id?",
             a.thumbnail_path as "thumbnail_path?",
             a.rating as "rating: i64",
-            a.notes as "notes?",
+            a.notes as "notes?", a.keywords as "keywords!", a.source_url as "source_url?",
             a.is_favorite as "is_favorite: bool",
             a.deleted_at as "deleted_at?: DateTime<Utc>",
             m.width as "width: i64",
@@ -671,6 +685,8 @@ pub async fn get_assets_needing_repair(
             thumbnail_path: r.thumbnail_path,
             rating: r.rating,
             notes: r.notes,
+            keywords: r.keywords,
+            source_url: r.source_url,
             is_favorite: r.is_favorite,
             deleted_at: r.deleted_at,
             width: r.width,
@@ -776,7 +792,7 @@ pub async fn get_by_ids(
             a.folder_id as folder_id,
             a.thumbnail_path as thumbnail_path,
             a.rating as rating,
-            a.notes as notes,
+            a.notes as notes, a.keywords as keywords, a.source_url as source_url,
             a.is_favorite as is_favorite,
             a.deleted_at as deleted_at,
             m.width as width,

@@ -57,6 +57,10 @@ export interface AssetItem {
      * @type {string | null}
      */
     notes: string | null;
+    /** User keywords independent of taxonomy tags. */
+    keywords?: string[];
+    /** Original HTTP(S) page. */
+    source_url?: string | null;
 
     /**
      * File size in bytes

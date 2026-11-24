@@ -66,6 +66,7 @@
     "allow-get-library-stats",
     "allow-update-asset-rating",
     "allow-update-asset-notes",
+    "allow-update-asset-discovery",
     "allow-get-asset-exif",
     "allow-request-thumbnail-regenerate",
     "allow-add-location",

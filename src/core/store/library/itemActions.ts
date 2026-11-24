@@ -13,6 +13,31 @@ export function setRefreshAssetsHandler(handler: (clear?: boolean) => Promise<vo
 }
 
 export const itemActions = {
+    /** Persists first so rejected edits never appear as saved library metadata. */
+    updateItemDiscovery: async (
+        assetId: string,
+        changes: { keywords?: string[]; sourceUrl?: string }
+    ) => {
+        const asset = await invoke<import('../../../types').AssetItem>('update_asset_discovery', {
+            payload: { assetId, ...changes }
+        });
+        if (changes.keywords !== undefined) {
+            setLibraryState('items', item => item.id === assetId, 'keywords', asset.keywords);
+        }
+        if (changes.sourceUrl !== undefined) {
+            setLibraryState('items', item => item.id === assetId, 'source_url', asset.source_url);
+        }
+        if (
+            changes.keywords !== undefined &&
+            (filterState.searchQuery || filterState.advancedSearch)
+        ) {
+            void refreshAssetsHandler?.(false).catch(error =>
+                console.error('Failed to refresh keyword search results:', error)
+            );
+        }
+        return asset;
+    },
+
     updateItemRating: async (id: string, rating: number) => {
         try {
             setLibraryState('items', i => i.id === id, 'rating', rating);

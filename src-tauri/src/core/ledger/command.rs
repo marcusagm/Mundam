@@ -107,6 +107,18 @@ pub struct UpdateAssetNotesPayload {
     pub notes: String,
 }
 
+/// Partial user metadata update; omitted fields remain unchanged.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAssetDiscoveryPayload {
+    /// Target catalog identifier.
+    pub asset_id: String,
+    /// Replacement list; empty clears keywords.
+    pub keywords: Option<Vec<String>>,
+    /// Replacement URL; empty clears the origin.
+    pub source_url: Option<String>,
+}
+
 /// Payload for toggling an asset's favorite status.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -261,6 +273,8 @@ pub enum LedgerCommand {
     UpdateAssetRating(UpdateAssetRatingPayload),
     /// Update an asset's notes.
     UpdateAssetNotes(UpdateAssetNotesPayload),
+    /// Update keywords and origin atomically.
+    UpdateAssetDiscovery(UpdateAssetDiscoveryPayload),
     /// Toggle an asset's favorite status.
     ToggleFavorite(ToggleFavoritePayload),
     /// Move an asset to trash.

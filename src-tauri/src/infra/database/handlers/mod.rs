@@ -8,6 +8,7 @@
 //! asset fetching, path resolution) as free functions, decoupled from the Ledger
 //! struct to enable independent compilation and testing of each handler.
 pub mod asset_handler;
+pub mod discovery_handler;
 pub(crate) mod duplicate_removal;
 pub mod duplicates_handler;
 pub mod folder_handler;
@@ -33,3 +34,6 @@ mod tag_import_tests;
 
 /// Transactional catalog mutations for managed library edits.
 pub(crate) mod library;
+
+#[cfg(test)]
+mod discovery_tests;

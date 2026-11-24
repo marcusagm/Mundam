@@ -17,6 +17,7 @@ export const SEARCH_FIELDS = [
     { value: 'created_at', label: 'Date creation', type: 'date' },
     { value: 'modified_at', label: 'Date modified', type: 'date' },
     { value: 'rating', label: 'Rating', type: 'rating' },
+    { value: 'keywords', label: 'Keywords', type: 'text' },
     { value: 'notes', label: 'Notes', type: 'text' },
     { value: 'folder', label: 'Folder', type: 'folder' }
 ];
