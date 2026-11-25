@@ -8,6 +8,39 @@ use crate::delivery::tauri::admission::IpcRequest;
 use std::sync::Arc;
 use tauri::State;
 
+use crate::{
+    core::imports::destinations::{ImportDestinations, ImportPreference},
+    infra::database::{import_destinations::SqliteImportDestinations, manager::DbManager},
+};
+
+/// Reads the default destination for the desktop settings panel.
+///
+/// # Errors
+/// Propagates catalog read failures.
+#[tauri::command]
+pub async fn get_import_preference(
+    _ipc: IpcRequest,
+    database: State<'_, Arc<DbManager>>,
+) -> AppResult<ImportPreference> {
+    SqliteImportDestinations(database.pool()).preference().await
+}
+
+/// Persists the selection made in the desktop settings panel.
+///
+/// # Errors
+/// Propagates catalog failures and rejects selections from a different catalog or removed folders.
+#[tauri::command]
+pub async fn set_import_preference(
+    _ipc: IpcRequest,
+    database: State<'_, Arc<DbManager>>,
+    catalog_id: String,
+    folder_id: Option<String>,
+) -> AppResult<ImportPreference> {
+    SqliteImportDestinations(database.pool())
+        .set_default(&catalog_id, folder_id.as_deref())
+        .await
+}
+
 /// Applies a managed library operation.
 ///
 /// # Errors

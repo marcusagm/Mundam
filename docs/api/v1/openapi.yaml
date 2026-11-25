@@ -1,0 +1,318 @@
+openapi: 3.1.1
+info:
+  title: Mundam local import API
+  version: 1.0.0-draft.1
+  description: |
+    Pre-release contract for paired clients. Obtain the current loopback endpoint and verify
+    the server identity established by the desktop before sending credentials. The port below
+    illustrates discovery. Public operations do not grant permissions or change preferences.
+servers:
+  - url: https://127.0.0.1:{port}
+    variables:
+      port: {default: '49152', description: Port announced by the running instance}
+security:
+  - pairedClient: []
+paths:
+  /v1/capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Read negotiated limits and grants
+      responses:
+        '200':
+          description: Capabilities for this client and catalog
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Capabilities'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/folders:
+    get:
+      operationId: listFolders
+      x-required-grants: [folders.read]
+      summary: List visible roots or children of a granted folder
+      description: |
+        Results are ordered by name and ID. A missing or invisible parent returns 404.
+        Restart from the first page on 409 CURSOR_EXPIRED.
+      parameters:
+        - {name: parentId, in: query, schema: {$ref: '#/components/schemas/Id'}}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/CatalogLimit'}
+      responses:
+        '200':
+          description: A page of destinations without filesystem paths
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Folder'}}
+                  nextCursor: {$ref: '#/components/schemas/NullableId'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/import-default:
+    get:
+      operationId: getImportDefault
+      x-required-grants: [folders.read]
+      summary: Resolve the current default within the caller's grants
+      responses:
+        '200':
+          description: Null if no destination is usable by this client
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [folderId]
+                properties:
+                  folderId: {$ref: '#/components/schemas/NullableId'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/tags:
+    get:
+      operationId: listTags
+      x-required-grants: [tags.read]
+      summary: Search the catalog taxonomy
+      description: |
+        Search is a literal substring match on the tag name with ASCII case folding.
+        Restart from the first page on 409 CURSOR_EXPIRED.
+      parameters:
+        - name: query
+          in: query
+          description: Optional search term. Leading and trailing whitespace is ignored. Up to 256 UTF-8 bytes after trimming.
+          schema: {type: string}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/CatalogLimit'}
+      responses:
+        '200':
+          description: A page ordered by tag order, name and ID
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Tag'}}
+                  nextCursor: {$ref: '#/components/schemas/NullableId'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/imports:
+    post:
+      operationId: createImport
+      summary: Admit an import manifest
+      x-required-grants: [assets.import]
+      description: |
+        Assigning any tag also requires tags.assignOnImport. Persist the idempotency key per
+        catalog and client. A replay returns the same batch, including its resolved destination.
+        A different normalized manifest with the same key returns 409 IDEMPOTENCY_CONFLICT.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ImportManifest'}
+            examples:
+              references: {externalValue: examples/import.json}
+      responses:
+        '201':
+          description: Batch admitted or replayed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batchId, partSizeBytes, expiresAt, receiptPath]
+                properties:
+                  batchId: {$ref: '#/components/schemas/Id'}
+                  partSizeBytes: {type: integer, minimum: 1}
+                  expiresAt: {type: string, format: date-time, description: Upload deadline}
+                  receiptPath: {type: string, pattern: '^/v1/imports/[^/?#]+$'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/imports/{batchId}/items/{itemId}/parts/{partNumber}:
+    parameters:
+      - {$ref: '#/components/parameters/BatchId'}
+      - {name: itemId, in: path, required: true, schema: {$ref: '#/components/schemas/ItemId'}}
+      - {name: partNumber, in: path, required: true, schema: {type: integer, minimum: 0}}
+    put:
+      operationId: putImportPart
+      x-required-grants: [assets.import]
+      summary: Store one binary part for a batch owned by the caller
+      description: |
+        Part numbers start at zero. The declared item length and negotiated part size
+        determine the required length of this body. Repeating identical bytes succeeds.
+        Reusing the same part number with different bytes returns a conflict.
+      parameters:
+        - name: X-Part-SHA256
+          in: header
+          required: true
+          description: SHA-256 of the exact binary body in lowercase hexadecimal
+          schema: {type: string, pattern: '^[a-f0-9]{64}$'}
+      requestBody:
+        required: true
+        content:
+          application/octet-stream: {}
+      responses:
+        '204': {description: Part is durable}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/imports/{batchId}/commit:
+    parameters:
+      - {$ref: '#/components/parameters/BatchId'}
+    post:
+      operationId: commitImport
+      x-required-grants: [assets.import]
+      summary: Schedule publication of a complete batch owned by the caller
+      responses:
+        '202': {$ref: '#/components/responses/Receipt'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/imports/{batchId}:
+    parameters:
+      - {$ref: '#/components/parameters/BatchId'}
+    get:
+      operationId: getImport
+      x-required-grants: [assets.import]
+      summary: Retrieve the owner's receipt and page through confirmed parts
+      parameters:
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/Receipt'}
+        default: {$ref: '#/components/responses/Failure'}
+    delete:
+      operationId: cancelImport
+      x-required-grants: [assets.import]
+      summary: Cancel pending items while retaining committed items and their receipts
+      responses:
+        '202': {$ref: '#/components/responses/Receipt'}
+        default: {$ref: '#/components/responses/Failure'}
+components:
+  securitySchemes:
+    pairedClient: {type: http, scheme: bearer, description: Opaque credential issued after desktop approval}
+  parameters:
+    BatchId: {name: batchId, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    Cursor: {name: cursor, in: query, schema: {$ref: '#/components/schemas/Id'}}
+    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1}}
+    CatalogLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+  responses:
+    Failure:
+      description: |
+        Structured failure. 401 credential expired, 403 insufficient grant, 404 inaccessible
+        resource, 409 conflict or expired cursor, 410 expired receipt, 413 size limit,
+        422 invalid input, 429 temporary quota, 500 internal error, 503 draining, 507 disk full.
+      headers:
+        Retry-After: {description: Delay in seconds on temporary quota exhaustion, schema: {type: integer, minimum: 0}}
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [requestId, error]
+            properties:
+              requestId: {$ref: '#/components/schemas/Id'}
+              error: {$ref: '#/components/schemas/Error'}
+    Receipt:
+      description: Owner-visible status and current page of durable parts
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Receipt'}
+  schemas:
+    Id: {type: string, pattern: '\S'}
+    NullableId: {type: [string, 'null'], pattern: '\S'}
+    ItemId: {type: string, pattern: '^[A-Za-z0-9_-]{1,128}$'}
+    ByteLength: {type: integer, minimum: 0, maximum: 9007199254740991}
+    TagIds: {type: array, items: {$ref: '#/components/schemas/Id'}}
+    ImportManifest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        folderId: {$ref: '#/components/schemas/NullableId', description: Null or omitted selects the default}
+        tagIds: {$ref: '#/components/schemas/TagIds'}
+        items:
+          type: array
+          minItems: 1
+          description: Item IDs must be unique within the batch
+          items: {$ref: '#/components/schemas/ImportItem'}
+    ImportItem:
+      type: object
+      additionalProperties: false
+      required: [itemId, fileName, byteLength]
+      properties:
+        itemId: {$ref: '#/components/schemas/ItemId'}
+        fileName: {type: string, minLength: 1, description: Simple portable filename validated by library policy}
+        byteLength: {$ref: '#/components/schemas/ByteLength'}
+        sourceUrl: {type: [string, 'null'], description: Optional HTTP(S) page URL without embedded credentials. Blank means absent.}
+        tagIds: {$ref: '#/components/schemas/TagIds'}
+    Folder:
+      type: object
+      required: [id, parentId, name, hasChildren, availability]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        parentId: {$ref: '#/components/schemas/NullableId'}
+        name: {type: string}
+        hasChildren: {type: boolean}
+        availability: {enum: [available, unavailable, unknown]}
+    Tag:
+      type: object
+      required: [id, parentId, name, color, orderIndex, labels]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        parentId: {$ref: '#/components/schemas/NullableId'}
+        name: {type: string}
+        color: {type: [string, 'null']}
+        orderIndex: {type: integer}
+        labels: {type: array, minItems: 1, items: {type: string}, description: Ancestors followed by this tag's label}
+    Capabilities:
+      type: object
+      required: [apiVersion, grants, mediaTypes, limits]
+      properties:
+        apiVersion: {const: '1'}
+        grants: {type: array, uniqueItems: true, items: {type: string}}
+        mediaTypes: {type: array, items: {type: string}, description: Accepted import media types}
+        limits:
+          type: object
+          required: [maxItems, maxTagsPerItem, maxItemBytes, maxBatchBytes]
+          properties:
+            maxItems: {type: integer, minimum: 1}
+            maxTagsPerItem: {type: integer, minimum: 0}
+            maxItemBytes: {$ref: '#/components/schemas/ByteLength'}
+            maxBatchBytes: {$ref: '#/components/schemas/ByteLength'}
+    Error:
+      type: object
+      required: [code, retryable]
+      properties:
+        code: {type: string}
+        retryable: {type: boolean}
+        message: {type: string}
+        field: {type: string}
+        itemId: {$ref: '#/components/schemas/ItemId'}
+    Receipt:
+      type: object
+      required: [batchId, state, items]
+      properties:
+        batchId: {$ref: '#/components/schemas/Id'}
+        state: {enum: [receiving, publishing, committed, partial, failed, cancelled]}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ItemReceipt'}
+        confirmedParts:
+          type: array
+          description: Page ordered by manifest item and part number for resuming upload
+          items:
+            type: object
+            required: [itemId, partNumber]
+            properties:
+              itemId: {$ref: '#/components/schemas/ItemId'}
+              partNumber: {type: integer, minimum: 0}
+        nextCursor: {$ref: '#/components/schemas/NullableId'}
+      dependentRequired:
+        confirmedParts: [nextCursor]
+      if: {properties: {state: {const: receiving}}}
+      then: {required: [confirmedParts, nextCursor]}
+    ItemReceipt:
+      type: object
+      required: [itemId, state]
+      properties:
+        itemId: {$ref: '#/components/schemas/ItemId'}
+        state: {enum: [receiving, ready, publishing, committed, failed, cancelled]}
+        assetId: {$ref: '#/components/schemas/Id'}
+        fileName: {type: string}
+        error: {$ref: '#/components/schemas/Error'}
+      allOf:
+        - if: {properties: {state: {const: committed}}}
+          then: {required: [assetId, fileName]}
+        - if: {properties: {state: {const: failed}}}
+          then: {required: [error]}

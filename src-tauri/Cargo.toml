@@ -113,3 +113,8 @@ opt-level = 3
 [dev-dependencies]
 tempfile = "3.10"
 tauri = { version = "2", features = ["test"] }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["service", "tokio"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+sha2 = "0.10"
+subtle = "2"

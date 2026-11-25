@@ -4,7 +4,7 @@
  */
 
 import { Component, createSignal, For, Show } from 'solid-js';
-import { Keyboard, Palette, Settings, Info, Copy, Cpu, HardDrive } from 'lucide-solid';
+import { Keyboard, Palette, Settings, Info, Copy, Cpu, HardDrive, Folder } from 'lucide-solid';
 import { cn } from '../../../lib/utils';
 import { Modal } from '../../ui';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
@@ -13,6 +13,7 @@ import { AppearancePanel } from './AppearancePanel';
 import { PerformancePanel } from './PerformancePanel';
 import { StoragePanel } from './StoragePanel';
 import { FoldersPanel } from './FoldersPanel';
+import type { ImportPreferenceClient } from '../../../lib/importPreferences';
 import { DuplicatesPanel } from './DuplicatesPanel';
 import { AboutPanel } from './AboutPanel';
 import './settings-modal.css';
@@ -69,6 +70,7 @@ const SETTINGS_CATEGORIES: SettingsTabCategory[] = [
         tabs: [
             { identifier: 'performance', label: 'Performance', icon: Cpu },
             { identifier: 'storage', label: 'Storage & Maintenance', icon: HardDrive },
+            { identifier: 'folders', label: 'Folders', icon: Folder },
             { identifier: 'duplicates', label: 'Duplicates', icon: Copy }
         ]
     },
@@ -82,6 +84,8 @@ const SETTINGS_CATEGORIES: SettingsTabCategory[] = [
  * Properties for the SettingsModal component.
  */
 export interface SettingsModalProperties {
+    /** Client for the catalog's default import folder. */
+    importPreferences: ImportPreferenceClient;
     /** Whether the settings modal is currently open. */
     isOpen: boolean;
     /** Callback invoked when the modal requests closure. */
@@ -167,7 +171,7 @@ export const SettingsModal: Component<SettingsModalProperties> = componentProper
                         <KeyboardShortcutsPanel />
                     </Show>
                     <Show when={activeTab() === 'folders'}>
-                        <FoldersPanel />
+                        <FoldersPanel importPreferences={componentProperties.importPreferences} />
                     </Show>
                     <Show when={activeTab() === 'duplicates'}>
                         <DuplicatesPanel />

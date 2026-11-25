@@ -77,6 +77,10 @@ pub enum AppError {
     #[error("Access forbidden: {0}")]
     Forbidden(String),
 
+    /// The client should restart its listing from the first page.
+    #[error("Catalog cursor expired.")]
+    CursorExpired,
+
     /// Error related to the internal Event Bus.
     #[error("Event Bus error: {0}")]
     EventBus(String),

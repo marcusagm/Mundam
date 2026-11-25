@@ -1,0 +1,32 @@
+.import-folder-settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--p-space-m);
+    padding: var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+}
+
+.import-folder-settings p {
+    margin: 0;
+}
+
+.import-folder-settings .folder-destination-label {
+    margin-bottom: var(--p-space-s);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.import-folder-settings .folder-destination-path {
+    margin-top: var(--p-space-s);
+    overflow-wrap: anywhere;
+}
+
+.import-folder-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--p-space-s);
+}

@@ -16,6 +16,7 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts --max-warnings 0",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.node.json --noEmit",
     "check:library": "node scripts/check-library-quality.mjs",
+    "test:import-transport": "node --test scripts/import-transport.test.mjs",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky"
   },

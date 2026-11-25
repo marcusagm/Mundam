@@ -4,6 +4,7 @@ import { Folder } from 'lucide-solid';
 import { TreeView } from '../../ui/TreeView';
 import { useMetadata } from '../../../core/hooks';
 import { resolveFolderColor } from './folderPresentation';
+import './folder-destination-picker.css';
 
 /** Controlled destination picker properties. */
 export interface FolderDestinationPickerProps {
@@ -47,7 +48,7 @@ export const FolderDestinationPicker: Component<FolderDestinationPickerProps> = 
     });
     return (
         <div role="group" aria-label="Destination folder" aria-disabled={props.isDisabled}>
-            <p>Destination folder</p>
+            <p class="folder-destination-label">Destination folder</p>
             <div class="folder-destination-tree">
                 <TreeView
                     items={nodes()}
@@ -69,7 +70,7 @@ export const FolderDestinationPicker: Component<FolderDestinationPickerProps> = 
                     acceptedDragTypes={[]}
                 />
             </div>
-            <p aria-live="polite">
+            <p class="folder-destination-path" aria-live="polite">
                 {metadata.locations.find(folder => folder.id === props.value)?.path ||
                     'Choose a folder in the tree.'}
             </p>

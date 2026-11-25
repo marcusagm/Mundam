@@ -1,6 +1,6 @@
 # API de importação e plataforma de plugins do Mundam
 
-**Proposta de 24 de novembro de 2026 · Atualizada em 25 de novembro de 2026 · Base examinada `backend-refactor`, revisão `e277e49`.**
+**Plano de 24 de novembro de 2026 · Implementação iniciada em 25 de novembro de 2026 · Base do levantamento `backend-refactor`, revisão `e277e49`.**
 
 Para revisar a proposta, comece pelas decisões da seção 1 e pelas condições de aprovação da seção 10. As seções 2–5 fundamentam a API e a consistência da importação. As seções 6–9 cobrem os contratos dos plugins, a segurança e a distribuição. As duas últimas seções ficam disponíveis para acompanhar a execução.
 
@@ -369,15 +369,15 @@ Para as versões futuras, versionar separadamente o schema SQLite, as preferênc
 
 Registrar hardware, sistema, tamanho da biblioteca, corpus e método para cada benchmark. Incluir biblioteca grande, árvore profunda, milhares de tags, vídeo maior que a memória reservada ao upload e disco quase cheio. Antes do beta, fixar os limites aprovados para p95, memória, tempo de parada e regressão aceitável em relação ao baseline. Aumentar o tamanho do arquivo sem aumentar a janela de envio deve manter a memória de transferência limitada. Um cancelamento precisa liberar o permit e permitir que o próximo trabalho avance.
 
-Usar testes unitários de política no core, integração com SQLite real e filesystem temporário, testes de queda com recuperação real do journal, contratos entre clientes e backend e testes Solid para as superfícies alteradas. Acrescentar testes de parser de manifesto/envelopes com entradas inválidas e fixtures públicas da v1 como referência para o desenvolvimento das próximas versões. Exercitar os instaladores e o encerramento em builds distribuíveis. Registrar resultados de `cargo test`, `cargo clippy`, testes de documentação, `npm test`, `npm run lint`, checagem TypeScript e build de produção conforme o incremento. Esta revisão é documental. Resultados de execução e benchmarks pertencem ao registro abaixo.
+Usar testes unitários de política no core, integração com SQLite real e filesystem temporário, testes de queda com recuperação real do journal, contratos entre clientes e backend e testes Solid para as superfícies alteradas. Acrescentar testes de parser de manifesto/envelopes com entradas inválidas e fixtures públicas da v1 como referência para o desenvolvimento das próximas versões. Exercitar os instaladores e o encerramento em builds distribuíveis. Registrar resultados de `cargo test`, `cargo clippy`, testes de documentação, `npm test`, `npm run lint`, checagem TypeScript e build de produção conforme o incremento. Registrar os resultados de cada incremento na seção 12.
 
-### Decisões que precisam de ratificação
+### Diretrizes para o início e decisões posteriores
 
-1. Aprovar a API local com entrega de bytes, TLS com identidade vinculada ao desktop e Native Messaging para a extensão. Reavaliar socket/pipe após a prova de integração por plataforma.
-2. Aprovar commit por item, nomes exclusivos por padrão e janela documentada de idempotência. Confirmar formatos, cotas e prazo de retenção com o corpus real antes da versão pública.
-3. Aprovar lista de permissões inicial, vínculo da preferência ao catálogo e consentimento por raiz. Confirmar na pesquisa de usabilidade que as pessoas distinguem acesso à taxonomia e acesso aos arquivos.
-4. Aprovar UI declarativa como primeiro SDK e condicionar workers à prova em processo isolado. Definir prioridade das contribuições B com um segundo autor de plugin.
-5. Aprovar pacote assinado local e retenção de anotações como padrão. Designar responsáveis pelas chaves, incidentes, publicação do SDK e futuro catálogo.
+1. Ensaiar a entrega de bytes pela API local, com TLS vinculado à identidade do desktop e Native Messaging na ponte do navegador. Reavaliar socket/pipe após a prova de integração por plataforma.
+2. Adotar commit por item, nomes exclusivos por padrão e janela documentada de idempotência. Confirmar formatos, cotas e prazo de retenção com o corpus real antes da versão pública.
+3. Usar as permissões iniciais, vincular a preferência ao catálogo e colher consentimento por raiz. Confirmar na pesquisa de usabilidade que as pessoas distinguem acesso à taxonomia e acesso aos arquivos.
+4. Começar com UI declarativa como primeiro SDK e condicionar workers à prova em processo isolado. Definir prioridade das contribuições B com um segundo autor de plugin.
+5. Planejar pacote assinado local e retenção de anotações como padrão. Designar responsáveis pelas chaves, incidentes, publicação do SDK e futuro catálogo.
 
 ## 11. Entregas para acompanhamento
 
@@ -401,12 +401,65 @@ Marcar somente após anexar evidência de aceite no registro de implementação.
 
 ## 12. Registro dos detalhes da implementação
 
-Área reservada para preenchimento durante a implementação. Usar uma linha por decisão ou entrega e vincular a evidência reproduzível ao respectivo item.
+Os registros abaixo distinguem o comportamento já executável das provas que ainda precisam ser concluídas.
 
 | Data | Entrega | Responsável / PR | Decisão tomada e motivação | Contratos, migrações e arquivos alterados | Testes, medições e plataformas | Pendências / rollback |
 | --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | |
+| 25/11/2026 | E02 · Primeiro incremento | Workspace | Fixar a forma das nove operações e validar o manifesto antes de reservar disco. As cotas entram como parâmetros do host | [OpenAPI v1 em rascunho](../api/v1/openapi.yaml), [manifesto de exemplo](../api/v1/examples/import.json), [política de pré-validação](../../src-tauri/src/core/imports.rs) | [Casos de contrato em Rust](../../src-tauri/src/core/imports/tests.rs) e [exemplo de execução offline](../../src-tauri/examples/check_import_manifest.rs) | Pendentes a prova do transporte autenticado, consultas por concessão, staging durável e confirmação pelo Ledger |
+
+O exemplo recebe o JSON pela entrada padrão e devolve a intenção normalizada. Preserva a pasta omitida para a resolução posterior, ordena e deduplica tags por item e aplica as políticas existentes de nomes e origem. Os IDs de item usados nos endereços aceitam até 128 caracteres ASCII alfanuméricos, hífen e sublinhado. No contrato de upload, `X-Part-SHA256` identifica o digest hexadecimal minúsculo de cada parte. O exemplo usa cotas de demonstração e não lê nem grava os arquivos declarados.
 
 | Versão entregue | Compatibilidade confirmada | Limites operacionais aprovados | Problemas conhecidos | Evidência de aceite |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| `1.0.0-draft.1` · contrato e pré-validação | Windows x64. As nove operações e suas 58 referências locais foram verificadas. O schema do pedido aceitou o exemplo publicado e rejeitou quatro pedidos inválidos | Cotas de produção pendentes dos ensaios | Pareamento, transporte e gravação de arquivos ainda em planejamento | Três testes de pré-validação e dois testes existentes de metadados passaram. O executável recebeu o exemplo de dois arquivos pela entrada padrão e devolveu as tags esperadas para ambos. E02 segue em andamento até validar o contrato com o serviço e o cliente |
+
+### Prova de transporte e retomada · E01, E02, E03 e E05
+
+O [servidor de ensaio](../../src-tauri/examples/import_transport/main.rs) abre uma porta efêmera em 127.0.0.1 e atende por TLS 1.3. O [cliente de teste](../../scripts/import-transport.test.mjs) recebe o certificado e o identificador da chave pública por um canal local controlado pelo ensaio. O cliente verifica a identidade ao conectar. O servidor recebe pelo stdin duas credenciais temporárias e associa cada requisição ao respectivo titular. O ensaio exercita três operações do contrato, a admissão do lote, o envio de parte e a leitura do recibo. O processo usa a pré-validação Rust do incremento anterior com uma pasta de ensaio concedida.
+
+Para estudar a janela entre receber bytes e responder ao cliente, o [staging experimental](../../src-tauri/examples/import_transport/staging.rs) grava conteúdo e digest da parte na mesma linha SQLite, com unicidade por lote, item e número da parte. O recibo consulta essas linhas. O servidor responde após o commit em WAL com sincronização FULL. A chave de idempotência do lote é única por titular nesta instância de catálogo descartável. Essa escolha permite confrontar o recibo após reinício com os bytes efetivamente persistidos. Para adotar BLOBs no produto ainda é necessário medir espaço, concorrência, limpeza e custo com arquivos grandes em relação ao staging por arquivos.
+
+**Resultado em 25/11/2026.** Três execuções consecutivas passaram em Windows x64/MSVC com Node 24.12 e OpenSSL 3.6. Cada execução criou um certificado, duas credenciais, um banco e um conteúdo binário aleatórios. O cliente enviou um arquivo de 524.385 bytes dividido em duas partes de 256 KiB e uma de 97 bytes. Os arquivos e processos do ensaio foram limpos ao final.
+
+| Verificação | Resultado observado | Interpretação |
+| --- | --- | --- |
+| Identidade e concessão | O cliente rejeitou uma chave pública diferente da esperada. No servidor, credencial ausente ou inválida recebeu 401. Origem de página, autoridade HTTP incorreta ou pasta fora da concessão receberam 403. Dois clientes puderam usar a mesma chave de idempotência com lotes distintos. A leitura de lote alheio e a de lote inexistente retornaram o mesmo erro 404 | A identidade do servidor e a autorização do cliente foram verificadas em camadas distintas. O recibo respeitou o titular |
+| Entrada de partes | Digest incorreto, comprimento incompatível e número de parte fora do arquivo receberam 422. Corpo acima do limite recebeu 413. A consulta posterior mostrou zero partes confirmadas | Entradas recusadas não produziram recibos de sucesso |
+| Queda e retomada | A parte 1 recebeu 204. Durante a transmissão incompleta da parte 0, o controlador encerrou o processo. Após reiniciar, o replay do manifesto retornou o mesmo lote e prazo. O cliente encontrou apenas a parte 1 no recibo e calculou que faltavam 0 e 2 | O cliente pôde retomar consultando o serviço mesmo após perder a conexão e o processo servidor |
+| Repetição e integridade | Reutilizar a chave com manifesto alterado e reenviar a parte 1 com outros bytes receberam 409. Envios concorrentes idênticos da parte 0 receberam 204. O banco terminou com três partes e o SHA-256 dos bytes reconstruídos coincidiu com o da origem nas três execuções | O estado final foi `ready` para o item. A etapa de publicação física e commit no Ledger continua pendente |
+
+A primeira confirmação levou **47,8 a 65,2 ms**. Reiniciar o processo, repetir a admissão, verificar um conflito de idempotência e consultar o recibo levou **54,8 a 97,9 ms**. São observações locais de um build de desenvolvimento com conexões TLS novas. A amostra sustenta a viabilidade funcional no Windows. Ensaios com mídia grande, concorrência prolongada e outros sistemas ainda são necessários para dimensionar o serviço.
+
+Na preparação, o controlador inicialmente herdou o toolchain GNU do checkout e o executável falhou no carregamento de DLL antes da abertura do listener. O controlador passou a selecionar por padrão o MSVC no Windows, seguindo o fluxo de desenvolvimento do projeto. O teste da autoridade HTTP passou a usar o mesmo IP do certificado e uma autoridade sem a porta esperada, permitindo exercitar essa recusa no servidor depois de validar o TLS.
+
+**Pendências para a integração.** A identidade foi fornecida diretamente pelo controlador. Permanecem abertos a descoberta confiável, o consentimento no desktop, a guarda e revogação das credenciais, a consulta às concessões reais do catálogo e a prova em macOS e Linux. O encerramento forçado verificou a recuperação após perda do processo. Falha de energia, interrupção durante a publicação pelo Ledger e ensaio com o watcher exigem cenários próprios. E01, E02, E03 e E05 seguem em andamento.
+
+### Pasta padrão e resolução por concessão · E04
+
+O painel **Configurações → Pastas** usa a árvore de pastas indexadas e permite escolher ou limpar o padrão. O catálogo inicializa com um identificador persistente e nenhuma pasta selecionada. A gravação confirma que o catálogo recebido ainda é o ativo para aquela operação e que a pasta continua indexada. O padrão é referenciado pelo ID, acompanha renomes e é limpo quando a pasta é removida. O painel usa um cliente substituível, ligado aos comandos Tauri na composição das configurações. [Migração](../../src-tauri/migrations/20261125000000_import_preferences.sql) · [Painel](../../src/components/features/settings/FoldersPanel.tsx)
+
+O adaptador SQLite resolve uma escolha explícita ou o padrão e verifica a raiz atual na concessão fornecida pelo host. A consulta combina identidade do catálogo, pasta e hierarquia. Em seguida, a verificação local exige que a pasta exista e permaneça sob o caminho resolvido da raiz. Se o volume ficar indisponível, a resolução deixa de oferecer o ID, preservando a preferência. O resultado serve à admissão. A publicação ainda precisa repetir a verificação com identidade física e as garantias de escrita previstas no plano. [Contrato de destinos](../../src-tauri/src/core/imports/destinations.rs) · [Adaptador SQLite](../../src-tauri/src/infra/database/import_destinations.rs)
+
+**Resultado em 25/11/2026.** O teste Rust passou no Windows x64/MSVC com as migrações completas em um catálogo temporário e pastas reais. Confirmou a rejeição de destino ausente, catálogo diferente e caminho fora da raiz autorizada. O renome preservou a seleção. Quando a pasta ficou offline, o cliente perdeu o destino efetivo e a preferência permaneceu gravada. Mover a pasta para outra raiz retirou o acesso. A exclusão limpou a referência e o comando de limpar funcionou separadamente. Os três testes anteriores de pré-validação também passaram.
+
+O teste Solid passou com um cliente em memória. Exercitou uma falha de carregamento seguida de nova tentativa, seleção e limpeza da pasta padrão. O TypeScript e o lint dos arquivos alterados passaram. O teste de interface cobre o fluxo do painel e a troca do cliente. O ensaio do IPC em uma sessão visual pode ser combinado com o futuro teste integrado do importador.
+
+E04 continua em andamento até o vínculo entre credenciais e concessões, a listagem paginada de pastas e tags e a integração com o serviço HTTP. A validação em macOS e Linux fica para a etapa em que os instaladores, a ponte de navegador ou o isolamento de workers dependerem dela.
+
+### Correção da tela de Pastas e do IPC · E04
+
+A validação do desktop revelou que a aba **Folders** precisava de uma entrada na navegação de Configurações. A entrada adicionada pelo usuário em **System & Data** foi preservada e recebeu cobertura de regressão. Ao abrir a aba, o comando de leitura pedia `DbManager`, enquanto o bootstrap gerencia `Arc<DbManager>`. Os comandos de leitura e gravação agora usam o tipo gerenciado pelo bootstrap.
+
+O painel passou a usar `SectionGroup`, os tokens de espaçamento, tipografia e superfície do tema e os botões compactos das outras configurações. O seletor traz seu próprio CSS, de modo que o limite de altura e a rolagem da árvore estejam disponíveis em Configurações e no diálogo de operações de pasta.
+
+Os dois testes Solid de Configurações confirmaram a navegação pela barra lateral, a estrutura da seção e os fluxos de carregar, retentar, selecionar e limpar. Os três testes do diálogo de pastas, TypeScript e lint também passaram. No Windows x64/MSVC, a regressão de IPC chamou os comandos por uma janela Tauri simulada com as permissões de produção e um catálogo temporário. Confirmou leitura inicial, gravação, releitura e limpeza usando a mesma forma de estado registrada no bootstrap. [Testes de Configurações](../../src/components/features/settings/FoldersPanel.spec.tsx) · [Teste de IPC](../../src-tauri/src/delivery/tauri/admission_tests.rs)
+
+O usuário confirmou no aplicativo que a configuração da pasta padrão funciona e que a apresentação acompanha o padrão visual das Configurações.
+
+### Consultas paginadas de pastas e tags · E04
+
+O catálogo expõe projeções próprias para o importador. A listagem de pastas inclui as raízes concedidas ou os filhos diretos de um pai visível, com ordenação por nome e ID. A resposta não carrega caminho físico. O estado de disponibilidade fica como `unknown` na listagem e é verificado ao resolver o destino. A taxonomia exige permissão própria, ordena por posição, nome e ID e inclui os nomes ancestrais. A primeira busca é literal e diferencia maiúsculas e minúsculas fora de ASCII.
+
+A paginação usa 50 registros por padrão e aceita de 1 a 100. Um token autenticado por uma chave do serviço associa a posição ao cliente, à versão da concessão, ao catálogo, ao filtro e à revisão. O SQLite lê a revisão e a página na mesma transação. Alterações na projeção de pastas ou tags invalidam os respectivos tokens, e uma falha de validação retorna `CURSOR_EXPIRED` para o cliente retomar a partir da primeira página. O adaptador recebe a concessão do host. E04 permanece em andamento até o pareamento fornecer essa concessão e os endpoints usarem o adaptador. [Contrato de leitura](../../src-tauri/src/core/imports/catalog.rs) · [Adaptador SQLite](../../src-tauri/src/infra/database/import_catalog.rs) · [OpenAPI](../api/v1/openapi.yaml)
+
+**Resultado em 25/11/2026.** No Windows x64/MSVC, o teste com as migrações completas confirmou paginação determinística de pastas homônimas, proteção de raízes alheias, omissão de caminhos, consulta às tags com permissão própria e composição dos rótulos hierárquicos. Confirmou também que cursores alterados, de outro cliente, de outra concessão ou anteriores a mudanças no catálogo são recusados. Os três testes de pré-validação, o teste da resolução de pastas e a regressão de IPC também passaram. As referências do OpenAPI foram verificadas. [Teste de integração](../../src-tauri/src/infra/database/import_catalog/tests.rs)

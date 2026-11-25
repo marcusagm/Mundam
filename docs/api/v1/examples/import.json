@@ -1,0 +1,19 @@
+{
+  "folderId": "folder-referencias",
+  "tagIds": ["tag-pesquisa"],
+  "items": [
+    {
+      "itemId": "capa",
+      "fileName": "capa.webp",
+      "byteLength": 18032,
+      "sourceUrl": "https://example.org/colecao"
+    },
+    {
+      "itemId": "mapa",
+      "fileName": "mapa.png",
+      "byteLength": 78041,
+      "sourceUrl": "https://example.org/colecao",
+      "tagIds": ["tag-mapas"]
+    }
+  ]
+}

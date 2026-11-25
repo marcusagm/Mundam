@@ -11,6 +11,48 @@ use tokio::sync::Notify;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+#[test]
+fn import_preferences_use_managed_catalog_through_ipc() -> TestResult {
+    use crate::infra::database::manager::DbManager;
+
+    let directory = tempfile::tempdir()?;
+    let database = tauri::async_runtime::block_on(async {
+        let database = DbManager::new(&directory.path().join("catalog.sqlite")).await?;
+        sqlx::query("INSERT INTO folders (id, name, path) VALUES ('photos', 'Photos', '/photos')")
+            .execute(database.pool())
+            .await?;
+        Ok::<_, AppError>(Arc::new(database))
+    })?;
+    let app = tauri::test::mock_builder()
+        .manage(Arc::new(IpcAdmission::default()))
+        .manage(database.clone())
+        .invoke_handler(tauri::generate_handler![
+            crate::delivery::tauri::commands::library::get_import_preference,
+            crate::delivery::tauri::commands::library::set_import_preference
+        ])
+        .build(crate::application_context::<tauri::test::MockRuntime>())?;
+    let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build()?;
+    let call = |command, body| invoke(&window, command, body).map_err(|error| error.to_string());
+    let initial = call("get_import_preference", json!({}))?;
+    assert!(initial["folderId"].is_null());
+    let catalog_id = initial["catalogId"].as_str().ok_or("Missing catalog ID")?;
+    let saved = call(
+        "set_import_preference",
+        json!({"catalogId": catalog_id, "folderId": "photos"}),
+    )?;
+    assert_eq!(saved["folderId"], "photos");
+    assert_eq!(call("get_import_preference", json!({}))?, saved);
+    assert_eq!(
+        call(
+            "set_import_preference",
+            json!({"catalogId": catalog_id, "folderId": null})
+        )?,
+        initial
+    );
+    tauri::async_runtime::block_on(database.close());
+    Ok(())
+}
+
 fn invoke(
     window: &tauri::WebviewWindow<tauri::test::MockRuntime>,
     command: &str,

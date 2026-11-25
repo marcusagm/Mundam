@@ -127,6 +127,10 @@ These are direct `devDependencies`; they support building, linting, testing, or 
 | `vite`, `vite-plugin-solid`                                             | MIT               | Frontend dev server and production bundling, with SolidJS integration. |
 | `vitest`                                                                | MIT               | Test runner.                                                           |
 
+## Development dependencies for the import transport probe
+
+The standalone Rust example uses `hyper` and `hyper-util` (MIT) to serve Axum over an accepted connection, `tokio-rustls` (MIT OR Apache-2.0) for TLS, `sha2` (MIT OR Apache-2.0) for part and credential digests, and `subtle` (BSD-3-Clause) for credential comparisons. All five are direct development dependencies using versions already present in the lockfile. The test controller uses Node.js with `node:sqlite` and the local OpenSSL executable to issue a temporary loopback certificate.
+
 ## Maintenance notes
 
 - The repository declares the application itself as MIT licensed in `package.json`. That license does not replace the notices and conditions of third-party dependencies.

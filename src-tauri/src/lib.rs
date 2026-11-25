@@ -169,6 +169,8 @@ pub fn run() {
             delivery::tauri::commands::library::library_operation,
             delivery::tauri::commands::library::folder_recovery_directory,
             delivery::tauri::commands::library::folder_recovery_history,
+            delivery::tauri::commands::library::get_import_preference,
+            delivery::tauri::commands::library::set_import_preference,
             delivery::tauri::commands::mutations::toggle_favorite,
             delivery::tauri::commands::mutations::move_to_trash,
             delivery::tauri::commands::mutations::restore_from_trash,
