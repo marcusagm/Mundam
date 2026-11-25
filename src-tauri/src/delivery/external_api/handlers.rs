@@ -5,6 +5,7 @@ use crate::{
         catalog::{CatalogPage, CatalogPageRequest, ImportCatalog, ImportFolder, ImportTag},
         destinations::ImportDestinations,
         pairing::{AuthenticatedImporter, ImportPairing, ImportScope, IssuedCredential},
+        staging::LIMITS,
     },
     infra::database::{
         import_catalog::SqliteImportCatalog, import_destinations::SqliteImportDestinations,
@@ -23,14 +24,19 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 pub(super) async fn capabilities(
+    State(state): State<ApiState>,
     Extension(client): Extension<Arc<AuthenticatedImporter>>,
 ) -> Json<Value> {
     Json(json!({
         "apiVersion": "1",
         "grants": client.scopes,
-        "uploadsAvailable": false,
+        "uploadsAvailable": state.staging.is_some(),
+        "publicationAvailable": false,
         "mediaTypes": [],
-        "limits": null,
+        "limits": state.staging.as_ref().map(|_| json!({
+            "maxItems": LIMITS.max_items, "maxTagsPerItem": LIMITS.max_tags_per_item,
+            "maxItemBytes": LIMITS.max_item_bytes, "maxBatchBytes": LIMITS.max_batch_bytes
+        })),
     }))
 }
 
@@ -175,7 +181,7 @@ impl From<IssuedCredential> for CredentialResponse {
     }
 }
 
-fn json_error(error: JsonRejection) -> ApiError {
+pub(super) fn json_error(error: JsonRejection) -> ApiError {
     match error.status() {
         StatusCode::PAYLOAD_TOO_LARGE => ApiError::TooLarge,
         StatusCode::UNSUPPORTED_MEDIA_TYPE => ApiError::MediaType,

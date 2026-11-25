@@ -122,6 +122,29 @@ impl SqliteAssetLedger {
 /// A `Result` containing the updated asset or an error.
 #[async_trait]
 impl TransactionalAssetLedger for SqliteAssetLedger {
+    async fn publish_prepared_import(
+        &self,
+        command: crate::core::imports::publication::PublishPreparedImport,
+    ) -> AppResult<crate::core::imports::publication::PublishedImport> {
+        let pool = self.pool.clone();
+        let events = self.event_bus.clone();
+        let guard = self.path_guard.clone();
+        let app_data = self.app_data_directory.clone();
+        // An abandoned caller must leave the writer and journal under the same owner.
+        tokio::spawn(async move {
+            super::library_operations::imports::publish(
+                &pool,
+                events.as_ref(),
+                &guard,
+                &app_data,
+                command,
+            )
+            .await
+        })
+        .await
+        .map_err(|error| AppError::Internal(error.to_string()))?
+    }
+
     async fn reconcile_processing_artifacts(
         &self,
         ticket: Option<&crate::core::processing::ProcessingTicket>,

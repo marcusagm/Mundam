@@ -2,6 +2,8 @@
 #[cfg(windows)]
 use super::listener::ImportHttpsListener;
 #[cfg(windows)]
+use crate::infra::database::import_staging::SqliteImportStaging;
+#[cfg(windows)]
 use crate::infra::import_identity;
 use crate::{
     core::{AppError, AppResult},
@@ -82,26 +84,44 @@ impl DesktopImportService {
             lifecycle.shutdown_by_name(TASK_NAME).await;
             running.take();
         }
-        let directory = directory.to_owned();
-        let identity =
-            tokio::task::spawn_blocking(move || import_identity::load_or_create(&directory))
-                .await
-                .map_err(|error| AppError::Internal(error.to_string()))??;
+        let identity_directory = directory.to_owned();
+        let identity = tokio::task::spawn_blocking(move || {
+            import_identity::load_or_create(&identity_directory)
+        })
+        .await
+        .map_err(|error| AppError::Internal(error.to_string()))??;
         let certificate_der = STANDARD.encode(identity.certificate.as_ref());
-        let listener =
-            ImportHttpsListener::bind(pool, identity.certificate, identity.private_key.into())
-                .await?;
+        let staging = SqliteImportStaging::open(&directory.join("import-staging.sqlite")).await?;
+        let listener = ImportHttpsListener::bind(
+            pool,
+            identity.certificate,
+            identity.private_key.into(),
+            Some(staging),
+        )
+        .await?;
         let server_key = listener.server_key_digest();
         let endpoint = ImportEndpoint {
             url: format!("https://{}", listener.address()),
             public_key_sha256: blake3::Hash::from_bytes(server_key).to_hex().to_string(),
             certificate_der,
         };
+        let publication_directory = directory.to_owned();
+        let published_endpoint = endpoint.clone();
+        let publication = tokio::task::spawn_blocking(move || {
+            super::discovery::DiscoveryPublication::publish(
+                &publication_directory,
+                &published_endpoint.url,
+                &published_endpoint.public_key_sha256,
+            )
+        })
+        .await
+        .map_err(|error| AppError::Internal(error.to_string()))??;
         let cancellation = lifecycle.child_token();
         let worker = cancellation.clone();
         let owner = lifecycle.clone();
         if !lifecycle.spawn_unique(TASK_NAME.to_owned(), async move {
             let _finished = worker.clone().drop_guard();
+            let _publication = publication;
             if let Err(error) = listener.serve(worker).await {
                 tracing::error!(%error, "External import listener stopped");
                 owner.report_failure(TASK_NAME);
@@ -159,12 +179,15 @@ mod tests {
         let first = service
             .start(&lifecycle, database.pool().clone(), directory.path())
             .await?;
+        let discovery_path = directory.path().join(super::super::discovery::FILE_NAME);
+        assert!(discovery_path.exists());
         let repeat = service
             .start(&lifecycle, database.pool().clone(), directory.path())
             .await?;
         assert_eq!(first.url, repeat.url);
         service.stop(&lifecycle).await;
         assert!(service.endpoint().await.is_none());
+        assert!(!discovery_path.exists());
         let second = service
             .start(&lifecycle, database.pool().clone(), directory.path())
             .await?;
@@ -172,6 +195,7 @@ mod tests {
         assert_eq!(first.certificate_der, second.certificate_der);
         assert!(lifecycle.shutdown_all().await);
         assert!(service.endpoint().await.is_none());
+        assert!(!discovery_path.exists());
         assert!(matches!(
             service
                 .start(&lifecycle, database.pool().clone(), directory.path())

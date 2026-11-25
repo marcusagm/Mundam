@@ -1,5 +1,6 @@
 //! HTTPS transport for the import API, independent of desktop activation and discovery.
 use crate::core::{AppError, AppResult};
+use crate::infra::database::import_staging::SqliteImportStaging;
 use axum::Router;
 use hyper::server::conn::http1;
 use hyper_util::{
@@ -47,6 +48,7 @@ impl ImportHttpsListener {
         pool: SqlitePool,
         certificate: CertificateDer<'static>,
         private_key: PrivateKeyDer<'static>,
+        staging: Option<SqliteImportStaging>,
     ) -> AppResult<Self> {
         let certificate_key = ParsedCertificate::try_from(&certificate)
             .map_err(tls_configuration_error)?
@@ -70,7 +72,7 @@ impl ImportHttpsListener {
                 "Unexpected import listener address".into(),
             ));
         };
-        let router = super::router(pool, address, server_key, cursor_key)?;
+        let router = super::router(pool, address, server_key, cursor_key, staging)?;
         Ok(Self {
             listener,
             acceptor: TlsAcceptor::from(Arc::new(tls)),

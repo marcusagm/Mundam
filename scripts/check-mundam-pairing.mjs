@@ -1,6 +1,8 @@
 import { X509Certificate } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import { digest, exchange } from './lib/import-transport-probe.mjs';
+import { loopbackPort, readDiscovery, windowsDiscoveryPath } from './lib/import-discovery.mjs';
+import { checkImportStaging } from './lib/check-import-staging.mjs';
 
 async function readInvitation() {
     const chunks = [];
@@ -29,8 +31,8 @@ async function readInvitation() {
 
 async function checkPairing() {
     const invitation = await readInvitation();
-    const endpoint = new URL(invitation.url);
-    if (!/^https:\/\/127\.0\.0\.1:[0-9]{1,5}\/?$/.test(invitation.url) || !endpoint.port) {
+    const port = loopbackPort(invitation.url);
+    if (!port) {
         throw new Error('Expected an HTTPS IPv4 loopback endpoint with an explicit port.');
     }
     if (Date.now() >= invitation.expiresAt * 1000) throw new Error('Invitation expired.');
@@ -39,16 +41,20 @@ async function checkPairing() {
     if (pin !== invitation.publicKeySha256)
         throw new Error('The certificate does not match the invitation fingerprint.');
     const identity = { certificate: certificate.toString(), pin };
-    const server = { port: Number(endpoint.port) };
+    const server = { port };
     const post = (path, payload) =>
         exchange(server, identity, 'POST', path, {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload)
         });
+    const verifyStaging = process.argv.includes('--verify-staging');
+    const scopes = verifyStaging
+        ? ['folders.read', 'assets.import']
+        : ['folders.read', 'tags.read'];
     const request = await post('/v1/pairing/requests', {
         code: invitation.code,
         clientName: 'Mundam pairing check',
-        scopes: ['folders.read', 'tags.read']
+        scopes
     });
     if (request.status !== 202) throw new Error(`Pairing request returned HTTP ${request.status}.`);
     console.log('Pairing requested. Refresh requests in Mundam, select the grants, and approve.');
@@ -70,16 +76,50 @@ async function checkPairing() {
         };
         const capabilities = await read('/v1/capabilities');
         console.log('Paired. Granted scopes:', capabilities.grants.join(', '));
-        for (const [scope, route, label] of [
-            ['folders.read', '/v1/folders', 'Visible roots'],
-            ['tags.read', '/v1/tags', 'Tags on the first page']
-        ]) {
-            if (capabilities.grants.includes(scope))
-                console.log(`${label}: ${(await read(route)).items.length}`);
+        const roots = capabilities.grants.includes('folders.read')
+            ? (await read('/v1/folders')).items
+            : [];
+        if (capabilities.grants.includes('folders.read'))
+            console.log(`Visible roots: ${roots.length}`);
+        if (capabilities.grants.includes('tags.read'))
+            console.log(`Tags on the first page: ${(await read('/v1/tags')).items.length}`);
+        if (verifyStaging) {
+            if (
+                !capabilities.uploadsAvailable ||
+                !capabilities.grants.includes('assets.import') ||
+                !roots.length
+            ) {
+                throw new Error(
+                    'Staging check requires folder read and asset import grants for an indexed root.'
+                );
+            }
+            await checkImportStaging(server, identity, token, roots[0].id);
+        }
+        if (process.argv.includes('--verify-reconnect')) {
+            await verifyReconnect(server, identity, token);
         }
         return;
     }
     throw new Error('The request was not approved before the invitation expired.');
+}
+
+async function verifyReconnect(server, identity, token) {
+    const path = windowsDiscoveryPath();
+    const current = await readDiscovery(path, identity.pin);
+    if (!current || current.port !== server.port)
+        throw new Error('Discovery did not report the active endpoint.');
+    console.log('Discovery verified. Disable and enable the API in Mundam to check reconnection.');
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+        await pause(1000);
+        const discovered = await readDiscovery(path, identity.pin);
+        if (!discovered || discovered.instanceId === current.instanceId) continue;
+        const response = await exchange(discovered, identity, 'GET', '/v1/capabilities', { token });
+        if (response.status !== 200) throw new Error(`Reconnect returned HTTP ${response.status}.`);
+        console.log('Reconnected using discovery and the original verified identity.');
+        return;
+    }
+    throw new Error('No new instance was discovered within two minutes.');
 }
 
 try {

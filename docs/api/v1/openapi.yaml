@@ -6,6 +6,9 @@ info:
     Pre-release contract for paired clients. Obtain the current loopback endpoint and verify
     the server identity established by the desktop before sending credentials. The port below
     illustrates discovery. Public operations do not grant permissions or change preferences.
+    On Windows, paired clients may find the current endpoint in import-endpoint.json under
+    the Mundam per-user local data directory. Treat this file as an address hint and verify
+    TLS against the public identity already trusted during pairing.
 servers:
   - url: https://127.0.0.1:{port}
     variables:
@@ -149,6 +152,8 @@ paths:
         Assigning any tag also requires tags.assignOnImport. Persist the idempotency key per
         catalog and client. A replay returns the same batch, including its resolved destination.
         A different normalized manifest with the same key returns 409 IDEMPOTENCY_CONFLICT.
+        Admission reserves staging capacity. Content and format validation for catalog publication
+        occur in a later phase.
       parameters:
         - {name: Idempotency-Key, in: header, required: true, schema: {$ref: '#/components/schemas/Id'}}
       requestBody:
@@ -207,6 +212,7 @@ paths:
       summary: Schedule publication of a complete batch owned by the caller
       responses:
         '202': {$ref: '#/components/responses/Receipt'}
+        '501': {$ref: '#/components/responses/Failure'}
         default: {$ref: '#/components/responses/Failure'}
   /v1/imports/{batchId}:
     parameters:
@@ -215,6 +221,7 @@ paths:
       operationId: getImport
       x-required-grants: [assets.import]
       summary: Retrieve the owner's receipt and page through confirmed parts
+      description: Restart from the first page to see parts confirmed out of order during pagination.
       parameters:
         - {$ref: '#/components/parameters/Cursor'}
         - {$ref: '#/components/parameters/Limit'}
@@ -234,7 +241,7 @@ components:
   parameters:
     BatchId: {name: batchId, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
     Cursor: {name: cursor, in: query, schema: {$ref: '#/components/schemas/Id'}}
-    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1}}
+    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
     CatalogLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
   responses:
     Credential:
@@ -253,7 +260,7 @@ components:
         Structured failure. 401 credential unavailable, 403 insufficient grant, 404 inaccessible
         resource, 409 conflict or expired cursor, 410 expired receipt, 413 size limit,
         415 unsupported media type, 422 invalid input, 429 temporary quota, 500 internal error,
-        503 draining, 507 disk full.
+        501 publication unavailable, 503 draining, 507 disk full.
       headers:
         Retry-After: {description: Delay in seconds on temporary quota exhaustion, schema: {type: integer, minimum: 0}}
       content:
@@ -327,11 +334,12 @@ components:
         labels: {type: array, minItems: 1, items: {type: string}, description: Ancestors followed by this tag's label}
     Capabilities:
       type: object
-      required: [apiVersion, grants, mediaTypes, limits, uploadsAvailable]
+      required: [apiVersion, grants, mediaTypes, limits, uploadsAvailable, publicationAvailable]
       properties:
         apiVersion: {const: '1'}
         grants: {type: array, uniqueItems: true, items: {type: string}}
         uploadsAvailable: {type: boolean, description: Whether this server currently accepts uploads}
+        publicationAvailable: {type: boolean, description: Whether this server can publish staged content to the catalog}
         mediaTypes: {type: array, items: {type: string}, description: Accepted import media types}
         limits:
           type: [object, 'null']
@@ -356,7 +364,7 @@ components:
       required: [batchId, state, items]
       properties:
         batchId: {$ref: '#/components/schemas/Id'}
-        state: {enum: [receiving, publishing, committed, partial, failed, cancelled]}
+        state: {enum: [receiving, ready, publishing, committed, partial, failed, cancelled]}
         items:
           type: array
           items: {$ref: '#/components/schemas/ItemReceipt'}

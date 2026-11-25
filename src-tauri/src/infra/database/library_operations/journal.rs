@@ -28,6 +28,23 @@ pub(super) struct Journal {
 }
 
 impl Journal {
+    /// Rejects a prepared movement whose recorded source differs from the inspected file.
+    ///
+    /// # Errors
+    /// Returns a validation error before any native move if source ownership has changed.
+    pub(super) fn require_source_identity(
+        &self,
+        index: usize,
+        expected: &FileIdentity,
+    ) -> AppResult<()> {
+        if self.movements.get(index).map(|movement| &movement.identity) != Some(expected) {
+            return Err(AppError::ValidationFailed(
+                "Prepared file identity changed".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Checks source ownership again after preparation and before executing a movement.
     ///
     /// # Errors

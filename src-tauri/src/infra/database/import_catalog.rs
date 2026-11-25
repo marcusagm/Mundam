@@ -9,6 +9,22 @@ use crate::core::{
 use async_trait::async_trait;
 use sqlx::{SqliteConnection, SqlitePool};
 
+/// Validates assigned tag IDs without exposing the taxonomy to the caller.
+///
+/// # Errors
+/// Returns serialization or catalog failures.
+pub async fn contains_import_tags(pool: &SqlitePool, tag_ids: &[&String]) -> AppResult<bool> {
+    let encoded = serde_json::to_string(tag_ids).map_err(serialization_error)?;
+    let present = sqlx::query_scalar(
+        "SELECT NOT EXISTS (SELECT 1 FROM json_each(?1) AS selected
+         WHERE NOT EXISTS (SELECT 1 FROM tags WHERE tags.id = selected.value))",
+    )
+    .bind(encoded)
+    .fetch_one(pool)
+    .await?;
+    Ok(present)
+}
+
 /// Reads external projections from the active catalog. The host supplies a private
 /// cursor key shared by requests handled in the same service instance.
 pub struct SqliteImportCatalog<'pool> {

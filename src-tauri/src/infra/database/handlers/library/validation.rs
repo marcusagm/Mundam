@@ -10,7 +10,7 @@ pub(super) fn invalid(message: &str) -> AppError {
 ///
 /// # Errors
 /// Returns missing, offline, symbolic-link or inaccessible folders.
-pub(super) async fn folder(
+pub(crate) async fn folder(
     transaction: &mut Transaction<'_, Sqlite>,
     identifier: &str,
 ) -> AppResult<(PathBuf, Option<String>)> {

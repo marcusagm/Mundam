@@ -12,6 +12,7 @@ use crate::core::{
 };
 use sqlx::SqlitePool;
 use std::{path::Path, sync::Arc};
+pub(super) mod imports;
 pub(crate) mod journal;
 
 pub(crate) static LIBRARY_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());

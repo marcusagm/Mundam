@@ -1,18 +1,21 @@
 //! Local import HTTP adapter. The listener must serve it over HTTPS on IPv4 loopback.
 pub(crate) mod desktop;
+#[cfg(windows)]
+mod discovery;
 mod handlers;
 pub mod listener;
+mod uploads;
 
 use crate::{
     core::{imports::pairing::ImportPairing, AppError, AppResult},
-    infra::database::import_pairing::SqliteImportPairing,
+    infra::database::{import_pairing::SqliteImportPairing, import_staging::SqliteImportStaging},
 };
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -31,6 +34,7 @@ struct ApiState {
     server_key: [u8; 32],
     cursor_key: [u8; 32],
     pairing_window: Arc<Mutex<PairingWindow>>,
+    staging: Option<SqliteImportStaging>,
 }
 
 impl ApiState {
@@ -72,6 +76,7 @@ pub fn router(
     address: SocketAddrV4,
     server_key: [u8; 32],
     cursor_key: [u8; 32],
+    staging: Option<SqliteImportStaging>,
 ) -> AppResult<Router> {
     if *address.ip() != std::net::Ipv4Addr::LOCALHOST || address.port() == 0 {
         return Err(AppError::ValidationFailed(
@@ -83,6 +88,7 @@ pub fn router(
         authority: address.to_string(),
         server_key,
         cursor_key,
+        staging,
         pairing_window: Arc::new(Mutex::new(PairingWindow {
             started_at: Instant::now(),
             attempts: 0,
@@ -93,6 +99,21 @@ pub fn router(
         .route("/v1/folders", get(handlers::folders))
         .route("/v1/tags", get(handlers::tags))
         .route("/v1/import-default", get(handlers::import_default))
+        .route("/v1/imports", post(uploads::admit))
+        .route(
+            "/v1/imports/:batch",
+            get(uploads::receipt).delete(uploads::cancel),
+        )
+        .route(
+            "/v1/imports/:batch/commit",
+            post(uploads::publication_unavailable),
+        )
+        .route(
+            "/v1/imports/:batch/items/:item/parts/:number",
+            put(uploads::upload_part).layer(DefaultBodyLimit::max(
+                crate::core::imports::staging::PART_BYTES,
+            )),
+        )
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let pairing = Router::new()
         .route("/v1/pairing/requests", post(handlers::request_pairing))
@@ -186,9 +207,15 @@ enum ApiError {
     Method,
     CursorExpired,
     Invalid,
+    InvalidUpload(&'static str),
     TooLarge,
     MediaType,
     RateLimited(u64),
+    Conflict(&'static str),
+    ImportExpired,
+    ImportQuota,
+    DiskFull,
+    PublicationUnavailable,
     Internal,
 }
 
@@ -222,16 +249,24 @@ impl IntoResponse for ApiError {
             Self::Method => (StatusCode::METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED"),
             Self::CursorExpired => (StatusCode::CONFLICT, "CURSOR_EXPIRED"),
             Self::Invalid => (StatusCode::UNPROCESSABLE_ENTITY, "INVALID_REQUEST"),
+            Self::InvalidUpload(code) => (StatusCode::UNPROCESSABLE_ENTITY, code),
             Self::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE"),
             Self::MediaType => (StatusCode::UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE"),
             Self::RateLimited(_) => (StatusCode::TOO_MANY_REQUESTS, "PAIRING_RATE_LIMITED"),
+            Self::Conflict(code) => (StatusCode::CONFLICT, code),
+            Self::ImportExpired => (StatusCode::GONE, "IMPORT_EXPIRED"),
+            Self::ImportQuota => (StatusCode::TOO_MANY_REQUESTS, "STAGING_QUOTA_EXCEEDED"),
+            Self::DiskFull => (StatusCode::INSUFFICIENT_STORAGE, "STAGING_DISK_FULL"),
+            Self::PublicationUnavailable => {
+                (StatusCode::NOT_IMPLEMENTED, "PUBLICATION_UNAVAILABLE")
+            }
             Self::Internal => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
         let mut response = (
             status,
             Json(json!({
                 "requestId": Uuid::new_v4().to_string(),
-                "error": {"code": code, "retryable": matches!(self, Self::RateLimited(_))}
+                "error": {"code": code, "retryable": matches!(self, Self::RateLimited(_) | Self::ImportQuota)}
             })),
         )
             .into_response();

@@ -16,6 +16,7 @@ use tower::ServiceExt;
 const AUTHORITY: &str = "127.0.0.1:49152";
 const SERVER_KEY: [u8; 32] = [13; 32];
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+mod upload_tests;
 
 async fn send(
     app: &Router,
@@ -68,7 +69,7 @@ async fn http_import_catalog_uses_approved_grants_and_live_credentials() -> Test
         .await?;
     let desktop = SqliteImportPairing::new(pool, SERVER_KEY);
     let invitation = desktop.invite().await?;
-    let app = router(pool.clone(), AUTHORITY.parse()?, SERVER_KEY, [20; 32])?;
+    let app = router(pool.clone(), AUTHORITY.parse()?, SERVER_KEY, [20; 32], None)?;
 
     assert_eq!(
         send(&app, Method::GET, "/v1/folders", None, None).await?.0,
@@ -278,6 +279,7 @@ async fn pairing_attempts_have_a_shared_http_budget() -> TestResult {
         AUTHORITY.parse()?,
         SERVER_KEY,
         [20; 32],
+        None,
     )?;
     for _ in 0..32 {
         assert_eq!(

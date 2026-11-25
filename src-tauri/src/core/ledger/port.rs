@@ -51,6 +51,19 @@ pub trait TransactionalAssetLedger: Send + Sync {
         ))
     }
 
+    /// Publishes one sealed import together with a durable idempotency receipt.
+    ///
+    /// # Errors
+    /// Returns content, destination, tag, filesystem or persistence failures.
+    async fn publish_prepared_import(
+        &self,
+        _command: crate::core::imports::publication::PublishPreparedImport,
+    ) -> AppResult<crate::core::imports::publication::PublishedImport> {
+        Err(crate::core::error::AppError::Internal(
+            "Prepared import publication is unsupported".into(),
+        ))
+    }
+
     /// Executes a mutation command and returns the resulting Asset entity.
     ///
     /// # Arguments

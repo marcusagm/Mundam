@@ -67,6 +67,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         pool.clone(),
         CertificateDer::from(STANDARD.decode(identity.certificate_der)?),
         PrivatePkcs8KeyDer::from(STANDARD.decode(identity.private_key_der)?).into(),
+        None,
     )
     .await?;
     let server_key = server.server_key_digest();

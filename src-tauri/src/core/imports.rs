@@ -12,6 +12,8 @@ use std::collections::HashSet;
 pub mod catalog;
 pub mod destinations;
 pub mod pairing;
+pub mod publication;
+pub mod staging;
 
 /// Resource limits supplied by the host, never by the import request.
 pub struct ImportLimits {
@@ -33,7 +35,7 @@ pub struct ImportManifest {
 }
 
 /// Client identity and declared attributes of one file. The host owns physical paths.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImportItem {
     pub item_id: String,

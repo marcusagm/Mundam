@@ -9,6 +9,8 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[path = "regression_tests.rs"]
 mod regression;
+#[path = "import_tests.rs"]
+mod import_publication;
 
 struct Fixture {
     directory: tempfile::TempDir,
