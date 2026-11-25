@@ -22,6 +22,7 @@
 ///     .build()
 ///     .unwrap();
 /// ```
+pub mod external_api;
 pub mod protocols;
 pub mod streaming;
 pub mod tauri;

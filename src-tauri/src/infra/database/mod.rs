@@ -7,6 +7,7 @@ pub mod duplicates;
 pub mod handlers;
 pub mod import_catalog;
 pub mod import_destinations;
+pub mod import_pairing;
 pub mod ledger;
 pub(crate) mod library_operations;
 pub mod manager;

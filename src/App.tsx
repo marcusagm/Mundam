@@ -17,6 +17,7 @@ import { Sonner } from './components/ui';
 import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 import { desktopImportPreferences } from './core/tauri/importPreferences';
+import { desktopExternalImport } from './core/tauri/externalImport';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -91,6 +92,7 @@ function App() {
                 <SettingsModal
                     isOpen={system.isSettingsOpen()}
                     importPreferences={desktopImportPreferences}
+                    externalImport={desktopExternalImport}
                     onClose={() => system.openSettings(false)}
                     initialTab="general"
                 />

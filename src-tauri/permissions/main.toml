@@ -456,6 +456,15 @@ commands.allow = ["folder_recovery_history"]
 identifier = "allow-import-preference"
 description = "Allows the desktop to read and save its catalog import destination."
 commands.allow = ["get_import_preference", "set_import_preference"]
+
+[[permission]]
+identifier = "allow-external-import-control"
+description = "Allows the main desktop window to activate the local import API."
+commands.allow = [
+    "get_external_import_status", "start_external_import", "stop_external_import",
+    "create_external_import_invitation", "list_external_import_pairings", "approve_external_import_pairing",
+    "reject_external_import_pairing", "revoke_external_import_client",
+]
 [[permission]]
 identifier = "allow-update-asset-discovery"
 description = "Enables user-authored asset keywords and source URL updates"

@@ -127,11 +127,14 @@ These are direct `devDependencies`; they support building, linting, testing, or 
 | `vite`, `vite-plugin-solid`                                             | MIT               | Frontend dev server and production bundling, with SolidJS integration. |
 | `vitest`                                                                | MIT               | Test runner.                                                           |
 
-## Development dependencies for the import transport probe
+## Local import HTTPS and development probes
 
-The standalone Rust example uses `hyper` and `hyper-util` (MIT) to serve Axum over an accepted connection, `tokio-rustls` (MIT OR Apache-2.0) for TLS, `sha2` (MIT OR Apache-2.0) for part and credential digests, and `subtle` (BSD-3-Clause) for credential comparisons. All five are direct development dependencies using versions already present in the lockfile. The test controller uses Node.js with `node:sqlite` and the local OpenSSL executable to issue a temporary loopback certificate.
+The import listener uses `hyper` and `hyper-util` (MIT) to serve Axum over accepted connections, `tokio-rustls` (MIT OR Apache-2.0) for TLS and `sha2` (MIT OR Apache-2.0) to digest the served certificate's public key. The staging probe also uses `sha2` for part digests and `subtle` (BSD-3-Clause) for credential comparisons. The Node.js test controller uses the local OpenSSL executable to issue temporary loopback certificates. The staging probe alone uses `node:sqlite` for read-only inspection of its disposable database.
 
 ## Maintenance notes
+
+- The external import HTTP regression tests use `tower` (MIT) to exercise the Axum service in process. The application already resolves the same version transitively through its HTTP stack.
+- On Windows, the local import identity uses `rcgen` (MIT OR Apache-2.0) for the loopback certificate, `windows-sys` (MIT OR Apache-2.0) for DPAPI, `tempfile` (MIT OR Apache-2.0) for first-write publication and `zeroize` (MIT OR Apache-2.0) for temporary plaintext buffers. [Certificate generation](https://docs.rs/rcgen/0.13.2/rcgen/fn.generate_simple_self_signed.html) · [Windows DPAPI](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
 
 - The repository declares the application itself as MIT licensed in `package.json`. That license does not replace the notices and conditions of third-party dependencies.
 - This is a direct-dependency inventory, not a complete software bill of materials (SBOM). Review both lockfiles and generate a release-specific license/SBOM report to capture transitive crates/packages, optional features, native libraries, and platform-specific artifacts.

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "external-import",
+  "description": "Controls the local import API from the main desktop window",
+  "windows": ["main"],
+  "permissions": ["allow-external-import-control"]
+}

@@ -1,4 +1,6 @@
 pub mod duplicates;
+pub mod external_import;
+pub mod external_import_pairing;
 pub mod library;
 pub mod mutations;
 pub mod queries;

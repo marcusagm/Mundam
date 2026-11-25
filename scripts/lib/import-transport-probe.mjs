@@ -8,16 +8,10 @@ import { createInterface } from 'node:readline';
 import { checkServerIdentity } from 'node:tls';
 import { fileURLToPath } from 'node:url';
 
-export function buildProbe() {
+export function buildProbe(example = 'import_transport') {
     const output = execFileSync(
         'cargo',
-        [
-            'build',
-            '--locked',
-            '--example',
-            'import_transport',
-            '--message-format=json-render-diagnostics'
-        ],
+        ['build', '--locked', '--example', example, '--message-format=json-render-diagnostics'],
         {
             cwd: fileURLToPath(new URL('../../src-tauri/', import.meta.url)),
             env:
@@ -36,8 +30,7 @@ export function buildProbe() {
     );
     for (const line of output.trim().split(/\r?\n/)) {
         const artifact = JSON.parse(line);
-        if (artifact.target?.name === 'import_transport' && artifact.executable)
-            return artifact.executable;
+        if (artifact.target?.name === example && artifact.executable) return artifact.executable;
     }
     throw new Error('Cargo did not produce the import transport probe');
 }
@@ -91,33 +84,50 @@ export async function createIdentity(directory) {
     };
 }
 
-export async function startServer(executable, database, identity) {
+export async function startServer(executable, database, identity, controlled = false) {
     const child = spawn(executable, [database], {
         stdio: ['pipe', 'pipe', 'inherit'],
         windowsHide: true
     });
     const closed = once(child, 'close');
     const lines = createInterface({ input: child.stdout });
+    const ended = closed.then(([code, signal]) => {
+        throw new Error(`Probe exited before responding (code ${code}, signal ${signal})`);
+    });
+    void ended.catch(() => {});
     let timer;
     try {
         const ready = once(lines, 'line');
         const inputFailure = new Promise((_, reject) => child.stdin.once('error', reject));
-        child.stdin.end(JSON.stringify(identity.config));
+        const configuration = JSON.stringify(identity.config);
+        if (controlled) child.stdin.write(configuration + '\n');
+        else child.stdin.end(configuration);
         const [line] = await Promise.race([
             ready,
             inputFailure,
-            closed.then(([code, signal]) => {
-                throw new Error(`Probe exited before listening (code ${code}, signal ${signal})`);
-            }),
+            ended,
             new Promise((_, reject) => {
                 timer = setTimeout(() => reject(new Error('Probe startup timed out')), 20_000);
             })
         ]);
-        const { port } = JSON.parse(line);
+        const readyData = JSON.parse(line);
+        const { port } = readyData;
         if (!Number.isInteger(port) || port < 1 || port > 65535)
             throw new Error('Invalid probe endpoint');
         return {
             port,
+            readyData,
+            async desktop(action) {
+                const output = once(lines, 'line');
+                child.stdin.write(JSON.stringify(action) + '\n');
+                const [line] = await Promise.race([output, ended]);
+                return JSON.parse(line);
+            },
+            async shutdown() {
+                child.stdin.end();
+                const [code] = await closed;
+                if (code !== 0) throw new Error(`Probe shutdown failed (code ${code})`);
+            },
             async stop() {
                 child.kill('SIGKILL');
                 await closed;
@@ -129,7 +139,7 @@ export async function startServer(executable, database, identity) {
         throw error;
     } finally {
         clearTimeout(timer);
-        lines.close();
+        if (!controlled) lines.close();
     }
 }
 

@@ -13,6 +13,55 @@ servers:
 security:
   - pairedClient: []
 paths:
+  /v1/pairing/requests:
+    post:
+      operationId: requestPairing
+      security: []
+      summary: Consume a desktop invitation and request approval
+      description: Connect only after verifying the server's public key obtained from the desktop.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code, clientName, scopes]
+              properties:
+                code: {$ref: '#/components/schemas/PairingSecret'}
+                clientName: {type: string, minLength: 1, maxLength: 80}
+                scopes:
+                  type: array
+                  minItems: 1
+                  items: {$ref: '#/components/schemas/ImportScope'}
+      responses:
+        '202':
+          description: Pending desktop approval. Keep the claim secret private.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PairingClaim'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/pairing/claims:
+    post:
+      operationId: redeemPairing
+      security: []
+      summary: Redeem an approved desktop pairing request once
+      description: An unapproved, invalid, expired or redeemed claim returns the same 401.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PairingClaim'}
+      responses:
+        '201': {$ref: '#/components/responses/Credential'}
+        default: {$ref: '#/components/responses/Failure'}
+  /v1/credentials/rotate:
+    post:
+      operationId: rotateCredential
+      summary: Replace the bearer and invalidate its previous catalog cursors
+      responses:
+        '200': {$ref: '#/components/responses/Credential'}
+        default: {$ref: '#/components/responses/Failure'}
   /v1/capabilities:
     get:
       operationId: getCapabilities
@@ -188,11 +237,23 @@ components:
     Limit: {name: limit, in: query, schema: {type: integer, minimum: 1}}
     CatalogLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
   responses:
+    Credential:
+      description: Replacement or newly issued credential. Store it privately. The response is never cacheable.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [clientId, bearer, expiresAt]
+            properties:
+              clientId: {$ref: '#/components/schemas/Id'}
+              bearer: {$ref: '#/components/schemas/PairingSecret'}
+              expiresAt: {type: integer, description: Expiration as Unix seconds}
     Failure:
       description: |
-        Structured failure. 401 credential expired, 403 insufficient grant, 404 inaccessible
+        Structured failure. 401 credential unavailable, 403 insufficient grant, 404 inaccessible
         resource, 409 conflict or expired cursor, 410 expired receipt, 413 size limit,
-        422 invalid input, 429 temporary quota, 500 internal error, 503 draining, 507 disk full.
+        415 unsupported media type, 422 invalid input, 429 temporary quota, 500 internal error,
+        503 draining, 507 disk full.
       headers:
         Retry-After: {description: Delay in seconds on temporary quota exhaustion, schema: {type: integer, minimum: 0}}
       content:
@@ -209,6 +270,15 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/Receipt'}
   schemas:
+    PairingSecret: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ImportScope: {enum: [folders.read, tags.read, assets.import, tags.assignOnImport]}
+    PairingClaim:
+      type: object
+      additionalProperties: false
+      required: [requestId, secret]
+      properties:
+        requestId: {$ref: '#/components/schemas/Id'}
+        secret: {$ref: '#/components/schemas/PairingSecret'}
     Id: {type: string, pattern: '\S'}
     NullableId: {type: [string, 'null'], pattern: '\S'}
     ItemId: {type: string, pattern: '^[A-Za-z0-9_-]{1,128}$'}
@@ -257,13 +327,15 @@ components:
         labels: {type: array, minItems: 1, items: {type: string}, description: Ancestors followed by this tag's label}
     Capabilities:
       type: object
-      required: [apiVersion, grants, mediaTypes, limits]
+      required: [apiVersion, grants, mediaTypes, limits, uploadsAvailable]
       properties:
         apiVersion: {const: '1'}
         grants: {type: array, uniqueItems: true, items: {type: string}}
+        uploadsAvailable: {type: boolean, description: Whether this server currently accepts uploads}
         mediaTypes: {type: array, items: {type: string}, description: Accepted import media types}
         limits:
-          type: object
+          type: [object, 'null']
+          description: Import quotas when uploads are enabled
           required: [maxItems, maxTagsPerItem, maxItemBytes, maxBatchBytes]
           properties:
             maxItems: {type: integer, minimum: 1}

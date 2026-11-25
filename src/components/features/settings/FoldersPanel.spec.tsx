@@ -33,6 +33,18 @@ it('opens the folder settings from the settings sidebar', async () => {
             isOpen
             onClose={() => undefined}
             importPreferences={{ load, save: vi.fn() }}
+            externalImport={{
+                status: vi.fn(),
+                start: vi.fn(),
+                stop: vi.fn(),
+                pairing: {
+                    copyInvitation: vi.fn(),
+                    status: vi.fn(),
+                    approve: vi.fn(),
+                    reject: vi.fn(),
+                    revoke: vi.fn()
+                }
+            }}
         />
     ));
     const folders = screen.getByRole('button', { name: 'Folders' });

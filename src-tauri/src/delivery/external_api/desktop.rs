@@ -1,0 +1,184 @@
+//! Owner for the explicitly activated Windows import listener.
+#[cfg(windows)]
+use super::listener::ImportHttpsListener;
+#[cfg(windows)]
+use crate::infra::import_identity;
+use crate::{
+    core::{AppError, AppResult},
+    lifecycle::LifecycleRegistry,
+};
+#[cfg(windows)]
+use base64::{engine::general_purpose::STANDARD, Engine};
+use serde::Serialize;
+use sqlx::SqlitePool;
+use std::{path::Path, sync::Arc};
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
+
+const TASK_NAME: &str = "external_import_api";
+
+/// Public trust information suitable for transfer over the trusted desktop channel.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportEndpoint {
+    pub url: String,
+    pub public_key_sha256: String,
+    pub certificate_der: String,
+}
+
+struct Running {
+    cancellation: CancellationToken,
+    endpoint: ImportEndpoint,
+    server_key: [u8; 32],
+}
+
+/// Serializes repeated start and stop requests for one desktop instance.
+#[derive(Default)]
+pub struct DesktopImportService {
+    running: Mutex<Option<Running>>,
+}
+
+impl DesktopImportService {
+    /// Returns the public endpoint and the running server's pairing identity.
+    pub(crate) async fn pairing_session(&self) -> AppResult<(ImportEndpoint, [u8; 32])> {
+        self.running
+            .lock()
+            .await
+            .as_ref()
+            .filter(|running| !running.cancellation.is_cancelled())
+            .map(|running| (running.endpoint.clone(), running.server_key))
+            .ok_or_else(|| AppError::Forbidden("The local import API is disabled".into()))
+    }
+
+    /// Returns the active endpoint or an absent endpoint while disabled.
+    pub async fn endpoint(&self) -> Option<ImportEndpoint> {
+        self.running
+            .lock()
+            .await
+            .as_ref()
+            .filter(|running| !running.cancellation.is_cancelled())
+            .map(|running| running.endpoint.clone())
+    }
+
+    /// Loads the identity and starts a listener owned by the desktop lifecycle.
+    ///
+    /// # Errors
+    /// Returns identity, socket and initialization failures, or cancellation during shutdown.
+    #[cfg(windows)]
+    pub async fn start(
+        &self,
+        lifecycle: &Arc<LifecycleRegistry>,
+        pool: SqlitePool,
+        directory: &Path,
+    ) -> AppResult<ImportEndpoint> {
+        let mut running = self.running.lock().await;
+        if lifecycle.root_token().is_cancelled() {
+            return Err(AppError::Cancelled);
+        }
+        if let Some(active) = running.as_ref() {
+            if !active.cancellation.is_cancelled() {
+                return Ok(active.endpoint.clone());
+            }
+            lifecycle.shutdown_by_name(TASK_NAME).await;
+            running.take();
+        }
+        let directory = directory.to_owned();
+        let identity =
+            tokio::task::spawn_blocking(move || import_identity::load_or_create(&directory))
+                .await
+                .map_err(|error| AppError::Internal(error.to_string()))??;
+        let certificate_der = STANDARD.encode(identity.certificate.as_ref());
+        let listener =
+            ImportHttpsListener::bind(pool, identity.certificate, identity.private_key.into())
+                .await?;
+        let server_key = listener.server_key_digest();
+        let endpoint = ImportEndpoint {
+            url: format!("https://{}", listener.address()),
+            public_key_sha256: blake3::Hash::from_bytes(server_key).to_hex().to_string(),
+            certificate_der,
+        };
+        let cancellation = lifecycle.child_token();
+        let worker = cancellation.clone();
+        let owner = lifecycle.clone();
+        if !lifecycle.spawn_unique(TASK_NAME.to_owned(), async move {
+            let _finished = worker.clone().drop_guard();
+            if let Err(error) = listener.serve(worker).await {
+                tracing::error!(%error, "External import listener stopped");
+                owner.report_failure(TASK_NAME);
+            }
+        }) {
+            return Err(AppError::Cancelled);
+        }
+        *running = Some(Running {
+            cancellation,
+            endpoint: endpoint.clone(),
+            server_key,
+        });
+        Ok(endpoint)
+    }
+
+    /// Reports that the platform's protected identity adapter is unavailable.
+    ///
+    /// # Errors
+    /// Always returns a validation error until the platform adapter is implemented.
+    #[cfg(not(windows))]
+    pub async fn start(
+        &self,
+        _lifecycle: &Arc<LifecycleRegistry>,
+        _pool: SqlitePool,
+        _directory: &Path,
+    ) -> AppResult<ImportEndpoint> {
+        Err(AppError::ValidationFailed(
+            "The local import API is unavailable on this platform".into(),
+        ))
+    }
+
+    /// Stops admission and waits for the registered listener to drain.
+    pub async fn stop(&self, lifecycle: &LifecycleRegistry) {
+        let mut running = self.running.lock().await;
+        if let Some(active) = running.take() {
+            active.cancellation.cancel();
+            lifecycle.shutdown_by_name(TASK_NAME).await;
+        }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use crate::infra::database::manager::DbManager;
+
+    #[tokio::test]
+    async fn external_import_desktop_service_is_explicit_stable_and_supervised() -> AppResult<()> {
+        let directory = tempfile::tempdir()?;
+        let database = DbManager::new(&directory.path().join("catalog.sqlite")).await?;
+        let service = DesktopImportService::default();
+        let lifecycle = Arc::new(LifecycleRegistry::new());
+        assert!(service.endpoint().await.is_none());
+        assert!(!directory.path().join("import-tls-identity.dpapi").exists());
+        let first = service
+            .start(&lifecycle, database.pool().clone(), directory.path())
+            .await?;
+        let repeat = service
+            .start(&lifecycle, database.pool().clone(), directory.path())
+            .await?;
+        assert_eq!(first.url, repeat.url);
+        service.stop(&lifecycle).await;
+        assert!(service.endpoint().await.is_none());
+        let second = service
+            .start(&lifecycle, database.pool().clone(), directory.path())
+            .await?;
+        assert_eq!(first.public_key_sha256, second.public_key_sha256);
+        assert_eq!(first.certificate_der, second.certificate_der);
+        assert!(lifecycle.shutdown_all().await);
+        assert!(service.endpoint().await.is_none());
+        assert!(matches!(
+            service
+                .start(&lifecycle, database.pool().clone(), directory.path())
+                .await,
+            Err(AppError::Cancelled)
+        ));
+        database.close().await;
+        Ok(())
+    }
+}

@@ -1,0 +1,81 @@
+.local-import-settings {
+    display: grid;
+    gap: var(--p-space-m);
+    padding: var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+}
+
+.local-import-settings p,
+.local-import-settings dl,
+.local-import-settings dd {
+    margin: 0;
+}
+
+.local-import-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--p-space-s);
+}
+
+.local-import-settings dl {
+    display: grid;
+    gap: var(--p-space-xs);
+}
+
+.local-import-settings dt {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.local-import-settings dd + dt {
+    margin-top: var(--p-space-s);
+}
+
+.local-import-settings code {
+    overflow-wrap: anywhere;
+}
+
+.import-pairing-list,
+.import-pairing-entry,
+.import-pairing-entry fieldset {
+    display: grid;
+    gap: var(--p-space-s);
+    min-width: 0;
+}
+
+.import-pairing-list h4,
+.import-pairing-entry h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--p-font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.import-pairing-entry {
+    padding: var(--p-space-s);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-s);
+    overflow-wrap: anywhere;
+}
+
+.import-pairing-entry fieldset {
+    margin: 0;
+    padding: var(--p-space-s) 0;
+    border: 0;
+}
+
+.import-pairing-entry legend {
+    padding: 0;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.import-pairing-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--p-space-s);
+}

@@ -35,6 +35,7 @@ pub fn run() {
     crate::bootstrap::linux_graphics::apply(&context.config().identifier);
 
     let builder = crate::bootstrap::startup::register_state(tauri::Builder::default())
+        .manage(crate::delivery::external_api::desktop::DesktopImportService::default())
         .manage(std::sync::Arc::new(
             crate::delivery::tauri::admission::IpcAdmission::default(),
         ))
@@ -171,6 +172,14 @@ pub fn run() {
             delivery::tauri::commands::library::folder_recovery_history,
             delivery::tauri::commands::library::get_import_preference,
             delivery::tauri::commands::library::set_import_preference,
+            delivery::tauri::commands::external_import::get_external_import_status,
+            delivery::tauri::commands::external_import::start_external_import,
+            delivery::tauri::commands::external_import::stop_external_import,
+            delivery::tauri::commands::external_import_pairing::create_external_import_invitation,
+            delivery::tauri::commands::external_import_pairing::list_external_import_pairings,
+            delivery::tauri::commands::external_import_pairing::approve_external_import_pairing,
+            delivery::tauri::commands::external_import_pairing::reject_external_import_pairing,
+            delivery::tauri::commands::external_import_pairing::revoke_external_import_client,
             delivery::tauri::commands::mutations::toggle_favorite,
             delivery::tauri::commands::mutations::move_to_trash,
             delivery::tauri::commands::mutations::restore_from_trash,

@@ -11,6 +11,7 @@ use std::collections::HashSet;
 
 pub mod catalog;
 pub mod destinations;
+pub mod pairing;
 
 /// Resource limits supplied by the host, never by the import request.
 pub struct ImportLimits {
