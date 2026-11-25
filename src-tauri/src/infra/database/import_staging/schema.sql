@@ -34,3 +34,17 @@ CREATE TABLE IF NOT EXISTS import_published_items (
     file_name TEXT NOT NULL,
     PRIMARY KEY (batch_id, item_id)
 );
+
+CREATE TABLE IF NOT EXISTS import_volume_temporaries (
+    attempt_id TEXT PRIMARY KEY REFERENCES import_publication_claims(attempt_id) ON DELETE CASCADE,
+    directory_json TEXT NOT NULL,
+    identity_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS import_publication_errors (
+    batch_id TEXT NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    code TEXT NOT NULL,
+    retryable INTEGER NOT NULL CHECK (retryable IN (0, 1)),
+    PRIMARY KEY (batch_id, item_id)
+);

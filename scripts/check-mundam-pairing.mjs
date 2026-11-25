@@ -3,6 +3,7 @@ import { setTimeout as pause } from 'node:timers/promises';
 import { digest, exchange } from './lib/import-transport-probe.mjs';
 import { loopbackPort, readDiscovery, windowsDiscoveryPath } from './lib/import-discovery.mjs';
 import { checkImportStaging } from './lib/check-import-staging.mjs';
+import { checkImportPublication } from './lib/check-import-publication.mjs';
 
 async function readInvitation() {
     const chunks = [];
@@ -48,7 +49,8 @@ async function checkPairing() {
             body: JSON.stringify(payload)
         });
     const verifyStaging = process.argv.includes('--verify-staging');
-    const scopes = verifyStaging
+    const verifyPublication = process.argv.includes('--verify-publication');
+    const scopes = verifyStaging || verifyPublication
         ? ['folders.read', 'assets.import']
         : ['folders.read', 'tags.read'];
     const request = await post('/v1/pairing/requests', {
@@ -94,6 +96,17 @@ async function checkPairing() {
                 );
             }
             await checkImportStaging(server, identity, token, roots[0].id);
+        }
+        if (verifyPublication) {
+            if (
+                !capabilities.publicationAvailable ||
+                !capabilities.mediaTypes.includes('image/png') ||
+                !capabilities.grants.includes('assets.import') ||
+                roots.length !== 1
+            ) {
+                throw new Error('Publication check requires PNG support and exactly one granted test root.');
+            }
+            await checkImportPublication(server, identity, token, roots[0].id);
         }
         if (process.argv.includes('--verify-reconnect')) {
             await verifyReconnect(server, identity, token);

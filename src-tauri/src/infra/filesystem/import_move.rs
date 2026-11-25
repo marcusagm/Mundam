@@ -1,6 +1,6 @@
 //! Keeps import directories anchored across the catalog transaction and recovery.
 #[cfg(windows)]
-mod windows;
+pub(super) mod windows;
 
 use crate::core::{library::FileIdentity, AppError, AppResult};
 use std::path::Path;

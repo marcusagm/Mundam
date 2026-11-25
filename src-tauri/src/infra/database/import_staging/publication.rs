@@ -2,7 +2,7 @@
 use super::{
     check_active, lookup, lookup_owned,
     materialization::{complete_manifest, materialize},
-    parse_manifest, SqliteImportStaging, StoredBatch,
+    parse_manifest, volume_preparation, SqliteImportStaging, StoredBatch,
 };
 use crate::core::{
     imports::{
@@ -33,6 +33,9 @@ impl SqliteImportStaging {
         app_data: &Path,
         ledger: Arc<dyn TransactionalAssetLedger>,
     ) -> Result<PublishedImport, UploadError> {
+        if !matches_owner(&authority, owner) {
+            return Err(UploadError::Missing);
+        }
         let staging = self.clone();
         let catalog_id = owner.catalog_id.to_owned();
         let client_id = owner.client_id.to_owned();
@@ -49,11 +52,50 @@ impl SqliteImportStaging {
             let batch = batch_id.to_string();
             let mut transaction = staging.0.begin_with("BEGIN IMMEDIATE").await?;
             let row = active_claim(&mut transaction, &owner, &attempt).await?;
-            let mut temporary = prepared_imports::create(&app_data, attempt.attempt_id).await?;
+            let has_tags = parse_manifest(&row.manifest)?
+                .items
+                .into_iter()
+                .find(|item| item.item_id == item_id)
+                .is_some_and(|item| !item.tag_ids.is_empty());
+            let destination = match ledger
+                .import_preparation_destination(&authority, &row.folder_id, has_tags)
+                .await
+            {
+                Ok(destination) => destination,
+                Err(error) => {
+                    settle(&mut transaction, &attempt, None, &row.manifest).await?;
+                    transaction.commit().await?;
+                    return Err(error.into());
+                }
+            };
+            let app_identity = crate::infra::filesystem::identity::read(&app_data).await?;
+            let (mut temporary, volume_prepared, _volume_directory) = if app_identity.device
+                != destination.identity.device
+            {
+                let (writer, temporary, prepared, directory) = volume_preparation::prepare_volume(
+                    &staging,
+                    transaction,
+                    attempt.attempt_id,
+                    destination,
+                )
+                .await?;
+                transaction = writer;
+                (temporary, Some(prepared), Some(directory))
+            } else {
+                (
+                    prepared_imports::create(&app_data, attempt.attempt_id).await?,
+                    None,
+                    None,
+                )
+            };
             let prepared = async {
                 let sealed =
                     materialize(&mut transaction, &owner, &batch, &item_id, &mut temporary).await?;
-                prepared_imports::sync(&temporary, &app_data).await?;
+                if volume_prepared.is_some() {
+                    temporary.sync_all().await.map_err(AppError::from)?;
+                } else {
+                    prepared_imports::sync(&temporary, &app_data).await?;
+                }
                 Ok::<_, UploadError>(sealed)
             }
             .await;
@@ -61,7 +103,8 @@ impl SqliteImportStaging {
             let sealed = match prepared {
                 Ok(sealed) => sealed,
                 Err(error) => {
-                    prepared_imports::remove(&app_data, attempt.attempt_id).await?;
+                    volume_preparation::cleanup(&mut transaction, &app_data, attempt.attempt_id)
+                        .await?;
                     settle(&mut transaction, &attempt, None, &row.manifest).await?;
                     transaction.commit().await?;
                     return Err(error);
@@ -71,6 +114,7 @@ impl SqliteImportStaging {
                 authority,
                 attempt_id: None,
                 prepared_id: attempt.attempt_id,
+                volume_prepared,
                 batch_id,
                 folder_id: sealed.folder_id,
                 item: sealed.item,
@@ -106,7 +150,7 @@ impl SqliteImportStaging {
         let batch = batch_id.to_string();
         let mut transaction = self.0.begin_with("BEGIN IMMEDIATE").await?;
         check_active(&lookup(&mut transaction, owner, &batch).await?)?;
-        if item_committed(&mut transaction, &batch, item_id).await? {
+        if item_finished(&mut transaction, &batch, item_id).await? {
             return Err(UploadError::PublicationComplete);
         }
         if current_attempt(&mut transaction, &batch).await?.is_some() {
@@ -194,10 +238,44 @@ impl SqliteImportStaging {
         let proof = ledger
             .reconcile_import_attempt(owner.catalog_id, &attempt)
             .await?;
-        prepared_imports::remove(app_data, attempt.attempt_id).await?;
+        volume_preparation::cleanup(&mut transaction, app_data, attempt.attempt_id).await?;
         settle(&mut transaction, &attempt, proof.as_ref(), &row.manifest).await?;
         transaction.commit().await?;
         Ok(proof)
+    }
+
+    /// Records a sanitized failure after the publication claim has been settled.
+    ///
+    /// # Errors
+    /// Returns storage and authorization failures without changing committed items.
+    pub(crate) async fn record_publication_error(
+        &self,
+        owner: &UploadOwner<'_>,
+        batch_id: Uuid,
+        item_id: &str,
+        code: &str,
+        retryable: bool,
+    ) -> Result<(), UploadError> {
+        let batch = batch_id.to_string();
+        let mut writer = self.0.begin_with("BEGIN IMMEDIATE").await?;
+        let row = lookup(&mut writer, owner, &batch).await?;
+        check_active(&row)?;
+        if current_attempt(&mut writer, &batch).await?.is_some()
+            || item_finished(&mut writer, &batch, item_id).await?
+        {
+            return Ok(());
+        }
+        let manifest = parse_manifest(&row.manifest)?;
+        if !manifest.items.iter().any(|item| item.item_id == item_id) {
+            return Err(UploadError::Missing);
+        }
+        sqlx::query(
+            "INSERT INTO import_publication_errors (batch_id, item_id, code, retryable) VALUES (?, ?, ?, ?)
+             ON CONFLICT(batch_id, item_id) DO UPDATE SET code = excluded.code, retryable = excluded.retryable",
+        ).bind(&batch).bind(item_id).bind(code).bind(retryable).execute(&mut *writer).await?;
+        release_terminal_parts(&mut writer, &batch, manifest.items.len()).await?;
+        writer.commit().await?;
+        Ok(())
     }
 
     /// Resolves claims belonging to the open catalog before serving external clients.
@@ -291,7 +369,7 @@ async fn commit_claimed(
         );
     }
     if let Some(app_data) = app_data {
-        prepared_imports::remove(app_data, attempt.attempt_id).await?;
+        volume_preparation::cleanup(connection, app_data, attempt.attempt_id).await?;
     }
     settle(connection, attempt, proof.as_ref(), &row.manifest).await?;
     Ok(published)
@@ -303,14 +381,19 @@ fn matches_command(
     owner: &UploadOwner<'_>,
     folder_id: &str,
 ) -> bool {
-    if let PublicationAuthority::Paired(consent) = &command.authority {
-        if consent.catalog_id != owner.catalog_id || consent.client_id != owner.client_id {
-            return false;
-        }
-    }
-    command.batch_id == attempt.batch_id
+    matches_owner(&command.authority, owner)
+        && command.batch_id == attempt.batch_id
         && command.item.item_id == attempt.item_id
         && command.folder_id == folder_id
+}
+
+fn matches_owner(authority: &PublicationAuthority, owner: &UploadOwner<'_>) -> bool {
+    match authority {
+        PublicationAuthority::Host => true,
+        PublicationAuthority::Paired(consent) => {
+            consent.catalog_id == owner.catalog_id && consent.client_id == owner.client_id
+        }
+    }
 }
 
 async fn settle(
@@ -331,26 +414,42 @@ async fn settle(
         .bind(&proof.file_name)
         .execute(&mut *connection)
         .await?;
-        let committed: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM import_published_items WHERE batch_id = ?")
-                .bind(&batch)
-                .fetch_one(&mut *connection)
-                .await?;
-        if committed as usize == parse_manifest(manifest)?.items.len() {
-            sqlx::query("DELETE FROM import_parts WHERE batch_id = ?")
-                .bind(&batch)
-                .execute(&mut *connection)
-                .await?;
-            sqlx::query("UPDATE import_batches SET reserved_bytes = 0 WHERE id = ?")
-                .bind(&batch)
-                .execute(&mut *connection)
-                .await?;
-        }
+        sqlx::query("DELETE FROM import_publication_errors WHERE batch_id = ? AND item_id = ?")
+            .bind(&batch)
+            .bind(&attempt.item_id)
+            .execute(&mut *connection)
+            .await?;
+        release_terminal_parts(connection, &batch, parse_manifest(manifest)?.items.len()).await?;
     }
     sqlx::query("DELETE FROM import_publication_claims WHERE batch_id = ?")
         .bind(&batch)
         .execute(connection)
         .await?;
+    Ok(())
+}
+
+async fn release_terminal_parts(
+    connection: &mut SqliteConnection,
+    batch: &str,
+    item_count: usize,
+) -> Result<(), UploadError> {
+    let terminal: i64 = sqlx::query_scalar(
+        "SELECT (SELECT COUNT(*) FROM import_published_items WHERE batch_id = ?1)
+          + (SELECT COUNT(*) FROM import_publication_errors WHERE batch_id = ?1 AND retryable = 0)",
+    )
+    .bind(batch)
+    .fetch_one(&mut *connection)
+    .await?;
+    if terminal as usize == item_count {
+        sqlx::query("DELETE FROM import_parts WHERE batch_id = ?")
+            .bind(batch)
+            .execute(&mut *connection)
+            .await?;
+        sqlx::query("UPDATE import_batches SET reserved_bytes = 0 WHERE id = ?")
+            .bind(batch)
+            .execute(connection)
+            .await?;
+    }
     Ok(())
 }
 
@@ -374,13 +473,14 @@ pub(super) async fn current_attempt(
     .transpose()
 }
 
-pub(super) async fn item_committed(
+pub(super) async fn item_finished(
     connection: &mut SqliteConnection,
     batch_id: &str,
     item_id: &str,
 ) -> Result<bool, UploadError> {
     Ok(sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM import_published_items WHERE batch_id = ? AND item_id = ?)",
+        "SELECT EXISTS(SELECT 1 FROM import_published_items WHERE batch_id = ?1 AND item_id = ?2
+        UNION ALL SELECT 1 FROM import_publication_errors WHERE batch_id = ?1 AND item_id = ?2 AND retryable = 0)",
     )
     .bind(batch_id)
     .bind(item_id)

@@ -1,6 +1,30 @@
 //! Ledger input and receipt for a sealed item prepared by the host.
 use super::ImportItem;
+use crate::core::library::FileIdentity;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+const VOLUME_PREFIX: &str = ".mundam-import-";
+const VOLUME_SUFFIX: &str = ".part";
+
+/// Derives the reserved destination-volume filename from a host attempt ID.
+pub(crate) fn volume_temporary_name(id: Uuid) -> String {
+    format!("{VOLUME_PREFIX}{id}{VOLUME_SUFFIX}")
+}
+
+/// Identifies only exact UUID-named destination temporaries in the Windows pilot.
+pub(crate) fn is_volume_temporary(path: &Path) -> bool {
+    if !cfg!(windows) {
+        return false;
+    }
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let name = name.to_ascii_lowercase();
+    name.strip_prefix(VOLUME_PREFIX)
+        .and_then(|name| name.strip_suffix(VOLUME_SUFFIX))
+        .is_some_and(|id| id.len() == 36 && Uuid::parse_str(id).is_ok())
+}
 
 /// Identifies the authority that must still be valid when the Ledger publishes.
 #[derive(Debug, Clone)]
@@ -28,6 +52,20 @@ pub struct ImportPublicationAttempt {
     pub attempt_id: Uuid,
 }
 
+/// An authorized catalog folder and its verified physical identity.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ImportPreparationDestination {
+    pub path: PathBuf,
+    pub identity: FileIdentity,
+}
+
+/// Evidence of a temporary created by the host on the destination volume.
+#[derive(Debug, Clone)]
+pub struct VolumePreparedImport {
+    pub directory: ImportPreparationDestination,
+    pub file_identity: FileIdentity,
+}
+
 /// An internal command assembled after staging and authorization.
 #[derive(Debug, Clone)]
 pub struct PublishPreparedImport {
@@ -39,6 +77,8 @@ pub struct PublishPreparedImport {
     pub batch_id: Uuid,
     /// Opaque host-generated name of the temporary file.
     pub prepared_id: Uuid,
+    /// Destination-volume temporary evidence, when staging and destination differ.
+    pub volume_prepared: Option<VolumePreparedImport>,
     /// Indexed destination resolved before staging.
     pub folder_id: String,
     /// Validated item declaration with its effective tags.

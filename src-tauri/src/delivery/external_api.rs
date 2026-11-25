@@ -4,6 +4,7 @@ pub(crate) mod desktop;
 mod discovery;
 mod handlers;
 pub mod listener;
+mod publication;
 mod uploads;
 
 use crate::{
@@ -35,6 +36,7 @@ struct ApiState {
     cursor_key: [u8; 32],
     pairing_window: Arc<Mutex<PairingWindow>>,
     staging: Option<SqliteImportStaging>,
+    publication: Option<publication::PublicationQueue>,
 }
 
 impl ApiState {
@@ -78,6 +80,17 @@ pub fn router(
     cursor_key: [u8; 32],
     staging: Option<SqliteImportStaging>,
 ) -> AppResult<Router> {
+    router_with_publication(pool, address, server_key, cursor_key, staging, None)
+}
+
+fn router_with_publication(
+    pool: SqlitePool,
+    address: SocketAddrV4,
+    server_key: [u8; 32],
+    cursor_key: [u8; 32],
+    staging: Option<SqliteImportStaging>,
+    publication: Option<publication::PublicationQueue>,
+) -> AppResult<Router> {
     if *address.ip() != std::net::Ipv4Addr::LOCALHOST || address.port() == 0 {
         return Err(AppError::ValidationFailed(
             "Import API requires a bound loopback address".into(),
@@ -89,6 +102,7 @@ pub fn router(
         server_key,
         cursor_key,
         staging,
+        publication,
         pairing_window: Arc::new(Mutex::new(PairingWindow {
             started_at: Instant::now(),
             attempts: 0,
@@ -104,10 +118,7 @@ pub fn router(
             "/v1/imports/:batch",
             get(uploads::receipt).delete(uploads::cancel),
         )
-        .route(
-            "/v1/imports/:batch/commit",
-            post(uploads::publication_unavailable),
-        )
+        .route("/v1/imports/:batch/commit", post(uploads::commit))
         .route(
             "/v1/imports/:batch/items/:item/parts/:number",
             put(uploads::upload_part).layer(DefaultBodyLimit::max(
@@ -216,6 +227,8 @@ enum ApiError {
     ImportQuota,
     DiskFull,
     PublicationUnavailable,
+    PublicationBusy,
+    PublicationClosing,
     Internal,
 }
 
@@ -260,13 +273,15 @@ impl IntoResponse for ApiError {
             Self::PublicationUnavailable => {
                 (StatusCode::NOT_IMPLEMENTED, "PUBLICATION_UNAVAILABLE")
             }
+            Self::PublicationBusy => (StatusCode::SERVICE_UNAVAILABLE, "PUBLICATION_BUSY"),
+            Self::PublicationClosing => (StatusCode::SERVICE_UNAVAILABLE, "PUBLICATION_CLOSING"),
             Self::Internal => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
         let mut response = (
             status,
             Json(json!({
                 "requestId": Uuid::new_v4().to_string(),
-                "error": {"code": code, "retryable": matches!(self, Self::RateLimited(_) | Self::ImportQuota)}
+                "error": {"code": code, "retryable": matches!(self, Self::RateLimited(_) | Self::ImportQuota | Self::PublicationBusy | Self::PublicationClosing)}
             })),
         )
             .into_response();
@@ -274,6 +289,11 @@ impl IntoResponse for ApiError {
             response
                 .headers_mut()
                 .insert(header::RETRY_AFTER, HeaderValue::from(seconds));
+        }
+        if matches!(self, Self::PublicationBusy | Self::PublicationClosing) {
+            response
+                .headers_mut()
+                .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
         }
         if status == StatusCode::UNAUTHORIZED {
             response

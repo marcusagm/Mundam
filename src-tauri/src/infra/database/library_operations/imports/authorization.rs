@@ -13,14 +13,29 @@ pub(super) async fn revalidate(
     connection: &mut SqliteConnection,
     command: &PublishPreparedImport,
 ) -> AppResult<()> {
-    let PublicationAuthority::Paired(consent) = &command.authority else {
+    revalidate_folder(
+        connection,
+        &command.authority,
+        &command.folder_id,
+        !command.item.tag_ids.is_empty(),
+    )
+    .await
+}
+
+pub(super) async fn revalidate_folder(
+    connection: &mut SqliteConnection,
+    authority: &PublicationAuthority,
+    folder_id: &str,
+    has_tags: bool,
+) -> AppResult<()> {
+    let PublicationAuthority::Paired(consent) = authority else {
         return Ok(());
     };
     let required = ImportScope::ImportAssets.mask()
-        | if command.item.tag_ids.is_empty() {
-            0
-        } else {
+        | if has_tags {
             ImportScope::AssignTagsOnImport.mask()
+        } else {
+            0
         };
     let version = i64::try_from(consent.grant_version).map_err(|_| denied())?;
     let roots: String = sqlx::query_scalar(
@@ -44,13 +59,9 @@ pub(super) async fn revalidate(
         root_ids: serde_json::from_str(&roots)
             .map_err(|error| AppError::Internal(error.to_string()))?,
     };
-    super::super::super::import_destinations::resolve_scoped(
-        connection,
-        &grant,
-        Some(&command.folder_id),
-    )
-    .await?
-    .ok_or_else(denied)?;
+    super::super::super::import_destinations::resolve_scoped(connection, &grant, Some(folder_id))
+        .await?
+        .ok_or_else(denied)?;
     Ok(())
 }
 

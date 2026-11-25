@@ -1,10 +1,15 @@
 //! Public staging routes. Publication remains a separate Ledger operation.
-use super::{bearer, handlers::json_error, read_single_header, ApiError, ApiState};
+use super::{
+    bearer,
+    handlers::json_error,
+    publication::{can_publish, Admission},
+    read_single_header, ApiError, ApiState,
+};
 use crate::{
     core::imports::{
         destinations::ImportDestinations,
         pairing::{AuthenticatedImporter, ImportPairing, ImportScope},
-        staging::{UploadAdmission, UploadError, UploadOwner, UploadReceipt, LIMITS},
+        staging::{UploadAdmission, UploadError, UploadOwner, UploadReceipt, UploadState, LIMITS},
         ImportManifest,
     },
     infra::database::{
@@ -24,6 +29,7 @@ use axum::{
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+use uuid::Uuid;
 
 fn owner(client: &AuthenticatedImporter) -> Result<UploadOwner<'_>, ApiError> {
     if !client.scopes.contains(&ImportScope::ImportAssets) {
@@ -132,16 +138,20 @@ pub(super) async fn receipt(
 ) -> Result<Json<UploadReceipt>, ApiError> {
     let Path(batch) = path.map_err(|_| ApiError::Invalid)?;
     let Query(query) = query.map_err(|_| ApiError::Invalid)?;
-    Ok(Json(
-        staging(&state)?
-            .receipt(
-                &owner(&client)?,
-                &batch,
-                query.cursor.as_deref(),
-                query.limit,
-            )
-            .await?,
-    ))
+    let mut receipt = staging(&state)?
+        .receipt(
+            &owner(&client)?,
+            &batch,
+            query.cursor.as_deref(),
+            query.limit,
+        )
+        .await?;
+    if let (Some(publication), Ok(batch_id)) = (&state.publication, Uuid::parse_str(&batch)) {
+        if receipt.items.iter().any(can_publish) && publication.is_active(batch_id) {
+            receipt.state = UploadState::Publishing;
+        }
+    }
+    Ok(Json(receipt))
 }
 
 pub(super) async fn cancel(
@@ -156,15 +166,35 @@ pub(super) async fn cancel(
     ))
 }
 
-pub(super) async fn publication_unavailable(
+pub(super) async fn commit(
     State(state): State<ApiState>,
     Extension(client): Extension<Arc<AuthenticatedImporter>>,
-    Path(batch): Path<String>,
-) -> Result<(), ApiError> {
-    staging(&state)?
-        .destination(&owner(&client)?, &batch)
-        .await?;
-    Err(ApiError::PublicationUnavailable)
+    path: Result<Path<String>, PathRejection>,
+) -> Result<(StatusCode, Json<UploadReceipt>), ApiError> {
+    let Path(batch) = path.map_err(|_| ApiError::Invalid)?;
+    let owner = owner(&client)?;
+    let staging = staging(&state)?;
+    let mut receipt = staging.receipt(&owner, &batch, None, None).await?;
+    let queue = state
+        .publication
+        .as_ref()
+        .ok_or(ApiError::PublicationUnavailable)?;
+    match receipt.state {
+        UploadState::Receiving => return Err(UploadError::Incomplete.into()),
+        UploadState::Cancelled => return Err(UploadError::Cancelled.into()),
+        _ => {}
+    }
+    if !receipt.items.iter().any(can_publish) && receipt.state != UploadState::Publishing {
+        return Ok((StatusCode::ACCEPTED, Json(receipt)));
+    }
+    let batch_id = Uuid::parse_str(&batch).map_err(|_| ApiError::Missing)?;
+    match queue.schedule(batch_id, client) {
+        Admission::Accepted => {}
+        Admission::Busy => return Err(ApiError::PublicationBusy),
+        Admission::Closed => return Err(ApiError::PublicationClosing),
+    }
+    receipt.state = UploadState::Publishing;
+    Ok((StatusCode::ACCEPTED, Json(receipt)))
 }
 
 impl From<UploadError> for ApiError {
@@ -178,7 +208,7 @@ impl From<UploadError> for ApiError {
             UploadError::InvalidPart => Self::InvalidUpload("INVALID_PART_SIZE"),
             UploadError::Incomplete => Self::Conflict("IMPORT_INCOMPLETE"),
             UploadError::PublicationPending => Self::Conflict("PUBLICATION_PENDING"),
-            UploadError::PublicationComplete => Self::Conflict("IMPORT_ITEM_COMMITTED"),
+            UploadError::PublicationComplete => Self::Conflict("IMPORT_ITEM_FINAL"),
             UploadError::StagingCorrupt => Self::Internal,
             UploadError::Quota => Self::ImportQuota,
             UploadError::DiskFull => Self::DiskFull,

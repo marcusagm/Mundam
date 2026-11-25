@@ -51,6 +51,21 @@ pub trait TransactionalAssetLedger: Send + Sync {
         ))
     }
 
+    /// Resolves a currently granted catalog folder before preparing files on its volume.
+    ///
+    /// # Errors
+    /// Returns invalid grants, unavailable directories and storage errors.
+    async fn import_preparation_destination(
+        &self,
+        _authority: &crate::core::imports::publication::PublicationAuthority,
+        _folder_id: &str,
+        _has_tags: bool,
+    ) -> AppResult<crate::core::imports::publication::ImportPreparationDestination> {
+        Err(crate::core::error::AppError::Internal(
+            "Import preparation destinations are unsupported".into(),
+        ))
+    }
+
     /// Publishes one sealed import together with a durable idempotency receipt.
     ///
     /// # Errors

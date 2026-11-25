@@ -31,8 +31,8 @@ pub(super) async fn capabilities(
         "apiVersion": "1",
         "grants": client.scopes,
         "uploadsAvailable": state.staging.is_some(),
-        "publicationAvailable": false,
-        "mediaTypes": [],
+        "publicationAvailable": state.publication.is_some(),
+        "mediaTypes": if state.publication.is_some() { &["image/png"][..] } else { &[][..] },
         "limits": state.staging.as_ref().map(|_| json!({
             "maxItems": LIMITS.max_items, "maxTagsPerItem": LIMITS.max_tags_per_item,
             "maxItemBytes": LIMITS.max_item_bytes, "maxBatchBytes": LIMITS.max_batch_bytes

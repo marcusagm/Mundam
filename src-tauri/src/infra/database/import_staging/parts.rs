@@ -1,13 +1,13 @@
 //! Atomic writes and keyset progress reads for staged parts.
 use super::{
     check_active, lookup, parse_manifest,
-    publication::{current_attempt, item_committed},
+    publication::{current_attempt, item_finished},
     SqliteImportStaging, StoredBatch,
 };
 use crate::core::{
     imports::staging::{
-        ConfirmedPart, UploadError, UploadItem, UploadOwner, UploadReceipt, UploadState, LIMITS,
-        PART_BYTES,
+        ConfirmedPart, UploadError, UploadItem, UploadOwner, UploadPublicationError, UploadReceipt,
+        UploadState, LIMITS, PART_BYTES,
     },
     AppError,
 };
@@ -36,7 +36,7 @@ impl SqliteImportStaging {
             .enumerate()
             .find(|(_, item)| item.item_id == item_id)
             .ok_or(UploadError::Missing)?;
-        if item_committed(&mut transaction, batch, item_id).await? {
+        if item_finished(&mut transaction, batch, item_id).await? {
             return Err(UploadError::PublicationComplete);
         }
         let offset = u64::from(part_number) * PART_BYTES as u64;
@@ -147,6 +147,12 @@ async fn receipt(
     .fetch_all(&mut *connection)
     .await?;
     let active_attempt = current_attempt(connection, batch_id).await?;
+    let failures: Vec<(String, String, bool)> = sqlx::query_as(
+        "SELECT item_id, code, retryable FROM import_publication_errors WHERE batch_id = ?",
+    )
+    .bind(batch_id)
+    .fetch_all(&mut *connection)
+    .await?;
     let mut page: Vec<(i64, String, u32)> = sqlx::query_as(
         "SELECT sequence, item_id, part_number FROM import_parts WHERE batch_id = ? AND sequence > ?
          ORDER BY sequence LIMIT ?",
@@ -165,6 +171,7 @@ async fn receipt(
                 .find(|(id, _)| id == &item.item_id)
                 .map_or(0, |(_, count)| *count as u64);
             let result = published.iter().find(|(id, _, _)| id == &item.item_id);
+            let failure = failures.iter().find(|(id, _, _)| id == &item.item_id);
             let state = if result.is_some() {
                 UploadState::Committed
             } else if active_attempt
@@ -174,6 +181,8 @@ async fn receipt(
                 UploadState::Publishing
             } else if batch.cancelled {
                 UploadState::Cancelled
+            } else if failure.is_some() {
+                UploadState::Failed
             } else if count == item.byte_length.div_ceil(PART_BYTES as u64) {
                 UploadState::Ready
             } else {
@@ -184,6 +193,12 @@ async fn receipt(
                 state,
                 asset_id: result.map(|(_, id, _)| id.clone()),
                 file_name: result.map(|(_, _, name)| name.clone()),
+                error: failure
+                    .filter(|_| matches!(state, UploadState::Failed))
+                    .map(|(_, code, retryable)| UploadPublicationError {
+                        code: code.clone(),
+                        retryable: *retryable,
+                    }),
             }
         })
         .collect();
@@ -196,6 +211,18 @@ async fn receipt(
         UploadState::Publishing
     } else if batch.cancelled {
         UploadState::Cancelled
+    } else if items
+        .iter()
+        .any(|item| matches!(item.state, UploadState::Failed))
+    {
+        if items
+            .iter()
+            .any(|item| matches!(item.state, UploadState::Committed))
+        {
+            UploadState::Partial
+        } else {
+            UploadState::Failed
+        }
     } else if items
         .iter()
         .all(|item| matches!(item.state, UploadState::Ready | UploadState::Committed))

@@ -6,7 +6,7 @@ use crate::infra::database::import_staging::SqliteImportStaging;
 #[cfg(windows)]
 use crate::infra::import_identity;
 use crate::{
-    core::{AppError, AppResult},
+    core::{ledger::port::TransactionalAssetLedger, AppError, AppResult},
     lifecycle::LifecycleRegistry,
 };
 #[cfg(windows)]
@@ -32,6 +32,7 @@ struct Running {
     cancellation: CancellationToken,
     endpoint: ImportEndpoint,
     server_key: [u8; 32],
+    publication: Option<super::publication::PublicationQueue>,
 }
 
 /// Serializes repeated start and stop requests for one desktop instance.
@@ -72,6 +73,7 @@ impl DesktopImportService {
         lifecycle: &Arc<LifecycleRegistry>,
         pool: SqlitePool,
         directory: &Path,
+        ledger: Arc<dyn TransactionalAssetLedger>,
     ) -> AppResult<ImportEndpoint> {
         let mut running = self.running.lock().await;
         if lifecycle.root_token().is_cancelled() {
@@ -95,13 +97,16 @@ impl DesktopImportService {
             &directory.join(crate::infra::database::import_staging::DATABASE_NAME),
         )
         .await?;
-        let listener = ImportHttpsListener::bind(
+        let listener = ImportHttpsListener::bind_with_publication(
             pool,
             identity.certificate,
             identity.private_key.into(),
-            Some(staging),
+            staging,
+            directory.to_path_buf(),
+            ledger,
         )
         .await?;
+        let queue = listener.publication_queue();
         let server_key = listener.server_key_digest();
         let endpoint = ImportEndpoint {
             url: format!("https://{}", listener.address()),
@@ -136,6 +141,7 @@ impl DesktopImportService {
             cancellation,
             endpoint: endpoint.clone(),
             server_key,
+            publication: queue,
         });
         Ok(endpoint)
     }
@@ -150,6 +156,7 @@ impl DesktopImportService {
         _lifecycle: &Arc<LifecycleRegistry>,
         _pool: SqlitePool,
         _directory: &Path,
+        _ledger: Arc<dyn TransactionalAssetLedger>,
     ) -> AppResult<ImportEndpoint> {
         Err(AppError::ValidationFailed(
             "The local import API is unavailable on this platform".into(),
@@ -160,7 +167,13 @@ impl DesktopImportService {
     pub async fn stop(&self, lifecycle: &LifecycleRegistry) {
         let mut running = self.running.lock().await;
         if let Some(active) = running.take() {
+            if let Some(publication) = &active.publication {
+                publication.close();
+            }
             active.cancellation.cancel();
+            if let Some(publication) = active.publication {
+                publication.wait_idle().await;
+            }
             lifecycle.shutdown_by_name(TASK_NAME).await;
         }
     }
@@ -177,22 +190,43 @@ mod tests {
         let database = DbManager::new(&directory.path().join("catalog.sqlite")).await?;
         let service = DesktopImportService::default();
         let lifecycle = Arc::new(LifecycleRegistry::new());
+        let ledger = Arc::new(crate::infra::database::ledger::SqliteAssetLedger::new(
+            database.pool().clone(),
+            Arc::new(crate::infra::events::TokioEventBus::new()),
+            directory.path().to_path_buf(),
+            Arc::new(crate::core::path_guard::LedgerPathGuard::new()),
+        ));
         assert!(service.endpoint().await.is_none());
         assert!(!directory.path().join("import-tls-identity.dpapi").exists());
         let first = service
-            .start(&lifecycle, database.pool().clone(), directory.path())
+            .start(
+                &lifecycle,
+                database.pool().clone(),
+                directory.path(),
+                ledger.clone(),
+            )
             .await?;
         let discovery_path = directory.path().join(super::super::discovery::FILE_NAME);
         assert!(discovery_path.exists());
         let repeat = service
-            .start(&lifecycle, database.pool().clone(), directory.path())
+            .start(
+                &lifecycle,
+                database.pool().clone(),
+                directory.path(),
+                ledger.clone(),
+            )
             .await?;
         assert_eq!(first.url, repeat.url);
         service.stop(&lifecycle).await;
         assert!(service.endpoint().await.is_none());
         assert!(!discovery_path.exists());
         let second = service
-            .start(&lifecycle, database.pool().clone(), directory.path())
+            .start(
+                &lifecycle,
+                database.pool().clone(),
+                directory.path(),
+                ledger.clone(),
+            )
             .await?;
         assert_eq!(first.public_key_sha256, second.public_key_sha256);
         assert_eq!(first.certificate_der, second.certificate_der);
@@ -201,7 +235,12 @@ mod tests {
         assert!(!discovery_path.exists());
         assert!(matches!(
             service
-                .start(&lifecycle, database.pool().clone(), directory.path())
+                .start(
+                    &lifecycle,
+                    database.pool().clone(),
+                    directory.path(),
+                    ledger
+                )
                 .await,
             Err(AppError::Cancelled)
         ));

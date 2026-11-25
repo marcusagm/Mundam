@@ -34,7 +34,7 @@ pub(super) struct Directories {
     destination: DirectoryChain,
 }
 
-struct DirectoryChain {
+pub(in crate::infra::filesystem) struct DirectoryChain {
     leaf: File,
     _ancestors: Vec<File>,
 }
@@ -84,7 +84,7 @@ impl Directories {
 }
 
 impl DirectoryChain {
-    fn open(path: &Path) -> io::Result<Self> {
+    pub(in crate::infra::filesystem) fn open(path: &Path) -> io::Result<Self> {
         let mut components = path.components();
         let Some(Component::Prefix(prefix)) = components.next() else {
             return Err(invalid("Import path has no Windows volume"));
@@ -120,6 +120,71 @@ impl DirectoryChain {
         Ok(Self {
             leaf,
             _ancestors: ancestors,
+        })
+    }
+
+    pub(in crate::infra::filesystem) fn identity(&self) -> io::Result<FileIdentity> {
+        read_windows_handle(&self.leaf)
+    }
+
+    pub(in crate::infra::filesystem) fn create_temporary(
+        &self,
+        name: &OsStr,
+    ) -> io::Result<(File, FileIdentity)> {
+        let file = relative_file(&self.leaf, name, |output, attributes, status| {
+            // Counted name, rooted attributes and status buffer are valid for the native call.
+            unsafe {
+                NtCreateFile(
+                    output,
+                    GENERIC_WRITE | READ_ATTRIBUTES | SYNCHRONIZE,
+                    attributes,
+                    status,
+                    null_mut(),
+                    0x80,
+                    0,
+                    2,
+                    SYNCHRONOUS_NONALERT | OPEN_REPARSE_POINT | NON_DIRECTORY_FILE | WRITE_THROUGH,
+                    null_mut(),
+                    0,
+                )
+            }
+        })?;
+        let identity = read_windows_handle(&file)?;
+        Ok((file, identity))
+    }
+
+    pub(in crate::infra::filesystem) fn cleanup_temporary(
+        &self,
+        name: &OsStr,
+        expected: Option<&FileIdentity>,
+    ) -> io::Result<()> {
+        let file = match open_relative(
+            &self.leaf,
+            name,
+            READ_ATTRIBUTES | DELETE,
+            NON_DIRECTORY_FILE,
+            SHARE_READ,
+        ) {
+            Ok(file) => file,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error),
+        };
+        if expected != Some(&read_windows_handle(&file)?) {
+            return Err(invalid(
+                "Destination-volume temporary ownership is unproven",
+            ));
+        }
+        let mut delete = 1u8;
+        let mut status = IoStatusBlock::default();
+        // The checked file and one-byte FILE_DISPOSITION_INFORMATION stay alive for the call.
+        check_status(unsafe {
+            NtSetInformationFile(
+                file.as_raw_handle(),
+                &mut status,
+                (&mut delete as *mut u8).cast(),
+                1,
+                13,
+            )
         })
     }
 }
@@ -196,6 +261,26 @@ fn open_relative(
     options: u32,
     share: u32,
 ) -> io::Result<File> {
+    relative_file(parent, name, |output, attributes, status| {
+        // Parent, counted name and writable outputs are valid for the synchronous call.
+        unsafe {
+            NtOpenFile(
+                output,
+                access | SYNCHRONIZE,
+                attributes,
+                status,
+                share,
+                options | SYNCHRONOUS_NONALERT | OPEN_REPARSE_POINT,
+            )
+        }
+    })
+}
+
+fn relative_file(
+    parent: &File,
+    name: &OsStr,
+    open: impl FnOnce(*mut RawHandle, *mut ObjectAttributes, *mut IoStatusBlock) -> i32,
+) -> io::Result<File> {
     let mut name = component(name)?;
     let length = (name.len() * 2) as u16;
     let mut native_name = UnicodeString {
@@ -213,17 +298,7 @@ fn open_relative(
     };
     let mut output = null_mut();
     let mut status = IoStatusBlock::default();
-    // The parent handle, counted name and writeable outputs remain alive for this synchronous call.
-    let result = unsafe {
-        NtOpenFile(
-            &mut output,
-            access | SYNCHRONIZE,
-            &mut attributes,
-            &mut status,
-            share,
-            options | SYNCHRONOUS_NONALERT | OPEN_REPARSE_POINT,
-        )
-    };
+    let result = open(&mut output, &mut attributes, &mut status);
     check_status(result)?;
     if output.is_null() {
         return Err(io::Error::other(
@@ -305,6 +380,19 @@ struct RenameInformation {
 
 #[link(name = "ntdll")]
 extern "system" {
+    fn NtCreateFile(
+        file: *mut RawHandle,
+        access: u32,
+        attributes: *mut ObjectAttributes,
+        status: *mut IoStatusBlock,
+        allocation: *mut i64,
+        file_attributes: u32,
+        share: u32,
+        disposition: u32,
+        options: u32,
+        extended_attributes: RawHandle,
+        extended_length: u32,
+    ) -> i32;
     fn NtOpenFile(
         file: *mut RawHandle,
         access: u32,

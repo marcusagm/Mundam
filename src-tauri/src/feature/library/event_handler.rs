@@ -175,6 +175,9 @@ impl LibraryIndexer {
     ///
     /// Returns `AppError::Io` if filesystem metadata cannot be read.
     async fn handle_file_creation(&self, entry_path: PathBuf) -> AppResult<()> {
+        if crate::core::imports::publication::is_volume_temporary(&entry_path) {
+            return Ok(());
+        }
         if !self.has_indexed_ancestor(&entry_path).await? {
             return Ok(());
         }
@@ -329,10 +332,24 @@ impl LibraryIndexer {
 
         self.pending_removals.remove(&from_path);
 
-        if tokio::fs::metadata(&to_path)
+        // A staged filename has no catalog row. Reconcile the visible entry after publication.
+        let destination_is_directory = tokio::fs::metadata(&to_path)
             .await
-            .is_ok_and(|metadata| metadata.is_dir())
-        {
+            .is_ok_and(|metadata| metadata.is_dir());
+        if !destination_is_directory {
+            use crate::core::imports::publication::is_volume_temporary;
+            if is_volume_temporary(&to_path) {
+                if !is_volume_temporary(&from_path) {
+                    self.handle_path_deleted(from, token).await;
+                }
+                return;
+            }
+            if is_volume_temporary(&from_path) {
+                self.handle_file_discovered(to).await;
+                return;
+            }
+        }
+        if destination_is_directory {
             self.handle_directory_rename(from_path, to_path, token)
                 .await;
         } else {

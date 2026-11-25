@@ -54,13 +54,15 @@ pub struct UploadReceipt {
 }
 
 /// Staging states returned for a batch or an item.
-#[derive(Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UploadState {
     Receiving,
     Ready,
     Publishing,
     Committed,
+    Partial,
+    Failed,
     Cancelled,
 }
 
@@ -74,6 +76,15 @@ pub struct UploadItem {
     pub asset_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<UploadPublicationError>,
+}
+
+/// Owner-visible publication failure without native paths or credentials.
+#[derive(Serialize)]
+pub struct UploadPublicationError {
+    pub code: String,
+    pub retryable: bool,
 }
 
 /// A part whose content and digest were committed together.
@@ -103,7 +114,7 @@ pub enum UploadError {
     Incomplete,
     #[error("An unresolved publication claim is active for this batch")]
     PublicationPending,
-    #[error("The import item has already been published")]
+    #[error("The import item already has a final outcome")]
     PublicationComplete,
     #[error("Stored import parts failed integrity verification")]
     StagingCorrupt,

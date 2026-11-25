@@ -52,9 +52,21 @@ async fn part(
     bytes: &[u8],
     digest: Option<&str>,
 ) -> Result<StatusCode, Box<dyn std::error::Error>> {
+    named_part(app, bearer, batch, "image", number, bytes, digest).await
+}
+
+async fn named_part(
+    app: &Router,
+    bearer: &str,
+    batch: &str,
+    item: &str,
+    number: u32,
+    bytes: &[u8],
+    digest: Option<&str>,
+) -> Result<StatusCode, Box<dyn std::error::Error>> {
     let request = Request::builder()
         .method(Method::PUT)
-        .uri(format!("/v1/imports/{batch}/items/image/parts/{number}"))
+        .uri(format!("/v1/imports/{batch}/items/{item}/parts/{number}"))
         .header(header::HOST, AUTHORITY)
         .header(header::AUTHORIZATION, format!("Bearer {bearer}"))
         .header(header::CONTENT_TYPE, "application/octet-stream")
@@ -66,6 +78,156 @@ async fn part(
         )
         .body(Body::from(bytes.to_vec()))?;
     Ok(app.clone().oneshot(request).await?.status())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn http_commit_reports_per_item_results_and_retains_one_asset_on_replay() -> TestResult {
+    use crate::core::{
+        ledger::{
+            command::{CreateFolderPayload, LedgerCommand},
+            port::TransactionalAssetLedger,
+        },
+        path_guard::LedgerPathGuard,
+    };
+    use crate::infra::{database::ledger::SqliteAssetLedger, events::TokioEventBus};
+    use std::io::Cursor;
+    use tokio_util::sync::CancellationToken;
+
+    let directory = tempfile::tempdir()?;
+    let target = directory.path().join("received");
+    tokio::fs::create_dir(&target).await?;
+    let database = DbManager::new(&directory.path().join("catalog.sqlite")).await?;
+    let pool = database.pool();
+    let ledger = Arc::new(SqliteAssetLedger::new(
+        pool.clone(),
+        Arc::new(TokioEventBus::new()),
+        directory.path().to_path_buf(),
+        Arc::new(LedgerPathGuard::new()),
+    ));
+    let folder = ledger
+        .execute(LedgerCommand::CreateFolder(CreateFolderPayload {
+            name: "Received".into(),
+            path: target.clone(),
+            parent_id: None,
+        }))
+        .await?;
+    sqlx::query("INSERT INTO tags (id, name) VALUES ('proof', 'Proof')")
+        .execute(pool)
+        .await?;
+    let preference = SqliteImportDestinations(pool).preference().await?;
+    let pairing = SqliteImportPairing::new(pool, SERVER_KEY);
+    let invitation = pairing.invite().await?;
+    let scopes = [ImportScope::ImportAssets, ImportScope::AssignTagsOnImport];
+    let request = pairing
+        .request(&invitation.code, "Publication test", &scopes)
+        .await?;
+    pairing
+        .approve(
+            &request.request_id,
+            PairingApproval {
+                catalog_id: &preference.catalog_id,
+                scopes: &scopes,
+                root_ids: std::slice::from_ref(&folder.id),
+            },
+        )
+        .await?;
+    let credentials = pairing.redeem(&request.request_id, &request.secret).await?;
+    let bearer = credentials.bearer.as_str();
+
+    let staging = SqliteImportStaging::open(&directory.path().join("staging.sqlite")).await?;
+    let (queue, worker) =
+        publication::channel(staging.clone(), directory.path().to_path_buf(), ledger);
+    let app = router_with_publication(
+        pool.clone(),
+        AUTHORITY.parse()?,
+        SERVER_KEY,
+        [20; 32],
+        Some(staging),
+        Some(queue.clone()),
+    )?;
+    let shutdown = CancellationToken::new();
+    let task = tokio::spawn(worker.run(queue, shutdown.clone()));
+    let capabilities = send(&app, Method::GET, "/v1/capabilities", Some(bearer), None)
+        .await?
+        .1;
+    assert_eq!(capabilities["publicationAvailable"], true);
+    assert_eq!(capabilities["mediaTypes"], json!(["image/png"]));
+
+    let mut png = Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(3, 2).write_to(&mut png, image::ImageFormat::Png)?;
+    let png = png.into_inner();
+    let invalid = b"not a PNG";
+    let manifest = json!({"folderId": folder.id, "items":[
+        {"itemId":"invalid","fileName":"invalid.png","byteLength":invalid.len()},
+        {"itemId":"image","fileName":"cover.png","byteLength":png.len(),"tagIds":["proof"],
+         "sourceUrl":"https://example.com/gallery"}
+    ]});
+    let (status, admitted) = admit(&app, bearer, "commit", &manifest).await?;
+    assert_eq!(status, 201);
+    let path = admitted["receiptPath"]
+        .as_str()
+        .ok_or("Missing receipt path")?;
+    let batch = admitted["batchId"].as_str().ok_or("Missing batch ID")?;
+    let commit = format!("{path}/commit");
+    assert_eq!(
+        send(&app, Method::POST, &commit, Some(bearer), None)
+            .await?
+            .1["error"]["code"],
+        "IMPORT_INCOMPLETE"
+    );
+    assert_eq!(
+        named_part(&app, bearer, batch, "invalid", 0, invalid, None).await?,
+        204
+    );
+    assert_eq!(part(&app, bearer, batch, 0, &png, None).await?, 204);
+    let accepted = send(&app, Method::POST, &commit, Some(bearer), None).await?;
+    assert_eq!(accepted.0, 202);
+    assert_eq!(accepted.1["state"], "publishing");
+    let outcome = tokio::time::timeout(Duration::from_secs(12), async {
+        loop {
+            let receipt = send(&app, Method::GET, path, Some(bearer), None).await?.1;
+            if receipt["state"] == "partial" && receipt["confirmedParts"] == json!([]) {
+                break Ok::<_, Box<dyn std::error::Error>>(receipt);
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await??;
+    assert_eq!(
+        outcome["items"][0]["error"],
+        json!({"code":"INVALID_MEDIA","retryable":false})
+    );
+    assert_eq!(outcome["items"][1]["state"], "committed");
+    assert_eq!(outcome["items"][1]["fileName"], "cover.png");
+    assert_eq!(tokio::fs::read(target.join("cover.png")).await?, png);
+    assert!(!target.join("invalid.png").try_exists()?);
+    let observed: (String, String) =
+        sqlx::query_as("SELECT source_url, tag_id FROM assets JOIN asset_tags ON asset_id = id")
+            .fetch_one(pool)
+            .await?;
+    assert_eq!(
+        observed,
+        ("https://example.com/gallery".into(), "proof".into())
+    );
+    let replay = send(&app, Method::POST, &commit, Some(bearer), None).await?;
+    assert_eq!(replay, (StatusCode::ACCEPTED, outcome));
+    assert_eq!(
+        named_part(&app, bearer, batch, "invalid", 0, invalid, None).await?,
+        409
+    );
+    pairing
+        .revoke(&preference.catalog_id, &credentials.client_id)
+        .await?;
+    assert_eq!(
+        send(&app, Method::POST, &commit, Some(bearer), None)
+            .await?
+            .0,
+        401
+    );
+    shutdown.cancel();
+    task.await?;
+    Ok(())
 }
 
 #[tokio::test]

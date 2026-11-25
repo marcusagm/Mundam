@@ -42,6 +42,7 @@ async fn prepare(
             attempt_id: None,
             batch_id: Uuid::new_v4(),
             prepared_id,
+            volume_prepared: None,
             folder_id,
             item: ImportItem {
                 item_id: "one".into(),
@@ -151,7 +152,11 @@ async fn invalid_content_or_missing_tags_keeps_staging_intact() -> TestResult {
     let mut wrong_digest = missing_tag.clone();
     wrong_digest.sha256[0] ^= 1;
     missing_tag.item.tag_ids = vec!["missing".into()];
-    for command in [wrong_type, wrong_digest, missing_tag] {
+    assert!(matches!(
+        fixture.ledger.publish_prepared_import(wrong_type).await,
+        Err(crate::core::AppError::UnsupportedFormat(_))
+    ));
+    for command in [wrong_digest, missing_tag] {
         assert!(matches!(
             fixture.ledger.publish_prepared_import(command).await,
             Err(crate::core::AppError::ValidationFailed(_))
@@ -285,6 +290,7 @@ async fn sealed_staging_resumes_after_uncommitted_native_move() -> TestResult {
         attempt_id: None,
         batch_id: sealed.batch_id,
         prepared_id,
+        volume_prepared: None,
         folder_id: sealed.folder_id,
         item: sealed.item,
         sha256: sealed.sha256,
@@ -609,6 +615,147 @@ async fn import_recovery_preserves_replaced_directory_and_can_retry() -> TestRes
     journal::recover(&fixture.pool, &app_data).await?;
     assert_eq!(tokio::fs::read(prepared).await?, bytes);
     assert!(!destination.try_exists()?);
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "Requires MUNDAM_IMPORT_TEST_VOLUME to point to a second writable NTFS volume"]
+async fn publishes_staged_bytes_on_a_second_ntfs_volume() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let app_data = fixture.directory.path().join("app");
+    tokio::fs::create_dir_all(&app_data).await?;
+    let volume = std::env::var_os("MUNDAM_IMPORT_TEST_VOLUME").ok_or("Missing second volume")?;
+    let target = tempfile::Builder::new()
+        .prefix("mundam-import-test-")
+        .tempdir_in(volume)?;
+    let app_identity = crate::infra::filesystem::identity::read(&app_data).await?;
+    let target_identity = crate::infra::filesystem::identity::read(target.path()).await?;
+    assert_ne!(
+        app_identity.device, target_identity.device,
+        "test requires independent physical volumes"
+    );
+    let folder = fixture
+        .ledger
+        .execute(LedgerCommand::CreateFolder(
+            crate::core::ledger::command::CreateFolderPayload {
+                name: "External volume test".into(),
+                path: target.path().to_path_buf(),
+                parent_id: None,
+            },
+        ))
+        .await?;
+    let catalog_id: String = sqlx::query_scalar("SELECT catalog_id FROM import_preferences")
+        .fetch_one(&fixture.pool)
+        .await?;
+    let owner = UploadOwner {
+        catalog_id: &catalog_id,
+        client_id: "browser",
+    };
+    let bytes = png()?;
+    let manifest = ImportManifest {
+        folder_id: Some(folder.id.clone()),
+        tag_ids: vec![],
+        items: vec![ImportItem {
+            item_id: "cover".into(),
+            file_name: "cover.png".into(),
+            byte_length: bytes.len() as u64,
+            source_url: None,
+            tag_ids: vec![],
+        }],
+    };
+    let staging = SqliteImportStaging::open(&app_data.join("staging.sqlite")).await?;
+    let batch = staging
+        .reserve(
+            &owner,
+            "other-volume",
+            &serde_json::to_string(&manifest)?,
+            &manifest,
+            &folder.id,
+        )
+        .await?;
+    staging
+        .store(
+            &owner,
+            &batch.batch_id,
+            "cover",
+            0,
+            &format!("{:x}", Sha256::digest(&bytes)),
+            &bytes,
+        )
+        .await?;
+    let batch_id = Uuid::parse_str(&batch.batch_id)?;
+    let ledger = Arc::new(fixture.ledger);
+    let outcome = staging
+        .publish_item(
+            &owner,
+            batch_id,
+            "cover",
+            PublicationAuthority::Host,
+            &app_data,
+            ledger.clone(),
+        )
+        .await?;
+    assert_eq!(outcome.file_name, "cover.png");
+    assert_eq!(
+        tokio::fs::read(target.path().join("cover.png")).await?,
+        bytes
+    );
+    let receipt = staging.receipt(&owner, &batch.batch_id, None, None).await?;
+    assert!(matches!(receipt.state, UploadState::Committed));
+    let invalid = staging
+        .reserve(
+            &owner,
+            "invalid-cross-volume",
+            &serde_json::to_string(&manifest)?,
+            &manifest,
+            &folder.id,
+        )
+        .await?;
+    let invalid_bytes = vec![0u8; bytes.len()];
+    staging
+        .store(
+            &owner,
+            &invalid.batch_id,
+            "cover",
+            0,
+            &format!("{:x}", Sha256::digest(&invalid_bytes)),
+            &invalid_bytes,
+        )
+        .await?;
+    assert!(matches!(
+        staging
+            .publish_item(
+                &owner,
+                Uuid::parse_str(&invalid.batch_id)?,
+                "cover",
+                PublicationAuthority::Host,
+                &app_data,
+                ledger
+            )
+            .await,
+        Err(UploadError::Other(
+            crate::core::AppError::UnsupportedFormat(_)
+        )),
+    ));
+    assert!(matches!(
+        staging
+            .receipt(&owner, &invalid.batch_id, None, None)
+            .await?
+            .state,
+        UploadState::Ready
+    ));
+    let mut entries = tokio::fs::read_dir(target.path()).await?;
+    assert_eq!(
+        entries
+            .next_entry()
+            .await?
+            .ok_or("Missing published file")?
+            .file_name(),
+        "cover.png"
+    );
+    assert!(entries.next_entry().await?.is_none());
+    assert!(!app_data.join("import-prepared").try_exists()?);
     Ok(())
 }
 

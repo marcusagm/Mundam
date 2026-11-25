@@ -1,7 +1,7 @@
 //! Desktop-only activation of the external import API.
 use crate::{
     bootstrap::AppDirectories,
-    core::AppResult,
+    core::{ledger::port::TransactionalAssetLedger, AppResult},
     delivery::{
         external_api::desktop::{DesktopImportService, ImportEndpoint},
         tauri::admission::IpcRequest,
@@ -42,12 +42,14 @@ pub async fn start_external_import(
     lifecycle: State<'_, Arc<LifecycleRegistry>>,
     database: State<'_, Arc<DbManager>>,
     directories: State<'_, AppDirectories>,
+    ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
 ) -> AppResult<ImportEndpoint> {
     service
         .start(
             lifecycle.inner(),
             database.pool().clone(),
             &directories.app_data,
+            ledger.inner().clone(),
         )
         .await
 }

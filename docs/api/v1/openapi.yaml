@@ -210,9 +210,15 @@ paths:
       operationId: commitImport
       x-required-grants: [assets.import]
       summary: Schedule publication of a complete batch owned by the caller
+      description: |
+        Poll the receipt for per-item results. A repeat for an active batch shares its work.
+        A repeat for a finished batch returns the stored receipt. If the listener stops,
+        use the receipt to retry the remaining items. Currently available for PNG on Windows NTFS.
       responses:
         '202': {$ref: '#/components/responses/Receipt'}
+        '409': {$ref: '#/components/responses/Failure'}
         '501': {$ref: '#/components/responses/Failure'}
+        '503': {$ref: '#/components/responses/Failure'}
         default: {$ref: '#/components/responses/Failure'}
   /v1/imports/{batchId}:
     parameters:

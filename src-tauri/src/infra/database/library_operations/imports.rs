@@ -9,7 +9,8 @@ use crate::core::{
     events::{AppEventBus, DomainEvent},
     imports::{
         publication::{
-            ImportPublicationAttempt, PublicationAuthority, PublishPreparedImport, PublishedImport,
+            ImportPreparationDestination, ImportPublicationAttempt, PublicationAuthority,
+            PublishPreparedImport, PublishedImport,
         },
         staging::LIMITS,
         ImportManifest,
@@ -20,6 +21,26 @@ use crate::infra::filesystem::{import_move::ImportDirectories, prepared_imports}
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, SqliteConnection, SqlitePool};
 use std::path::{Path, PathBuf};
+
+/// Resolves a folder under the same authority the catalog will recheck at publication.
+///
+/// # Errors
+/// Returns grant, folder identity and storage failures.
+pub(in crate::infra::database) async fn preparation_destination(
+    pool: &SqlitePool,
+    authority: &PublicationAuthority,
+    folder_id: &str,
+    has_tags: bool,
+) -> AppResult<ImportPreparationDestination> {
+    let mut snapshot = pool.begin().await?;
+    authorization::revalidate_folder(&mut snapshot, authority, folder_id, has_tags).await?;
+    let folder = records::destination(&mut snapshot, folder_id).await?;
+    snapshot.commit().await?;
+    Ok(ImportPreparationDestination {
+        path: folder.path,
+        identity: folder.identity,
+    })
+}
 
 /// Repairs interrupted moves before reading the catalog outcome of a staging claim.
 ///
@@ -106,7 +127,12 @@ pub(in crate::infra::database) async fn publish(
         return Ok(receipt);
     }
 
-    let source = prepared_imports::path(app_data, command.prepared_id);
+    let source = match &command.volume_prepared {
+        Some(prepared) => {
+            prepared_imports::volume_path(&prepared.directory.path, command.prepared_id)
+        }
+        None => prepared_imports::path(app_data, command.prepared_id),
+    };
     let inspected = content::inspect(&source, &command).await;
     let _operation = LIBRARY_GATE.lock().await;
     let mut connection = pool.acquire().await?;
@@ -204,6 +230,17 @@ async fn write(
 
     let inspected = inspected?;
     let folder = records::destination(&mut transaction, &command.folder_id).await?;
+    if let Some(prepared) = &command.volume_prepared {
+        if prepared.directory.path != folder.path
+            || prepared.directory.identity != folder.identity
+            || prepared.file_identity != inspected.identity
+            || command.attempt_id != Some(command.prepared_id)
+        {
+            return Err(AppError::ValidationFailed(
+                "Destination-volume temporary changed".into(),
+            ));
+        }
+    }
     if folder.identity.device != inspected.identity.device {
         return Err(AppError::ValidationFailed(
             "Prepared import must be on the destination volume".into(),

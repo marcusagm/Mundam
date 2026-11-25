@@ -2,6 +2,7 @@
 mod materialization;
 mod parts;
 mod publication;
+mod volume_preparation;
 
 use crate::core::{
     imports::{

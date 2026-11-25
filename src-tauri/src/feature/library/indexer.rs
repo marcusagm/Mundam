@@ -237,6 +237,9 @@ impl LibraryIndexer {
                     directory_entries.push(entry);
                 }
             } else if entry.file_type().is_file() {
+                if crate::core::imports::publication::is_volume_temporary(entry.path()) {
+                    continue;
+                }
                 let is_supported = entry
                     .path()
                     .extension()

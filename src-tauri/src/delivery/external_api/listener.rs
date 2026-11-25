@@ -1,4 +1,6 @@
 //! HTTPS transport for the import API, independent of desktop activation and discovery.
+use super::publication::{self, PublicationQueue, PublicationWorker};
+use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::{AppError, AppResult};
 use crate::infra::database::import_staging::SqliteImportStaging;
 use axum::Router;
@@ -11,6 +13,7 @@ use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    path::PathBuf,
     sync::Arc,
     time::Duration,
 };
@@ -36,6 +39,7 @@ pub struct ImportHttpsListener {
     router: Router,
     address: SocketAddrV4,
     server_key: [u8; 32],
+    publication: Option<(PublicationQueue, PublicationWorker)>,
 }
 
 impl ImportHttpsListener {
@@ -49,6 +53,32 @@ impl ImportHttpsListener {
         certificate: CertificateDer<'static>,
         private_key: PrivateKeyDer<'static>,
         staging: Option<SqliteImportStaging>,
+    ) -> AppResult<Self> {
+        Self::bind_configured(pool, certificate, private_key, staging, None).await
+    }
+
+    /// Binds the desktop listener with an owned publication job runner.
+    ///
+    /// # Errors
+    /// Returns TLS, randomness or socket configuration failures.
+    pub(super) async fn bind_with_publication(
+        pool: SqlitePool,
+        certificate: CertificateDer<'static>,
+        private_key: PrivateKeyDer<'static>,
+        staging: SqliteImportStaging,
+        app_data: PathBuf,
+        ledger: Arc<dyn TransactionalAssetLedger>,
+    ) -> AppResult<Self> {
+        let worker = publication::channel(staging.clone(), app_data, ledger);
+        Self::bind_configured(pool, certificate, private_key, Some(staging), Some(worker)).await
+    }
+
+    async fn bind_configured(
+        pool: SqlitePool,
+        certificate: CertificateDer<'static>,
+        private_key: PrivateKeyDer<'static>,
+        staging: Option<SqliteImportStaging>,
+        publication: Option<(PublicationQueue, PublicationWorker)>,
     ) -> AppResult<Self> {
         let certificate_key = ParsedCertificate::try_from(&certificate)
             .map_err(tls_configuration_error)?
@@ -72,13 +102,16 @@ impl ImportHttpsListener {
                 "Unexpected import listener address".into(),
             ));
         };
-        let router = super::router(pool, address, server_key, cursor_key, staging)?;
+        let queue = publication.as_ref().map(|(queue, _)| queue.clone());
+        let router =
+            super::router_with_publication(pool, address, server_key, cursor_key, staging, queue)?;
         Ok(Self {
             listener,
             acceptor: TlsAcceptor::from(Arc::new(tls)),
             router,
             address,
             server_key,
+            publication,
         })
     }
 
@@ -92,11 +125,29 @@ impl ImportHttpsListener {
         self.server_key
     }
 
+    pub(super) fn publication_queue(&self) -> Option<PublicationQueue> {
+        self.publication.as_ref().map(|(queue, _)| queue.clone())
+    }
+
     /// Accepts and supervises connections until cancellation or a listener failure.
     ///
     /// # Errors
     /// Returns a listener or connection-task failure after closing remaining connections.
-    pub async fn serve(self, cancellation: CancellationToken) -> AppResult<()> {
+    pub async fn serve(mut self, cancellation: CancellationToken) -> AppResult<()> {
+        if let Some((queue, worker)) = self.publication.take() {
+            let transport = self.serve_connections(cancellation.clone(), Some(&queue));
+            let (result, ()) = tokio::join!(transport, worker.run(queue.clone(), cancellation));
+            result
+        } else {
+            self.serve_connections(cancellation, None).await
+        }
+    }
+
+    async fn serve_connections(
+        self,
+        cancellation: CancellationToken,
+        publication: Option<&PublicationQueue>,
+    ) -> AppResult<()> {
         let connection_cancel = cancellation.child_token();
         let mut connections = JoinSet::new();
         let outcome = loop {
@@ -120,6 +171,9 @@ impl ImportHttpsListener {
                 }
             }
         };
+        if let Some(publication) = publication {
+            publication.close();
+        }
         drop(self.listener);
         connection_cancel.cancel();
         if timeout(Duration::from_secs(3), async {

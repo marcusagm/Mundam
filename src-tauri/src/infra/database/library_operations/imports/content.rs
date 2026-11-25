@@ -34,7 +34,7 @@ pub(super) async fn inspect(
         .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
         || command.item.file_name.len() > 240
     {
-        return Err(AppError::ValidationFailed(
+        return Err(AppError::UnsupportedFormat(
             "Expected a portable PNG file name".into(),
         ));
     }
@@ -55,7 +55,7 @@ pub(super) async fn inspect(
             ));
         }
         if image::guess_format(&bytes).ok() != Some(ImageFormat::Png) {
-            return Err(AppError::ValidationFailed(
+            return Err(AppError::UnsupportedFormat(
                 "Prepared import content is not PNG".into(),
             ));
         }
@@ -66,7 +66,7 @@ pub(super) async fn inspect(
         limits.max_alloc = Some(128 * 1024 * 1024);
         reader.limits(limits);
         let image = reader.decode().map_err(|_| {
-            AppError::ValidationFailed("Prepared PNG is corrupt or exceeds decoding limits".into())
+            AppError::UnsupportedFormat("Prepared PNG is corrupt or exceeds decoding limits".into())
         })?;
         let (width, height) = image.dimensions();
         Ok(InspectedFile {
