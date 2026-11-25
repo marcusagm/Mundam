@@ -256,7 +256,16 @@ async fn commit_or_repair(
     journal: &journal::Journal,
     app_data: &Path,
 ) -> AppResult<()> {
-    if let Err(error) = transaction.commit().await {
+    finish_commit(transaction.commit().await, pool, journal, app_data).await
+}
+
+async fn finish_commit(
+    outcome: Result<(), sqlx::Error>,
+    pool: &SqlitePool,
+    journal: &journal::Journal,
+    app_data: &Path,
+) -> AppResult<()> {
+    if let Err(error) = outcome {
         let committed = library_receipts::committed(pool, &journal.operation_id)
             .await
             .map_err(|lookup| {

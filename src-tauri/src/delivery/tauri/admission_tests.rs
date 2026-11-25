@@ -324,6 +324,8 @@ fn every_registered_business_command_declares_admission() -> TestResult {
         include_str!("commands/queries.rs"),
         include_str!("commands/mutations.rs"),
         include_str!("commands/settings.rs"),
+        include_str!("commands/external_import.rs"),
+        include_str!("commands/external_import_pairing.rs"),
         include_str!("commands/duplicates.rs"),
         include_str!("commands/streaming.rs"),
         include_str!("commands/library.rs"),

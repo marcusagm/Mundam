@@ -1,5 +1,7 @@
 //! Transport-independent consent and authentication for external import clients.
-use super::{catalog::CatalogReadGrant, destinations::DestinationGrant};
+use super::{
+    catalog::CatalogReadGrant, destinations::DestinationGrant, publication::PublicationConsent,
+};
 use crate::core::AppResult;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -84,6 +86,7 @@ pub struct IssuedCredential {
 pub struct AuthenticatedImporter {
     pub catalog: CatalogReadGrant,
     pub scopes: Vec<ImportScope>,
+    publication_consent: PublicationConsent,
 }
 
 impl AuthenticatedImporter {
@@ -93,8 +96,15 @@ impl AuthenticatedImporter {
         grant_version: u64,
         destinations: DestinationGrant,
         scopes: Vec<ImportScope>,
+        server_key: String,
     ) -> Self {
         Self {
+            publication_consent: PublicationConsent {
+                client_id: client_id.clone(),
+                catalog_id: destinations.catalog_id.clone(),
+                grant_version,
+                server_key,
+            },
             catalog: CatalogReadGrant {
                 client_id,
                 grant_version,
@@ -104,6 +114,11 @@ impl AuthenticatedImporter {
             },
             scopes,
         }
+    }
+
+    /// Captures the authority to revalidate inside the catalog writer.
+    pub fn publication_consent(&self) -> PublicationConsent {
+        self.publication_consent.clone()
     }
 }
 

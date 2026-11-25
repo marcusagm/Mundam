@@ -10,3 +10,9 @@ pub(crate) mod folder_recovery;
 
 /// Stable native identities for originals and recovery plans.
 pub(crate) mod identity;
+
+/// Temporary storage used by the staged import coordinator and Ledger.
+pub(crate) mod prepared_imports;
+
+/// Handle-anchored publication and compensation for prepared imports.
+pub(crate) mod import_move;

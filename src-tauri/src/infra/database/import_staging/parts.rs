@@ -1,5 +1,9 @@
 //! Atomic writes and keyset progress reads for staged parts.
-use super::{check_active, lookup, parse_manifest, SqliteImportStaging, StoredBatch};
+use super::{
+    check_active, lookup, parse_manifest,
+    publication::{current_attempt, item_committed},
+    SqliteImportStaging, StoredBatch,
+};
 use crate::core::{
     imports::staging::{
         ConfirmedPart, UploadError, UploadItem, UploadOwner, UploadReceipt, UploadState, LIMITS,
@@ -9,7 +13,7 @@ use crate::core::{
 };
 use sqlx::SqliteConnection;
 
-const PARTS_PER_ITEM: i64 = (LIMITS.max_item_bytes / PART_BYTES as u64) as i64;
+pub(super) const PARTS_PER_ITEM: i64 = (LIMITS.max_item_bytes / PART_BYTES as u64) as i64;
 
 impl SqliteImportStaging {
     /// Durably accepts one part or confirms that the same digest was already accepted.
@@ -32,6 +36,9 @@ impl SqliteImportStaging {
             .enumerate()
             .find(|(_, item)| item.item_id == item_id)
             .ok_or(UploadError::Missing)?;
+        if item_committed(&mut transaction, batch, item_id).await? {
+            return Err(UploadError::PublicationComplete);
+        }
         let offset = u64::from(part_number) * PART_BYTES as u64;
         if offset >= item.byte_length
             || bytes.len() as u64 != (item.byte_length - offset).min(PART_BYTES as u64)
@@ -102,6 +109,9 @@ impl SqliteImportStaging {
     ) -> Result<UploadReceipt, UploadError> {
         let mut transaction = self.0.begin_with("BEGIN IMMEDIATE").await?;
         let mut row = lookup(&mut transaction, owner, batch).await?;
+        if current_attempt(&mut transaction, batch).await?.is_some() {
+            return Err(UploadError::PublicationPending);
+        }
         sqlx::query("UPDATE import_batches SET cancelled = 1 WHERE id = ?")
             .bind(batch)
             .execute(&mut *transaction)
@@ -130,6 +140,13 @@ async fn receipt(
     .bind(batch_id)
     .fetch_all(&mut *connection)
     .await?;
+    let published: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT item_id, asset_id, file_name FROM import_published_items WHERE batch_id = ?",
+    )
+    .bind(batch_id)
+    .fetch_all(&mut *connection)
+    .await?;
+    let active_attempt = current_attempt(connection, batch_id).await?;
     let mut page: Vec<(i64, String, u32)> = sqlx::query_as(
         "SELECT sequence, item_id, part_number FROM import_parts WHERE batch_id = ? AND sequence > ?
          ORDER BY sequence LIMIT ?",
@@ -147,7 +164,15 @@ async fn receipt(
                 .iter()
                 .find(|(id, _)| id == &item.item_id)
                 .map_or(0, |(_, count)| *count as u64);
-            let state = if batch.cancelled {
+            let result = published.iter().find(|(id, _, _)| id == &item.item_id);
+            let state = if result.is_some() {
+                UploadState::Committed
+            } else if active_attempt
+                .as_ref()
+                .is_some_and(|attempt| attempt.item_id == item.item_id)
+            {
+                UploadState::Publishing
+            } else if batch.cancelled {
                 UploadState::Cancelled
             } else if count == item.byte_length.div_ceil(PART_BYTES as u64) {
                 UploadState::Ready
@@ -157,14 +182,23 @@ async fn receipt(
             UploadItem {
                 item_id: item.item_id,
                 state,
+                asset_id: result.map(|(_, id, _)| id.clone()),
+                file_name: result.map(|(_, _, name)| name.clone()),
             }
         })
         .collect();
-    let state = if batch.cancelled {
+    let state = if items
+        .iter()
+        .all(|item| matches!(item.state, UploadState::Committed))
+    {
+        UploadState::Committed
+    } else if active_attempt.is_some() {
+        UploadState::Publishing
+    } else if batch.cancelled {
         UploadState::Cancelled
     } else if items
         .iter()
-        .all(|item| matches!(item.state, UploadState::Ready))
+        .all(|item| matches!(item.state, UploadState::Ready | UploadState::Committed))
     {
         UploadState::Ready
     } else {

@@ -91,7 +91,10 @@ impl DesktopImportService {
         .await
         .map_err(|error| AppError::Internal(error.to_string()))??;
         let certificate_der = STANDARD.encode(identity.certificate.as_ref());
-        let staging = SqliteImportStaging::open(&directory.join("import-staging.sqlite")).await?;
+        let staging = SqliteImportStaging::open(
+            &directory.join(crate::infra::database::import_staging::DATABASE_NAME),
+        )
+        .await?;
         let listener = ImportHttpsListener::bind(
             pool,
             identity.certificate,

@@ -112,15 +112,6 @@ pub(super) async fn recheck_source(path: &Path, inspected: &InspectedFile) -> Ap
     .map_err(|error| AppError::Internal(error.to_string()))?
 }
 
-pub(super) async fn recheck_file(path: &Path, expected: &FileIdentity) -> AppResult<()> {
-    if &identity::read(path).await? != expected {
-        return Err(AppError::ValidationFailed(
-            "Published file identity differs from the prepared file".into(),
-        ));
-    }
-    Ok(())
-}
-
 pub(super) async fn recheck_directory(path: &Path, expected: &FileIdentity) -> AppResult<()> {
     if !tokio::fs::symlink_metadata(path).await?.is_dir()
         || &identity::read(path).await? != expected

@@ -4,6 +4,7 @@ use crate::core::{
     error::{AppError, AppResult},
     library::FileIdentity,
 };
+use crate::infra::filesystem::import_move::{ImportDirectories, ImportParents};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,65 @@ struct Movement {
     source: PathBuf,
     destination: PathBuf,
     identity: FileIdentity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    import_content: Option<ImportContent>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ImportContent {
+    length: u64,
+    sha256: [u8; 32],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    parents: Option<ImportParents>,
+}
+
+impl Movement {
+    async fn verified_identity(&self, path: &Path) -> AppResult<FileIdentity> {
+        let actual = crate::infra::filesystem::identity::read(path).await?;
+        if actual == self.identity {
+            return Ok(actual);
+        }
+        if cfg!(windows)
+            && actual.device == self.identity.device
+            && actual.object == self.identity.object
+        {
+            if let Some(content) = &self.import_content {
+                if verifies_import_bytes(path, content.length, content.sha256).await?
+                    && crate::infra::filesystem::identity::read(path).await? == actual
+                {
+                    return Ok(actual);
+                }
+            }
+        }
+        Err(AppError::ValidationFailed(
+            "Moved file does not match the prepared identity".into(),
+        ))
+    }
+}
+
+async fn verifies_import_bytes(path: &Path, length: u64, sha256: [u8; 32]) -> AppResult<bool> {
+    use sha2::{Digest, Sha256};
+    use tokio::io::AsyncReadExt;
+    if length > crate::core::imports::staging::LIMITS.max_item_bytes
+        || !tokio::fs::symlink_metadata(path).await?.is_file()
+    {
+        return Ok(false);
+    }
+    let mut file = tokio::fs::File::open(path).await?.take(length + 1);
+    let mut digest = Sha256::new();
+    let mut remaining = length;
+    let mut chunk = vec![0; 64 * 1024];
+    loop {
+        let count = file.read(&mut chunk).await?;
+        if count == 0 {
+            return Ok(remaining == 0 && <[u8; 32]>::from(digest.finalize()) == sha256);
+        }
+        let Some(left) = remaining.checked_sub(count as u64) else {
+            return Ok(false);
+        };
+        remaining = left;
+        digest.update(&chunk[..count]);
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -66,6 +126,54 @@ impl Journal {
     /// # Errors
     /// Returns identity, serialization and durable-storage failures.
     pub async fn prepare(app_data: &Path, changes: &DiskChanges) -> AppResult<Self> {
+        Self::prepare_movements(app_data, changes, None).await
+    }
+
+    /// Persists content evidence for a single import move before it can touch the destination.
+    ///
+    /// # Errors
+    /// Returns validation, identity or durable-storage failures.
+    pub(super) async fn prepare_import(
+        app_data: &Path,
+        changes: &DiskChanges,
+        length: u64,
+        sha256: [u8; 32],
+        parents: ImportParents,
+    ) -> AppResult<Self> {
+        if changes.moves.len() != 1 {
+            return Err(AppError::Internal(
+                "An import journal requires exactly one movement".into(),
+            ));
+        }
+        Self::prepare_movements(
+            app_data,
+            changes,
+            Some(ImportContent {
+                length,
+                sha256,
+                parents: Some(parents),
+            }),
+        )
+        .await
+    }
+
+    /// Reads the final identity for the catalog, accounting for NTFS timestamp inheritance.
+    ///
+    /// # Errors
+    /// Rejects an unverifiable destination or missing journal movement.
+    pub(super) async fn published_import_identity(&self) -> AppResult<FileIdentity> {
+        let movement = self
+            .movements
+            .first()
+            .ok_or_else(|| AppError::Internal("Missing import movement".into()))?;
+        movement.verified_identity(&movement.destination).await
+    }
+
+    async fn prepare_movements(
+        app_data: &Path,
+        changes: &DiskChanges,
+        mut import_content: Option<ImportContent>,
+    ) -> AppResult<Self> {
         let mut movements = Vec::new();
         for (source, destination) in &changes.moves {
             let identity = match movements
@@ -79,6 +187,7 @@ impl Journal {
                 source: source.clone(),
                 destination: destination.clone(),
                 identity,
+                import_content: import_content.take(),
             });
         }
         let journal = Self {
@@ -141,13 +250,29 @@ impl Journal {
         let mut failures = Vec::new();
         for (index, movement) in self.movements.iter().enumerate().rev() {
             let result = async {
-                if owns_exact_path(&movement.source, &movement.identity).await {
+                let directories = if let Some(parents) = movement
+                    .import_content
+                    .as_ref()
+                    .and_then(|content| content.parents.as_ref())
+                {
+                    let directories =
+                        ImportDirectories::open(&movement.source, &movement.destination).await?;
+                    if &directories.parents != parents {
+                        return Err(AppError::ValidationFailed(
+                            "Import recovery directory identity changed".into(),
+                        ));
+                    }
+                    Some(directories)
+                } else {
+                    None
+                };
+                if owns_exact_path(&movement.source, movement).await {
                     return Ok(());
                 }
-                if !owns_exact_path(&movement.destination, &movement.identity).await {
+                if !owns_exact_path(&movement.destination, movement).await {
                     for previous in &self.movements[..index] {
                         if previous.identity == movement.identity
-                            && owns_exact_path(&previous.source, &movement.identity).await
+                            && owns_exact_path(&previous.source, movement).await
                         {
                             return Ok(());
                         }
@@ -156,7 +281,14 @@ impl Journal {
                         "Neither path contains the expected file identity".into(),
                     ));
                 }
-                move_without_replace(&movement.destination, &movement.source).await
+                if let Some(directories) = directories {
+                    let identity = movement.verified_identity(&movement.destination).await?;
+                    directories
+                        .move_file(&movement.destination, &movement.source, &identity, true)
+                        .await
+                } else {
+                    move_without_replace(&movement.destination, &movement.source).await
+                }
             }
             .await;
             if let Err(error) = result {
@@ -260,7 +392,7 @@ pub(crate) async fn recover(pool: &SqlitePool, app_data: &Path) -> AppResult<()>
     }
 }
 
-async fn owns_exact_path(path: &Path, expected: &FileIdentity) -> bool {
+async fn owns_exact_path(path: &Path, movement: &Movement) -> bool {
     let Some(parent) = path.parent() else {
         return false;
     };
@@ -275,7 +407,7 @@ async fn owns_exact_path(path: &Path, expected: &FileIdentity) -> bool {
                 .nfc()
                 .eq(name.to_string_lossy().nfc())
         }) {
-            return matches!(crate::infra::filesystem::identity::read(path).await, Ok(actual) if actual == *expected);
+            return movement.verified_identity(path).await.is_ok();
         }
     }
     false

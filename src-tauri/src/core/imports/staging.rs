@@ -1,5 +1,5 @@
 //! Bounded import staging policy and receipts, independent of HTTP and SQLite.
-use super::ImportLimits;
+use super::{ImportItem, ImportLimits};
 use crate::core::AppError;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -18,6 +18,18 @@ pub const LIMITS: ImportLimits = ImportLimits {
 pub struct UploadOwner<'a> {
     pub catalog_id: &'a str,
     pub client_id: &'a str,
+}
+
+/// Item declaration and host-computed digest from a verified staging snapshot.
+pub struct SealedStagedItem {
+    /// Durable staging batch identity.
+    pub batch_id: uuid::Uuid,
+    /// Catalog destination resolved at admission.
+    pub folder_id: String,
+    /// Sealed declaration including the effective tag IDs.
+    pub item: ImportItem,
+    /// SHA-256 of the complete byte stream in part order.
+    pub sha256: [u8; 32],
 }
 
 /// Instructions returned after a reservation is persisted.
@@ -47,6 +59,8 @@ pub struct UploadReceipt {
 pub enum UploadState {
     Receiving,
     Ready,
+    Publishing,
+    Committed,
     Cancelled,
 }
 
@@ -56,6 +70,10 @@ pub enum UploadState {
 pub struct UploadItem {
     pub item_id: String,
     pub state: UploadState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
 }
 
 /// A part whose content and digest were committed together.
@@ -81,6 +99,14 @@ pub enum UploadError {
     PartConflict,
     #[error("The part number or length does not match the manifest")]
     InvalidPart,
+    #[error("Not all parts of the batch are present")]
+    Incomplete,
+    #[error("An unresolved publication claim is active for this batch")]
+    PublicationPending,
+    #[error("The import item has already been published")]
+    PublicationComplete,
+    #[error("Stored import parts failed integrity verification")]
+    StagingCorrupt,
     #[error("Import staging quota is full")]
     Quota,
     #[error("Import staging ran out of disk space")]

@@ -53,10 +53,18 @@ fn native_identity(path: &Path) -> io::Result<FileIdentity> {
 
 #[cfg(windows)]
 fn native_identity(path: &Path) -> io::Result<FileIdentity> {
-    use std::{
-        fs::OpenOptions,
-        os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
-    };
+    use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
+    let file = OpenOptions::new()
+        .access_mode(0x80)
+        .share_mode(7)
+        .custom_flags(0x02000000 | 0x00200000)
+        .open(path)?;
+    read_windows_handle(&file)
+}
+
+#[cfg(windows)]
+pub(super) fn read_windows_handle(file: &std::fs::File) -> io::Result<FileIdentity> {
+    use std::os::windows::io::AsRawHandle;
     #[repr(C)]
     #[derive(Default)]
     struct Information {
@@ -78,15 +86,15 @@ fn native_identity(path: &Path) -> io::Result<FileIdentity> {
             information: *mut Information,
         ) -> i32;
     }
-    let file = OpenOptions::new()
-        .access_mode(0x80)
-        .share_mode(7)
-        .custom_flags(0x02000000 | 0x00200000)
-        .open(path)?;
     let mut information = Information::default();
     // The owned handle and initialized output buffer remain valid throughout the call.
     if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut information) } == 0 {
         return Err(io::Error::last_os_error());
+    }
+    if information.attributes & 0x400 != 0 {
+        return Err(io::Error::other(
+            "Reparse points cannot identify managed entries",
+        ));
     }
     Ok(FileIdentity {
         device: information.volume as u64,

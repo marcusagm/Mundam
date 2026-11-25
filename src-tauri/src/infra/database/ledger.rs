@@ -122,6 +122,20 @@ impl SqliteAssetLedger {
 /// A `Result` containing the updated asset or an error.
 #[async_trait]
 impl TransactionalAssetLedger for SqliteAssetLedger {
+    async fn reconcile_import_attempt(
+        &self,
+        catalog_id: &str,
+        attempt: &crate::core::imports::publication::ImportPublicationAttempt,
+    ) -> AppResult<Option<crate::core::imports::publication::PublishedImport>> {
+        super::library_operations::imports::reconcile_attempt(
+            &self.pool,
+            &self.app_data_directory,
+            catalog_id,
+            attempt,
+        )
+        .await
+    }
+
     async fn publish_prepared_import(
         &self,
         command: crate::core::imports::publication::PublishPreparedImport,

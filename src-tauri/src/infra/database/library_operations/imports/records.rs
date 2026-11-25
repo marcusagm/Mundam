@@ -152,20 +152,13 @@ pub(super) async fn record(
         }
     }
     sqlx::query(
-        "INSERT INTO library_file_identities (asset_id, device, object, birth) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&asset_id)
-    .bind(inspected.identity.device.to_string())
-    .bind(inspected.identity.object.to_string())
-    .bind(inspected.identity.birth.map(|birth| birth.to_string()))
-    .execute(&mut **transaction)
-    .await?;
-    sqlx::query(
-        "INSERT INTO import_publication_receipts (batch_id, item_id, fingerprint, asset_id, file_name)
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO import_publication_receipts (batch_id, item_id, fingerprint, asset_id, file_name, attempt_id)
+         VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(batch_id).bind(&command.item.item_id).bind(fingerprint.as_slice())
-    .bind(&asset_id).bind(&file_name).execute(&mut **transaction).await?;
+    .bind(&asset_id).bind(&file_name)
+    .bind(command.attempt_id.map(|attempt_id| attempt_id.to_string()))
+    .execute(&mut **transaction).await?;
     shared::log_operation(
         transaction,
         "IMPORT_ASSET",
@@ -179,4 +172,21 @@ pub(super) async fn record(
         asset_id,
         file_name,
     })
+}
+
+pub(super) async fn record_identity(
+    transaction: &mut Transaction<'_, Sqlite>,
+    asset_id: &str,
+    identity: &FileIdentity,
+) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO library_file_identities (asset_id, device, object, birth) VALUES (?, ?, ?, ?)",
+    )
+    .bind(asset_id)
+    .bind(identity.device.to_string())
+    .bind(identity.object.to_string())
+    .bind(identity.birth.map(|birth| birth.to_string()))
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
 }

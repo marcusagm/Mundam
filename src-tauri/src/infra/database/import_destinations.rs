@@ -4,7 +4,7 @@ use crate::core::{
     imports::destinations::{DestinationGrant, ImportDestinations, ImportPreference},
 };
 use async_trait::async_trait;
-use sqlx::SqlitePool;
+use sqlx::{SqliteExecutor, SqlitePool};
 use std::{io::ErrorKind, path::Path};
 
 /// Borrows the same catalog pool used by the library.
@@ -51,10 +51,23 @@ impl ImportDestinations for SqliteImportDestinations<'_> {
         grant: &DestinationGrant,
         requested: Option<&str>,
     ) -> AppResult<Option<String>> {
-        let root_ids = serde_json::to_string(&grant.root_ids)
-            .map_err(|error| AppError::Internal(error.to_string()))?;
-        let destination: Option<(String, String, String)> = sqlx::query_as(
-            "WITH RECURSIVE lineage(id, parent_id, path) AS (
+        resolve_scoped(self.0, grant, requested).await
+    }
+}
+
+/// Resolves the current topology with the caller's SQLite snapshot or writer.
+///
+/// # Errors
+/// Returns storage and filesystem failures during scoped resolution.
+pub(super) async fn resolve_scoped<'executor>(
+    executor: impl SqliteExecutor<'executor>,
+    grant: &DestinationGrant,
+    requested: Option<&str>,
+) -> AppResult<Option<String>> {
+    let root_ids = serde_json::to_string(&grant.root_ids)
+        .map_err(|error| AppError::Internal(error.to_string()))?;
+    let destination: Option<(String, String, String)> = sqlx::query_as(
+        "WITH RECURSIVE lineage(id, parent_id, path) AS (
                  SELECT folders.id, folders.parent_id, folders.path
                  FROM import_preferences JOIN folders
                    ON folders.id = COALESCE(?1, import_preferences.default_folder_id)
@@ -68,23 +81,22 @@ impl ImportDestinations for SqliteImportDestinations<'_> {
              JOIN lineage AS destination ON destination.id = COALESCE(?1, default_folder_id)
              JOIN lineage AS root ON root.parent_id IS NULL
              WHERE root.id IN (SELECT value FROM json_each(?3))",
-        )
-        .bind(requested)
-        .bind(&grant.catalog_id)
-        .bind(root_ids)
-        .fetch_optional(self.0)
-        .await?;
-        let Some((id, destination, root)) = destination else {
-            return Ok(None);
-        };
-        let Some(root) = existing_directory(Path::new(&root)).await? else {
-            return Ok(None);
-        };
-        let Some(destination) = existing_directory(Path::new(&destination)).await? else {
-            return Ok(None);
-        };
-        Ok(destination.starts_with(root).then_some(id))
-    }
+    )
+    .bind(requested)
+    .bind(&grant.catalog_id)
+    .bind(root_ids)
+    .fetch_optional(executor)
+    .await?;
+    let Some((id, destination, root)) = destination else {
+        return Ok(None);
+    };
+    let Some(root) = existing_directory(Path::new(&root)).await? else {
+        return Ok(None);
+    };
+    let Some(destination) = existing_directory(Path::new(&destination)).await? else {
+        return Ok(None);
+    };
+    Ok(destination.starts_with(root).then_some(id))
 }
 
 async fn existing_directory(path: &Path) -> AppResult<Option<std::path::PathBuf>> {

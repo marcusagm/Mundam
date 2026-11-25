@@ -35,7 +35,7 @@ pub struct ImportManifest {
 }
 
 /// Client identity and declared attributes of one file. The host owns physical paths.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImportItem {
     pub item_id: String,

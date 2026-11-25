@@ -64,6 +64,20 @@ pub trait TransactionalAssetLedger: Send + Sync {
         ))
     }
 
+    /// Reconciles native effects and returns the commit proof for one staging claim.
+    ///
+    /// # Errors
+    /// Returns repair or persistence failures. Unsupported adapters fail closed.
+    async fn reconcile_import_attempt(
+        &self,
+        _catalog_id: &str,
+        _attempt: &crate::core::imports::publication::ImportPublicationAttempt,
+    ) -> AppResult<Option<crate::core::imports::publication::PublishedImport>> {
+        Err(crate::core::error::AppError::Internal(
+            "Import attempt reconciliation is unsupported".into(),
+        ))
+    }
+
     /// Executes a mutation command and returns the resulting Asset entity.
     ///
     /// # Arguments

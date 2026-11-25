@@ -86,6 +86,12 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
 
     crate::infra::database::library_operations::journal::recover(db_manager.pool(), &dirs.app_data)
         .await?;
+    recover_import_staging(
+        db_manager.pool(),
+        &dirs.app_data,
+        asset_ledger_impl.as_ref(),
+    )
+    .await;
     crate::infra::database::handlers::shared::normalize_database_paths(db_manager.pool()).await?;
     crate::infra::database::handlers::library::identities::seed_missing(db_manager.pool()).await?;
     let cleanup_pool = db_manager.pool().clone();
@@ -173,4 +179,33 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
     app.manage(duplicates_command_service);
 
     Ok(())
+}
+
+async fn recover_import_staging(
+    pool: &sqlx::SqlitePool,
+    app_data: &std::path::Path,
+    ledger: &dyn crate::core::ledger::port::TransactionalAssetLedger,
+) {
+    use crate::infra::database::import_staging::{SqliteImportStaging, DATABASE_NAME};
+    let result = async {
+        let path = app_data.join(DATABASE_NAME);
+        if !tokio::fs::try_exists(&path)
+            .await
+            .map_err(crate::core::AppError::from)?
+        {
+            return Ok(());
+        }
+        let catalog_id: String =
+            sqlx::query_scalar("SELECT catalog_id FROM import_preferences WHERE singleton = 1")
+                .fetch_one(pool)
+                .await?;
+        let staging = SqliteImportStaging::open(&path).await?;
+        staging
+            .recover_for_catalog(&catalog_id, app_data, ledger)
+            .await
+    }
+    .await;
+    if let Err(error) = result {
+        tracing::warn!(%error, "Import staging recovery remains pending");
+    }
 }

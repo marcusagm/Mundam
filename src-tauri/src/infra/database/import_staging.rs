@@ -1,5 +1,7 @@
 //! Per-user, bounded import bytes and receipts in a separate FULL-synchronous SQLite store.
+mod materialization;
 mod parts;
+mod publication;
 
 use crate::core::{
     imports::{
@@ -19,6 +21,9 @@ const CLIENT_QUOTA: i64 = 64 * 1024 * 1024;
 const TOTAL_QUOTA: i64 = 128 * 1024 * 1024;
 const RECEIVE_SECONDS: i64 = 24 * 3600;
 const RECEIPT_SECONDS: i64 = 7 * 24 * 3600;
+
+/// File shared by the desktop listener and startup recovery.
+pub(crate) const DATABASE_NAME: &str = "import-staging.sqlite";
 
 /// Holds the isolated staging database, with the catalog and client included in each owner key.
 #[derive(Clone)]
@@ -87,10 +92,12 @@ impl SqliteImportStaging {
         purge(&mut transaction, now).await?;
         let (records, total, client_total): (i64, i64, i64) = sqlx::query_as(
             "SELECT COUNT(*),
-                COALESCE(SUM(CASE WHEN expires > ?1 AND cancelled = 0 THEN reserved_bytes END), 0),
-                COALESCE(SUM(CASE WHEN expires > ?1 AND cancelled = 0 AND catalog = ?2 AND owner = ?3
+                COALESCE(SUM(CASE WHEN (expires > ?1 OR pending.batch_id IS NOT NULL) AND cancelled = 0
+                    THEN reserved_bytes END), 0),
+                COALESCE(SUM(CASE WHEN (expires > ?1 OR pending.batch_id IS NOT NULL)
+                    AND cancelled = 0 AND catalog = ?2 AND owner = ?3
                     THEN reserved_bytes END), 0)
-             FROM import_batches",
+             FROM import_batches LEFT JOIN import_publication_claims AS pending ON pending.batch_id = import_batches.id",
         ).bind(now).bind(owner.catalog_id).bind(owner.client_id)
         .fetch_one(&mut *transaction).await?;
         let bytes = manifest
@@ -139,6 +146,18 @@ async fn lookup(
     owner: &UploadOwner<'_>,
     batch: &str,
 ) -> Result<StoredBatch, UploadError> {
+    let row = lookup_owned(connection, owner, batch).await?;
+    if row.expires <= Utc::now().timestamp() {
+        return Err(UploadError::Expired);
+    }
+    Ok(row)
+}
+
+async fn lookup_owned(
+    connection: &mut SqliteConnection,
+    owner: &UploadOwner<'_>,
+    batch: &str,
+) -> Result<StoredBatch, UploadError> {
     let row: StoredBatch = sqlx::query_as(
         "SELECT manifest, folder_id, expires, cancelled FROM import_batches
          WHERE id = ? AND catalog = ? AND owner = ?",
@@ -149,9 +168,6 @@ async fn lookup(
     .fetch_optional(connection)
     .await?
     .ok_or(UploadError::Missing)?;
-    if row.expires <= Utc::now().timestamp() {
-        return Err(UploadError::Expired);
-    }
     Ok(row)
 }
 
@@ -169,14 +185,21 @@ async fn replay(
     manifest: &str,
     now: i64,
 ) -> Result<Option<UploadAdmission>, UploadError> {
-    let existing: Option<(String, String, i64)> = sqlx::query_as(
-        "SELECT id, manifest, expires FROM import_batches WHERE catalog = ? AND owner = ? AND request_key = ?",
-    ).bind(owner.catalog_id).bind(owner.client_id).bind(key).fetch_optional(connection).await?;
-    let Some((id, original, expires)) = existing else {
+    let existing: Option<(String, String, i64, bool)> = sqlx::query_as(
+        "SELECT id, manifest, expires, EXISTS(
+            SELECT 1 FROM import_publication_claims WHERE batch_id = import_batches.id
+         ) FROM import_batches WHERE catalog = ? AND owner = ? AND request_key = ?",
+    )
+    .bind(owner.catalog_id)
+    .bind(owner.client_id)
+    .bind(key)
+    .fetch_optional(connection)
+    .await?;
+    let Some((id, original, expires, pending)) = existing else {
         return Ok(None);
     };
     if expires <= now {
-        if expires + RECEIPT_SECONDS <= now {
+        if !pending && expires + RECEIPT_SECONDS <= now {
             return Ok(None);
         }
         return Err(UploadError::Expired);
@@ -188,12 +211,22 @@ async fn replay(
 }
 
 async fn purge(connection: &mut SqliteConnection, now: i64) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM import_parts WHERE batch_id IN (SELECT id FROM import_batches WHERE expires <= ?)")
-        .bind(now).execute(&mut *connection).await?;
-    sqlx::query("DELETE FROM import_batches WHERE expires <= ?")
-        .bind(now - RECEIPT_SECONDS)
-        .execute(connection)
-        .await?;
+    sqlx::query(
+        "DELETE FROM import_parts WHERE batch_id IN (
+        SELECT id FROM import_batches WHERE expires <= ?
+        AND id NOT IN (SELECT batch_id FROM import_publication_claims)
+    )",
+    )
+    .bind(now)
+    .execute(&mut *connection)
+    .await?;
+    sqlx::query(
+        "DELETE FROM import_batches WHERE expires <= ?
+        AND id NOT IN (SELECT batch_id FROM import_publication_claims)",
+    )
+    .bind(now - RECEIPT_SECONDS)
+    .execute(connection)
+    .await?;
     Ok(())
 }
 

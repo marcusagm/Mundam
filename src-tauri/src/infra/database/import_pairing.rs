@@ -225,6 +225,7 @@ impl ImportPairing for SqliteImportPairing<'_> {
                 root_ids,
             },
             scopes_from_mask(scopes),
+            self.server_key.clone(),
         ))
     }
 
