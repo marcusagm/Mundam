@@ -85,3 +85,16 @@
 .favorite-active-icon {
     color: var(--color-primary-500);
 }
+
+.inspector-filename-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--p-space-xs);
+}
+
+.inspector-filename {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    user-select: text;
+}

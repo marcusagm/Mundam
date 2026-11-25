@@ -1,13 +1,3 @@
-/* Transitions */
-/* .shell-sidebar,
-.shell-inspector,
-.ui-resizable-handle {
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                flex-grow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.2s ease;
-    will-change: width, flex-grow;
-} */
-
 /* Disable transitions during drag to prevent lag */
 .ui-resizable-group.is-resizing .shell-sidebar,
 .ui-resizable-group.is-resizing .shell-inspector,
@@ -68,13 +58,4 @@
 .shell-inspector {
   background-color: var(--bg-sidebar);
   overflow-y: auto;
-}
-
-.shell-footer {
-  border-top: 1px solid var(--border-subtle);
-  height: var(--global-statusbar-height);
-  display: flex;
-  align-items: center;
-  font-size: var(--p-font-size-xs);
-  background-color: var(--bg-sidebar);
 }

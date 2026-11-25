@@ -1,3 +1,5 @@
+import { DuplicateStatusCounts } from '../components/features/duplicates/DuplicateStatusCounts';
+import { GlobalStatusbar } from '../components/layout/GlobalStatusbar';
 import { Component, JSX, Show, createSignal } from 'solid-js';
 import { RefreshCw, Search, Bell, Settings } from 'lucide-solid';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui';
@@ -51,15 +53,12 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
         preloadGroupCandidates
     } = useDuplicateGroups();
 
+    const [selectedAssetCount, setSelectedAssetCount] = createSignal(0);
     const [isRulesModalOpen, setIsRulesModalOpen] = createSignal(false);
 
     createConditionalScope('duplicate-finder', () => true, 20);
 
-    const selectedGroup = () => {
-        const currentGroups = groups();
-        if (!currentGroups) return undefined;
-        return currentGroups.find(group => group.id === selectedGroupId());
-    };
+    const selectedGroup = () => visibleGroups().find(group => group.id === selectedGroupId());
 
     const scanProgressValue = scan.progress;
 
@@ -213,44 +212,51 @@ export const DuplicateFinderView: Component<DuplicateFinderViewProperties> = pro
                 <ResizablePanel id="details-panel" defaultSize={70}>
                     <div class="duplicate-finder-content">
                         <Show
-                            when={
-                                selectedGroup() && selectedGroup()!.candidatesLoaded
-                                    ? selectedGroup()
-                                    : undefined
-                            }
+                            keyed
+                            when={selectedGroup()?.candidatesLoaded && selectedGroup()?.id}
                             fallback={
                                 <div class="duplicate-finder-empty">
                                     <h2>
-                                        {selectedGroupId()
-                                            ? selectedGroup()?.candidatesLoaded
-                                                ? 'No valid candidates found for this group.'
-                                                : 'Loading candidates...'
+                                        {selectedGroup()
+                                            ? 'Loading candidates...'
                                             : 'Select a group'}
                                     </h2>
                                 </div>
                             }
                         >
-                            <Show
-                                when={selectedGroup()!.candidates.length > 0}
-                                fallback={
-                                    <div class="duplicate-finder-empty">
-                                        <p style={{ color: 'var(--text-tertiary)' }}>
-                                            The assets in this group are missing or have been
-                                            deleted.
-                                        </p>
-                                    </div>
-                                }
-                            >
-                                <DuplicateComparisonPanel
-                                    group={selectedGroup()!}
-                                    onResolve={resolveGroup}
-                                    onUndo={undoResolution}
-                                />
-                            </Show>
+                            {groupId => (
+                                <Show
+                                    when={selectedGroup()!.candidates.length > 0}
+                                    fallback={
+                                        <div class="duplicate-finder-empty">
+                                            <p style={{ color: 'var(--text-tertiary)' }}>
+                                                The assets in this group are missing or have been
+                                                deleted.
+                                            </p>
+                                        </div>
+                                    }
+                                >
+                                    <DuplicateComparisonPanel
+                                        onSelectionCountChange={setSelectedAssetCount}
+                                        group={selectedGroup()!}
+                                        onResolve={resolveGroup}
+                                        onUndo={() => undoResolution(groupId)}
+                                    />
+                                </Show>
+                            )}
                         </Show>
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            <GlobalStatusbar
+                context={
+                    <DuplicateStatusCounts
+                        groups={groups()}
+                        shown={visibleGroups().length}
+                        selected={selectedAssetCount()}
+                    />
+                }
+            />
 
             <DuplicateRulesModal
                 isOpen={isRulesModalOpen()}

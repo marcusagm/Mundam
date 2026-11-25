@@ -1,7 +1,12 @@
 import { Component, createSignal, createEffect, untrack, Show } from 'solid-js';
-import { Info, FileText, Calendar, HardDrive, Heart } from 'lucide-solid';
+import { Info, FileText, Calendar, HardDrive, Heart, Pencil } from 'lucide-solid';
 import { AccordionItem, AccordionHeader, AccordionContent, Toggle } from '../../../ui';
-import { Input } from '../../../ui/Input';
+import { Button } from '../../../ui/Button';
+import {
+    assetRenameTarget,
+    FolderActionsDialog,
+    type FolderDialogTarget
+} from '../../library/FolderActionsDialog';
 import { StarRating } from './StarRating.tsx';
 import { useLibrary } from '../../../../core/hooks';
 import { itemActions } from '../../../../core/store/library/itemActions';
@@ -33,6 +38,7 @@ export const CommonMetadata: Component<CommonMetadataProps> = props => {
      * Gets the library instance.
      * @returns The library instance.
      */
+    const [renameTarget, setRenameTarget] = createSignal<FolderDialogTarget | null>(null);
     const library = useLibrary();
 
     /**
@@ -72,8 +78,29 @@ export const CommonMetadata: Component<CommonMetadataProps> = props => {
             <AccordionHeader title="General Info" icon={<Info size={14} />} />
             <AccordionContent>
                 <div class="inspector-field-group">
-                    <label class="inspector-label">Name</label>
-                    <Input value={props.item?.filename || ''} disabled />
+                    <span class="inspector-label">Name</span>
+                    <Show when={props.item}>
+                        {item => (
+                            <div class="inspector-filename-row">
+                                <span class="inspector-filename">{item().filename}</span>
+                                <Show when={item().path && !item().deleted_at}>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        aria-label="Rename file"
+                                        title="Rename file"
+                                        onClick={() => setRenameTarget(assetRenameTarget(item()))}
+                                    >
+                                        <Pencil size={14} />
+                                    </Button>
+                                </Show>
+                            </div>
+                        )}
+                    </Show>
+                    <FolderActionsDialog
+                        target={renameTarget()}
+                        onClose={() => setRenameTarget(null)}
+                    />
                 </div>
 
                 <div class="inspector-grid">

@@ -17,7 +17,11 @@ import { useLibrary } from '../../../../core/hooks/useLibrary';
 import { useTrashActions } from '../../../../core/hooks/useTrashActions';
 import { useNotification } from '../../../../core/hooks/useNotification';
 import { useFilters } from '../../../../core/hooks/useFilters';
-import { FolderActionsDialog, FolderDialogTarget } from '../../library/FolderActionsDialog';
+import {
+    assetRenameTarget,
+    FolderActionsDialog,
+    FolderDialogTarget
+} from '../../library/FolderActionsDialog';
 
 /**
  * Interface for Component's Properties of AssetContextMenu.
@@ -44,7 +48,7 @@ export interface AssetContextMenuProps {
  * @returns {JSX.Element} - Component AssetContextMenu.
  */
 export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
-    const { items: allItems, restoreFromTrashAssets } = useLibrary();
+    const library = useLibrary();
     const trash = useTrashActions();
     const notify = useNotification();
     const filters = useFilters();
@@ -65,7 +69,7 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
             selectionState.selectedIds.includes(clickedIdStr) &&
             selectionState.selectedIds.length > 1
         ) {
-            const selected = allItems.filter(i =>
+            const selected = library.items.filter(i =>
                 selectionState.selectedIds.includes(i.id.toString())
             );
             if (selected.length > 0) return selected;
@@ -76,7 +80,7 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
 
     const handleRestoreAssets = async (assets: AssetItem[], isMulti: boolean) => {
         const ids = assets.map(a => a.id);
-        await restoreFromTrashAssets(ids);
+        await library.restoreFromTrashAssets(ids);
 
         notify.success(
             isMulti ? `${assets.length} items restored` : 'Item restored',
@@ -222,11 +226,7 @@ export const AssetContextMenu: Component<AssetContextMenuProps> = props => {
                 label: 'Rename',
                 icon: Edit2,
                 action: () => {
-                    setMoveTarget({
-                        action: 'renameAsset',
-                        assetIds: [assets[0].id],
-                        initialName: assets[0].filename.replace(/\.[^/.]+$/, '')
-                    });
+                    setMoveTarget(assetRenameTarget(assets[0]));
                 }
             });
         }

@@ -1,6 +1,6 @@
 # Palavras-chave e URL de origem dos assets
 
-Data da implementação: 24/11/2026. O nome deste relatório mantém a data solicitada, 23/11/2026.
+Data da implementação: 24/11/2026.
 
 ## Objetivo e escopo
 

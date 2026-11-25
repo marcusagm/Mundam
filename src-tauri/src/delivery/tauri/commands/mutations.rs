@@ -637,18 +637,34 @@ pub async fn verify_thumbnails(_ipc: IpcRequest, handle: tauri::AppHandle) -> Ap
     Ok(corrupted_count)
 }
 
-/// RPC Command to copy files to the system clipboard (MacOS).
+/// RPC Command to copy files to the system clipboard on macOS and Windows.
 ///
 /// # Arguments
 ///
 /// * `paths` - A list of file paths to copy to the clipboard.
 #[tauri::command]
 pub fn copy_files_to_clipboard(_ipc: IpcRequest, paths: Vec<String>) -> Result<(), String> {
+    if paths.is_empty() {
+        return Err("Select at least one file to copy.".into());
+    }
+
+    #[cfg(windows)]
+    {
+        if paths
+            .iter()
+            .any(|path| !std::path::Path::new(path).is_file())
+        {
+            return Err("One or more selected files are no longer accessible.".into());
+        }
+        let mut clipboard = arboard::Clipboard::new().map_err(|error| error.to_string())?;
+        clipboard
+            .set()
+            .file_list(&paths)
+            .map_err(|error| error.to_string())
+    }
+
     #[cfg(target_os = "macos")]
     {
-        if paths.is_empty() {
-            return Ok(());
-        }
         let script = String::from("ObjC.import('AppKit');\nvar pb = $.NSPasteboard.generalPasteboard;\npb.clearContents;\nfunction run(argv) {\nvar urls = $.NSMutableArray.alloc.init;\nfor (var i = 0; i < argv.length; i++) {\nurls.addObject($.NSURL.fileURLWithPath(argv[i]));\n}\npb.writeObjects(urls);\n}");
 
         let mut cmd = std::process::Command::new("osascript");
@@ -657,14 +673,16 @@ pub fn copy_files_to_clipboard(_ipc: IpcRequest, paths: Vec<String>) -> Result<(
             cmd.arg(path);
         }
 
-        cmd.output().map_err(|e| e.to_string())?;
+        let output = cmd.output().map_err(|error| error.to_string())?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        }
     }
 
-    // For Windows/Linux, copying actual files to clipboard natively requires extra crates like `arboard`.
-    // We just do MacOS as Mundam is primarily MacOS currently.
-    let _ = &paths;
-
-    Ok(())
+    #[cfg(not(any(windows, target_os = "macos")))]
+    Err("Copying files is unavailable on this platform.".into())
 }
 
 /// RPC Command to toggle the favorite status of an asset.

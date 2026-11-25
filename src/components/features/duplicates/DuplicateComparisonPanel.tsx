@@ -1,4 +1,4 @@
-import { Component, For, Show, createSignal, createMemo } from 'solid-js';
+import { Component, For, Show, createSignal, createMemo, createEffect, onCleanup } from 'solid-js';
 import { Button, Badge } from '../../ui';
 import { Columns, Undo2 } from 'lucide-solid';
 import { DuplicateGroup, DuplicateCandidate } from './types';
@@ -15,6 +15,8 @@ import './duplicate-comparison-panel.css';
 export interface DuplicateComparisonPanelProperties {
     /** The duplicate group to display and resolve */
     group: DuplicateGroup;
+    /** Publishes the current candidate selection to the view footer. */
+    onSelectionCountChange: (count: number) => void;
     /** Callback triggered when the group has been resolved */
     onResolve: (groupId: string, action: string, keptAssetIds?: string[]) => Promise<void>;
     /** Callback triggered to undo a resolution or reopen an ignored group */
@@ -34,9 +36,21 @@ export interface DuplicateComparisonPanelProperties {
 export const DuplicateComparisonPanel: Component<
     DuplicateComparisonPanelProperties
 > = properties => {
-    const [selectedCandidateIdentifiers, setSelectedCandidateIdentifiers] = createSignal<
-        Set<string>
-    >(new Set());
+    const [chosenIdentifiers, setSelectedCandidateIdentifiers] = createSignal<Set<string>>(
+        new Set()
+    );
+    const selectedCandidateIdentifiers = createMemo(
+        () =>
+            new Set(
+                properties.group.candidates
+                    .filter(
+                        candidate => !candidate.isTrashed && chosenIdentifiers().has(candidate.id)
+                    )
+                    .map(candidate => candidate.id)
+            )
+    );
+    createEffect(() => properties.onSelectionCountChange(selectedCandidateIdentifiers().size));
+    onCleanup(() => properties.onSelectionCountChange(0));
     const [isProcessing, setIsProcessing] = createSignal(false);
     const [isSplitViewOpen, setIsSplitViewOpen] = createSignal(false);
 
@@ -57,7 +71,10 @@ export const DuplicateComparisonPanel: Component<
     };
 
     const { largestCandidate, oldestCandidate, favoriteCandidate, splitViewCandidates } =
-        useCandidateAnalysis(() => properties.group.candidates, selectedCandidateIdentifiers);
+        useCandidateAnalysis(
+            () => properties.group.candidates,
+            () => selectedCandidateIdentifiers()
+        );
 
     /**
      * Derives the kept and discarded candidate lists from the pending kept IDs.

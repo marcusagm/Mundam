@@ -100,7 +100,7 @@
 - [x] Adicionar recurso de virar imagem automaticamente de acordo com o metadado EXIF orientation.
 - [-] Copiar Imagem Real para Área de Transferência: Copiar o arquivo diretamente para o clipboard do sistema (para colar em um chat, Photoshop ou Figma, por exemplo).
   - [x] MacOs
-  - [ ] Windows
+  - [x] Windows
   - [ ] Linux
 - [ ] Adicionar tags pelo menu de contexto seja a um asset ou a todos os assets selecionados.
 - [x] Adicionar campo de palavras-chave aos assets.

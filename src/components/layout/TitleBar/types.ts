@@ -17,6 +17,9 @@ export interface TitleBarProperties {
      */
     activeView: ApplicationView;
 
+    /** Hide view switching while the library is unconfigured. */
+    hideNavigation?: boolean;
+
     /**
      * Callback invoked when the user clicks a navigation button to change views.
      *

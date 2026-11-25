@@ -21,8 +21,7 @@ import type { ItemPosition } from '../viewport';
 import { findByIndex, findBestCandidate, extractSelectionModifiers } from './gridNavHelpers';
 
 function getMotionAwareScrollBehavior(): ScrollBehavior {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'auto';
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    return document.documentElement.dataset.reducedMotion === 'true' ? 'auto' : 'smooth';
 }
 
 export interface GridKeyboardNavOptions {
@@ -234,7 +233,11 @@ export function useGridKeyboardNav(options: GridKeyboardNavOptions): GridKeyboar
         },
         selectAll: options.onSelectAll,
         deselectAll: options.onDeselectAll,
-        moveToTrash: () => options.onMoveToTrash(focusedId())
+        moveToTrash: () => {
+            if (options.scrollContainer()?.contains(document.activeElement)) {
+                options.onMoveToTrash(focusedId());
+            }
+        }
     };
 
     // Register Shortcuts

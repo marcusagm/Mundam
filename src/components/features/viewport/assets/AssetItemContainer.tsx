@@ -128,7 +128,16 @@ export const AssetItemContainer: Component<AssetItemContainerProperties> = conta
      * Sync native focus when virtual focus changes
      */
     createEffect(() => {
-        if (containerProperties.isFocused && focusReference) {
+        const grid = focusReference?.closest('[role="grid"]');
+        const activeElement = document.activeElement;
+        if (
+            containerProperties.isFocused &&
+            focusReference &&
+            grid &&
+            (activeElement === grid ||
+                (activeElement?.matches('[role="gridcell"]') &&
+                    activeElement.closest('[role="grid"]') === grid))
+        ) {
             focusReference.focus({ preventScroll: true });
         }
     });

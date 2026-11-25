@@ -1,3 +1,4 @@
+import { GlobalStatusbar } from '../components/layout/GlobalStatusbar';
 import { Component, JSX, onMount } from 'solid-js';
 import { ApplicationView } from '../components/layout/TitleBar/types';
 import { useMetadata } from '../core/hooks';
@@ -64,6 +65,7 @@ export const HomeView: Component<HomeViewProperties> = properties => {
                     <HomeRecentStream onNavigate={handleNavigate} />
                 </div>
             </main>
+            <GlobalStatusbar />
         </div>
     );
 };

@@ -58,7 +58,11 @@ function App() {
     });
 
     const renderTitleBar = () => (
-        <TitleBar activeView={activeApplicationView()} onViewChange={setActiveApplicationView} />
+        <TitleBar
+            hideNavigation={!system.rootPath()}
+            activeView={activeApplicationView()}
+            onViewChange={setActiveApplicationView}
+        />
     );
 
     return (
@@ -82,13 +86,12 @@ function App() {
                             <DuplicateFinderView header={renderTitleBar()} />
                         </Match>
                     </Switch>
-
-                    <SettingsModal
-                        isOpen={system.isSettingsOpen()}
-                        onClose={() => system.openSettings(false)}
-                        initialTab="general"
-                    />
                 </Show>
+                <SettingsModal
+                    isOpen={system.isSettingsOpen()}
+                    onClose={() => system.openSettings(false)}
+                    initialTab="general"
+                />
             </Show>
             <Sonner position="bottom-right" useRichColors />
         </>

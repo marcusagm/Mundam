@@ -24,6 +24,16 @@ export type FolderDialogTarget =
     | { action: 'moveAssets'; assetIds: string[]; folderId?: never; initialName?: never }
     | { action: 'renameAsset'; assetIds: [string]; initialName: string; folderId?: never };
 
+/** Captures the selected file and leaves its extension to the rename operation. */
+export function assetRenameTarget(asset: { id: string; filename: string }): FolderDialogTarget {
+    const extensionIndex = asset.filename.lastIndexOf('.');
+    return {
+        action: 'renameAsset',
+        assetIds: [asset.id],
+        initialName: extensionIndex > 0 ? asset.filename.slice(0, extensionIndex) : asset.filename
+    };
+}
+
 /** Controls one explicit managed-library intention. */
 export interface FolderActionsDialogProps {
     /** Null closes the dialog; each action requires its relevant identifiers. */

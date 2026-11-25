@@ -3612,6 +3612,7 @@ dependencies = [
 name = "mundam"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "asefile",
  "async-trait",
  "axum",

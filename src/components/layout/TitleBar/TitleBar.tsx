@@ -58,10 +58,10 @@ function buildNavigationItems(): TitleBarNavigationItem[] {
 export const TitleBar: Component<TitleBarProperties> = properties => {
     const platform = detectPlatform();
     const metadata = useMetadata();
-    const navigationItems = buildNavigationItems();
+    const navigationItems = () => (properties.hideNavigation ? [] : buildNavigationItems());
 
     useNavigationShortcuts(
-        () => navigationItems.map(item => ({ id: item.view, label: item.label })),
+        () => navigationItems().map(item => ({ id: item.view, label: item.label })),
         view => properties.onViewChange(view)
     );
 
@@ -93,39 +93,41 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
             </Show>
 
             {/* Navigation Buttons */}
-            <nav class="titlebar-navigation" aria-label="Application views">
-                <For each={navigationItems}>
-                    {navigationItem => (
-                        <Tooltip content={getTooltipContent(navigationItem)} placement="bottom">
-                            <button
-                                class="titlebar-navigation-button"
-                                classList={{
-                                    'titlebar-navigation-button--active':
+            <Show when={!properties.hideNavigation}>
+                <nav class="titlebar-navigation" aria-label="Application views">
+                    <For each={navigationItems()}>
+                        {navigationItem => (
+                            <Tooltip content={getTooltipContent(navigationItem)} placement="bottom">
+                                <button
+                                    class="titlebar-navigation-button"
+                                    classList={{
+                                        'titlebar-navigation-button--active':
+                                            properties.activeView === navigationItem.view
+                                    }}
+                                    aria-label={navigationItem.label}
+                                    aria-current={
                                         properties.activeView === navigationItem.view
-                                }}
-                                aria-label={navigationItem.label}
-                                aria-current={
-                                    properties.activeView === navigationItem.view
-                                        ? 'page'
-                                        : undefined
-                                }
-                                onClick={() => handleNavigationClick(navigationItem.view)}
-                            >
-                                <Dynamic component={navigationItem.icon} />
-                                {navigationItem.view === 'duplicates' &&
-                                    metadata.stats.duplicate_assets > 0 && (
-                                        <span class="titlebar-navigation-badge">
-                                            {formatCompactNumber(
-                                                metadata.stats.duplicate_assets,
-                                                99
-                                            )}
-                                        </span>
-                                    )}
-                            </button>
-                        </Tooltip>
-                    )}
-                </For>
-            </nav>
+                                            ? 'page'
+                                            : undefined
+                                    }
+                                    onClick={() => handleNavigationClick(navigationItem.view)}
+                                >
+                                    <Dynamic component={navigationItem.icon} />
+                                    {navigationItem.view === 'duplicates' &&
+                                        metadata.stats.duplicate_assets > 0 && (
+                                            <span class="titlebar-navigation-badge">
+                                                {formatCompactNumber(
+                                                    metadata.stats.duplicate_assets,
+                                                    99
+                                                )}
+                                            </span>
+                                        )}
+                                </button>
+                            </Tooltip>
+                        )}
+                    </For>
+                </nav>
+            </Show>
 
             {/* Draggable Region – expands to fill remaining space */}
             <div class="titlebar-drag-region" data-tauri-drag-region />

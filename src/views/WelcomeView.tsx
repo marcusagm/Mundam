@@ -1,3 +1,4 @@
+import { GlobalStatusbar } from '../components/layout/GlobalStatusbar';
 import { Component, JSX, createMemo } from 'solid-js';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSystem, useNotification } from '../core/hooks';
@@ -65,6 +66,7 @@ export const WelcomeView: Component<WelcomeViewProperties> = props => {
                     Initialize Library
                 </button>
             </div>
+            <GlobalStatusbar />
         </div>
     );
 };

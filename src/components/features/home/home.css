@@ -432,13 +432,11 @@
 
 /* --- Accessibility: Reduced Motion --- */
 
-@media (prefers-reduced-motion: reduce) {
-    .home-quick-card,
-    .home-section-action-btn,
-    .home-media-table-row,
-    .home-recent-card,
-    .home-distribution-segment {
-        transition: none !important;
-        transform: none !important;
-    }
+:root[data-reduced-motion="true"] .home-quick-card,
+:root[data-reduced-motion="true"] .home-section-action-btn,
+:root[data-reduced-motion="true"] .home-media-table-row,
+:root[data-reduced-motion="true"] .home-recent-card,
+:root[data-reduced-motion="true"] .home-distribution-segment {
+    transition: none !important;
+    transform: none !important;
 }
