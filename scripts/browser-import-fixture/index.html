@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Importação de teste · Mundam</title>
+        <link rel="stylesheet" href="fixture.css" />
+    </head>
+    <body class="import-page">
+        <h1>Importação de teste</h1>
+        <label for="folder">Pasta indexada</label>
+        <select id="folder" disabled></select>
+        <button id="connect" type="button">Atualizar pastas</button>
+        <label for="file">Arquivo PNG</label>
+        <input id="file" type="file" accept="image/png,.png" />
+        <div class="actions">
+            <button id="import" type="button" disabled>Importar PNG</button>
+            <button id="resume" type="button">Retomar lote salvo</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <script type="module" src="fixture.js"></script>
+    </body>
+</html>

@@ -1,11 +1,11 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash, createPrivateKey, randomBytes, X509Certificate } from 'node:crypto';
+import { createPrivateKey, randomBytes, X509Certificate } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile, unlink } from 'node:fs/promises';
-import https from 'node:https';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { checkServerIdentity } from 'node:tls';
+import { publicKeyPin } from './import-http.mjs';
+export { digest, exchange, openRequest } from './import-http.mjs';
 import { fileURLToPath } from 'node:url';
 
 export function buildProbe(example = 'import_transport') {
@@ -34,15 +34,6 @@ export function buildProbe(example = 'import_transport') {
     }
     throw new Error('Cargo did not produce the import transport probe');
 }
-
-export function digest(bytes) {
-    return createHash('sha256').update(bytes).digest('hex');
-}
-
-function publicKeyPin(certificate) {
-    return digest(certificate.publicKey.export({ format: 'der', type: 'spki' }));
-}
-
 export async function createIdentity(directory) {
     const keyPath = join(directory, 'test-key.pem');
     const certificate = execFileSync(
@@ -141,55 +132,4 @@ export async function startServer(executable, database, identity, controlled = f
         clearTimeout(timer);
         if (!controlled) lines.close();
     }
-}
-
-export function openRequest(port, identity, method, path, headers, pin = identity.pin) {
-    const request = https.request({
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method,
-        headers,
-        agent: false,
-        ca: identity.certificate,
-        rejectUnauthorized: true,
-        minVersion: 'TLSv1.3',
-        checkServerIdentity(host, peer) {
-            return (
-                checkServerIdentity(host, peer) ??
-                (publicKeyPin(new X509Certificate(peer.raw)) === pin
-                    ? undefined
-                    : new Error('Server key pin mismatch'))
-            );
-        }
-    });
-    request.setTimeout(10_000, () => request.destroy(new Error('Probe request timed out')));
-    return request;
-}
-
-export async function exchange(
-    server,
-    identity,
-    method,
-    path,
-    { token, body, headers = {}, pin } = {}
-) {
-    const request = openRequest(
-        server.port,
-        identity,
-        method,
-        path,
-        {
-            ...(token ? { authorization: `Bearer ${token}` } : {}),
-            ...headers
-        },
-        pin
-    );
-    const response = once(request, 'response');
-    request.end(body);
-    const [incoming] = await response;
-    const chunks = [];
-    for await (const chunk of incoming) chunks.push(chunk);
-    const text = Buffer.concat(chunks).toString('utf8');
-    return { status: incoming.statusCode, data: text ? JSON.parse(text) : null };
 }

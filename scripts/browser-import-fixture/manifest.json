@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "Mundam Import Bridge Test",
+    "version": "0.1.0",
+    "description": "Development fixture for Mundam's Native Messaging import bridge.",
+    "permissions": ["nativeMessaging", "storage"],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "mundam-import-bridge-test@example.invalid"
+        }
+    }
+}
