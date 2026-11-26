@@ -22,7 +22,8 @@ export function onCommand(command: string, handler: CommandHandler): () => void 
 
     // Return unsubscribe function
     return () => {
-        commandHandlers.get(command)?.delete(handler);
+        const handlers = commandHandlers.get(command);
+        if (handlers?.delete(handler) && handlers.size === 0) commandHandlers.delete(command);
     };
 }
 

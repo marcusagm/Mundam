@@ -126,7 +126,7 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
                             </Tooltip>
                         )}
                     </For>
-                    {properties.pluginScreens}
+                    {properties.pluginNavigation}
                 </nav>
             </Show>
 

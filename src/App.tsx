@@ -5,9 +5,11 @@ import { useShutdownMedia } from './core/shutdown/useShutdownMedia';
 import { WelcomeView, HomeView, GalleryView, DuplicateFinderView } from './views';
 import { TitleBar } from './components/layout/TitleBar';
 import { PluginScreensMenu } from './components/layout/TitleBar/PluginScreensMenu';
+import { PluginCommandsMenu } from './components/layout/TitleBar/PluginCommandsMenu';
 import { PluginScreenView } from './views/PluginScreenView';
 import { createApplicationNavigation } from './views/createApplicationNavigation';
 import { createPluginPresentation } from './core/hooks/createPluginPresentation';
+import { createPluginCommands } from './core/input/primitives/createPluginCommands';
 // Dialog removed (moved to WelcomeView)
 // Native DnD
 import {
@@ -46,6 +48,7 @@ function App() {
     const navigation = createApplicationNavigation(pluginPresentation.snapshot, () =>
         Boolean(activeCatalog())
     );
+    const pluginCommands = createPluginCommands(pluginPresentation.snapshot, navigation.navigate);
 
     // Start background sync notifications
     useMetadataNotifications();
@@ -76,11 +79,17 @@ function App() {
             activeView={navigation.activeView()}
             onViewChange={navigation.navigate}
             pluginActions={pluginActions}
-            pluginScreens={
-                <PluginScreensMenu
-                    screens={navigation.screens()}
-                    onNavigate={navigation.navigate}
-                />
+            pluginNavigation={
+                <>
+                    <PluginScreensMenu
+                        screens={navigation.screens()}
+                        onNavigate={navigation.navigate}
+                    />
+                    <PluginCommandsMenu
+                        commands={pluginCommands.available()}
+                        onRun={pluginCommands.run}
+                    />
+                </>
             }
         />
     );

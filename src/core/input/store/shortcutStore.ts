@@ -21,11 +21,15 @@ function createShortcutStore() {
     const [shortcuts, setShortcuts] = createSignal<Map<string, RegisteredShortcut>>(new Map());
     const [nextIdValue, setNextIdValue] = createSignal(1);
     const [customizations, setCustomizations] = createSignal<Map<string, string>>(new Map());
-    // User keys by "name::scope"; survives unregister/register cycles of dynamic shortcuts
+    // Dynamic commands may use a stable identity in place of the legacy display name.
     const savedKeys = new Map<string, string>();
 
-    function getStorageKey(name: string, scope?: string): string {
-        return `${name}::${scope || 'global'}`;
+    function getStorageKey(
+        shortcut: Pick<ShortcutDefinition, 'name' | 'scope' | 'preferenceId'>
+    ): string {
+        return shortcut.preferenceId
+            ? `id:${shortcut.preferenceId}`
+            : `${shortcut.name}::${shortcut.scope || 'global'}`;
     }
 
     function generateShortcutId(): string {
@@ -39,10 +43,7 @@ function createShortcutStore() {
     }
 
     function resolveCustomKeys(definition: ShortcutDefinition, currentId: string) {
-        return (
-            customizations().get(currentId) ??
-            savedKeys.get(getStorageKey(definition.name, definition.scope))
-        );
+        return customizations().get(currentId) ?? savedKeys.get(getStorageKey(definition));
     }
 
     function calculateIgnoreInputs(definition: ShortcutDefinition, tokens: InputToken[]): boolean {
@@ -150,7 +151,7 @@ function createShortcutStore() {
                 isDefault: false
             };
 
-            savedKeys.set(getStorageKey(current.name, current.scope), newKeys);
+            savedKeys.set(getStorageKey(current), newKeys);
 
             setShortcuts(previous => {
                 const next = new Map(previous);
@@ -168,7 +169,7 @@ function createShortcutStore() {
                 return;
             }
 
-            savedKeys.delete(getStorageKey(current.name, current.scope));
+            savedKeys.delete(getStorageKey(current));
             setCustomizations(previous => {
                 const next = new Map(previous);
                 next.delete(id);
@@ -245,16 +246,13 @@ function createShortcutStore() {
             });
             if (saved) {
                 for (const [key, rawKeys] of Object.entries(saved)) {
-                    const [name, scope] = key.split('::');
                     const keys =
                         !isMac() && rawKeys.includes('Meta')
                             ? rawKeys.replace(/\bMeta\b/g, 'Ctrl')
                             : rawKeys;
                     savedKeys.set(key, keys);
                     const found = Array.from(shortcuts().values()).find(
-                        shortcut =>
-                            shortcut.name === name &&
-                            (shortcut.scope || 'global') === (scope || 'global')
+                        shortcut => getStorageKey(shortcut) === key
                     );
                     if (found) {
                         actions.edit(found.id, keys, false);

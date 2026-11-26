@@ -38,6 +38,38 @@ fn screens_can_be_declared_without_asset_permissions() -> Result<(), Box<dyn Err
 }
 
 #[test]
+fn commands_reference_only_screens_from_the_same_manifest() -> Result<(), Box<dyn Error>> {
+    let original: Value = serde_json::from_slice(UNIVERSAL)?;
+    let validated = parse_manifest(UNIVERSAL)?;
+    assert_eq!(
+        validated.manifest().contributes.commands[0]
+            .suggested_shortcut
+            .as_deref(),
+        Some("Mod+Shift+KeyH")
+    );
+    for (pointer, invalid) in [
+        ("/contributes/commands/0/action/screen", json!("missing")),
+        ("/contributes/commands/0/suggestedShortcut", json!("Enter")),
+        (
+            "/contributes/commands/0/suggestedShortcut",
+            json!("Mod+KeyJ Mod+KeyK"),
+        ),
+    ] {
+        let mut declaration = original.clone();
+        *declaration
+            .pointer_mut(pointer)
+            .ok_or("missing command fixture")? = invalid;
+        assert_eq!(
+            parse_manifest(&serde_json::to_vec(&declaration)?)
+                .expect_err(pointer)
+                .field,
+            "contributes.commands"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn platform_pairs_and_stable_api_bounds_are_evaluated_together() -> Result<(), Box<dyn Error>> {
     let mut declarations: Value = serde_json::from_slice(SPECIFIC)?;
     declarations["targets"] = json!([

@@ -1,7 +1,7 @@
 //! Semantic checks that require cross-references, version ordering or normalization.
 
 use crate::{
-    Manifest, Permission, ScreenBlock, ValidatedManifest, ValidationError, Version,
+    CommandAction, Manifest, Permission, ScreenBlock, ValidatedManifest, ValidationError, Version,
     MAX_MANIFEST_BYTES,
 };
 use std::collections::HashSet;
@@ -208,7 +208,30 @@ fn validate_contributions(manifest: &Manifest) -> Result<(), ValidationError> {
             "expected up to four distinct screens with bounded text blocks",
         );
     }
+    let mut command_ids = HashSet::new();
+    if contributions.commands.len() > 8
+        || !contributions.commands.iter().all(|command| {
+            let CommandAction::OpenScreen { screen } = &command.action;
+            valid_slug(&command.id)
+                && command_ids.insert(&command.id)
+                && valid_text(&command.title, 80)
+                && screen_ids.contains(screen)
+                && command
+                    .suggested_shortcut
+                    .as_deref()
+                    .is_none_or(valid_suggested_shortcut)
+        })
+    {
+        return invalid("contributes.commands", "expected up to eight distinct commands targeting local screens with valid shortcut suggestions");
+    }
     Ok(())
+}
+
+fn valid_suggested_shortcut(value: &str) -> bool {
+    let key = value
+        .strip_prefix("Mod+Shift+Key")
+        .or_else(|| value.strip_prefix("Mod+Key"));
+    matches!(key.map(str::as_bytes), Some([b'A'..=b'Z']))
 }
 
 fn validate_inspector(manifest: &Manifest) -> Result<(), ValidationError> {

@@ -36,13 +36,13 @@ it('opens a qualified screen, hides it during revalidation, and returns to the g
     const pending = new Promise<PluginPresentation>(resolve => {
         resolveCurrent = resolve;
     });
-    const enabled = { sections: [], screens: [guide, otherGuide] };
+    const enabled = { sections: [], screens: [guide, otherGuide], commands: [] };
     const load = vi
         .fn()
         .mockResolvedValueOnce(enabled)
         .mockReturnValueOnce(pending)
         .mockResolvedValueOnce(enabled)
-        .mockResolvedValueOnce({ sections: [], screens: [] });
+        .mockResolvedValueOnce({ sections: [], screens: [], commands: [] });
     const client = {
         load,
         subscribe: (onChange: () => void) => {
@@ -98,7 +98,7 @@ it('opens a qualified screen, hides it during revalidation, and returns to the g
     invalidate();
     expect(screen.queryByRole('heading', { name: 'Review guide' })).toBeNull();
     expect(screen.getByLabelText('Active view').textContent).toBe(pluginScreenRoute(guide));
-    resolveCurrent({ sections: [], screens: [otherGuide] });
+    resolveCurrent({ sections: [], screens: [otherGuide], commands: [] });
     await waitFor(() => expect(screen.getByLabelText('Active view').textContent).toBe('gallery'));
 
     invalidate();

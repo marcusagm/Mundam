@@ -133,6 +133,10 @@ export interface ShortcutDefinition {
     description?: string;
     /** Key combination(s) - string or array for sequences */
     keys: string | string[];
+    /** Stable preference identity for commands whose display text can change. */
+    preferenceId?: string;
+    /** Optional author suggestion that requires user opt-in. */
+    suggestedKeys?: string;
     /** Scope where this shortcut is active */
     scope?: InputScopeName;
     /** Priority within scope (higher = first) */

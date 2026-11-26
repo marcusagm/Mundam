@@ -115,6 +115,11 @@
                     "type": "array",
                     "maxItems": 4,
                     "items": { "$ref": "#/$defs/screen" }
+                },
+                "commands": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": { "$ref": "#/$defs/command" }
                 }
             }
         }
@@ -155,6 +160,28 @@
                 "type": { "const": "boolean" },
                 "schemaVersion": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
                 "default": { "type": "boolean" }
+            }
+        },
+        "command": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "action"],
+            "properties": {
+                "id": { "$ref": "#/$defs/slug" },
+                "title": { "$ref": "#/$defs/title" },
+                "suggestedShortcut": {
+                    "type": "string",
+                    "pattern": "^Mod\\+(Shift\\+)?Key[A-Z]$(?![\\s\\S])"
+                },
+                "action": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "screen"],
+                    "properties": {
+                        "kind": { "const": "openScreen" },
+                        "screen": { "$ref": "#/$defs/slug" }
+                    }
+                }
             }
         },
         "screen": {

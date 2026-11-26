@@ -38,6 +38,7 @@ it('invalidates the presentation after committed changes and respects unsubscrip
 it('rejects unrecognized inspector controls at the desktop boundary', async () => {
     vi.mocked(invoke).mockResolvedValueOnce({
         screens: [],
+        commands: [],
         sections: [
             {
                 pluginId: 'org.example.review',

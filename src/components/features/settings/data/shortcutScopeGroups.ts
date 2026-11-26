@@ -8,6 +8,7 @@ export type ScopeGroup = {
 
 const SCOPE_LABELS: Record<string, string> = {
     global: 'Global',
+    'plugin-commands': 'Plugin commands',
     'image-viewer': 'Image Viewer',
     viewport: 'Viewport',
     'duplicate-finder': 'Duplicate Finder',
@@ -19,6 +20,7 @@ const SCOPE_LABELS: Record<string, string> = {
 
 const SCOPE_ORDER = [
     'global',
+    'plugin-commands',
     'viewport',
     'image-viewer',
     'duplicate-finder',
@@ -45,10 +47,11 @@ export function groupShortcutsByScope(
         }
         seenShortcutKeys.add(uniquenessKey);
 
-        if (!groups.has(scope)) {
-            groups.set(scope, []);
+        const displayGroup = shortcut.category === 'Plugins' ? 'plugin-commands' : scope;
+        if (!groups.has(displayGroup)) {
+            groups.set(displayGroup, []);
         }
-        groups.get(scope)!.push(shortcut);
+        groups.get(displayGroup)!.push(shortcut);
     }
     return groups;
 }

@@ -24,8 +24,8 @@ export interface TitleBarProperties {
 
     /** Optional gallery actions rendered beside the window controls. */
     pluginActions?: JSX.Element;
-    /** Optional navigation menu for approved application screens. */
-    pluginScreens?: JSX.Element;
+    /** Optional menus for approved plugin screens and commands. */
+    pluginNavigation?: JSX.Element;
 
     /**
      * Callback invoked when the user clicks a navigation button to change views.

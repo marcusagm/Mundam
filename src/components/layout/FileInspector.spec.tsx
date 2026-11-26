@@ -57,7 +57,7 @@ function renderInspector(client: {
     render(() => {
         const presentation = createPluginPresentation(
             () => ({
-                load: async () => ({ sections: await client.load(), screens: [] }),
+                load: async () => ({ sections: await client.load(), screens: [], commands: [] }),
                 subscribe: client.subscribe
             }),
             () => (selected().length === 1 ? 'test-catalog' : undefined)

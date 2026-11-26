@@ -34,6 +34,14 @@
                 ]
             }
         ],
+        "commands": [
+            {
+                "id": "open-review-guide",
+                "title": "Open reference review guide",
+                "action": { "kind": "openScreen", "screen": "review-guide" },
+                "suggestedShortcut": "Mod+Shift+KeyH"
+            }
+        ],
         "inspectorSections": [
             {
                 "id": "review",

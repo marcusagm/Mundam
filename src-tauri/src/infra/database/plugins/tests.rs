@@ -69,6 +69,8 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
     let presentation = service.presentation(catalog).await?;
     assert_eq!(presentation.screens[0].plugin_id, first.id);
     assert_eq!(presentation.screens[0].screen_id, "review-guide");
+    assert_eq!(presentation.commands[0].plugin_id, first.id);
+    assert_eq!(presentation.commands[0].command_id, "open-review-guide");
     let sections = presentation.sections;
     assert_eq!(sections.len(), 1);
     assert_eq!(sections[0].plugin_id, first.id);
@@ -91,9 +93,11 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
     let safe_mode = PluginService::new(registry.clone()).with_safe_mode(true);
     assert!(safe_mode.presentation(catalog).await?.sections.is_empty());
     assert!(safe_mode.presentation(catalog).await?.screens.is_empty());
+    assert!(safe_mode.presentation(catalog).await?.commands.is_empty());
     service.disable(catalog, &first.id).await?;
     assert!(service.presentation(catalog).await?.sections.is_empty());
     assert!(service.presentation(catalog).await?.screens.is_empty());
+    assert!(service.presentation(catalog).await?.commands.is_empty());
     service.enable(&approval, vec![]).await?;
 
     let (other_publisher, bytes) = package("org.other", "1.0.0", ">=1.0.0 <2.0.0", 21)?;

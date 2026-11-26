@@ -79,6 +79,26 @@ pub struct Contributions {
     pub inspector_sections: Vec<InspectorSection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub screens: Vec<PluginScreen>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<PluginCommand>,
+}
+
+/// A named host action and an optional shortcut recommendation.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PluginCommand {
+    pub id: String,
+    pub title: String,
+    pub action: CommandAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_shortcut: Option<String>,
+}
+
+/// Action vocabulary interpreted by the host.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum CommandAction {
+    OpenScreen { screen: String },
 }
 
 /// A built-in view layout filled with declarative text.

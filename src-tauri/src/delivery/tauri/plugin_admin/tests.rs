@@ -208,7 +208,7 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
     call("disable_installed_plugin", reference.clone())?;
     assert_eq!(
         call("get_plugin_presentation", json!({}))?,
-        json!({"sections": [], "screens": []})
+        json!({"sections": [], "screens": [], "commands": []})
     );
     assert_eq!(
         call("list_plugin_settings", json!({}))?["installed"][0]["approved"],

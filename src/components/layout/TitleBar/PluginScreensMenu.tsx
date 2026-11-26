@@ -1,13 +1,12 @@
-import { createMemo, Show, type Component } from 'solid-js';
+import { createMemo, type Component } from 'solid-js';
 import { PanelsTopLeft } from 'lucide-solid';
 import {
     pluginScreenRoute,
     type PluginScreen,
     type PluginScreenRoute
 } from '../../../lib/pluginPresentation';
-import { Button } from '../../ui/Button';
-import { DropdownMenu, type DropdownMenuItem } from '../../ui/DropdownMenu';
-import '../../features/inspector/plugins/plugin-section-action-menu.css';
+import type { DropdownMenuItem } from '../../ui/DropdownMenu';
+import { PluginNavigationMenu } from './PluginNavigationMenu';
 
 /** Lists every approved plugin screen in one title bar menu. */
 export const PluginScreensMenu: Component<{
@@ -27,25 +26,10 @@ export const PluginScreensMenu: Component<{
     );
 
     return (
-        <Show when={items().length}>
-            <DropdownMenu
-                align="start"
-                class="titlebar-plugin-screens"
-                contentClass="plugin-section-action-menu"
-                items={items()}
-                trigger={expanded => (
-                    <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="Plugin screens"
-                        title="Plugin screens"
-                        aria-haspopup="menu"
-                        aria-expanded={expanded()}
-                    >
-                        <PanelsTopLeft size={16} aria-hidden="true" />
-                    </Button>
-                )}
-            />
-        </Show>
+        <PluginNavigationMenu
+            title="Plugin screens"
+            icon={<PanelsTopLeft size={16} aria-hidden="true" />}
+            items={items()}
+        />
     );
 };

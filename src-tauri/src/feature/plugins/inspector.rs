@@ -4,7 +4,7 @@ use super::{check_signed_package, PluginService};
 use crate::core::{
     plugins::{
         inspector::{InspectorFieldKind, PluginInspectorField, PluginInspectorSection},
-        presentation::{ApprovedPluginPackage, PluginPresentation, PluginScreen},
+        presentation::{ApprovedPluginPackage, PluginCommand, PluginPresentation, PluginScreen},
     },
     AppError, AppResult,
 };
@@ -58,6 +58,22 @@ fn project_package(
         return;
     }
     presentation.sections.extend(sections(declaration));
+    presentation
+        .commands
+        .extend(
+            declaration
+                .contributes
+                .commands
+                .iter()
+                .map(|command| PluginCommand {
+                    plugin_id: declaration.id.clone(),
+                    plugin_name: declaration.name.clone(),
+                    command_id: command.id.clone(),
+                    title: command.title.clone(),
+                    action: command.action.clone(),
+                    suggested_shortcut: command.suggested_shortcut.clone(),
+                }),
+        );
     presentation
         .screens
         .extend(
