@@ -200,6 +200,16 @@ fn validate_contributions(manifest: &Manifest) -> Result<(), ValidationError> {
     let mut section_ids = HashSet::new();
     for section in &contributions.inspector_sections {
         let mut bindings = HashSet::new();
+        if section
+            .viewport_action_label
+            .as_ref()
+            .is_some_and(|label| !valid_text(label, 80))
+        {
+            return invalid(
+                "contributes.inspectorSections.viewportActionLabel",
+                "expected a plain-text action label of up to 80 characters",
+            );
+        }
         if !valid_slug(&section.id)
             || !section_ids.insert(&section.id)
             || !valid_text(&section.title, 80)

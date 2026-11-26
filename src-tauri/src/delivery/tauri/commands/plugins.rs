@@ -4,7 +4,10 @@ use crate::{
     bootstrap::AppDirectories,
     core::{
         imports::destinations::ImportDestinations,
-        plugins::{InstalledPlugin, PluginPackageChange, PluginReplacementKind},
+        plugins::{
+            inspector::PluginInspectorSection, InstalledPlugin, PluginPackageChange,
+            PluginReplacementKind,
+        },
         AppError, AppResult,
     },
     delivery::tauri::{
@@ -155,6 +158,21 @@ async fn active_catalog(database: &DbManager) -> AppResult<String> {
         .preference()
         .await?
         .catalog_id)
+}
+
+/// Loads the catalog's approved inspector definitions through the main-window boundary.
+#[tauri::command]
+pub(crate) async fn get_plugin_inspector_sections(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+) -> AppResult<Vec<PluginInspectorSection>> {
+    admin
+        .service(&directories.app_data)
+        .await?
+        .inspector_sections(&active_catalog(&database).await?)
+        .await
 }
 
 /// Prepares a one-time permission review for an installed package in the active catalog.

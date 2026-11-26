@@ -5,6 +5,18 @@
   background-color: var(--bg-sidebar);
 }
 
+.inspector-single-content {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: var(--p-space-m);
+}
+
+.inspector-single-content > .inspector-content {
+    overflow: visible;
+}
+
 .inspector-header {
   padding: var(--p-space-s) var(--p-space-m);
   background-color: var(--bg-header);

@@ -1,6 +1,6 @@
 # SDK declarativo de plugins do Mundam
 
-A v1 descreve uma primeira contribuição ao inspector. O pacote declara campos booleanos próprios e mostra esses campos quando há um asset selecionado. O mesmo manifesto pode ser processado por uma ferramenta de autoria, pelo backend e por outro renderizador. [Schema v1](v1/manifest.schema.json) · [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
+A v1 descreve campos booleanos próprios para o Inspector e uma ação opcional no viewport para abrir a seção correspondente. Essas contribuições se aplicam quando há um asset ativo selecionado. O mesmo manifesto pode ser processado por uma ferramenta de autoria, pelo backend e por outro renderizador. [Schema v1](v1/manifest.schema.json) · [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 
 ## Validar um manifesto
 
@@ -16,10 +16,10 @@ cargo run --locked --manifest-path sdk/plugins/Cargo.toml -- schema
 
 ## Exemplos
 
-| Exemplo                                                                | Alvo          | Contribuição                                                  |
-| ---------------------------------------------------------------------- | ------------- | ------------------------------------------------------------- |
-| [Reference review](v1/examples/reference-review/manifest.json)         | `all/all`     | Campo próprio editável que marca uma referência como revisada |
-| [Windows verification](v1/examples/windows-verification/manifest.json) | `windows/x64` | Campo próprio exibido somente para leitura                    |
+| Exemplo                                                                | Alvo          | Contribuição                                           |
+| ---------------------------------------------------------------------- | ------------- | ------------------------------------------------------ |
+| [Reference review](v1/examples/reference-review/manifest.json)         | `all/all`     | Campo de revisão e ação no viewport para abrir a seção |
+| [Windows verification](v1/examples/windows-verification/manifest.json) | `windows/x64` | Campo próprio exibido somente para leitura             |
 
 ## Regras de autoria
 
@@ -29,9 +29,10 @@ cargo run --locked --manifest-path sdk/plugins/Cargo.toml -- schema
 - Coloque o ícone estático PNG em `assets/<nome>.png`. Use um nome ASCII minúsculo iniciado por letra, com até 32 caracteres no nome-base. Cada dimensão pode ter de 16 a 256 pixels e o arquivo pode ter até 256 KiB.
 - Escreva textos de exibição em uma linha. O arquivo de manifesto pode ter até 64 KiB. Informe de 1 a 12 palavras-chave com até 32 caracteres cada. A CLI deduplica termos após converter para minúsculas e normalizar Unicode em NFC, preservando a primeira grafia.
 - Dê a campos e seções IDs locais estáveis, escritos em minúsculas ASCII e iniciados por letra. Cada campo booleano tem `default` e `schemaVersion` positivo. Cada editor vincula um campo existente do próprio manifesto. Use `when.selectionCount: 1` e `readOnly: true` para uma exibição sem edição.
+- Defina `viewportActionLabel` em uma seção do Inspector para incluir uma ação em **Plugin actions** na barra da galeria. Use um texto de uma linha com até 80 caracteres, como `Show review in Inspector`. O Mundam qualifica a seção pelo ID do plugin, exibe o nome do plugin junto ao rótulo e usa a ação para abrir o Inspector, expandir a seção e mover o foco até o cabeçalho. A ação herda o contexto de seleção e as permissões da seção.
 - Declare `selection.read` e `assetData.own.read` em `permissions` para usar o inspector. Editores graváveis também exigem `assetData.own.write` nessa lista. As permissões opcionais usam `optionalPermissions` e devem ser distintas das obrigatórias. Toda permissão depende de consentimento e validação do host.
 
-O schema verifica a estrutura. A biblioteca Rust verifica também a ordem do intervalo de API, referências, duplicidades entre listas, vínculo entre ID e namespace e permissões exigidas pelas contribuições. A CLI usa a mesma biblioteca para validar o documento e os bytes da imagem. Os exemplos são diretórios de autoria que podem ser empacotados e assinados pela CLI. A gestão de confiança dentro do Mundam, a instalação, os dados persistidos e a renderização pertencem aos próximos incrementos. [Plano de implementação](../../docs/report/2026-11-24-api-and-plugins.md)
+O schema verifica a estrutura. A biblioteca Rust verifica também a ordem do intervalo de API, referências, duplicidades entre listas, vínculo entre ID e namespace e permissões exigidas pelas contribuições. A CLI usa a mesma biblioteca para validar o documento e os bytes da imagem. Os exemplos são diretórios de autoria que podem ser empacotados e assinados pela CLI e instalados em **Settings → Plugins**. A interface atual exibe os valores padrão declarados. A persistência dos valores por asset tem entrega própria. [Plano de implementação](../../docs/report/2026-11-24-api-and-plugins.md)
 
 Para integrar a validação em Rust, use `parse_manifest` sobre os bytes, `validate_icon` sobre o recurso e `supports` com o alvo do executor e a versão de API. Para arquivos de distribuição, use `package::verify_package` com a política de confiança do host. O Cargo.lock da CLI fixa as dependências de leitura JSON, SemVer, normalização Unicode, decodificação PNG e criptografia.
 

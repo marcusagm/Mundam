@@ -16,7 +16,7 @@ import './list-view-toolbar.css';
  * <ListViewToolbar />
  * ```
  */
-export const ListViewToolbar: Component = (): JSX.Element => {
+export const ListViewToolbar: Component<{ actions?: JSX.Element }> = properties => {
     return (
         <div class="list-view-toolbar">
             <HistoryNavigation />
@@ -28,6 +28,7 @@ export const ListViewToolbar: Component = (): JSX.Element => {
 
             {/* Sort & View Controls */}
             <div class="toolbar-group">
+                {properties.actions}
                 <SortConfiguration />
 
                 <div class="toolbar-separator" />

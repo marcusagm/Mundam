@@ -19,6 +19,7 @@
             {
                 "id": "review",
                 "title": "Review",
+                "viewportActionLabel": "Show review in Inspector",
                 "when": { "selectionCount": 1 },
                 "fields": [
                     { "field": "reviewed", "label": "Reference reviewed", "control": "checkbox" }

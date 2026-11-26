@@ -5,8 +5,9 @@
 
 use crate::core::{
     plugins::{
-        InstalledPlugin, PluginActivationReview, PluginInstallRecord, PluginRegistry,
-        PluginReplacement, PublisherAnchor, RegisteredPublisher, StoredPluginPackage,
+        inspector::ActiveInspectorPackage, InstalledPlugin, PluginActivationReview,
+        PluginInstallRecord, PluginRegistry, PluginReplacement, PublisherAnchor,
+        RegisteredPublisher, StoredPluginPackage,
     },
     AppError, AppResult,
 };
@@ -229,6 +230,44 @@ impl PluginRegistry for SqlitePluginRegistry {
         .iter()
         .map(installed_projection)
         .collect()
+    }
+
+    async fn active_inspector_packages(
+        &self,
+        catalog_id: &str,
+    ) -> AppResult<Vec<ActiveInspectorPackage>> {
+        let rows = sqlx::query(
+            "SELECT plugin.id, plugin.publisher, plugin.publisher_fingerprint,
+                    plugin.package_digest, plugin.package, approval.permissions
+             FROM plugin_catalog_activations AS approval
+             JOIN installed_plugins AS plugin ON plugin.id = approval.plugin_id
+                 AND plugin.package_digest = approval.package_digest
+             JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
+                 AND publisher.fingerprint = plugin.publisher_fingerprint
+             WHERE approval.catalog_id = ? AND publisher.revoked_at IS NULL
+             ORDER BY plugin.id",
+        )
+        .bind(catalog_id)
+        .fetch_all(&self.0)
+        .await?;
+        let mut packages = Vec::with_capacity(rows.len());
+        for row in rows {
+            let permissions: String = row.try_get("permissions")?;
+            let Ok(permissions) = serde_json::from_str::<Vec<Permission>>(&permissions) else {
+                continue;
+            };
+            packages.push(ActiveInspectorPackage {
+                id: row.try_get("id")?,
+                publisher: PublisherAnchor {
+                    namespace: row.try_get("publisher")?,
+                    fingerprint: stored_digest(&row, "publisher_fingerprint")?,
+                },
+                digest: stored_digest(&row, "package_digest")?,
+                bytes: row.try_get("package")?,
+                permissions,
+            });
+        }
+        Ok(packages)
     }
 
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>> {

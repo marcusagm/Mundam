@@ -18,7 +18,7 @@ import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 import { desktopImportPreferences } from './core/tauri/importPreferences';
 import { desktopExternalImport } from './core/tauri/externalImport';
-import { desktopPlugins } from './core/tauri/plugins';
+import { desktopPluginInspector, desktopPlugins } from './core/tauri/plugins';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -75,7 +75,14 @@ function App() {
                 fallback={<Loader isFullscreen text="Initializing Mundam..." />}
             >
                 <Show when={system.rootPath()} fallback={<WelcomeView header={renderTitleBar()} />}>
-                    <Switch fallback={<GalleryView header={renderTitleBar()} />}>
+                    <Switch
+                        fallback={
+                            <GalleryView
+                                header={renderTitleBar()}
+                                pluginInspector={desktopPluginInspector}
+                            />
+                        }
+                    >
                         <Match when={activeApplicationView() === 'home'}>
                             <HomeView
                                 header={renderTitleBar()}
@@ -83,7 +90,10 @@ function App() {
                             />
                         </Match>
                         <Match when={activeApplicationView() === 'gallery'}>
-                            <GalleryView header={renderTitleBar()} />
+                            <GalleryView
+                                header={renderTitleBar()}
+                                pluginInspector={desktopPluginInspector}
+                            />
                         </Match>
                         <Match when={activeApplicationView() === 'duplicates'}>
                             <DuplicateFinderView header={renderTitleBar()} />

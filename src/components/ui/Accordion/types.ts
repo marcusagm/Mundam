@@ -47,6 +47,8 @@ export interface AccordionItemProps {
  * Properties for the Accordion trigger element (the interactive header).
  */
 export interface AccordionTriggerProps {
+    /** Ref to the focusable trigger. */
+    ref?: (element: HTMLButtonElement) => void;
     /** Optional CSS class for the trigger button. */
     class?: string;
     /** Children elements to render inside the trigger button (e.g., text, icons). */

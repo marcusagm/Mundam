@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { expect, it, vi } from 'vitest';
 import { invokeCommand } from '../../lib/api';
-import { desktopPlugins } from './plugins';
+import { desktopPluginInspector, desktopPlugins } from './plugins';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('../../lib/api', () => ({ invokeCommand: vi.fn() }));
@@ -15,4 +15,35 @@ it('lets the settings panel handle a refused package without using the global to
     await expect(desktopPlugins.choose()).rejects.toEqual(rejection);
     expect(invoke).toHaveBeenCalledExactlyOnceWith('choose_plugin_package');
     expect(invokeCommand).not.toHaveBeenCalled();
+});
+
+it('invalidates the inspector after committed changes and respects unsubscription', async () => {
+    const refresh = vi.fn();
+    const unsubscribe = desktopPluginInspector.subscribe(refresh);
+    try {
+        vi.mocked(invoke).mockRejectedValueOnce(new Error('Publisher revoked'));
+        await expect(desktopPlugins.enable('review', [])).rejects.toThrow('Publisher revoked');
+        expect(refresh).not.toHaveBeenCalled();
+        vi.mocked(invoke).mockResolvedValueOnce(undefined);
+        await desktopPlugins.disable('org.example.review');
+        expect(refresh).toHaveBeenCalledTimes(1);
+    } finally {
+        unsubscribe();
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    await desktopPlugins.revoke('org.example', 'ab'.repeat(32));
+    expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+it('rejects unrecognized inspector controls at the desktop boundary', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce([
+        {
+            pluginId: 'org.example.review',
+            pluginName: 'Review',
+            sectionId: 'review',
+            title: 'Review',
+            fields: [{ fieldId: 'unsafe', label: 'Unknown', kind: 'html', defaultValue: false }]
+        }
+    ]);
+    await expect(desktopPluginInspector.load()).rejects.toThrow();
 });

@@ -7,6 +7,8 @@ use crate::core::AppResult;
 use async_trait::async_trait;
 use mundam_plugin_sdk::{Permission, Target};
 
+pub mod inspector;
+
 /// Explicitly approved publisher identity from an independent source.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PublisherAnchor {
@@ -132,6 +134,12 @@ pub trait PluginRegistry: Send + Sync {
 
     /// Lists inventory and active state for a catalog, without reading package BLOBs.
     async fn list_installed(&self, catalog_id: &str) -> AppResult<Vec<InstalledPlugin>>;
+
+    /// Loads a snapshot of trusted, currently approved packages for the catalog.
+    async fn active_inspector_packages(
+        &self,
+        catalog_id: &str,
+    ) -> AppResult<Vec<inspector::ActiveInspectorPackage>>;
 
     /// Loads the current package and its admission identity.
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>>;

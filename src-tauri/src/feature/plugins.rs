@@ -8,11 +8,12 @@ use crate::core::{
     AppError, AppResult,
 };
 use mundam_plugin_sdk::{
-    package::{package_key_hint, verify_package, TrustedPublisher},
+    package::{package_key_hint, verify_package, TrustedPublisher, VerifiedPackage},
     valid_namespace, Executor, Permission, Version,
 };
 use std::{collections::HashSet, sync::Arc};
 
+mod inspector;
 mod package_changes;
 
 /// Application entry point for a local desktop adapter or an independent host.
@@ -233,18 +234,7 @@ impl PluginService {
         let api_version = self.api_version.clone();
 
         tokio::task::spawn_blocking(move || {
-            let verified = verify_package(
-                &bytes,
-                &TrustedPublisher {
-                    namespace: &publisher.namespace,
-                    key_fingerprint: publisher.fingerprint,
-                },
-            )
-            .map_err(|_| {
-                AppError::ValidationFailed(
-                    "Plugin signature, publisher or content is invalid".into(),
-                )
-            })?;
+            let verified = check_signed_package(&bytes, &publisher)?;
             let declaration = verified.manifest().manifest();
             let preview = PackagePreview {
                 publisher,
@@ -267,4 +257,20 @@ impl PluginService {
         .await
         .map_err(|_| AppError::Internal("Plugin verification task failed".into()))?
     }
+}
+
+fn check_signed_package<'a>(
+    bytes: &'a [u8],
+    publisher: &PublisherAnchor,
+) -> AppResult<VerifiedPackage<'a>> {
+    verify_package(
+        bytes,
+        &TrustedPublisher {
+            namespace: &publisher.namespace,
+            key_fingerprint: publisher.fingerprint,
+        },
+    )
+    .map_err(|_| {
+        AppError::ValidationFailed("Plugin signature, publisher or content is invalid".into())
+    })
 }

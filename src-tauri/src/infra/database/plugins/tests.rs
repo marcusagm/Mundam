@@ -45,6 +45,78 @@ fn package(
 }
 
 #[tokio::test]
+async fn inspector_projects_only_valid_and_current_catalog_grants(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempfile::tempdir()?;
+    let registry =
+        Arc::new(SqlitePluginRegistry::open(&directory.path().join("plugins.sqlite")).await?);
+    let service = PluginService::new(registry.clone());
+    let catalog = "catalog-a";
+    let (publisher, bytes) = package("org.example", "1.0.0", ">=1.0.0 <2.0.0", 19)?;
+    service.trust_publisher(publisher.clone()).await?;
+    let preview = service.preview(bytes.clone()).await?;
+    let first = service
+        .install(
+            bytes,
+            InstallApproval {
+                package_digest: preview.package_digest,
+            },
+        )
+        .await?;
+    assert!(service.inspector_sections(catalog).await?.is_empty());
+    let approval = service.review_activation(catalog.into(), &first.id).await?;
+    service.enable(&approval, vec![]).await?;
+    let sections = service.inspector_sections(catalog).await?;
+    assert_eq!(sections.len(), 1);
+    assert_eq!(sections[0].plugin_id, first.id);
+    assert_eq!(sections[0].section_id, "review");
+    assert_eq!(
+        sections[0].viewport_action_label.as_deref(),
+        Some("Show review in Inspector")
+    );
+    assert_eq!(sections[0].fields[0].field_id, "reviewed");
+    assert!(!sections[0].fields[0].default_value);
+    assert!(service.inspector_sections("catalog-b").await?.is_empty());
+    let safe_mode = PluginService::new(registry.clone()).with_safe_mode(true);
+    assert!(safe_mode.inspector_sections(catalog).await?.is_empty());
+    service.disable(catalog, &first.id).await?;
+    assert!(service.inspector_sections(catalog).await?.is_empty());
+    service.enable(&approval, vec![]).await?;
+
+    let (other_publisher, bytes) = package("org.other", "1.0.0", ">=1.0.0 <2.0.0", 21)?;
+    service.trust_publisher(other_publisher).await?;
+    let preview = service.preview(bytes.clone()).await?;
+    let other = service
+        .install(
+            bytes,
+            InstallApproval {
+                package_digest: preview.package_digest,
+            },
+        )
+        .await?;
+    let other_approval = service.review_activation(catalog.into(), &other.id).await?;
+    service.enable(&other_approval, vec![]).await?;
+    assert_eq!(service.inspector_sections(catalog).await?.len(), 2);
+    sqlx::query("UPDATE plugin_catalog_activations SET permissions = '[\"selection.read\"]' WHERE plugin_id = ?")
+        .bind(&first.id).execute(&registry.0).await?;
+    assert_eq!(
+        service.inspector_sections(catalog).await?[0].plugin_id,
+        other.id
+    );
+    service.enable(&approval, vec![]).await?;
+    sqlx::query("UPDATE installed_plugins SET package = X'01' WHERE id = ?")
+        .bind(&first.id)
+        .execute(&registry.0)
+        .await?;
+    let sections = service.inspector_sections(catalog).await?;
+    assert_eq!(sections.len(), 1);
+    assert_eq!(sections[0].plugin_id, other.id);
+    service.revoke_publisher(publisher).await?;
+    assert_eq!(service.inspector_sections(catalog).await?.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn swaps_signed_versions_atomically_and_consumes_the_rollback_slot(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;

@@ -1,4 +1,4 @@
-import { Component, createMemo, Switch, Match } from 'solid-js';
+import { Component, createMemo, Switch, Match, Show } from 'solid-js';
 import { useLibrary, useSelection } from '../../core/hooks';
 import { Info } from 'lucide-solid';
 import { ImageInspector } from '../features/inspector/image/ImageInspector';
@@ -8,9 +8,17 @@ import { FontInspector } from '../features/inspector/font/FontInspector';
 import { ModelInspector } from '../features/inspector/model/ModelInspector';
 import { MultiInspector } from '../features/inspector/multi/MultiInspector';
 import { getMediaType } from '../features/inspector/utils';
+import { PluginInspectorSections } from '../features/inspector/plugins/PluginInspectorSections';
+import type { PluginInspectorPresentation } from '../features/inspector/plugins/createPluginInspectorPresentation';
 import './file-inspector.css';
 
-export const FileInspector: Component = () => {
+/** Composes native details and approved plugin sections for the gallery selection. */
+export const FileInspector: Component<{
+    pluginInspector: PluginInspectorPresentation;
+    inspectorOpen: boolean;
+    revealSection?: string;
+    onSectionRevealed?: () => void;
+}> = properties => {
     const lib = useLibrary();
     const selection = useSelection();
 
@@ -58,23 +66,32 @@ export const FileInspector: Component = () => {
                 </Match>
 
                 <Match when={selectionCount() === 1 && activeItem()}>
-                    <Switch fallback={<ImageInspector item={activeItem()!} />}>
-                        <Match when={fileType() === 'audio'}>
-                            <AudioInspector item={activeItem()!} />
-                        </Match>
-                        <Match when={fileType() === 'video'}>
-                            <VideoInspector item={activeItem()!} />
-                        </Match>
-                        <Match when={fileType() === 'font'}>
-                            <FontInspector item={activeItem()!} />
-                        </Match>
-                        <Match when={fileType() === 'model3d'}>
-                            <ModelInspector item={activeItem()!} />
-                        </Match>
-                        <Match when={fileType() === 'image'}>
-                            <ImageInspector item={activeItem()!} />
-                        </Match>
-                    </Switch>
+                    <div class="inspector-single-content">
+                        <Switch fallback={<ImageInspector item={activeItem()!} />}>
+                            <Match when={fileType() === 'audio'}>
+                                <AudioInspector item={activeItem()!} />
+                            </Match>
+                            <Match when={fileType() === 'video'}>
+                                <VideoInspector item={activeItem()!} />
+                            </Match>
+                            <Match when={fileType() === 'font'}>
+                                <FontInspector item={activeItem()!} />
+                            </Match>
+                            <Match when={fileType() === 'model3d'}>
+                                <ModelInspector item={activeItem()!} />
+                            </Match>
+                            <Match when={fileType() === 'image'}>
+                                <ImageInspector item={activeItem()!} />
+                            </Match>
+                        </Switch>
+                        <Show when={properties.inspectorOpen && !activeItem()?.deleted_at}>
+                            <PluginInspectorSections
+                                presentation={properties.pluginInspector}
+                                revealSection={properties.revealSection}
+                                onSectionRevealed={properties.onSectionRevealed}
+                            />
+                        </Show>
+                    </div>
                 </Match>
             </Switch>
         </div>

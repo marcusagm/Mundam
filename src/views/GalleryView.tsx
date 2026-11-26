@@ -1,5 +1,6 @@
-import { Component, JSX, createSignal } from 'solid-js';
+import { Component, JSX, createEffect, createMemo, createSignal } from 'solid-js';
 import { useCommands } from '../core/input';
+import { useLibrary, useSelection } from '../core/hooks';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui/Resizable';
 import './gallery-view.css';
 import { StatusCounts } from '../components/features/statusbar/StatusCounts';
@@ -9,10 +10,14 @@ import { LibrarySidebar } from '../components/layout/LibrarySidebar';
 import { FileInspector } from '../components/layout/FileInspector';
 import { GlobalStatusbar } from '../components/layout/GlobalStatusbar';
 import { Viewport } from '../components/layout/Viewport';
+import { pluginInspectorSectionKey, type PluginInspectorClient } from '../lib/pluginInspector';
+import { createPluginInspectorPresentation } from '../components/features/inspector/plugins/createPluginInspectorPresentation';
 
 export interface GalleryViewProperties {
     /** The title bar to render at the top */
     header: JSX.Element;
+    /** Supplies approved plugin sections independently of the desktop transport. */
+    pluginInspector: PluginInspectorClient;
 }
 
 /** Renders the gallery and persists its resizable panels. */
@@ -56,6 +61,36 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
     const [isSidebarOpen, setIsSidebarOpen] = createSignal(persistedStates.sidebar);
     const [isInspectorOpen, setIsInspectorOpen] = createSignal(persistedStates.inspector);
 
+    const library = useLibrary();
+    const selection = useSelection();
+    const eligibleAssetId = createMemo(() => {
+        const [assetId] = selection.selectedIds;
+        return selection.selectedIds.length === 1 &&
+            library.items.some(item => item.id === assetId && !item.deleted_at)
+            ? assetId
+            : undefined;
+    });
+    const pluginPresentation = createPluginInspectorPresentation(
+        () => props.pluginInspector,
+        () => eligibleAssetId() !== undefined
+    );
+    const [revealRequest, setRevealRequest] = createSignal<{ assetId: string; key: string }>();
+    const canRevealSection = (key: string) =>
+        pluginPresentation
+            .sections()
+            ?.some(
+                section => section.viewportActionLabel && pluginInspectorSectionKey(section) === key
+            );
+    const requestedSection = createMemo(() => {
+        const request = revealRequest();
+        return request && request.assetId === eligibleAssetId() && canRevealSection(request.key)
+            ? request.key
+            : undefined;
+    });
+    createEffect(() => {
+        if (!requestedSection()) setRevealRequest(undefined);
+    });
+
     /**
      * Persists the visibility states to local storage.
      */
@@ -89,6 +124,16 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
             saveStates(isSidebarOpen(), nextState);
             return nextState;
         });
+    };
+
+    const revealPluginSection = (key: string) => {
+        const assetId = eligibleAssetId();
+        if (!assetId || !canRevealSection(key)) return;
+        if (!isInspectorOpen()) {
+            setIsInspectorOpen(true);
+            saveStates(isSidebarOpen(), true);
+        }
+        setRevealRequest({ assetId, key });
     };
 
     const toggleSidebars = () => {
@@ -146,7 +191,10 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     flexGrow={1}
                     class="shell-content"
                 >
-                    <Viewport />
+                    <Viewport
+                        pluginSections={pluginPresentation.sections()}
+                        onRevealPluginSection={revealPluginSection}
+                    />
                 </ResizablePanel>
 
                 <ResizableHandle isCollapsed={!isInspectorOpen()} />
@@ -160,7 +208,12 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     class="shell-inspector"
                     isCollapsed={!isInspectorOpen()}
                 >
-                    <FileInspector />
+                    <FileInspector
+                        pluginInspector={pluginPresentation}
+                        inspectorOpen={isInspectorOpen()}
+                        revealSection={requestedSection()}
+                        onSectionRevealed={() => setRevealRequest(undefined)}
+                    />
                 </ResizablePanel>
             </ResizablePanelGroup>
 

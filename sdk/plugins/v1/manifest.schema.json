@@ -132,6 +132,7 @@
             "properties": {
                 "id": { "$ref": "#/$defs/slug" },
                 "title": { "$ref": "#/$defs/title" },
+                "viewportActionLabel": { "$ref": "#/$defs/title" },
                 "when": {
                     "type": "object",
                     "additionalProperties": false,

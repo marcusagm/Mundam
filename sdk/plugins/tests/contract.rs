@@ -99,6 +99,11 @@ fn rejects_invalid_declarations_before_they_reach_a_renderer() -> Result<(), Box
             json!(2),
             "contributes.inspectorSections",
         ),
+        (
+            "/contributes/inspectorSections/0/viewportActionLabel",
+            json!("Show review\n"),
+            "contributes.inspectorSections.viewportActionLabel",
+        ),
     ] {
         let mut declaration = original.clone();
         *declaration

@@ -101,6 +101,13 @@ pub enum FieldType {
 pub struct InspectorSection {
     pub id: String,
     pub title: String,
+    /// Adds a gallery toolbar action that reveals this section for the current selection.
+    #[serde(
+        rename = "viewportActionLabel",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub viewport_action_label: Option<String>,
     pub when: SelectionCondition,
     pub fields: Vec<InspectorField>,
 }

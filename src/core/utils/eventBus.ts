@@ -12,6 +12,7 @@ type EventCallback<T = unknown> = (data: T) => void;
  * Registry of available domain events and their payload types.
  */
 export interface DomainEvents {
+    'plugins:inspector-changed': undefined;
     'metadata:changed': {
         type: 'tag' | 'location' | 'smart-folder' | 'stats';
         ids?: (string | number)[];

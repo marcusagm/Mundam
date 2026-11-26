@@ -1,0 +1,18 @@
+.plugin-inspector-fields,
+.plugin-inspector-feedback {
+    display: grid;
+    gap: var(--p-space-s);
+    justify-items: start;
+}
+
+.plugin-inspector-feedback {
+    padding: var(--p-space-s) var(--p-space-m);
+}
+
+.plugin-inspector-fields p,
+.plugin-inspector-feedback p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+    overflow-wrap: anywhere;
+}

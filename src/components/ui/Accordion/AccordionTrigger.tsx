@@ -19,7 +19,7 @@ import { useAccordion, useAccordionItem } from './useAccordion';
  * ```
  */
 export const AccordionTrigger: Component<AccordionTriggerProps> = props => {
-    const [localProps, restProps] = splitProps(props, ['class', 'children']);
+    const [localProps, restProps] = splitProps(props, ['class', 'children', 'ref']);
     const accordionRootContext = useAccordion();
     const currentItemContext = useAccordionItem();
 
@@ -33,6 +33,7 @@ export const AccordionTrigger: Component<AccordionTriggerProps> = props => {
     return (
         <button
             type="button"
+            ref={localProps.ref}
             id={currentItemContext.triggerId}
             class={cn('ui-accordion-trigger', localProps.class)}
             aria-expanded={currentItemContext.isExpanded()}
@@ -66,9 +67,10 @@ export const AccordionHeader: Component<{
     title: string | JSX.Element;
     icon?: JSX.Element;
     class?: string;
+    ref?: (element: HTMLButtonElement) => void;
 }> = props => {
     return (
-        <AccordionTrigger class={props.class}>
+        <AccordionTrigger class={props.class} ref={props.ref}>
             <span class="ui-accordion-trigger-content">
                 <AccordionChevron />
                 <span class="ui-accordion-title">{props.title}</span>

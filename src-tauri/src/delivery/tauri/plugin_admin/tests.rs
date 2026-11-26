@@ -132,6 +132,7 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
         })
         .invoke_handler(tauri::generate_handler![
             list_plugin_settings,
+            get_plugin_inspector_sections,
             trust_plugin_publisher,
             revoke_plugin_publisher,
             install_reviewed_plugin,
@@ -145,6 +146,7 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
     let window = WebviewWindowBuilder::new(&app, "main", Default::default()).build()?;
     let auxiliary = WebviewWindowBuilder::new(&app, "design-system", Default::default()).build()?;
     assert!(invoke(&auxiliary, "list_plugin_settings", json!({})).is_err());
+    assert!(invoke(&auxiliary, "get_plugin_inspector_sections", json!({})).is_err());
     assert!(!path.join("plugins.sqlite").exists());
     let call =
         |command, payload| invoke(&window, command, payload).map_err(|error| error.to_string());
@@ -196,7 +198,15 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
         call("list_plugin_settings", json!({}))?["installed"][0]["enabled"],
         true
     );
+    let sections = call("get_plugin_inspector_sections", json!({}))?;
+    assert_eq!(
+        sections[0]["fields"][0],
+        json!({
+            "fieldId": "reviewed", "kind": "checkbox", "label": "Reference reviewed", "defaultValue": false
+        })
+    );
     call("disable_installed_plugin", reference.clone())?;
+    assert_eq!(call("get_plugin_inspector_sections", json!({}))?, json!([]));
     assert_eq!(
         call("list_plugin_settings", json!({}))?["installed"][0]["approved"],
         false

@@ -11,7 +11,7 @@ import './list-view.css';
  *
  * @returns {JSX.Element} The active list view container.
  */
-export const ListView: Component = (): JSX.Element => {
+export const ListView: Component<{ toolbarActions?: JSX.Element }> = properties => {
     /**
      * Library store
      *
@@ -28,7 +28,7 @@ export const ListView: Component = (): JSX.Element => {
 
     return (
         <div class="list-view">
-            <ListViewToolbar />
+            <ListViewToolbar actions={properties.toolbarActions} />
 
             <div class="list-view-content">
                 <Switch>
