@@ -17,7 +17,7 @@ export interface PluginInspectorPresentation {
     refresh: () => void;
 }
 
-/** Loads once for both gallery surfaces and hides earlier results during an invalidation. */
+/** Shares approved definitions across gallery surfaces and hides earlier results during invalidation. */
 export function createPluginInspectorPresentation(
     client: Accessor<PluginInspectorClient>,
     eligible: Accessor<boolean>

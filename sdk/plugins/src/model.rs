@@ -108,6 +108,13 @@ pub struct InspectorSection {
         skip_serializing_if = "Option::is_none"
     )]
     pub viewport_action_label: Option<String>,
+    /// Adds a link to this section under the plugin's name in the gallery sidebar.
+    #[serde(
+        rename = "sidebarLinkLabel",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sidebar_link_label: Option<String>,
     pub when: SelectionCondition,
     pub fields: Vec<InspectorField>,
 }

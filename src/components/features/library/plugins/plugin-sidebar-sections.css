@@ -1,0 +1,30 @@
+.plugin-sidebar-sections {
+    flex: 0 0 auto;
+    max-block-size: min(35%, 16rem);
+    border-block-start: 1px solid var(--border-subtle);
+}
+
+.plugin-sidebar-sections .ui-sidebar-panel-header {
+    flex-shrink: 0;
+}
+
+.plugin-sidebar-sections .ui-accordion-title,
+.plugin-sidebar-link span {
+    overflow-wrap: anywhere;
+}
+
+.plugin-sidebar-link svg {
+    flex-shrink: 0;
+}
+
+.plugin-sidebar-sections .plugin-sidebar-link:disabled {
+    cursor: default;
+    color: var(--text-tertiary);
+    background: transparent;
+}
+
+.plugin-sidebar-selection-hint {
+    margin: 0 0 var(--p-space-xs);
+    color: var(--text-tertiary);
+    font-size: var(--p-font-size-xs);
+}

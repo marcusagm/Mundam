@@ -1,98 +1,107 @@
-import { Component } from 'solid-js';
+import { For, Show, type Component } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/Resizable';
 import { LibrarySidebarPanel } from '../features/library/LibrarySidebarPanel';
 import { FolderTreeSidebarPanel } from '../features/library/FolderTreeSidebarPanel';
 import { TagTreeSidebarPanel } from '../features/tags/TagTreeSidebarPanel';
 import { SmartFoldersSidebarPanel } from '../features/search/SmartFoldersSidebarPanel';
+import { PluginSidebarSections } from '../features/library/plugins/PluginSidebarSections';
+import type { PluginInspectorSection } from '../../lib/pluginInspector';
 import './library-sidebar.css';
 
-/**
- * Sidebar component for the library area, featuring vertical resizable panels.
- * Manages the layout persistence and coordination of library sub-panels.
- *
- * @returns {JSX.Element} The rendered library sidebar.
- */
-export const LibrarySidebar: Component = () => {
-    /** Persistence key for the sidebar panel layout */
-    const LAYOUT_STORAGE_KEY = 'sidebar-layout-v2';
+const NATIVE_PANELS = [
+    {
+        id: 'sidebar-library',
+        defaultSize: 28,
+        minSize: 28,
+        className: 'panel-lib',
+        panel: LibrarySidebarPanel
+    },
+    {
+        id: 'sidebar-folders',
+        defaultSize: 22,
+        minSize: 20,
+        className: 'panel-folders',
+        panel: FolderTreeSidebarPanel
+    },
+    {
+        id: 'sidebar-tags',
+        defaultSize: 20,
+        minSize: 20,
+        className: 'panel-tags',
+        panel: TagTreeSidebarPanel
+    },
+    {
+        id: 'sidebar-smart',
+        defaultSize: 20,
+        minSize: 20,
+        className: 'panel-smart',
+        panel: SmartFoldersSidebarPanel
+    }
+] as const;
 
-    /**
-     * Retrieves the persisted layout from local storage.
-     *
-     * @returns {number[] | null} An array of panel sizes or null if not found.
-     */
-    const getPersistedLayout = (): number[] | null => {
-        try {
-            const savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY);
-            return savedLayout ? JSON.parse(savedLayout) : null;
-        } catch (error) {
-            console.warn('Failed to load library sidebar layout:', error);
-            return null;
-        }
-    };
+const LAYOUT_STORAGE_KEY = 'sidebar-layout-v3';
 
-    const persistedLayout = getPersistedLayout();
+function readPanelLayout(): Partial<Record<string, number>> {
+    try {
+        const saved: unknown = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) ?? '{}');
+        if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+        const sizes = saved as Record<string, unknown>;
+        return Object.fromEntries(
+            NATIVE_PANELS.flatMap(({ id }) => {
+                const size = sizes[id];
+                return typeof size === 'number' && size > 0 && size <= 100 ? [[id, size]] : [];
+            })
+        );
+    } catch {
+        return {};
+    }
+}
 
-    // Initial sizes for the vertical panels
-    const libraryPanelSize = persistedLayout?.[0] ?? 28;
-    const foldersPanelSize = persistedLayout?.[1] ?? 22;
-    const tagsPanelSize = persistedLayout?.[2] ?? 20;
-    const smartFoldersPanelSize = persistedLayout?.[3] ?? 20;
+function savePanelLayout(sizes: number[]): void {
+    if (sizes.length !== NATIVE_PANELS.length) return;
+    const layout = Object.fromEntries(NATIVE_PANELS.map(({ id }, index) => [id, sizes[index]]));
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+}
 
-    /**
-     * Handles changes to the panel sizes and persists them.
-     *
-     * @param {number[]} newPanelSizes - The updated sizes of all panels in the group.
-     */
-    const handleLayoutChange = (newPanelSizes: number[]) => {
-        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(newPanelSizes));
-    };
+/** Renders the fixed library panels and the separate plugin navigation region. */
+export const LibrarySidebar: Component<{
+    pluginSections: PluginInspectorSection[] | null | undefined;
+    canOpenPluginLinks: boolean;
+    onOpenPluginSection: (sectionKey: string) => void;
+}> = properties => {
+    const persistedLayout = readPanelLayout();
 
     return (
         <aside class="library-sidebar">
-            <ResizablePanelGroup direction="vertical" onLayout={handleLayoutChange}>
-                <ResizablePanel
-                    id="sidebar-library"
-                    defaultSize={libraryPanelSize}
-                    minSize={28}
-                    class="panel-lib"
-                >
-                    <LibrarySidebarPanel />
-                </ResizablePanel>
-
-                <ResizableHandle />
-
-                <ResizablePanel
-                    id="sidebar-folders"
-                    defaultSize={foldersPanelSize}
-                    minSize={20}
-                    class="panel-folders"
-                >
-                    <FolderTreeSidebarPanel />
-                </ResizablePanel>
-
-                <ResizableHandle />
-
-                <ResizablePanel
-                    id="sidebar-tags"
-                    defaultSize={tagsPanelSize}
-                    minSize={20}
-                    class="panel-tags"
-                >
-                    <TagTreeSidebarPanel />
-                </ResizablePanel>
-
-                <ResizableHandle />
-
-                <ResizablePanel
-                    id="sidebar-smart"
-                    defaultSize={smartFoldersPanelSize}
-                    minSize={20}
-                    class="panel-smart"
-                >
-                    <SmartFoldersSidebarPanel />
-                </ResizablePanel>
+            <ResizablePanelGroup
+                direction="vertical"
+                class="library-sidebar-native"
+                onLayout={savePanelLayout}
+            >
+                <For each={NATIVE_PANELS}>
+                    {(panel, index) => (
+                        <>
+                            <Show when={index() > 0}>
+                                <ResizableHandle />
+                            </Show>
+                            <ResizablePanel
+                                id={panel.id}
+                                defaultSize={persistedLayout[panel.id] ?? panel.defaultSize}
+                                minSize={panel.minSize}
+                                class={panel.className}
+                            >
+                                <Dynamic component={panel.panel} />
+                            </ResizablePanel>
+                        </>
+                    )}
+                </For>
             </ResizablePanelGroup>
+            <PluginSidebarSections
+                sections={properties.pluginSections}
+                canOpenLinks={properties.canOpenPluginLinks}
+                onOpenSection={properties.onOpenPluginSection}
+            />
         </aside>
     );
 };

@@ -20,6 +20,8 @@ export interface GalleryViewProperties {
     pluginInspector: PluginInspectorClient;
 }
 
+type PluginNavigationSurface = 'viewport' | 'sidebar';
+
 /** Renders the gallery and persists its resizable panels. */
 export const GalleryView: Component<GalleryViewProperties> = props => {
     /** LocalStorage key for persisting panel percentages */
@@ -72,18 +74,30 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
     });
     const pluginPresentation = createPluginInspectorPresentation(
         () => props.pluginInspector,
-        () => eligibleAssetId() !== undefined
+        () => isSidebarOpen() || eligibleAssetId() !== undefined
     );
-    const [revealRequest, setRevealRequest] = createSignal<{ assetId: string; key: string }>();
-    const canRevealSection = (key: string) =>
+    const sidebarPluginSections = () =>
+        isSidebarOpen() ? pluginPresentation.sections() : undefined;
+    const viewportPluginSections = () =>
+        eligibleAssetId() ? pluginPresentation.sections() : undefined;
+    const [revealRequest, setRevealRequest] = createSignal<{
+        assetId: string;
+        key: string;
+        surface: PluginNavigationSurface;
+    }>();
+    const canRevealSection = (key: string, surface: PluginNavigationSurface) =>
         pluginPresentation
             .sections()
             ?.some(
-                section => section.viewportActionLabel && pluginInspectorSectionKey(section) === key
+                section =>
+                    pluginInspectorSectionKey(section) === key &&
+                    (surface === 'sidebar' ? section.sidebarLinkLabel : section.viewportActionLabel)
             );
     const requestedSection = createMemo(() => {
         const request = revealRequest();
-        return request && request.assetId === eligibleAssetId() && canRevealSection(request.key)
+        return request &&
+            request.assetId === eligibleAssetId() &&
+            canRevealSection(request.key, request.surface)
             ? request.key
             : undefined;
     });
@@ -126,14 +140,14 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
         });
     };
 
-    const revealPluginSection = (key: string) => {
+    const revealPluginSection = (key: string, surface: PluginNavigationSurface) => {
         const assetId = eligibleAssetId();
-        if (!assetId || !canRevealSection(key)) return;
+        if (!assetId || !canRevealSection(key, surface)) return;
         if (!isInspectorOpen()) {
             setIsInspectorOpen(true);
             saveStates(isSidebarOpen(), true);
         }
-        setRevealRequest({ assetId, key });
+        setRevealRequest({ assetId, key, surface });
     };
 
     const toggleSidebars = () => {
@@ -178,7 +192,11 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     class="shell-sidebar"
                     isCollapsed={!isSidebarOpen()}
                 >
-                    <LibrarySidebar />
+                    <LibrarySidebar
+                        pluginSections={sidebarPluginSections()}
+                        canOpenPluginLinks={eligibleAssetId() !== undefined}
+                        onOpenPluginSection={key => revealPluginSection(key, 'sidebar')}
+                    />
                 </ResizablePanel>
 
                 <ResizableHandle isCollapsed={!isSidebarOpen()} />
@@ -192,8 +210,8 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     class="shell-content"
                 >
                     <Viewport
-                        pluginSections={pluginPresentation.sections()}
-                        onRevealPluginSection={revealPluginSection}
+                        pluginSections={viewportPluginSections()}
+                        onRevealPluginSection={key => revealPluginSection(key, 'viewport')}
                     />
                 </ResizablePanel>
 

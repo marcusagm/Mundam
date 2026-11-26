@@ -61,6 +61,12 @@
 
 }
 
+.library-sidebar > .library-sidebar-native {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
 .sidebar-logo-area {
     padding: var(--p-space-m) var(--p-space-m) var(--p-space-s) var(--p-space-m);
     display: flex;

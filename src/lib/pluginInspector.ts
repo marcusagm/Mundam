@@ -7,16 +7,18 @@ const PluginInspectorFieldSchema = z.object({
     defaultValue: z.boolean()
 });
 
+const NavigationLabelSchema = z
+    .string()
+    .min(1)
+    .refine(label => [...label].length <= 80);
+
 const PluginInspectorSectionSchema = z.object({
     pluginId: z.string().min(1),
     pluginName: z.string().min(1),
     sectionId: z.string().min(1),
     title: z.string().min(1),
-    viewportActionLabel: z
-        .string()
-        .min(1)
-        .refine(label => [...label].length <= 80)
-        .optional(),
+    viewportActionLabel: NavigationLabelSchema.optional(),
+    sidebarLinkLabel: NavigationLabelSchema.optional(),
     fields: z.array(PluginInspectorFieldSchema)
 });
 

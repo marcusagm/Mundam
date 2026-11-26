@@ -10,7 +10,7 @@ use crate::core::{
 use mundam_plugin_sdk::{Control, Executor, Permission, Version};
 
 impl PluginService {
-    /// Returns the sections applicable to exactly one selected asset.
+    /// Returns approved sections and their navigation declarations for the active catalog.
     ///
     /// # Errors
     /// Propagates registry or verification task failures. A corrupt individual
@@ -75,6 +75,7 @@ fn sections(
             section_id: section.id.clone(),
             title: section.title.clone(),
             viewport_action_label: section.viewport_action_label.clone(),
+            sidebar_link_label: section.sidebar_link_label.clone(),
             fields: section
                 .fields
                 .iter()
