@@ -1,0 +1,160 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Mundam declarative plugin manifest v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "manifestVersion",
+        "id",
+        "name",
+        "description",
+        "keywords",
+        "icon",
+        "targets",
+        "version",
+        "publisher",
+        "license",
+        "engines",
+        "permissions",
+        "contributes"
+    ],
+    "properties": {
+        "manifestVersion": { "const": 1 },
+        "id": { "$ref": "#/$defs/namespace" },
+        "name": { "$ref": "#/$defs/title" },
+        "description": { "type": "string", "$ref": "#/$defs/plainText", "maxLength": 240 },
+        "keywords": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": { "type": "string", "$ref": "#/$defs/plainText", "maxLength": 32 }
+        },
+        "icon": {
+            "type": "string",
+            "pattern": "^assets/(?!((con|prn|aux|nul)|((com|lpt)[0-9]))\\.png$)[a-z][a-z0-9-]{0,31}\\.png$(?![\\s\\S])"
+        },
+        "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/target" }
+        },
+        "version": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$(?![\\s\\S])"
+        },
+        "publisher": { "$ref": "#/$defs/namespace" },
+        "license": { "type": "string", "$ref": "#/$defs/plainText", "maxLength": 128 },
+        "engines": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mundamApi"],
+            "properties": {
+                "mundamApi": {
+                    "type": "string",
+                    "pattern": "^>=(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*) <(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+                }
+            }
+        },
+        "permissions": {
+            "type": "array",
+            "$ref": "#/$defs/permissions",
+            "allOf": [
+                { "contains": { "const": "selection.read" } },
+                { "contains": { "const": "assetData.own.read" } }
+            ]
+        },
+        "optionalPermissions": { "$ref": "#/$defs/permissions" },
+        "contributes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assetFields", "inspectorSections"],
+            "properties": {
+                "assetFields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": { "$ref": "#/$defs/assetField" }
+                },
+                "inspectorSections": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": { "$ref": "#/$defs/inspectorSection" }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "plainText": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!\\s)[^\\u0000-\\u001f\\u007f-\\u009f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]*[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u2028-\\u202e\\u2066-\\u2069\\ufeff](?![\\s\\S])"
+        },
+        "title": { "type": "string", "$ref": "#/$defs/plainText", "maxLength": 80 },
+        "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$(?![\\s\\S])" },
+        "namespace": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9-]{0,31}(\\.[a-z][a-z0-9-]{0,31})+$(?![\\s\\S])"
+        },
+        "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["platform", "architecture"],
+            "properties": {
+                "platform": { "enum": ["all", "windows", "mac", "linux"] },
+                "architecture": { "enum": ["all", "x64", "arm64", "arm"] }
+            }
+        },
+        "permissions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "enum": ["selection.read", "assetData.own.read", "assetData.own.write"] }
+        },
+        "assetField": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "type", "schemaVersion", "default"],
+            "properties": {
+                "id": { "$ref": "#/$defs/slug" },
+                "type": { "const": "boolean" },
+                "schemaVersion": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+                "default": { "type": "boolean" }
+            }
+        },
+        "inspectorSection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "when", "fields"],
+            "properties": {
+                "id": { "$ref": "#/$defs/slug" },
+                "title": { "$ref": "#/$defs/title" },
+                "when": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["selectionCount"],
+                    "properties": { "selectionCount": { "const": 1 } }
+                },
+                "fields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["field", "label", "control"],
+                        "properties": {
+                            "field": { "$ref": "#/$defs/slug" },
+                            "label": { "$ref": "#/$defs/title" },
+                            "control": { "const": "checkbox" },
+                            "readOnly": { "type": "boolean", "default": false }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

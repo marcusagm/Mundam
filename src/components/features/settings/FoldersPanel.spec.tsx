@@ -13,6 +13,7 @@ vi.mock('./StoragePanel', () => ({ StoragePanel: () => null }));
 vi.mock('./KeyboardShortcutsPanel', () => ({ KeyboardShortcutsPanel: () => null }));
 vi.mock('./DuplicatesPanel', () => ({ DuplicatesPanel: () => null }));
 vi.mock('./AboutPanel', () => ({ AboutPanel: () => null }));
+vi.mock('./plugins/PluginsPanel', () => ({ PluginsPanel: () => null }));
 vi.mock('../library/FolderDestinationPicker', () => ({
     FolderDestinationPicker: (properties: {
         value: string;
@@ -33,6 +34,17 @@ it('opens the folder settings from the settings sidebar', async () => {
             isOpen
             onClose={() => undefined}
             importPreferences={{ load, save: vi.fn() }}
+            plugins={{
+                load: vi.fn(),
+                trust: vi.fn(),
+                revoke: vi.fn(),
+                choose: vi.fn(),
+                install: vi.fn(),
+                discard: vi.fn(),
+                reviewActivation: vi.fn(),
+                enable: vi.fn(),
+                disable: vi.fn()
+            }}
             externalImport={{
                 status: vi.fn(),
                 start: vi.fn(),
@@ -48,6 +60,7 @@ it('opens the folder settings from the settings sidebar', async () => {
         />
     ));
     const folders = screen.getByRole('button', { name: 'Folders' });
+    expect(screen.getByRole('button', { name: 'Plugins' })).toBeTruthy();
     fireEvent.click(folders);
     expect(folders.getAttribute('aria-current')).toBe('page');
     await screen.findByRole('button', { name: 'Choose references' });

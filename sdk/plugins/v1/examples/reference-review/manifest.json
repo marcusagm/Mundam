@@ -1,0 +1,29 @@
+{
+    "manifestVersion": 1,
+    "id": "org.example.reference-review",
+    "name": "Reference review",
+    "description": "Mark a visual reference as reviewed in the inspector.",
+    "keywords": ["review", "references", "inspector"],
+    "icon": "assets/review.png",
+    "targets": [{ "platform": "all", "architecture": "all" }],
+    "version": "1.0.0",
+    "publisher": "org.example",
+    "license": "MIT",
+    "engines": { "mundamApi": ">=1.0.0 <2.0.0" },
+    "permissions": ["selection.read", "assetData.own.read", "assetData.own.write"],
+    "contributes": {
+        "assetFields": [
+            { "id": "reviewed", "type": "boolean", "schemaVersion": 1, "default": false }
+        ],
+        "inspectorSections": [
+            {
+                "id": "review",
+                "title": "Review",
+                "when": { "selectionCount": 1 },
+                "fields": [
+                    { "field": "reviewed", "label": "Reference reviewed", "control": "checkbox" }
+                ]
+            }
+        ]
+    }
+}

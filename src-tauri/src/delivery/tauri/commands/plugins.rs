@@ -1,0 +1,305 @@
+//! Main-window adapter for local plugin settings and the native package picker.
+
+use crate::{
+    bootstrap::AppDirectories,
+    core::{
+        imports::destinations::ImportDestinations, plugins::InstalledPlugin, AppError, AppResult,
+    },
+    delivery::tauri::{
+        admission::IpcRequest,
+        plugin_admin::{
+            fingerprint_hex, publisher_anchor, read_selected_package, DesktopPluginAdmin,
+        },
+    },
+    infra::database::{import_destinations::SqliteImportDestinations, manager::DbManager},
+};
+use base64::{engine::general_purpose::STANDARD, Engine};
+use mundam_plugin_sdk::{Permission, Target};
+use serde::Serialize;
+use std::sync::Arc;
+use tauri::{
+    ipc::{CommandArg, CommandItem, InvokeError},
+    Runtime, State, WebviewWindow,
+};
+use tauri_plugin_dialog::DialogExt;
+use uuid::Uuid;
+
+pub(crate) struct PluginSettingsRequest {
+    _admission: IpcRequest,
+}
+
+impl<'de, R: Runtime> CommandArg<'de, R> for PluginSettingsRequest {
+    fn from_command(command: CommandItem<'de, R>) -> Result<Self, InvokeError> {
+        if command.message.webview_ref().label() != "main" {
+            return Err(
+                AppError::Forbidden("Plugin settings require the main window".into()).into(),
+            );
+        }
+        IpcRequest::from_command(command).map(|admission| Self {
+            _admission: admission,
+        })
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PluginSettings {
+    safe_mode: bool,
+    publishers: Vec<PublisherDetails>,
+    installed: Vec<InstalledDetails>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActivationDetails {
+    review_id: Uuid,
+    name: String,
+    version: String,
+    required_permissions: Vec<Permission>,
+    optional_permissions: Vec<Permission>,
+}
+
+#[derive(Serialize)]
+struct PublisherDetails {
+    namespace: String,
+    fingerprint: String,
+    revoked: bool,
+}
+
+#[derive(Serialize)]
+pub(crate) struct InstalledDetails {
+    id: String,
+    publisher: String,
+    version: String,
+    name: String,
+    enabled: bool,
+    approved: bool,
+}
+
+impl From<InstalledPlugin> for InstalledDetails {
+    fn from(plugin: InstalledPlugin) -> Self {
+        Self {
+            id: plugin.id,
+            publisher: plugin.publisher,
+            version: plugin.version,
+            name: plugin.name,
+            enabled: plugin.enabled,
+            approved: plugin.approved,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ReviewDetails {
+    review_id: Option<Uuid>,
+    plugin_id: String,
+    name: String,
+    description: String,
+    version: String,
+    license: String,
+    publisher: String,
+    publisher_fingerprint: String,
+    icon_base64: String,
+    targets: Vec<Target>,
+    required_permissions: Vec<Permission>,
+    optional_permissions: Vec<Permission>,
+    compatible: bool,
+}
+
+/// Reads local publisher and package inventory for Settings.
+#[tauri::command]
+pub(crate) async fn list_plugin_settings(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+) -> AppResult<PluginSettings> {
+    let service = admin.service(&directories.app_data).await?;
+    let catalog = active_catalog(&database).await?;
+    let (publishers, installed) =
+        tokio::try_join!(service.list_publishers(), service.list_installed(&catalog))?;
+    Ok(PluginSettings {
+        safe_mode: service.safe_mode(),
+        publishers: publishers
+            .into_iter()
+            .map(|publisher| PublisherDetails {
+                namespace: publisher.anchor.namespace,
+                fingerprint: fingerprint_hex(&publisher.anchor.fingerprint),
+                revoked: publisher.revoked,
+            })
+            .collect(),
+        installed: installed.into_iter().map(InstalledDetails::from).collect(),
+    })
+}
+
+async fn active_catalog(database: &DbManager) -> AppResult<String> {
+    Ok(SqliteImportDestinations(database.pool())
+        .preference()
+        .await?
+        .catalog_id)
+}
+
+/// Prepares a one-time permission review for an installed package in the active catalog.
+#[tauri::command]
+pub(crate) async fn review_plugin_activation(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+    plugin_id: String,
+) -> AppResult<ActivationDetails> {
+    let service = admin.service(&directories.app_data).await?;
+    let (review_id, name, version, required_permissions, optional_permissions) = admin
+        .review_activation(service, active_catalog(&database).await?, &plugin_id)
+        .await?;
+    Ok(ActivationDetails {
+        review_id,
+        name,
+        version,
+        required_permissions,
+        optional_permissions,
+    })
+}
+
+/// Consumes the reviewed grant for this catalog.
+#[tauri::command]
+pub(crate) async fn enable_reviewed_plugin(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+    review_id: Uuid,
+    optional_permissions: Vec<Permission>,
+) -> AppResult<()> {
+    let service = admin.service(&directories.app_data).await?;
+    admin
+        .enable(
+            service,
+            &active_catalog(&database).await?,
+            review_id,
+            optional_permissions,
+        )
+        .await
+}
+
+/// Revokes a plugin grant for the current catalog.
+#[tauri::command]
+pub(crate) async fn disable_installed_plugin(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+    plugin_id: String,
+) -> AppResult<()> {
+    let service = admin.service(&directories.app_data).await?;
+    service
+        .disable(&active_catalog(&database).await?, &plugin_id)
+        .await
+}
+
+/// Records a publisher independently confirmed in Settings.
+#[tauri::command]
+pub(crate) async fn trust_plugin_publisher(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    namespace: String,
+    fingerprint: String,
+) -> AppResult<()> {
+    let anchor = publisher_anchor(namespace, &fingerprint)?;
+    admin
+        .service(&directories.app_data)
+        .await?
+        .trust_publisher(anchor)
+        .await
+}
+
+/// Revokes the exact key selected in Settings.
+#[tauri::command]
+pub(crate) async fn revoke_plugin_publisher(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    namespace: String,
+    fingerprint: String,
+) -> AppResult<()> {
+    let anchor = publisher_anchor(namespace, &fingerprint)?;
+    admin
+        .service(&directories.app_data)
+        .await?
+        .revoke_publisher(anchor)
+        .await
+}
+
+/// Opens a native file chooser. The renderer never submits a filesystem path.
+#[tauri::command]
+pub(crate) async fn choose_plugin_package(
+    _ipc: PluginSettingsRequest,
+    window: WebviewWindow,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+) -> AppResult<Option<ReviewDetails>> {
+    let _selection = admin
+        .selection
+        .try_lock()
+        .map_err(|_| AppError::ValidationFailed("A plugin file chooser is already open.".into()))?;
+    admin.clear_review().await;
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title("Choose a Mundam plugin")
+        .add_filter("Mundam plugin", &["mundam-plugin"])
+        .pick_file(move |selection| {
+            let _ = sender.send(selection);
+        });
+    let Some(selection) = receiver.await.map_err(|_| AppError::Cancelled)? else {
+        return Ok(None);
+    };
+    let path = selection
+        .into_path()
+        .map_err(|_| AppError::ValidationFailed("Choose a local plugin package.".into()))?;
+    let bytes = read_selected_package(&path).await?;
+    let service = admin.service(&directories.app_data).await?;
+    let (preview, review_id) = admin.review(service, bytes).await?;
+    Ok(Some(ReviewDetails {
+        review_id,
+        plugin_id: preview.plugin_id,
+        name: preview.name,
+        description: preview.description,
+        version: preview.version,
+        license: preview.license,
+        publisher: preview.publisher.namespace,
+        publisher_fingerprint: fingerprint_hex(&preview.publisher.fingerprint),
+        icon_base64: STANDARD.encode(&preview.icon_png),
+        targets: preview.targets,
+        required_permissions: preview.required_permissions,
+        optional_permissions: preview.optional_permissions,
+        compatible: preview.compatible,
+    }))
+}
+
+/// Consumes the one-time review and installs the verified snapshot.
+#[tauri::command]
+pub(crate) async fn install_reviewed_plugin(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    review_id: Uuid,
+) -> AppResult<InstalledDetails> {
+    let service = admin.service(&directories.app_data).await?;
+    admin.install(service, review_id).await.map(Into::into)
+}
+
+/// Clears a cancelled review without affecting a subsequent review.
+#[tauri::command]
+pub(crate) async fn discard_plugin_review(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    review_id: Uuid,
+) -> AppResult<()> {
+    admin.discard(review_id).await;
+    Ok(())
+}

@@ -16,6 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+mundam-plugin-sdk = { path = "../sdk/plugins" }
 url = "2"
 tauri = { version = "2", features = ["macos-private-api"] }
 libc = "0.2"

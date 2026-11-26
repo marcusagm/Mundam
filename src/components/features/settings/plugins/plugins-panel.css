@@ -1,0 +1,61 @@
+.plugin-settings-section,
+.plugin-settings-fields,
+.plugin-settings-list,
+.plugin-settings-entry {
+    display: grid;
+    gap: var(--p-space-s);
+    min-width: 0;
+}
+
+.plugin-settings-section {
+    padding: var(--p-space-m);
+    gap: var(--p-space-m);
+    background-color: var(--bg-surface-1);
+    color: var(--text-secondary);
+    font-size: var(--p-font-size-xs);
+}
+
+.plugin-settings-section :is(p, h4, dl, dd, ul) {
+    margin: 0;
+}
+
+.plugin-settings-list {
+    padding: 0;
+    list-style: none;
+}
+
+.plugin-settings-entry {
+    padding: var(--p-space-s);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-s);
+    overflow-wrap: anywhere;
+}
+
+.plugin-settings-actions,
+.plugin-settings-package {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--p-space-s);
+}
+
+.plugin-settings-package img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.plugin-settings-section :is(strong, h4, dt) {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.plugin-settings-details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--p-space-xs) var(--p-space-s);
+}
+
+.plugin-settings-permissions {
+    padding-inline-start: var(--p-space-l);
+}

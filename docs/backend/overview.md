@@ -269,6 +269,10 @@ graph TD
 
 ## Core
 
+### Plugins
+
+O registro de plugins pertence ao perfil local. `core/plugins.rs` define a porta de persistência e os dados de revisão da instalação. `feature/plugins.rs` consulta a confiança persistida e verifica assinatura, recursos e compatibilidade com o SDK. `infra/database/plugins.rs` guarda o pacote e a identidade do editor no mesmo banco, com migrações próprias em `src-tauri/plugin-migrations`. A instalação começa desabilitada e as operações do registro são independentes do catálogo de assets e do IPC. [Registro de implementação](../report/2026-11-24-api-and-plugins.md#registro-de-editores-e-instalação-desabilitada--e09)
+
 ### Error
 
 O módulo de erro centraliza a gestão de falhas em toda a aplicação, garantindo que erros de diferentes origens (I/O, Banco de Dados, Formatos) sejam tratados de forma consistente.

@@ -3,6 +3,7 @@ pub mod external_import;
 pub mod external_import_pairing;
 pub mod library;
 pub mod mutations;
+pub mod plugins;
 pub mod queries;
 pub mod settings;
 pub mod streaming;

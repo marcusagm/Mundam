@@ -1,0 +1,34 @@
+{
+    "manifestVersion": 1,
+    "id": "org.example.windows-verification",
+    "name": "Windows verification",
+    "description": "Display a verification flag in the inspector for the Windows x64 workflow.",
+    "keywords": ["verification", "windows", "inspector"],
+    "icon": "assets/verification.png",
+    "targets": [{ "platform": "windows", "architecture": "x64" }],
+    "version": "1.0.0",
+    "publisher": "org.example",
+    "license": "MIT",
+    "engines": { "mundamApi": ">=1.0.0 <2.0.0" },
+    "permissions": ["selection.read", "assetData.own.read"],
+    "contributes": {
+        "assetFields": [
+            { "id": "verified", "type": "boolean", "schemaVersion": 1, "default": false }
+        ],
+        "inspectorSections": [
+            {
+                "id": "verification",
+                "title": "Verification",
+                "when": { "selectionCount": 1 },
+                "fields": [
+                    {
+                        "field": "verified",
+                        "label": "Verified on Windows",
+                        "control": "checkbox",
+                        "readOnly": true
+                    }
+                ]
+            }
+        ]
+    }
+}

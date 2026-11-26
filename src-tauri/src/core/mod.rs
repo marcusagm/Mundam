@@ -12,6 +12,7 @@ pub mod duplicates;
 pub mod ledger;
 pub mod models;
 pub mod path_guard;
+pub mod plugins;
 pub mod processing;
 pub mod repository;
 pub mod settings;

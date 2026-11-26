@@ -13,7 +13,8 @@ import {
     Cpu,
     HardDrive,
     Folder,
-    Plug
+    Plug,
+    Puzzle
 } from 'lucide-solid';
 import { cn } from '../../../lib/utils';
 import { Modal } from '../../ui';
@@ -24,8 +25,10 @@ import { PerformancePanel } from './PerformancePanel';
 import { StoragePanel } from './StoragePanel';
 import { FoldersPanel } from './FoldersPanel';
 import { IntegrationsPanel } from './IntegrationsPanel';
+import { PluginsPanel } from './plugins/PluginsPanel';
 import type { ExternalImportClient } from '../../../lib/externalImport';
 import type { ImportPreferenceClient } from '../../../lib/importPreferences';
+import type { PluginSettingsClient } from '../../../lib/plugins';
 import { DuplicatesPanel } from './DuplicatesPanel';
 import { AboutPanel } from './AboutPanel';
 import './settings-modal.css';
@@ -41,6 +44,7 @@ export type SettingsTab =
     | 'keyboard-shortcuts'
     | 'folders'
     | 'integrations'
+    | 'plugins'
     | 'duplicates'
     | 'about';
 
@@ -85,6 +89,7 @@ const SETTINGS_CATEGORIES: SettingsTabCategory[] = [
             { identifier: 'storage', label: 'Storage & Maintenance', icon: HardDrive },
             { identifier: 'folders', label: 'Folders', icon: Folder },
             { identifier: 'integrations', label: 'Integrations', icon: Plug },
+            { identifier: 'plugins', label: 'Plugins', icon: Puzzle },
             { identifier: 'duplicates', label: 'Duplicates', icon: Copy }
         ]
     },
@@ -102,6 +107,8 @@ export interface SettingsModalProperties {
     importPreferences: ImportPreferenceClient;
     /** Client for controlling the local import API. */
     externalImport: ExternalImportClient;
+    /** Client for local plugin package and publisher administration. */
+    plugins: PluginSettingsClient;
     /** Whether the settings modal is currently open. */
     isOpen: boolean;
     /** Callback invoked when the modal requests closure. */
@@ -191,6 +198,9 @@ export const SettingsModal: Component<SettingsModalProperties> = componentProper
                     </Show>
                     <Show when={activeTab() === 'integrations'}>
                         <IntegrationsPanel externalImport={componentProperties.externalImport} />
+                    </Show>
+                    <Show when={componentProperties.isOpen && activeTab() === 'plugins'}>
+                        <PluginsPanel client={componentProperties.plugins} />
                     </Show>
                     <Show when={activeTab() === 'duplicates'}>
                         <DuplicatesPanel />

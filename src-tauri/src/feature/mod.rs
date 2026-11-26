@@ -10,6 +10,8 @@ pub mod duplicates;
 pub mod library;
 /// Module for media-related features (waveforms, etc).
 pub mod media;
+/// Administrative plugin package operations.
+pub mod plugins;
 /// Bounded processing status queries.
 pub mod processing;
 /// Module for search functionality.

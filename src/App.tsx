@@ -18,6 +18,7 @@ import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 import { desktopImportPreferences } from './core/tauri/importPreferences';
 import { desktopExternalImport } from './core/tauri/externalImport';
+import { desktopPlugins } from './core/tauri/plugins';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -93,6 +94,7 @@ function App() {
                     isOpen={system.isSettingsOpen()}
                     importPreferences={desktopImportPreferences}
                     externalImport={desktopExternalImport}
+                    plugins={desktopPlugins}
                     onClose={() => system.openSettings(false)}
                     initialTab="general"
                 />

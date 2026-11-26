@@ -13,6 +13,7 @@ pub mod ledger;
 pub(crate) mod library_operations;
 pub mod manager;
 pub mod models;
+pub mod plugins;
 pub mod processing;
 pub mod queries;
 pub mod query_handlers;

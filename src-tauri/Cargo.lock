@@ -3641,6 +3641,7 @@ dependencies = [
  "memmap2",
  "midly",
  "mime_guess",
+ "mundam-plugin-sdk",
  "notify",
  "objc2",
  "palette",
@@ -3692,6 +3693,18 @@ dependencies = [
  "zip",
  "zstd",
  "zune-jpeg 0.4.21",
+]
+
+[[package]]
+name = "mundam-plugin-sdk"
+version = "0.1.0"
+dependencies = [
+ "png 0.18.0",
+ "ring",
+ "semver",
+ "serde",
+ "serde_json",
+ "unicode-normalization",
 ]
 
 [[package]]

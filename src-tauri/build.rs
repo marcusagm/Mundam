@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-changed=plugin-migrations");
     tauri_build::build();
 
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {

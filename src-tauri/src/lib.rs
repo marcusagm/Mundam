@@ -36,6 +36,7 @@ pub fn run() {
 
     let builder = crate::bootstrap::startup::register_state(tauri::Builder::default())
         .manage(crate::delivery::external_api::desktop::DesktopImportService::default())
+        .manage(crate::delivery::tauri::plugin_admin::DesktopPluginAdmin::from_environment())
         .manage(std::sync::Arc::new(
             crate::delivery::tauri::admission::IpcAdmission::default(),
         ))
@@ -172,6 +173,15 @@ pub fn run() {
             delivery::tauri::commands::library::folder_recovery_history,
             delivery::tauri::commands::library::get_import_preference,
             delivery::tauri::commands::library::set_import_preference,
+            delivery::tauri::commands::plugins::list_plugin_settings,
+            delivery::tauri::commands::plugins::trust_plugin_publisher,
+            delivery::tauri::commands::plugins::revoke_plugin_publisher,
+            delivery::tauri::commands::plugins::choose_plugin_package,
+            delivery::tauri::commands::plugins::install_reviewed_plugin,
+            delivery::tauri::commands::plugins::discard_plugin_review,
+            delivery::tauri::commands::plugins::review_plugin_activation,
+            delivery::tauri::commands::plugins::enable_reviewed_plugin,
+            delivery::tauri::commands::plugins::disable_installed_plugin,
             delivery::tauri::commands::external_import::get_external_import_status,
             delivery::tauri::commands::external_import::start_external_import,
             delivery::tauri::commands::external_import::stop_external_import,
