@@ -43,9 +43,3 @@ export type PluginNavigationSurface = keyof typeof pluginNavigationLabels;
 export function pluginInspectorSectionKey(section: PluginInspectorSection): string {
     return `${section.pluginId}:${section.sectionId}`;
 }
-
-/** Framework-independent client for reading and refreshing approved sections. */
-export interface PluginInspectorClient {
-    load(): Promise<PluginInspectorSection[]>;
-    subscribe(onChange: () => void): () => void;
-}

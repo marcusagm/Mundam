@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { expect, it, vi } from 'vitest';
 import { invokeCommand } from '../../lib/api';
-import { desktopPluginInspector, desktopPlugins } from './plugins';
+import { desktopPluginPresentation, desktopPlugins } from './plugins';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('../../lib/api', () => ({ invokeCommand: vi.fn() }));
@@ -17,9 +17,9 @@ it('lets the settings panel handle a refused package without using the global to
     expect(invokeCommand).not.toHaveBeenCalled();
 });
 
-it('invalidates the inspector after committed changes and respects unsubscription', async () => {
+it('invalidates the presentation after committed changes and respects unsubscription', async () => {
     const refresh = vi.fn();
-    const unsubscribe = desktopPluginInspector.subscribe(refresh);
+    const unsubscribe = desktopPluginPresentation.subscribe(refresh);
     try {
         vi.mocked(invoke).mockRejectedValueOnce(new Error('Publisher revoked'));
         await expect(desktopPlugins.enable('review', [])).rejects.toThrow('Publisher revoked');
@@ -36,14 +36,17 @@ it('invalidates the inspector after committed changes and respects unsubscriptio
 });
 
 it('rejects unrecognized inspector controls at the desktop boundary', async () => {
-    vi.mocked(invoke).mockResolvedValueOnce([
-        {
-            pluginId: 'org.example.review',
-            pluginName: 'Review',
-            sectionId: 'review',
-            title: 'Review',
-            fields: [{ fieldId: 'unsafe', label: 'Unknown', kind: 'html', defaultValue: false }]
-        }
-    ]);
-    await expect(desktopPluginInspector.load()).rejects.toThrow();
+    vi.mocked(invoke).mockResolvedValueOnce({
+        screens: [],
+        sections: [
+            {
+                pluginId: 'org.example.review',
+                pluginName: 'Review',
+                sectionId: 'review',
+                title: 'Review',
+                fields: [{ fieldId: 'unsafe', label: 'Unknown', kind: 'html', defaultValue: false }]
+            }
+        ]
+    });
+    await expect(desktopPluginPresentation.load()).rejects.toThrow();
 });

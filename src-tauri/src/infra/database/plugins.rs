@@ -5,7 +5,7 @@
 
 use crate::core::{
     plugins::{
-        inspector::ActiveInspectorPackage, InstalledPlugin, PluginActivationReview,
+        presentation::ApprovedPluginPackage, InstalledPlugin, PluginActivationReview,
         PluginInstallRecord, PluginRegistry, PluginReplacement, PublisherAnchor,
         RegisteredPublisher, StoredPluginPackage,
     },
@@ -232,10 +232,7 @@ impl PluginRegistry for SqlitePluginRegistry {
         .collect()
     }
 
-    async fn active_inspector_packages(
-        &self,
-        catalog_id: &str,
-    ) -> AppResult<Vec<ActiveInspectorPackage>> {
+    async fn approved_packages(&self, catalog_id: &str) -> AppResult<Vec<ApprovedPluginPackage>> {
         let rows = sqlx::query(
             "SELECT plugin.id, plugin.publisher, plugin.publisher_fingerprint,
                     plugin.package_digest, plugin.package, approval.permissions
@@ -256,7 +253,7 @@ impl PluginRegistry for SqlitePluginRegistry {
             let Ok(permissions) = serde_json::from_str::<Vec<Permission>>(&permissions) else {
                 continue;
             };
-            packages.push(ActiveInspectorPackage {
+            packages.push(ApprovedPluginPackage {
                 id: row.try_get("id")?,
                 publisher: PublisherAnchor {
                     namespace: row.try_get("publisher")?,

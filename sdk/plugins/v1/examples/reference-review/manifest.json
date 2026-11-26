@@ -15,6 +15,25 @@
         "assetFields": [
             { "id": "reviewed", "type": "boolean", "schemaVersion": 1, "default": false }
         ],
+        "screens": [
+            {
+                "id": "review-guide",
+                "title": "Reference review guide",
+                "blocks": [
+                    {
+                        "kind": "paragraph",
+                        "text": "Use Reference review to inspect a selected asset."
+                    },
+                    {
+                        "kind": "list",
+                        "items": [
+                            "Choose one asset in the gallery.",
+                            "Open the Review section in the Inspector."
+                        ]
+                    }
+                ]
+            }
+        ],
         "inspectorSections": [
             {
                 "id": "review",

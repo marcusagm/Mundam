@@ -9,12 +9,12 @@ import { ModelInspector } from '../features/inspector/model/ModelInspector';
 import { MultiInspector } from '../features/inspector/multi/MultiInspector';
 import { getMediaType } from '../features/inspector/utils';
 import { PluginInspectorSections } from '../features/inspector/plugins/PluginInspectorSections';
-import type { PluginInspectorPresentation } from '../features/inspector/plugins/createPluginInspectorPresentation';
+import type { PluginPresentationState } from '../../core/hooks/createPluginPresentation';
 import './file-inspector.css';
 
 /** Composes native details and approved plugin sections for the gallery selection. */
 export const FileInspector: Component<{
-    pluginInspector: PluginInspectorPresentation;
+    pluginInspector: PluginPresentationState;
     inspectorOpen: boolean;
     revealSection?: string;
     onSectionRevealed?: () => void;

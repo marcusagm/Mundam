@@ -5,7 +5,7 @@ use crate::{
     core::{
         imports::destinations::ImportDestinations,
         plugins::{
-            inspector::PluginInspectorSection, InstalledPlugin, PluginPackageChange,
+            presentation::PluginPresentation, InstalledPlugin, PluginPackageChange,
             PluginReplacementKind,
         },
         AppError, AppResult,
@@ -160,18 +160,18 @@ async fn active_catalog(database: &DbManager) -> AppResult<String> {
         .catalog_id)
 }
 
-/// Loads the catalog's approved inspector definitions through the main-window boundary.
+/// Loads the catalog's approved presentation definitions through the main-window boundary.
 #[tauri::command]
-pub(crate) async fn get_plugin_inspector_sections(
+pub(crate) async fn get_plugin_presentation(
     _ipc: PluginSettingsRequest,
     admin: State<'_, DesktopPluginAdmin>,
     directories: State<'_, AppDirectories>,
     database: State<'_, Arc<DbManager>>,
-) -> AppResult<Vec<PluginInspectorSection>> {
+) -> AppResult<PluginPresentation> {
     admin
         .service(&directories.app_data)
         .await?
-        .inspector_sections(&active_catalog(&database).await?)
+        .presentation(&active_catalog(&database).await?)
         .await
 }
 

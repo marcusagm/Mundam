@@ -21,7 +21,12 @@ export const PluginActivationConsent: Component<{
             <h4 id={heading} tabIndex={-1} ref={title}>
                 Enable {properties.review.name} · {properties.review.version}
             </h4>
-            <p>Approve these permissions for the current catalog.</p>
+            <p>
+                {properties.review.requiredPermissions.length ||
+                properties.review.optionalPermissions.length
+                    ? 'Approve these permissions for the current catalog.'
+                    : 'Enable this plugin for the current catalog. It requests no permissions.'}
+            </p>
             <PermissionList
                 label="Required permissions"
                 permissions={properties.review.requiredPermissions}

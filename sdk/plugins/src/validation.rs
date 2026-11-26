@@ -1,7 +1,8 @@
 //! Semantic checks that require cross-references, version ordering or normalization.
 
 use crate::{
-    Manifest, Permission, ValidatedManifest, ValidationError, Version, MAX_MANIFEST_BYTES,
+    Manifest, Permission, ScreenBlock, ValidatedManifest, ValidationError, Version,
+    MAX_MANIFEST_BYTES,
 };
 use std::collections::HashSet;
 use unicode_normalization::UnicodeNormalization;
@@ -169,6 +170,48 @@ fn validate_metadata(manifest: &mut Manifest) -> Result<(), ValidationError> {
 }
 
 fn validate_contributions(manifest: &Manifest) -> Result<(), ValidationError> {
+    let contributions = &manifest.contributes;
+    if contributions.inspector_sections.is_empty() {
+        if !contributions.asset_fields.is_empty() {
+            return invalid(
+                "contributes.assetFields",
+                "asset fields require an inspector section",
+            );
+        }
+        if contributions.screens.is_empty() {
+            return invalid(
+                "contributes",
+                "declare at least one inspector section or screen",
+            );
+        }
+    } else {
+        validate_inspector(manifest)?;
+    }
+    let mut screen_ids = HashSet::new();
+    if contributions.screens.len() > 4
+        || !contributions.screens.iter().all(|screen| {
+            valid_slug(&screen.id)
+                && screen_ids.insert(&screen.id)
+                && valid_text(&screen.title, 80)
+                && (1..=12).contains(&screen.blocks.len())
+                && screen.blocks.iter().all(|block| match block {
+                    ScreenBlock::Paragraph { text } => valid_text(text, 240),
+                    ScreenBlock::List { items } => {
+                        (1..=12).contains(&items.len())
+                            && items.iter().all(|item| valid_text(item, 120))
+                    }
+                })
+        })
+    {
+        return invalid(
+            "contributes.screens",
+            "expected up to four distinct screens with bounded text blocks",
+        );
+    }
+    Ok(())
+}
+
+fn validate_inspector(manifest: &Manifest) -> Result<(), ValidationError> {
     let contributions = &manifest.contributes;
     let mut fields = HashSet::new();
     if !(1..=32).contains(&contributions.asset_fields.len())

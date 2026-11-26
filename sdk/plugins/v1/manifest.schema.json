@@ -18,6 +18,43 @@
         "permissions",
         "contributes"
     ],
+    "if": {
+        "properties": {
+            "contributes": {
+                "type": "object",
+                "required": ["inspectorSections"],
+                "properties": { "inspectorSections": { "type": "array", "minItems": 1 } }
+            }
+        }
+    },
+    "then": {
+        "properties": {
+            "permissions": {
+                "type": "array",
+                "allOf": [
+                    { "contains": { "const": "selection.read" } },
+                    { "contains": { "const": "assetData.own.read" } }
+                ]
+            },
+            "contributes": {
+                "type": "object",
+                "required": ["assetFields"],
+                "properties": { "assetFields": { "type": "array", "minItems": 1 } }
+            }
+        }
+    },
+    "else": {
+        "properties": {
+            "contributes": {
+                "type": "object",
+                "required": ["screens"],
+                "properties": {
+                    "screens": { "type": "array", "minItems": 1 },
+                    "assetFields": { "type": "array", "maxItems": 0 }
+                }
+            }
+        }
+    },
     "properties": {
         "manifestVersion": { "const": 1 },
         "id": { "$ref": "#/$defs/namespace" },
@@ -58,31 +95,26 @@
                 }
             }
         },
-        "permissions": {
-            "type": "array",
-            "$ref": "#/$defs/permissions",
-            "allOf": [
-                { "contains": { "const": "selection.read" } },
-                { "contains": { "const": "assetData.own.read" } }
-            ]
-        },
+        "permissions": { "$ref": "#/$defs/permissions" },
         "optionalPermissions": { "$ref": "#/$defs/permissions" },
         "contributes": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["assetFields", "inspectorSections"],
             "properties": {
                 "assetFields": {
                     "type": "array",
-                    "minItems": 1,
                     "maxItems": 32,
                     "items": { "$ref": "#/$defs/assetField" }
                 },
                 "inspectorSections": {
                     "type": "array",
-                    "minItems": 1,
                     "maxItems": 8,
                     "items": { "$ref": "#/$defs/inspectorSection" }
+                },
+                "screens": {
+                    "type": "array",
+                    "maxItems": 4,
+                    "items": { "$ref": "#/$defs/screen" }
                 }
             }
         }
@@ -123,6 +155,55 @@
                 "type": { "const": "boolean" },
                 "schemaVersion": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
                 "default": { "type": "boolean" }
+            }
+        },
+        "screen": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "blocks"],
+            "properties": {
+                "id": { "$ref": "#/$defs/slug" },
+                "title": { "$ref": "#/$defs/title" },
+                "blocks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["kind", "text"],
+                                "properties": {
+                                    "kind": { "const": "paragraph" },
+                                    "text": {
+                                        "type": "string",
+                                        "$ref": "#/$defs/plainText",
+                                        "maxLength": 240
+                                    }
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["kind", "items"],
+                                "properties": {
+                                    "kind": { "const": "list" },
+                                    "items": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "items": {
+                                            "type": "string",
+                                            "$ref": "#/$defs/plainText",
+                                            "maxLength": 120
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
             }
         },
         "inspectorSection": {

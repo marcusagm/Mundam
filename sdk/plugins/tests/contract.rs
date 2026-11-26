@@ -13,6 +13,31 @@ const WINDOWS_ICON: &[u8] =
     include_bytes!("../v1/examples/windows-verification/assets/verification.png");
 
 #[test]
+fn screens_can_be_declared_without_asset_permissions() -> Result<(), Box<dyn Error>> {
+    let mut declaration: Value = serde_json::from_slice(UNIVERSAL)?;
+    declaration["permissions"] = json!([]);
+    declaration["contributes"] = json!({"screens": declaration["contributes"]["screens"]});
+    let validated = parse_manifest(&serde_json::to_vec(&declaration)?)?;
+    assert_eq!(
+        validated.manifest().contributes.screens[0].id,
+        "review-guide"
+    );
+    let screen = declaration["contributes"]["screens"][0].clone();
+    declaration["contributes"]["screens"] = json!([screen, screen]);
+    assert_eq!(
+        parse_manifest(&serde_json::to_vec(&declaration)?)
+            .expect_err("duplicate screen")
+            .field,
+        "contributes.screens"
+    );
+    declaration["contributes"]["screens"] = json!([screen]);
+    declaration["contributes"]["screens"][0]["blocks"][0] =
+        json!({"kind": "html", "text": "markup"});
+    assert!(parse_manifest(&serde_json::to_vec(&declaration)?).is_err());
+    Ok(())
+}
+
+#[test]
 fn platform_pairs_and_stable_api_bounds_are_evaluated_together() -> Result<(), Box<dyn Error>> {
     let mut declarations: Value = serde_json::from_slice(SPECIFIC)?;
     declarations["targets"] = json!([

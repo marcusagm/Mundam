@@ -73,8 +73,29 @@ pub enum Permission {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Contributions {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asset_fields: Vec<AssetField>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inspector_sections: Vec<InspectorSection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub screens: Vec<PluginScreen>,
+}
+
+/// A built-in view layout filled with declarative text.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PluginScreen {
+    pub id: String,
+    pub title: String,
+    pub blocks: Vec<ScreenBlock>,
+}
+
+/// Presentation blocks supported by a v1 screen.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
+pub enum ScreenBlock {
+    Paragraph { text: String },
+    List { items: Vec<String> },
 }
 
 /// A versioned value in the plugin's own asset namespace.

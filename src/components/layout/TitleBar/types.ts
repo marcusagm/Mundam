@@ -1,10 +1,12 @@
 import { type Component, type JSX } from 'solid-js';
+import type { PluginScreenRoute } from '../../../lib/pluginPresentation';
 
 /**
  * Represents the distinct views or sections of the application
  * that can be navigated to from the title bar.
  */
-export type ApplicationView = 'home' | 'gallery' | 'duplicates';
+export type NativeApplicationView = 'home' | 'gallery' | 'duplicates';
+export type ApplicationView = NativeApplicationView | PluginScreenRoute;
 
 /**
  * Properties for the TitleBar component.
@@ -22,6 +24,8 @@ export interface TitleBarProperties {
 
     /** Optional gallery actions rendered beside the window controls. */
     pluginActions?: JSX.Element;
+    /** Optional navigation menu for approved application screens. */
+    pluginScreens?: JSX.Element;
 
     /**
      * Callback invoked when the user clicks a navigation button to change views.
@@ -41,7 +45,7 @@ export interface TitleBarNavigationItem {
      *
      * @type {ApplicationView}
      */
-    view: ApplicationView;
+    view: NativeApplicationView;
 
     /**
      * The user-facing label displayed as a tooltip.

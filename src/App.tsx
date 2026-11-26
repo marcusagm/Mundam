@@ -1,9 +1,13 @@
-import { onMount, Show, createEffect, createSignal, Switch, Match, type JSX } from 'solid-js';
+import { onMount, Show, createEffect, Switch, Match, type JSX } from 'solid-js';
 import { useSystem, useFilters, useMetadataNotifications } from './core/hooks';
 import { useIndexingNotifications } from './core/hooks/useIndexingNotifications';
 import { useShutdownMedia } from './core/shutdown/useShutdownMedia';
 import { WelcomeView, HomeView, GalleryView, DuplicateFinderView } from './views';
-import { TitleBar, type ApplicationView } from './components/layout/TitleBar';
+import { TitleBar } from './components/layout/TitleBar';
+import { PluginScreensMenu } from './components/layout/TitleBar/PluginScreensMenu';
+import { PluginScreenView } from './views/PluginScreenView';
+import { createApplicationNavigation } from './views/createApplicationNavigation';
+import { createPluginPresentation } from './core/hooks/createPluginPresentation';
 // Dialog removed (moved to WelcomeView)
 // Native DnD
 import {
@@ -18,7 +22,7 @@ import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 import { desktopImportPreferences } from './core/tauri/importPreferences';
 import { desktopExternalImport } from './core/tauri/externalImport';
-import { desktopPluginInspector, desktopPlugins } from './core/tauri/plugins';
+import { desktopPluginPresentation, desktopPlugins } from './core/tauri/plugins';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -34,8 +38,14 @@ function App() {
     const system = useSystem();
     const filters = useFilters();
 
-    const [activeApplicationView, setActiveApplicationView] =
-        createSignal<ApplicationView>('gallery');
+    const activeCatalog = () => (system.loading() ? undefined : system.rootPath() || undefined);
+    const pluginPresentation = createPluginPresentation(
+        () => desktopPluginPresentation,
+        activeCatalog
+    );
+    const navigation = createApplicationNavigation(pluginPresentation.snapshot, () =>
+        Boolean(activeCatalog())
+    );
 
     // Start background sync notifications
     useMetadataNotifications();
@@ -63,9 +73,15 @@ function App() {
     const renderTitleBar = (pluginActions?: JSX.Element) => (
         <TitleBar
             hideNavigation={!system.rootPath()}
-            activeView={activeApplicationView()}
-            onViewChange={setActiveApplicationView}
+            activeView={navigation.activeView()}
+            onViewChange={navigation.navigate}
             pluginActions={pluginActions}
+            pluginScreens={
+                <PluginScreensMenu
+                    screens={navigation.screens()}
+                    onNavigate={navigation.navigate}
+                />
+            }
         />
     );
 
@@ -80,24 +96,35 @@ function App() {
                         fallback={
                             <GalleryView
                                 header={renderTitleBar}
-                                pluginInspector={desktopPluginInspector}
+                                pluginPresentation={pluginPresentation}
+                                focusOnReturn={
+                                    navigation.galleryFocusPending() && !system.isSettingsOpen()
+                                }
+                                onReturnFocused={navigation.acknowledgeGalleryFocus}
                             />
                         }
                     >
-                        <Match when={activeApplicationView() === 'home'}>
-                            <HomeView
-                                header={renderTitleBar()}
-                                onNavigate={setActiveApplicationView}
-                            />
+                        <Match when={navigation.activeView() === 'home'}>
+                            <HomeView header={renderTitleBar()} onNavigate={navigation.navigate} />
                         </Match>
-                        <Match when={activeApplicationView() === 'gallery'}>
-                            <GalleryView
-                                header={renderTitleBar}
-                                pluginInspector={desktopPluginInspector}
-                            />
-                        </Match>
-                        <Match when={activeApplicationView() === 'duplicates'}>
+                        <Match when={navigation.activeView() === 'duplicates'}>
                             <DuplicateFinderView header={renderTitleBar()} />
+                        </Match>
+                        <Match when={navigation.showingPluginScreen()}>
+                            <Show
+                                when={navigation.activeScreen()}
+                                keyed
+                                fallback={<Loader isFullscreen text="Loading plugin screen..." />}
+                            >
+                                {screen => (
+                                    <PluginScreenView
+                                        header={renderTitleBar()}
+                                        screen={screen}
+                                        focusHeading={!system.isSettingsOpen()}
+                                        onBack={() => navigation.navigate('gallery')}
+                                    />
+                                )}
+                            </Show>
                         </Match>
                     </Switch>
                 </Show>

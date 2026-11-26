@@ -4,7 +4,7 @@ import {
     pluginInspectorSectionKey,
     type PluginInspectorSection
 } from '../../../../lib/pluginInspector';
-import type { PluginInspectorPresentation } from './createPluginInspectorPresentation';
+import type { PluginPresentationState } from '../../../../core/hooks/createPluginPresentation';
 import { Accordion, AccordionContent, AccordionHeader, AccordionItem } from '../../../ui/Accordion';
 import { Button } from '../../../ui/Button';
 import { Checkbox } from '../../../ui/Checkbox';
@@ -73,7 +73,7 @@ const InspectorAccordion: Component<
 /** Renders approved definitions as native inspector controls with declared defaults. */
 export const PluginInspectorSections: Component<
     SectionRevealProperties & {
-        presentation: PluginInspectorPresentation;
+        presentation: PluginPresentationState;
     }
 > = properties => {
     const sections = () => properties.presentation.sections();

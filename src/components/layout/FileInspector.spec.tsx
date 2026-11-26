@@ -2,8 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-li
 import { createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { InputProvider } from '../../core/input';
-import type { PluginInspectorClient, PluginInspectorSection } from '../../lib/pluginInspector';
-import { createPluginInspectorPresentation } from '../features/inspector/plugins/createPluginInspectorPresentation';
+import type { PluginInspectorSection } from '../../lib/pluginInspector';
+import { createPluginPresentation } from '../../core/hooks/createPluginPresentation';
+import type { PluginPresentationClient } from '../../lib/pluginPresentation';
 import { PluginSectionActionMenu } from '../features/inspector/plugins/PluginSectionActionMenu';
 import { FileInspector } from './FileInspector';
 
@@ -45,15 +46,21 @@ const reviewSection: PluginInspectorSection = {
     ]
 };
 
-function renderInspector(client: PluginInspectorClient) {
+function renderInspector(client: {
+    load: () => Promise<PluginInspectorSection[]>;
+    subscribe: PluginPresentationClient['subscribe'];
+}) {
     const [selected, setSelected] = createSignal<string[]>([]);
     const [open, setOpen] = createSignal(true);
     const [reveal, setReveal] = createSignal<string>();
     selection.read = selected;
     render(() => {
-        const presentation = createPluginInspectorPresentation(
-            () => client,
-            () => selected().length === 1
+        const presentation = createPluginPresentation(
+            () => ({
+                load: async () => ({ sections: await client.load(), screens: [] }),
+                subscribe: client.subscribe
+            }),
+            () => (selected().length === 1 ? 'test-catalog' : undefined)
         );
         const revealSection = (key: string) => {
             setOpen(true);

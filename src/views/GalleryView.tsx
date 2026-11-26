@@ -13,17 +13,18 @@ import { Viewport } from '../components/layout/Viewport';
 import {
     pluginInspectorSectionKey,
     pluginNavigationLabels,
-    type PluginInspectorClient,
     type PluginNavigationSurface
 } from '../lib/pluginInspector';
-import { createPluginInspectorPresentation } from '../components/features/inspector/plugins/createPluginInspectorPresentation';
+import type { PluginPresentationState } from '../core/hooks/createPluginPresentation';
 import { PluginSectionActionMenu } from '../components/features/inspector/plugins/PluginSectionActionMenu';
 
 export interface GalleryViewProperties {
     /** Renders the shell header with the gallery's optional actions. */
     header: (pluginActions: JSX.Element) => JSX.Element;
     /** Supplies approved plugin sections independently of the desktop transport. */
-    pluginInspector: PluginInspectorClient;
+    pluginPresentation: PluginPresentationState;
+    focusOnReturn?: boolean;
+    onReturnFocused?: () => void;
 }
 
 /** Renders the gallery and persists its resizable panels. */
@@ -76,21 +77,17 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
             ? assetId
             : undefined;
     });
-    const pluginPresentation = createPluginInspectorPresentation(
-        () => props.pluginInspector,
-        () => isSidebarOpen() || eligibleAssetId() !== undefined
-    );
     const sidebarPluginSections = () =>
-        isSidebarOpen() ? pluginPresentation.sections() : undefined;
+        isSidebarOpen() ? props.pluginPresentation.sections() : undefined;
     const selectionPluginSections = () =>
-        eligibleAssetId() ? pluginPresentation.sections() : undefined;
+        eligibleAssetId() ? props.pluginPresentation.sections() : undefined;
     const [revealRequest, setRevealRequest] = createSignal<{
         assetId: string;
         key: string;
         surface: PluginNavigationSurface;
     }>();
     const canRevealSection = (key: string, surface: PluginNavigationSurface) =>
-        pluginPresentation
+        props.pluginPresentation
             .sections()
             ?.some(
                 section =>
@@ -225,6 +222,8 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     <Viewport
                         pluginSections={selectionPluginSections()}
                         onRevealPluginSection={key => revealPluginSection(key, 'viewport')}
+                        focusOnReturn={props.focusOnReturn}
+                        onReturnFocused={props.onReturnFocused}
                     />
                 </ResizablePanel>
 
@@ -240,7 +239,7 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     isCollapsed={!isInspectorOpen()}
                 >
                     <FileInspector
-                        pluginInspector={pluginPresentation}
+                        pluginInspector={props.pluginPresentation}
                         inspectorOpen={isInspectorOpen()}
                         revealSection={requestedSection()}
                         onSectionRevealed={() => setRevealRequest(undefined)}

@@ -1,0 +1,43 @@
+.plugin-screen-view {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: 100vh;
+}
+
+.plugin-screen-scroll {
+    overflow: auto;
+}
+
+.plugin-screen-content {
+    box-sizing: border-box;
+    max-inline-size: 52rem;
+    margin-inline: auto;
+    padding: var(--p-space-xl);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.plugin-screen-content > p,
+.plugin-screen-content > ul {
+    line-height: 1.6;
+}
+
+.plugin-screen-content > ul {
+    padding-inline-start: var(--p-space-xl);
+    list-style-type: disc;
+}
+
+.plugin-screen-heading {
+    margin-block: var(--p-space-xl) var(--p-space-l);
+}
+
+.plugin-screen-heading p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.plugin-screen-heading h1 {
+    margin-block: var(--p-space-xs) 0;
+    font-size: var(--p-font-size-xl);
+    font-weight: 600;
+}

@@ -63,10 +63,13 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
             },
         )
         .await?;
-    assert!(service.inspector_sections(catalog).await?.is_empty());
+    assert!(service.presentation(catalog).await?.sections.is_empty());
     let approval = service.review_activation(catalog.into(), &first.id).await?;
     service.enable(&approval, vec![]).await?;
-    let sections = service.inspector_sections(catalog).await?;
+    let presentation = service.presentation(catalog).await?;
+    assert_eq!(presentation.screens[0].plugin_id, first.id);
+    assert_eq!(presentation.screens[0].screen_id, "review-guide");
+    let sections = presentation.sections;
     assert_eq!(sections.len(), 1);
     assert_eq!(sections[0].plugin_id, first.id);
     assert_eq!(sections[0].section_id, "review");
@@ -84,11 +87,13 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
     );
     assert_eq!(sections[0].fields[0].field_id, "reviewed");
     assert!(!sections[0].fields[0].default_value);
-    assert!(service.inspector_sections("catalog-b").await?.is_empty());
+    assert!(service.presentation("catalog-b").await?.sections.is_empty());
     let safe_mode = PluginService::new(registry.clone()).with_safe_mode(true);
-    assert!(safe_mode.inspector_sections(catalog).await?.is_empty());
+    assert!(safe_mode.presentation(catalog).await?.sections.is_empty());
+    assert!(safe_mode.presentation(catalog).await?.screens.is_empty());
     service.disable(catalog, &first.id).await?;
-    assert!(service.inspector_sections(catalog).await?.is_empty());
+    assert!(service.presentation(catalog).await?.sections.is_empty());
+    assert!(service.presentation(catalog).await?.screens.is_empty());
     service.enable(&approval, vec![]).await?;
 
     let (other_publisher, bytes) = package("org.other", "1.0.0", ">=1.0.0 <2.0.0", 21)?;
@@ -104,11 +109,11 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
         .await?;
     let other_approval = service.review_activation(catalog.into(), &other.id).await?;
     service.enable(&other_approval, vec![]).await?;
-    assert_eq!(service.inspector_sections(catalog).await?.len(), 2);
+    assert_eq!(service.presentation(catalog).await?.sections.len(), 2);
     sqlx::query("UPDATE plugin_catalog_activations SET permissions = '[\"selection.read\"]' WHERE plugin_id = ?")
         .bind(&first.id).execute(&registry.0).await?;
     assert_eq!(
-        service.inspector_sections(catalog).await?[0].plugin_id,
+        service.presentation(catalog).await?.sections[0].plugin_id,
         other.id
     );
     service.enable(&approval, vec![]).await?;
@@ -116,11 +121,11 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
         .bind(&first.id)
         .execute(&registry.0)
         .await?;
-    let sections = service.inspector_sections(catalog).await?;
+    let sections = service.presentation(catalog).await?.sections;
     assert_eq!(sections.len(), 1);
     assert_eq!(sections[0].plugin_id, other.id);
     service.revoke_publisher(publisher).await?;
-    assert_eq!(service.inspector_sections(catalog).await?.len(), 1);
+    assert_eq!(service.presentation(catalog).await?.sections.len(), 1);
     Ok(())
 }
 

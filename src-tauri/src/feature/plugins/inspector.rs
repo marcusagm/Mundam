@@ -1,56 +1,50 @@
-//! Projects trusted inspector declarations into a limited host presentation contract.
+//! Projects trusted plugin declarations into the host presentation contract.
 
 use super::{check_signed_package, PluginService};
 use crate::core::{
-    plugins::inspector::{
-        ActiveInspectorPackage, InspectorFieldKind, PluginInspectorField, PluginInspectorSection,
+    plugins::{
+        inspector::{InspectorFieldKind, PluginInspectorField, PluginInspectorSection},
+        presentation::{ApprovedPluginPackage, PluginPresentation, PluginScreen},
     },
     AppError, AppResult,
 };
-use mundam_plugin_sdk::{Control, Executor, Permission, Version};
+use mundam_plugin_sdk::{Control, Executor, Manifest, Version};
 
 impl PluginService {
-    /// Returns approved sections and their navigation declarations for the active catalog.
+    /// Returns approved presentation definitions for the active catalog.
     ///
     /// # Errors
     /// Propagates registry or verification task failures. A corrupt individual
-    /// package is excluded so it cannot suppress other valid sections.
-    pub async fn inspector_sections(
-        &self,
-        catalog_id: &str,
-    ) -> AppResult<Vec<PluginInspectorSection>> {
+    /// package is excluded so it cannot suppress other valid contributions.
+    pub async fn presentation(&self, catalog_id: &str) -> AppResult<PluginPresentation> {
         let Some(executor) = self.executor.filter(|_| !self.safe_mode) else {
-            return Ok(Vec::new());
+            return Ok(PluginPresentation::default());
         };
-        let packages = self.registry.active_inspector_packages(catalog_id).await?;
+        let packages = self.registry.approved_packages(catalog_id).await?;
         if packages.is_empty() {
-            return Ok(Vec::new());
+            return Ok(PluginPresentation::default());
         }
         let api_version = self.api_version.clone();
         tokio::task::spawn_blocking(move || {
-            packages
-                .iter()
-                .flat_map(|package| sections(package, executor, &api_version))
-                .collect()
+            let mut presentation = PluginPresentation::default();
+            for package in &packages {
+                project_package(&mut presentation, package, executor, &api_version);
+            }
+            presentation
         })
         .await
-        .map_err(|_| AppError::Internal("Plugin inspector projection task failed".into()))
+        .map_err(|_| AppError::Internal("Plugin presentation task failed".into()))
     }
 }
 
-fn sections(
-    package: &ActiveInspectorPackage,
+fn project_package(
+    presentation: &mut PluginPresentation,
+    package: &ApprovedPluginPackage,
     executor: Executor,
     api_version: &Version,
-) -> Vec<PluginInspectorSection> {
-    if ![Permission::SelectionRead, Permission::OwnDataRead]
-        .iter()
-        .all(|permission| package.permissions.contains(permission))
-    {
-        return Vec::new();
-    }
+) {
     let Ok(verified) = check_signed_package(&package.bytes, &package.publisher) else {
-        return Vec::new();
+        return;
     };
     let declaration = verified.manifest().manifest();
     if verified.package_digest() != package.digest
@@ -61,15 +55,33 @@ fn sections(
             .iter()
             .all(|permission| package.permissions.contains(permission))
     {
-        return Vec::new();
+        return;
     }
+    presentation.sections.extend(sections(declaration));
+    presentation
+        .screens
+        .extend(
+            declaration
+                .contributes
+                .screens
+                .iter()
+                .map(|screen| PluginScreen {
+                    plugin_id: declaration.id.clone(),
+                    plugin_name: declaration.name.clone(),
+                    screen_id: screen.id.clone(),
+                    title: screen.title.clone(),
+                    blocks: screen.blocks.clone(),
+                }),
+        );
+}
 
+fn sections(declaration: &Manifest) -> impl Iterator<Item = PluginInspectorSection> + '_ {
     declaration
         .contributes
         .inspector_sections
         .iter()
         .filter(|section| section.when.selection_count == 1)
-        .map(|section| PluginInspectorSection {
+        .map(move |section| PluginInspectorSection {
             plugin_id: declaration.id.clone(),
             plugin_name: declaration.name.clone(),
             section_id: section.id.clone(),
@@ -98,5 +110,4 @@ fn sections(
                 })
                 .collect(),
         })
-        .collect()
 }

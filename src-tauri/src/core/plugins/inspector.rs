@@ -1,17 +1,6 @@
 //! Data-only contract between package permission policy and inspector renderers.
 
-use super::PublisherAnchor;
-use mundam_plugin_sdk::Permission;
 use serde::Serialize;
-
-/// Current package and authorization as read from a single catalog-scoped registry query.
-pub struct ActiveInspectorPackage {
-    pub id: String,
-    pub publisher: PublisherAnchor,
-    pub digest: [u8; 32],
-    pub bytes: Vec<u8>,
-    pub permissions: Vec<Permission>,
-}
 
 /// A declarative section the host can render for a single selected asset.
 #[derive(Debug, Serialize)]

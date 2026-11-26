@@ -140,3 +140,8 @@
     flex: 0 0 auto;
     margin-inline-end: var(--p-space-xs);
 }
+
+.titlebar-plugin-screens {
+    align-self: center;
+    margin-inline-start: var(--p-space-xs);
+}
