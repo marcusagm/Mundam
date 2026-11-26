@@ -76,6 +76,7 @@ fn sections(
             title: section.title.clone(),
             viewport_action_label: section.viewport_action_label.clone(),
             sidebar_link_label: section.sidebar_link_label.clone(),
+            title_bar_action_label: section.title_bar_action_label.clone(),
             fields: section
                 .fields
                 .iter()

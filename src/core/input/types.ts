@@ -246,6 +246,8 @@ export interface InputProviderConfig {
 export interface CreateShortcutOptions {
     keys: string | string[];
     action: (event: Event | null, payload: ShortcutPayload) => void;
+    /** Permit standard activation keys on focused controls while protecting text inputs. */
+    allowOnInteractive?: boolean;
     name?: string;
     description?: string;
     scope?: InputScopeName;

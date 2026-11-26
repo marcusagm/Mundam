@@ -4,24 +4,29 @@ import { Button } from '../../../ui/Button';
 import { DropdownMenu, type DropdownMenuItem } from '../../../ui/DropdownMenu';
 import {
     pluginInspectorSectionKey,
-    type PluginInspectorSection
+    pluginNavigationLabels,
+    type PluginInspectorSection,
+    type PluginNavigationSurface
 } from '../../../../lib/pluginInspector';
-import './plugin-viewport-actions.css';
+import './plugin-section-action-menu.css';
 
-/** Displays approved navigation actions in one native gallery toolbar menu. */
-export const PluginViewportActions: Component<{
+/** Displays approved navigation actions in one bounded gallery menu. */
+export const PluginSectionActionMenu: Component<{
+    surface: Extract<PluginNavigationSurface, 'titleBar' | 'viewport'>;
+    buttonLabel: string;
     sections: PluginInspectorSection[] | null | undefined;
     onRevealSection: (sectionKey: string) => void;
 }> = properties => {
     const actions = createMemo<DropdownMenuItem[]>(() =>
         (properties.sections ?? []).flatMap(section => {
-            if (!section.viewportActionLabel) return [];
+            const actionLabel = section[pluginNavigationLabels[properties.surface]];
+            if (!actionLabel) return [];
             const key = pluginInspectorSectionKey(section);
             return [
                 {
                     type: 'item',
                     id: key,
-                    label: `${section.viewportActionLabel} · ${section.pluginName}`,
+                    label: `${actionLabel} · ${section.pluginName}`,
                     action: () => properties.onRevealSection(key)
                 }
             ];
@@ -32,17 +37,20 @@ export const PluginViewportActions: Component<{
         <Show when={actions().length > 0}>
             <DropdownMenu
                 align="end"
-                contentClass="plugin-viewport-actions-menu"
-                trigger={
+                class="plugin-section-action-trigger"
+                contentClass="plugin-section-action-menu"
+                trigger={expanded => (
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="Plugin actions"
-                        title="Plugin actions"
+                        aria-label={properties.buttonLabel}
+                        aria-haspopup="menu"
+                        aria-expanded={expanded()}
+                        title={properties.buttonLabel}
                     >
                         <Puzzle size={16} aria-hidden="true" />
                     </Button>
-                }
+                )}
                 items={actions()}
             />
         </Show>

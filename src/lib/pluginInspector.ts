@@ -19,6 +19,7 @@ const PluginInspectorSectionSchema = z.object({
     title: z.string().min(1),
     viewportActionLabel: NavigationLabelSchema.optional(),
     sidebarLinkLabel: NavigationLabelSchema.optional(),
+    titleBarActionLabel: NavigationLabelSchema.optional(),
     fields: z.array(PluginInspectorFieldSchema)
 });
 
@@ -27,6 +28,16 @@ export const PluginInspectorSectionsSchema = z.array(PluginInspectorSectionSchem
 
 /** A section supplied by an approved plugin for a single selection. */
 export type PluginInspectorSection = z.infer<typeof PluginInspectorSectionSchema>;
+
+/** Maps each navigation surface to its opt-in manifest declaration. */
+export const pluginNavigationLabels = {
+    viewport: 'viewportActionLabel',
+    sidebar: 'sidebarLinkLabel',
+    titleBar: 'titleBarActionLabel'
+} as const;
+
+/** Surface from which a gallery section can be revealed. */
+export type PluginNavigationSurface = keyof typeof pluginNavigationLabels;
 
 /** Qualifies a manifest's local section ID with its package identity. */
 export function pluginInspectorSectionKey(section: PluginInspectorSection): string {

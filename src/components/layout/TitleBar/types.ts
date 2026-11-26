@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import { type Component, type JSX } from 'solid-js';
 
 /**
  * Represents the distinct views or sections of the application
@@ -19,6 +19,9 @@ export interface TitleBarProperties {
 
     /** Hide view switching while the library is unconfigured. */
     hideNavigation?: boolean;
+
+    /** Optional gallery actions rendered beside the window controls. */
+    pluginActions?: JSX.Element;
 
     /**
      * Callback invoked when the user clicks a navigation button to change views.

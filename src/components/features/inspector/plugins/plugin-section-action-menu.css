@@ -1,4 +1,4 @@
-.plugin-viewport-actions-menu {
+.plugin-section-action-menu {
     max-inline-size: min(24rem, calc(100vw - var(--p-space-xl)));
     max-block-size: min(24rem, 60vh);
     overflow: auto;

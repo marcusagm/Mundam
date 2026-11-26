@@ -96,8 +96,8 @@ export type DropdownSide = 'top' | 'bottom' | 'left' | 'right';
  * Properties for the main DropdownMenu component.
  */
 export interface DropdownMenuProps {
-    /** The element that triggers the menu when clicked. */
-    trigger: JSX.Element;
+    /** Trigger element or a renderer that receives the current expanded state. */
+    trigger: JSX.Element | ((expanded: Accessor<boolean>) => JSX.Element);
     /** Array of menu items to display. */
     items: DropdownMenuItem[];
     /** Preferred alignment of the menu. Defaults to 'start'. */

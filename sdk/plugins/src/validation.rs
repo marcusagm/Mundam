@@ -209,6 +209,10 @@ fn validate_contributions(manifest: &Manifest) -> Result<(), ValidationError> {
                 "contributes.inspectorSections.sidebarLinkLabel",
                 &section.sidebar_link_label,
             ),
+            (
+                "contributes.inspectorSections.titleBarActionLabel",
+                &section.title_bar_action_label,
+            ),
         ] {
             if label.as_ref().is_some_and(|label| !valid_text(label, 80)) {
                 return invalid(

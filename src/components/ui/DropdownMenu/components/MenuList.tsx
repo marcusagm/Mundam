@@ -5,7 +5,7 @@
  * Integrates with the custom keyboard navigation system.
  */
 
-import { Component, For, createSignal, Show, Switch, Match } from 'solid-js';
+import { Component, For, createEffect, createSignal, Show, Switch, Match } from 'solid-js';
 import { ChevronRight } from 'lucide-solid';
 import { Dynamic } from 'solid-js/web';
 import { cn } from '../../../../lib/utils';
@@ -41,7 +41,12 @@ export const MenuList: Component<MenuListProps> = props => {
     const [activeSubmenuIndex, setActiveSubmenuIndex] = createSignal<number | null>(null);
 
     /** Accessible keyboard navigation hook for the current list level. */
-    const { focusedItemIndex, setFocusedItemIndex } = useMenuNavigation(
+    const {
+        focusedItemIndex,
+        setFocusedItemIndex,
+        isKeyboardFocusActive,
+        setIsKeyboardFocusActive
+    } = useMenuNavigation(
         () => props.items,
         () => props.context?.close()
     );
@@ -56,7 +61,18 @@ export const MenuList: Component<MenuListProps> = props => {
                 {(item, index) => (
                     <div
                         class="ui-dropdown-item-wrapper"
+                        ref={element => {
+                            createEffect(() => {
+                                if (isKeyboardFocusActive() && focusedItemIndex() === index()) {
+                                    element.scrollIntoView?.({
+                                        block: 'nearest',
+                                        inline: 'nearest'
+                                    });
+                                }
+                            });
+                        }}
                         onMouseEnter={() => {
+                            setIsKeyboardFocusActive(false);
                             setFocusedItemIndex(index());
                             if (item.type === 'submenu') setActiveSubmenuIndex(index());
                         }}

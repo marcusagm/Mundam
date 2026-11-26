@@ -134,6 +134,7 @@
                 "title": { "$ref": "#/$defs/title" },
                 "viewportActionLabel": { "$ref": "#/$defs/title" },
                 "sidebarLinkLabel": { "$ref": "#/$defs/title" },
+                "titleBarActionLabel": { "$ref": "#/$defs/title" },
                 "when": {
                     "type": "object",
                     "additionalProperties": false,

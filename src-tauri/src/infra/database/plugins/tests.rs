@@ -78,6 +78,10 @@ async fn inspector_projects_only_valid_and_current_catalog_grants(
         sections[0].sidebar_link_label.as_deref(),
         Some("Open review details")
     );
+    assert_eq!(
+        sections[0].title_bar_action_label.as_deref(),
+        Some("Show review in Inspector")
+    );
     assert_eq!(sections[0].fields[0].field_id, "reviewed");
     assert!(!sections[0].fields[0].default_value);
     assert!(service.inspector_sections("catalog-b").await?.is_empty());

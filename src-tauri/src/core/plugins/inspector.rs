@@ -25,6 +25,8 @@ pub struct PluginInspectorSection {
     pub viewport_action_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidebar_link_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_bar_action_label: Option<String>,
     pub fields: Vec<PluginInspectorField>,
 }
 

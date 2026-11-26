@@ -1,4 +1,4 @@
-import { onMount, Show, createEffect, createSignal, Switch, Match } from 'solid-js';
+import { onMount, Show, createEffect, createSignal, Switch, Match, type JSX } from 'solid-js';
 import { useSystem, useFilters, useMetadataNotifications } from './core/hooks';
 import { useIndexingNotifications } from './core/hooks/useIndexingNotifications';
 import { useShutdownMedia } from './core/shutdown/useShutdownMedia';
@@ -60,11 +60,12 @@ function App() {
         dndRegistry.register('ASSET', AssetDropStrategy);
     });
 
-    const renderTitleBar = () => (
+    const renderTitleBar = (pluginActions?: JSX.Element) => (
         <TitleBar
             hideNavigation={!system.rootPath()}
             activeView={activeApplicationView()}
             onViewChange={setActiveApplicationView}
+            pluginActions={pluginActions}
         />
     );
 
@@ -78,7 +79,7 @@ function App() {
                     <Switch
                         fallback={
                             <GalleryView
-                                header={renderTitleBar()}
+                                header={renderTitleBar}
                                 pluginInspector={desktopPluginInspector}
                             />
                         }
@@ -91,7 +92,7 @@ function App() {
                         </Match>
                         <Match when={activeApplicationView() === 'gallery'}>
                             <GalleryView
-                                header={renderTitleBar()}
+                                header={renderTitleBar}
                                 pluginInspector={desktopPluginInspector}
                             />
                         </Match>

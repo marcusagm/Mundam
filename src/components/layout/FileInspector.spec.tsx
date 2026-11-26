@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { InputProvider } from '../../core/input';
 import type { PluginInspectorClient, PluginInspectorSection } from '../../lib/pluginInspector';
 import { createPluginInspectorPresentation } from '../features/inspector/plugins/createPluginInspectorPresentation';
-import { PluginViewportActions } from '../features/viewport/toolbar/PluginViewportActions';
+import { PluginSectionActionMenu } from '../features/inspector/plugins/PluginSectionActionMenu';
 import { FileInspector } from './FileInspector';
 
 const selection = vi.hoisted(() => ({ read: (): string[] => [] }));
@@ -55,14 +55,23 @@ function renderInspector(client: PluginInspectorClient) {
             () => client,
             () => selected().length === 1
         );
+        const revealSection = (key: string) => {
+            setOpen(true);
+            setReveal(key);
+        };
         return (
             <InputProvider>
-                <PluginViewportActions
+                <PluginSectionActionMenu
+                    surface="viewport"
+                    buttonLabel="Plugin actions"
                     sections={presentation.sections()}
-                    onRevealSection={key => {
-                        setOpen(true);
-                        setReveal(key);
-                    }}
+                    onRevealSection={revealSection}
+                />
+                <PluginSectionActionMenu
+                    surface="titleBar"
+                    buttonLabel="Title bar plugin actions"
+                    sections={presentation.sections()}
+                    onRevealSection={revealSection}
                 />
                 <FileInspector
                     pluginInspector={presentation}
@@ -174,4 +183,36 @@ it('shares one query with the toolbar and focuses the supplying plugin section',
 
     setSelected(['one', 'two']);
     expect(screen.queryByRole('button', { name: 'Plugin actions' })).toBeNull();
+});
+
+it('opens an opted-in title bar action with the menu keyboard shortcuts', async () => {
+    const titleAction = {
+        ...reviewSection,
+        sectionId: 'title-review',
+        title: 'Title bar review',
+        titleBarActionLabel: 'Open title review',
+        viewportActionLabel: undefined
+    };
+    const load = vi.fn().mockResolvedValue([reviewSection, titleAction]);
+    const { setOpen, setSelected } = renderInspector({ load, subscribe: () => vi.fn() });
+    setOpen(false);
+    setSelected(['one']);
+    const trigger = await screen.findByRole('button', { name: 'Title bar plugin actions' });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(
+        await screen.findByRole('menuitem', { name: 'Open title review · Reference review' })
+    ).toBeTruthy();
+    expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+
+    fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    fireEvent.keyUp(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    fireEvent.keyDown(trigger, { key: 'Enter', code: 'Enter' });
+    fireEvent.keyUp(trigger, { key: 'Enter', code: 'Enter' });
+    const section = await screen.findByRole('button', { name: 'Title bar review' });
+    expect(document.activeElement).toBe(section);
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(load).toHaveBeenCalledTimes(1);
 });

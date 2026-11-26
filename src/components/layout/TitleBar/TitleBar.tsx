@@ -132,6 +132,8 @@ export const TitleBar: Component<TitleBarProperties> = properties => {
             {/* Draggable Region – expands to fill remaining space */}
             <div class="titlebar-drag-region" data-tauri-drag-region />
 
+            <Show when={!properties.hideNavigation}>{properties.pluginActions}</Show>
+
             {/*
              * Windows/Linux: custom minimize/maximize/close buttons on the far right,
              * matching the OS convention. Hidden on macOS (native traffic lights are used).

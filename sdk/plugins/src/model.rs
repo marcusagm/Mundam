@@ -115,6 +115,13 @@ pub struct InspectorSection {
         skip_serializing_if = "Option::is_none"
     )]
     pub sidebar_link_label: Option<String>,
+    /// Adds an action to reveal this section from the gallery title bar.
+    #[serde(
+        rename = "titleBarActionLabel",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub title_bar_action_label: Option<String>,
     pub when: SelectionCondition,
     pub fields: Vec<InspectorField>,
 }

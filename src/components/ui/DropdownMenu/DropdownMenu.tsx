@@ -106,7 +106,9 @@ export const DropdownMenu: Component<DropdownMenuProps> = props => {
                     class="ui-dropdown-trigger"
                     onClick={handleToggle}
                 >
-                    {local.trigger}
+                    {typeof local.trigger === 'function'
+                        ? local.trigger(isMenuOpen)
+                        : local.trigger}
                 </div>
 
                 <Show when={isMenuOpen()}>

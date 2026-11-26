@@ -2,7 +2,7 @@ import { Component, JSX, Show } from 'solid-js';
 import { useViewport } from '../../core/hooks';
 import { ListView } from '../features/viewport/layouts/ListView';
 import { ItemView } from '../features/itemview/ItemView';
-import { PluginViewportActions } from '../features/viewport/toolbar/PluginViewportActions';
+import { PluginSectionActionMenu } from '../features/inspector/plugins/PluginSectionActionMenu';
 import type { PluginInspectorSection } from '../../lib/pluginInspector';
 import './viewport.css';
 
@@ -21,7 +21,9 @@ export const Viewport: Component<{
             <ListView
                 toolbarActions={
                     <Show when={viewport.mode() !== 'item'}>
-                        <PluginViewportActions
+                        <PluginSectionActionMenu
+                            surface="viewport"
+                            buttonLabel="Plugin actions"
                             sections={properties.pluginSections}
                             onRevealSection={properties.onRevealPluginSection}
                         />

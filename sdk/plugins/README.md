@@ -1,6 +1,6 @@
 # SDK declarativo de plugins do Mundam
 
-A v1 descreve campos booleanos próprios para o Inspector e contribuições opcionais para abrir a seção correspondente pela barra da galeria ou pela sidebar. A navegação para a seção requer um asset ativo selecionado. O mesmo manifesto pode ser processado por uma ferramenta de autoria, pelo backend e por outro renderizador. [Schema v1](v1/manifest.schema.json) · [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
+A v1 descreve campos booleanos próprios para o Inspector e contribuições opcionais para abrir a seção correspondente pelo viewport, pela sidebar ou pela barra de título da galeria. A navegação para a seção requer um asset ativo selecionado. O mesmo manifesto pode ser processado por uma ferramenta de autoria, pelo backend e por outro renderizador. [Schema v1](v1/manifest.schema.json) · [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 
 ## Validar um manifesto
 
@@ -16,10 +16,10 @@ cargo run --locked --manifest-path sdk/plugins/Cargo.toml -- schema
 
 ## Exemplos
 
-| Exemplo                                                                | Alvo          | Contribuição                                                |
-| ---------------------------------------------------------------------- | ------------- | ----------------------------------------------------------- |
-| [Reference review](v1/examples/reference-review/manifest.json)         | `all/all`     | Campo de revisão e atalhos na barra da galeria e na sidebar |
-| [Windows verification](v1/examples/windows-verification/manifest.json) | `windows/x64` | Campo próprio exibido somente para leitura                  |
+| Exemplo                                                                | Alvo          | Contribuição                                               |
+| ---------------------------------------------------------------------- | ------------- | ---------------------------------------------------------- |
+| [Reference review](v1/examples/reference-review/manifest.json)         | `all/all`     | Campo de revisão e atalhos para abrir a seção no Inspector |
+| [Windows verification](v1/examples/windows-verification/manifest.json) | `windows/x64` | Campo próprio exibido somente para leitura                 |
 
 ## Regras de autoria
 
@@ -30,7 +30,8 @@ cargo run --locked --manifest-path sdk/plugins/Cargo.toml -- schema
 - Escreva textos de exibição em uma linha. O arquivo de manifesto pode ter até 64 KiB. Informe de 1 a 12 palavras-chave com até 32 caracteres cada. A CLI deduplica termos após converter para minúsculas e normalizar Unicode em NFC, preservando a primeira grafia.
 - Dê a campos e seções IDs locais estáveis, escritos em minúsculas ASCII e iniciados por letra. Cada campo booleano tem `default` e `schemaVersion` positivo. Cada editor vincula um campo existente do próprio manifesto. Use `when.selectionCount: 1` e `readOnly: true` para uma exibição sem edição.
 - Defina `viewportActionLabel` em uma seção do Inspector para incluir uma ação em **Plugin actions** na barra da galeria. Use um texto de uma linha com até 80 caracteres, como `Show review in Inspector`. O Mundam qualifica a seção pelo ID do plugin, exibe o nome do plugin junto ao rótulo e usa a ação para abrir o Inspector, expandir a seção e mover o foco até o cabeçalho. A ação herda o contexto de seleção e as permissões da seção.
-- Defina `sidebarLinkLabel` no mesmo tipo de seção para incluir um link sob o nome do plugin na área **Plugins** da sidebar. Use um texto de uma linha com até 80 caracteres, como `Open review details`. Os grupos aparecem assim que o plugin é habilitado, e o Mundam disponibiliza a navegação com uma seleção individual ativa. Cada uma das duas contribuições é opcional.
+- Defina `sidebarLinkLabel` no mesmo tipo de seção para incluir um link sob o nome do plugin na área **Plugins** da sidebar. Use um texto de uma linha com até 80 caracteres, como `Open review details`. Os grupos aparecem assim que o plugin é habilitado, e o Mundam disponibiliza a navegação com uma seleção individual ativa.
+- Defina `titleBarActionLabel` para incluir uma ação no menu **Title bar plugin actions** da galeria. O rótulo também usa uma linha de até 80 caracteres. O Mundam fornece o ícone do menu, exibe o nome do plugin ao lado da ação e abre sua seção do Inspector. As três contribuições de navegação podem ser declaradas independentemente.
 - Declare `selection.read` e `assetData.own.read` em `permissions` para usar o inspector. Editores graváveis também exigem `assetData.own.write` nessa lista. As permissões opcionais usam `optionalPermissions` e devem ser distintas das obrigatórias. Toda permissão depende de consentimento e validação do host.
 
 O schema verifica a estrutura. A biblioteca Rust verifica também a ordem do intervalo de API, referências, duplicidades entre listas, vínculo entre ID e namespace e permissões exigidas pelas contribuições. A CLI usa a mesma biblioteca para validar o documento e os bytes da imagem. Os exemplos são diretórios de autoria que podem ser empacotados e assinados pela CLI e instalados em **Settings → Plugins**. A interface atual exibe os valores padrão declarados. A persistência dos valores por asset tem entrega própria. [Plano de implementação](../../docs/report/2026-11-24-api-and-plugins.md)

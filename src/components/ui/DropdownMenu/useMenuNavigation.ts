@@ -109,7 +109,10 @@ export const useMenuNavigation = (items: Accessor<DropdownMenuItem[]>, onClose: 
         system: true,
         action: () => {
             const firstSelectableIndex = getSelectableIndices()[0];
-            if (firstSelectableIndex !== undefined) setFocusedItemIndex(firstSelectableIndex);
+            if (firstSelectableIndex !== undefined) {
+                setFocusedItemIndex(firstSelectableIndex);
+                setIsKeyboardFocusActive(true);
+            }
         },
         preventDefault: true
     });
@@ -122,19 +125,25 @@ export const useMenuNavigation = (items: Accessor<DropdownMenuItem[]>, onClose: 
         action: () => {
             const selectableIndices = getSelectableIndices();
             const lastSelectableIndex = selectableIndices[selectableIndices.length - 1];
-            if (lastSelectableIndex !== undefined) setFocusedItemIndex(lastSelectableIndex);
+            if (lastSelectableIndex !== undefined) {
+                setFocusedItemIndex(lastSelectableIndex);
+                setIsKeyboardFocusActive(true);
+            }
         },
         preventDefault: true
     });
 
-    createShortcut({
-        keys: ['Enter', 'Space'],
-        scope: 'menu',
-        priority: 1510,
-        system: true,
-        action: () => triggerFocusedItem(),
-        preventDefault: true
-    });
+    for (const key of ['Enter', 'Space']) {
+        createShortcut({
+            keys: key,
+            scope: 'menu',
+            priority: 1510,
+            system: true,
+            action: triggerFocusedItem,
+            allowOnInteractive: true,
+            preventDefault: true
+        });
+    }
 
     createShortcut({
         keys: 'Escape',

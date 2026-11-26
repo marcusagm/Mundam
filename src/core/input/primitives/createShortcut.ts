@@ -90,6 +90,7 @@ export function createShortcut(options: CreateShortcutOptions): ShortcutHandle {
             command: commandName,
             preventDefault: options.preventDefault ?? true,
             ignoreInputs: options.ignoreInputs ?? true,
+            allowOnInteractive: options.allowOnInteractive,
             enabledWhen: () => isEnabled() && (options.enabled?.() ?? true),
             category: options.category,
             system: options.system,

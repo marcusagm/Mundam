@@ -10,17 +10,21 @@ import { LibrarySidebar } from '../components/layout/LibrarySidebar';
 import { FileInspector } from '../components/layout/FileInspector';
 import { GlobalStatusbar } from '../components/layout/GlobalStatusbar';
 import { Viewport } from '../components/layout/Viewport';
-import { pluginInspectorSectionKey, type PluginInspectorClient } from '../lib/pluginInspector';
+import {
+    pluginInspectorSectionKey,
+    pluginNavigationLabels,
+    type PluginInspectorClient,
+    type PluginNavigationSurface
+} from '../lib/pluginInspector';
 import { createPluginInspectorPresentation } from '../components/features/inspector/plugins/createPluginInspectorPresentation';
+import { PluginSectionActionMenu } from '../components/features/inspector/plugins/PluginSectionActionMenu';
 
 export interface GalleryViewProperties {
-    /** The title bar to render at the top */
-    header: JSX.Element;
+    /** Renders the shell header with the gallery's optional actions. */
+    header: (pluginActions: JSX.Element) => JSX.Element;
     /** Supplies approved plugin sections independently of the desktop transport. */
     pluginInspector: PluginInspectorClient;
 }
-
-type PluginNavigationSurface = 'viewport' | 'sidebar';
 
 /** Renders the gallery and persists its resizable panels. */
 export const GalleryView: Component<GalleryViewProperties> = props => {
@@ -78,7 +82,7 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
     );
     const sidebarPluginSections = () =>
         isSidebarOpen() ? pluginPresentation.sections() : undefined;
-    const viewportPluginSections = () =>
+    const selectionPluginSections = () =>
         eligibleAssetId() ? pluginPresentation.sections() : undefined;
     const [revealRequest, setRevealRequest] = createSignal<{
         assetId: string;
@@ -91,7 +95,7 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
             ?.some(
                 section =>
                     pluginInspectorSectionKey(section) === key &&
-                    (surface === 'sidebar' ? section.sidebarLinkLabel : section.viewportActionLabel)
+                    section[pluginNavigationLabels[surface]]
             );
     const requestedSection = createMemo(() => {
         const request = revealRequest();
@@ -176,7 +180,16 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
     return (
         <div class="app-shell">
             {/* Title Bar / Header */}
-            <header class="shell-header">{props.header}</header>
+            <header class="shell-header">
+                {props.header(
+                    <PluginSectionActionMenu
+                        surface="titleBar"
+                        buttonLabel="Title bar plugin actions"
+                        sections={selectionPluginSections()}
+                        onRevealSection={key => revealPluginSection(key, 'titleBar')}
+                    />
+                )}
+            </header>
 
             <ResizablePanelGroup
                 direction="horizontal"
@@ -210,7 +223,7 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                     class="shell-content"
                 >
                     <Viewport
-                        pluginSections={viewportPluginSections()}
+                        pluginSections={selectionPluginSections()}
                         onRevealPluginSection={key => revealPluginSection(key, 'viewport')}
                     />
                 </ResizablePanel>
