@@ -44,6 +44,7 @@ it('rejects unrecognized inspector controls at the desktop boundary', async () =
                 pluginId: 'org.example.review',
                 pluginName: 'Review',
                 sectionId: 'review',
+                packageRevision: 'ab'.repeat(32),
                 title: 'Review',
                 fields: [{ fieldId: 'unsafe', label: 'Unknown', kind: 'html', defaultValue: false }]
             }

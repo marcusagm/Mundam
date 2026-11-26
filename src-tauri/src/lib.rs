@@ -175,6 +175,8 @@ pub fn run() {
             delivery::tauri::commands::library::set_import_preference,
             delivery::tauri::commands::plugins::list_plugin_settings,
             delivery::tauri::commands::plugins::get_plugin_presentation,
+            delivery::tauri::commands::plugins::get_plugin_inspector_values,
+            delivery::tauri::commands::plugins::save_plugin_inspector_value,
             delivery::tauri::commands::plugins::trust_plugin_publisher,
             delivery::tauri::commands::plugins::revoke_plugin_publisher,
             delivery::tauri::commands::plugins::choose_plugin_package,

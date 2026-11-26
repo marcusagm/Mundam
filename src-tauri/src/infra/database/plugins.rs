@@ -5,9 +5,9 @@
 
 use crate::core::{
     plugins::{
-        presentation::ApprovedPluginPackage, InstalledPlugin, PluginActivationReview,
-        PluginInstallRecord, PluginRegistry, PluginReplacement, PublisherAnchor,
-        RegisteredPublisher, StoredPluginPackage,
+        presentation::{ApprovedPluginPackage, LockedPluginPackage},
+        InstalledPlugin, PluginActivationReview, PluginInstallRecord, PluginRegistry,
+        PluginReplacement, PublisherAnchor, RegisteredPublisher, StoredPluginPackage,
     },
     AppError, AppResult,
 };
@@ -233,38 +233,26 @@ impl PluginRegistry for SqlitePluginRegistry {
     }
 
     async fn approved_packages(&self, catalog_id: &str) -> AppResult<Vec<ApprovedPluginPackage>> {
-        let rows = sqlx::query(
-            "SELECT plugin.id, plugin.publisher, plugin.publisher_fingerprint,
-                    plugin.package_digest, plugin.package, approval.permissions
-             FROM plugin_catalog_activations AS approval
-             JOIN installed_plugins AS plugin ON plugin.id = approval.plugin_id
-                 AND plugin.package_digest = approval.package_digest
-             JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
-                 AND publisher.fingerprint = plugin.publisher_fingerprint
-             WHERE approval.catalog_id = ? AND publisher.revoked_at IS NULL
-             ORDER BY plugin.id",
-        )
-        .bind(catalog_id)
-        .fetch_all(&self.0)
-        .await?;
-        let mut packages = Vec::with_capacity(rows.len());
-        for row in rows {
-            let permissions: String = row.try_get("permissions")?;
-            let Ok(permissions) = serde_json::from_str::<Vec<Permission>>(&permissions) else {
-                continue;
-            };
-            packages.push(ApprovedPluginPackage {
-                id: row.try_get("id")?,
-                publisher: PublisherAnchor {
-                    namespace: row.try_get("publisher")?,
-                    fingerprint: stored_digest(&row, "publisher_fingerprint")?,
-                },
-                digest: stored_digest(&row, "package_digest")?,
-                bytes: row.try_get("package")?,
-                permissions,
-            });
-        }
-        Ok(packages)
+        let mut connection = self.0.acquire().await?;
+        select_approved(&mut connection, catalog_id, None).await
+    }
+
+    async fn lock_approved_package(
+        &self,
+        catalog_id: &str,
+        plugin_id: &str,
+    ) -> AppResult<Option<Box<dyn LockedPluginPackage>>> {
+        let mut transaction = self.0.begin_with("BEGIN IMMEDIATE").await?;
+        let package = select_approved(&mut transaction, catalog_id, Some(plugin_id))
+            .await?
+            .into_iter()
+            .next();
+        Ok(package.map(|package| {
+            Box::new(RegistryApproval {
+                package,
+                _transaction: transaction,
+            }) as Box<dyn LockedPluginPackage>
+        }))
     }
 
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>> {
@@ -342,6 +330,58 @@ impl PluginRegistry for SqlitePluginRegistry {
         .await?;
         Ok(())
     }
+}
+
+struct RegistryApproval {
+    package: ApprovedPluginPackage,
+    _transaction: sqlx::Transaction<'static, sqlx::Sqlite>,
+}
+
+impl LockedPluginPackage for RegistryApproval {
+    fn package(&self) -> &ApprovedPluginPackage {
+        &self.package
+    }
+}
+
+async fn select_approved(
+    connection: &mut sqlx::SqliteConnection,
+    catalog_id: &str,
+    plugin_id: Option<&str>,
+) -> AppResult<Vec<ApprovedPluginPackage>> {
+    let rows = sqlx::query(
+        "SELECT plugin.id, plugin.publisher, plugin.publisher_fingerprint,
+                plugin.package_digest, plugin.package, approval.permissions
+         FROM plugin_catalog_activations AS approval
+         JOIN installed_plugins AS plugin ON plugin.id = approval.plugin_id
+             AND plugin.package_digest = approval.package_digest
+         JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
+             AND publisher.fingerprint = plugin.publisher_fingerprint
+         WHERE approval.catalog_id = ?1 AND publisher.revoked_at IS NULL
+             AND (?2 IS NULL OR plugin.id = ?2)
+         ORDER BY plugin.id",
+    )
+    .bind(catalog_id)
+    .bind(plugin_id)
+    .fetch_all(connection)
+    .await?;
+    let mut packages = Vec::with_capacity(rows.len());
+    for row in rows {
+        let permissions: String = row.try_get("permissions")?;
+        let Ok(permissions) = serde_json::from_str::<Vec<Permission>>(&permissions) else {
+            continue;
+        };
+        packages.push(ApprovedPluginPackage {
+            id: row.try_get("id")?,
+            publisher: PublisherAnchor {
+                namespace: row.try_get("publisher")?,
+                fingerprint: stored_digest(&row, "publisher_fingerprint")?,
+            },
+            digest: stored_digest(&row, "package_digest")?,
+            bytes: row.try_get("package")?,
+            permissions,
+        });
+    }
+    Ok(packages)
 }
 
 fn installed_projection(row: &SqliteRow) -> AppResult<InstalledPlugin> {

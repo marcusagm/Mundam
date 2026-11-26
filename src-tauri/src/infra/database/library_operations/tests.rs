@@ -3,14 +3,17 @@ use crate::core::ledger::{
     command::{CreateFolderPayload, LedgerCommand},
     port::TransactionalAssetLedger,
 };
+use crate::core::plugins::asset_data::{
+    PluginAssetDataLedger, PluginAssetFieldKey, PluginBooleanField, PluginBooleanWrite,
+};
 use crate::infra::{database::ledger::SqliteAssetLedger, events::TokioEventBus};
 use std::path::PathBuf;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
-#[path = "regression_tests.rs"]
-mod regression;
 #[path = "import_tests.rs"]
 mod import_publication;
+#[path = "regression_tests.rs"]
+mod regression;
 
 struct Fixture {
     directory: tempfile::TempDir,
@@ -323,6 +326,23 @@ async fn undo_restores_files_folder_colors_and_asset_metadata_with_original_ids(
     let root = fixture.folder("root", None).await?;
     let child = fixture.folder("root/child", Some(&root)).await?;
     fixture.asset("kept", "root/child/kept.png", &child).await?;
+    let review = PluginAssetFieldKey {
+        asset_id: "kept".into(),
+        plugin_id: "org.example.review".into(),
+        publisher_fingerprint: [3; 32],
+        field_id: "reviewed".into(),
+    };
+    fixture
+        .ledger
+        .write_plugin_boolean(
+            &review,
+            PluginBooleanWrite {
+                schema_version: 1,
+                expected_revision: 0,
+                value: true,
+            },
+        )
+        .await?;
     sqlx::query("UPDATE folders SET color = '#112233', inherits_color = 0 WHERE id = ?")
         .bind(&child)
         .execute(&fixture.pool)
@@ -355,6 +375,14 @@ async fn undo_restores_files_folder_colors_and_asset_metadata_with_original_ids(
             .fetch_one(&fixture.pool)
             .await?;
     assert_eq!(metadata, ("Original notes".into(), 5, child.clone()));
+    assert_eq!(
+        fixture.ledger.read_plugin_boolean(&review).await?,
+        Some(PluginBooleanField {
+            schema_version: 1,
+            revision: 1,
+            value: true,
+        })
+    );
     let color: String = sqlx::query_scalar("SELECT color FROM folders WHERE id = ?")
         .bind(&child)
         .fetch_one(&fixture.pool)

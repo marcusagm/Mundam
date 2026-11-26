@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-li
 import { createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { InputProvider } from '../../core/input';
-import type { PluginInspectorSection } from '../../lib/pluginInspector';
+import type { PluginInspectorDataClient, PluginInspectorSection } from '../../lib/pluginInspector';
 import { createPluginPresentation } from '../../core/hooks/createPluginPresentation';
 import type { PluginPresentationClient } from '../../lib/pluginPresentation';
 import { PluginSectionActionMenu } from '../features/inspector/plugins/PluginSectionActionMenu';
@@ -39,6 +39,7 @@ const reviewSection: PluginInspectorSection = {
     pluginId: 'org.example.reference-review',
     pluginName: 'Reference review',
     sectionId: 'review',
+    packageRevision: 'ab'.repeat(32),
     title: 'Review',
     viewportActionLabel: 'Show review in Inspector',
     fields: [
@@ -46,10 +47,23 @@ const reviewSection: PluginInspectorSection = {
     ]
 };
 
-function renderInspector(client: {
-    load: () => Promise<PluginInspectorSection[]>;
-    subscribe: PluginPresentationClient['subscribe'];
-}) {
+const readOnlyData: PluginInspectorDataClient = {
+    load: async () => [
+        {
+            fieldId: 'reviewed',
+            state: { status: 'available', value: false, revision: '0', writable: false }
+        }
+    ],
+    save: vi.fn()
+};
+
+function renderInspector(
+    client: {
+        load: () => Promise<PluginInspectorSection[]>;
+        subscribe: PluginPresentationClient['subscribe'];
+    },
+    data: PluginInspectorDataClient = readOnlyData
+) {
     const [selected, setSelected] = createSignal<string[]>([]);
     const [open, setOpen] = createSignal(true);
     const [reveal, setReveal] = createSignal<string>();
@@ -82,6 +96,7 @@ function renderInspector(client: {
                 />
                 <FileInspector
                     pluginInspector={presentation}
+                    pluginInspectorData={data}
                     inspectorOpen={open()}
                     revealSection={reveal()}
                     onSectionRevealed={() => setReveal(undefined)}
@@ -93,6 +108,58 @@ function renderInspector(client: {
 }
 
 afterEach(cleanup);
+
+it('uses confirmed revisions and leaves a new selection unchanged by an older save', async () => {
+    const state = (value: boolean, revision: string) => [
+        {
+            fieldId: 'reviewed',
+            state: { status: 'available' as const, value, revision, writable: true }
+        }
+    ];
+    const load = vi.fn<PluginInspectorDataClient['load']>().mockResolvedValue(state(false, '0'));
+    let resolveFirst!: (value: Awaited<ReturnType<PluginInspectorDataClient['save']>>) => void;
+    const pending = new Promise<Awaited<ReturnType<PluginInspectorDataClient['save']>>>(resolve => {
+        resolveFirst = resolve;
+    });
+    const save = vi
+        .fn<PluginInspectorDataClient['save']>()
+        .mockReturnValueOnce(pending)
+        .mockResolvedValueOnce({ status: 'conflict' });
+    const { setSelected } = renderInspector(
+        {
+            load: async () => [reviewSection],
+            subscribe: () => vi.fn()
+        },
+        { load, save }
+    );
+    const checkbox = () =>
+        screen.findByRole<HTMLButtonElement>('checkbox', { name: 'Reference reviewed' });
+
+    setSelected(['one']);
+    fireEvent.click(await checkbox());
+    expect(save).toHaveBeenNthCalledWith(1, {
+        target: {
+            assetId: 'one',
+            pluginId: reviewSection.pluginId,
+            sectionId: 'review',
+            packageRevision: reviewSection.packageRevision
+        },
+        fieldId: 'reviewed',
+        expectedRevision: '0',
+        value: true
+    });
+    setSelected(['two']);
+    await checkbox();
+    resolveFirst({ status: 'saved', value: true, revision: '1' });
+    await pending;
+    expect((await checkbox()).getAttribute('aria-checked')).toBe('false');
+
+    load.mockResolvedValueOnce(state(true, '4'));
+    fireEvent.click(await checkbox());
+    expect(await screen.findByText(/This value changed elsewhere/)).toBeTruthy();
+    await waitFor(async () => expect((await checkbox()).getAttribute('aria-checked')).toBe('true'));
+    expect(save).toHaveBeenCalledTimes(2);
+});
 
 it('composes signed plugin definitions only for one visible selection', async () => {
     const unsubscribe = vi.fn();
@@ -108,7 +175,7 @@ it('composes signed plugin definitions only for one visible selection', async ()
     expect(checkbox.getAttribute('aria-checked')).toBe('false');
     expect(screen.getByText('Native image details')).toBeTruthy();
     setSelected(['two']);
-    expect(screen.getByRole('checkbox', { name: 'Reference reviewed' })).toBeTruthy();
+    expect(await screen.findByRole('checkbox', { name: 'Reference reviewed' })).toBeTruthy();
     expect(load).toHaveBeenCalledTimes(1);
     setSelected(['one', 'two']);
     expect(screen.getByText('Native multi-selection')).toBeTruthy();

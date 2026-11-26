@@ -13,6 +13,7 @@ import { Viewport } from '../components/layout/Viewport';
 import {
     pluginInspectorSectionKey,
     pluginNavigationLabels,
+    type PluginInspectorDataClient,
     type PluginNavigationSurface
 } from '../lib/pluginInspector';
 import type { PluginPresentationState } from '../core/hooks/createPluginPresentation';
@@ -23,6 +24,7 @@ export interface GalleryViewProperties {
     header: (pluginActions: JSX.Element) => JSX.Element;
     /** Supplies approved plugin sections independently of the desktop transport. */
     pluginPresentation: PluginPresentationState;
+    pluginInspectorData: PluginInspectorDataClient;
     focusOnReturn?: boolean;
     onReturnFocused?: () => void;
 }
@@ -240,6 +242,7 @@ export const GalleryView: Component<GalleryViewProperties> = props => {
                 >
                     <FileInspector
                         pluginInspector={props.pluginPresentation}
+                        pluginInspectorData={props.pluginInspectorData}
                         inspectorOpen={isInspectorOpen()}
                         revealSection={requestedSection()}
                         onSectionRevealed={() => setRevealRequest(undefined)}

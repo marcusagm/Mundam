@@ -123,6 +123,9 @@ pub async fn init(app: &AppHandle) -> crate::core::error::AppResult<()> {
         }
     });
 
+    let plugin_data_ledger: Arc<dyn crate::core::plugins::asset_data::PluginAssetDataLedger> =
+        asset_ledger_impl.clone();
+    app.manage(plugin_data_ledger);
     let asset_ledger: Arc<dyn crate::core::ledger::port::TransactionalAssetLedger> =
         asset_ledger_impl;
     app.manage(asset_ledger.clone());

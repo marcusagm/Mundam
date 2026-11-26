@@ -19,6 +19,7 @@ const reviewSection: PluginInspectorSection = {
     pluginId: 'org.example.reference-review',
     pluginName: 'Reference review',
     sectionId: 'review',
+    packageRevision: 'ab'.repeat(32),
     title: 'Review',
     sidebarLinkLabel: 'Open review details',
     fields: []

@@ -45,6 +45,48 @@ fn package(
 }
 
 #[tokio::test]
+async fn plugin_inspector_approval_serializes_catalog_edit_with_revocation(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempfile::tempdir()?;
+    let registry_path = directory.path().join("plugins.sqlite");
+    let registry = Arc::new(SqlitePluginRegistry::open(&registry_path).await?);
+    let other_connection = SqlitePluginRegistry::open(&registry_path).await?;
+    let service = PluginService::new(registry.clone());
+    let (publisher, bytes) = package("org.example", "1.0.0", ">=1.0.0 <2.0.0", 19)?;
+    service.trust_publisher(publisher).await?;
+    let preview = service.preview(bytes.clone()).await?;
+    let plugin = service
+        .install(
+            bytes,
+            InstallApproval {
+                package_digest: preview.package_digest,
+            },
+        )
+        .await?;
+    let review = service
+        .review_activation("catalog-a".into(), &plugin.id)
+        .await?;
+    service.enable(&review, vec![]).await?;
+    let held = registry
+        .lock_approved_package("catalog-a", &plugin.id)
+        .await?
+        .ok_or("missing approval")?;
+    let mut disable = Box::pin(other_connection.disable("catalog-a", &plugin.id));
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(40), &mut disable)
+            .await
+            .is_err()
+    );
+    drop(held);
+    disable.await?;
+    assert!(registry
+        .lock_approved_package("catalog-a", &plugin.id)
+        .await?
+        .is_none());
+    Ok(())
+}
+
+#[tokio::test]
 async fn inspector_projects_only_valid_and_current_catalog_grants(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;

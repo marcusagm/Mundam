@@ -24,7 +24,11 @@ import { Loader } from './components/ui/Loader';
 import { SettingsModal } from './components/features/settings';
 import { desktopImportPreferences } from './core/tauri/importPreferences';
 import { desktopExternalImport } from './core/tauri/externalImport';
-import { desktopPluginPresentation, desktopPlugins } from './core/tauri/plugins';
+import {
+    desktopPluginInspectorData,
+    desktopPluginPresentation,
+    desktopPlugins
+} from './core/tauri/plugins';
 // Input System
 import { InputProvider, useCommands } from './core/input';
 // Removed logos (moved to WelcomeView)
@@ -106,6 +110,7 @@ function App() {
                             <GalleryView
                                 header={renderTitleBar}
                                 pluginPresentation={pluginPresentation}
+                                pluginInspectorData={desktopPluginInspectorData}
                                 focusOnReturn={
                                     navigation.galleryFocusPending() && !system.isSettingsOpen()
                                 }

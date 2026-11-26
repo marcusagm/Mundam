@@ -7,6 +7,7 @@ use crate::core::AppResult;
 use async_trait::async_trait;
 use mundam_plugin_sdk::{Permission, Target};
 
+pub mod asset_data;
 pub mod inspector;
 pub mod presentation;
 
@@ -141,6 +142,13 @@ pub trait PluginRegistry: Send + Sync {
         &self,
         catalog_id: &str,
     ) -> AppResult<Vec<presentation::ApprovedPluginPackage>>;
+
+    /// Holds the current approval stable until the caller finishes its catalog operation.
+    async fn lock_approved_package(
+        &self,
+        catalog_id: &str,
+        plugin_id: &str,
+    ) -> AppResult<Option<Box<dyn presentation::LockedPluginPackage>>>;
 
     /// Loads the current package and its admission identity.
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>>;

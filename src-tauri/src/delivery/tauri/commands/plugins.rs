@@ -5,8 +5,12 @@ use crate::{
     core::{
         imports::destinations::ImportDestinations,
         plugins::{
-            presentation::PluginPresentation, InstalledPlugin, PluginPackageChange,
-            PluginReplacementKind,
+            asset_data::{
+                PluginAssetDataLedger, PluginBooleanEdit, PluginInspectorEditResult,
+                PluginInspectorFieldState, PluginSectionTarget,
+            },
+            presentation::PluginPresentation,
+            InstalledPlugin, PluginPackageChange, PluginReplacementKind,
         },
         AppError, AppResult,
     },
@@ -172,6 +176,48 @@ pub(crate) async fn get_plugin_presentation(
         .service(&directories.app_data)
         .await?
         .presentation(&active_catalog(&database).await?)
+        .await
+}
+
+/// Loads values for one section rendered by the main window's Inspector.
+#[tauri::command]
+pub(crate) async fn get_plugin_inspector_values(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+    ledger: State<'_, Arc<dyn PluginAssetDataLedger>>,
+    target: PluginSectionTarget,
+) -> AppResult<Vec<PluginInspectorFieldState>> {
+    admin
+        .service(&directories.app_data)
+        .await?
+        .read_inspector_values(
+            ledger.inner().as_ref(),
+            &active_catalog(&database).await?,
+            target,
+        )
+        .await
+}
+
+/// Saves one edit from the main window's authorized Inspector.
+#[tauri::command]
+pub(crate) async fn save_plugin_inspector_value(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    database: State<'_, Arc<DbManager>>,
+    ledger: State<'_, Arc<dyn PluginAssetDataLedger>>,
+    edit: PluginBooleanEdit,
+) -> AppResult<PluginInspectorEditResult> {
+    admin
+        .service(&directories.app_data)
+        .await?
+        .save_inspector_value(
+            ledger.inner().as_ref(),
+            &active_catalog(&database).await?,
+            edit,
+        )
         .await
 }
 

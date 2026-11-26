@@ -9,6 +9,7 @@ pub struct PluginInspectorSection {
     pub plugin_id: String,
     pub plugin_name: String,
     pub section_id: String,
+    pub package_revision: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub viewport_action_label: Option<String>,

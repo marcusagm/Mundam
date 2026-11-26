@@ -10,11 +10,13 @@ import { MultiInspector } from '../features/inspector/multi/MultiInspector';
 import { getMediaType } from '../features/inspector/utils';
 import { PluginInspectorSections } from '../features/inspector/plugins/PluginInspectorSections';
 import type { PluginPresentationState } from '../../core/hooks/createPluginPresentation';
+import type { PluginInspectorDataClient } from '../../lib/pluginInspector';
 import './file-inspector.css';
 
 /** Composes native details and approved plugin sections for the gallery selection. */
 export const FileInspector: Component<{
     pluginInspector: PluginPresentationState;
+    pluginInspectorData: PluginInspectorDataClient;
     inspectorOpen: boolean;
     revealSection?: string;
     onSectionRevealed?: () => void;
@@ -87,6 +89,8 @@ export const FileInspector: Component<{
                         <Show when={properties.inspectorOpen && !activeItem()?.deleted_at}>
                             <PluginInspectorSections
                                 presentation={properties.pluginInspector}
+                                assetId={activeItem()!.id}
+                                client={properties.pluginInspectorData}
                                 revealSection={properties.revealSection}
                                 onSectionRevealed={properties.onSectionRevealed}
                             />

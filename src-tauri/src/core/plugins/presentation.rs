@@ -13,6 +13,22 @@ pub struct ApprovedPluginPackage {
     pub permissions: Vec<Permission>,
 }
 
+/// Keeps trust and approval stable across a catalog operation, including revocation by another process.
+pub trait LockedPluginPackage: Send {
+    /// Returns the package verified against the approval held by this guard.
+    fn package(&self) -> &ApprovedPluginPackage;
+}
+
+impl ApprovedPluginPackage {
+    /// An opaque revision for binding a renderer request to these exact bytes.
+    pub fn revision(&self) -> String {
+        self.digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+}
+
 /// A single snapshot used to render all declarative plugin surfaces.
 #[derive(Debug, Default, Serialize)]
 pub struct PluginPresentation {

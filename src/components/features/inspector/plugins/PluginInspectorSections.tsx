@@ -2,12 +2,13 @@ import { createEffect, createSignal, For, Show, untrack, type Component } from '
 import { Puzzle } from 'lucide-solid';
 import {
     pluginInspectorSectionKey,
+    type PluginInspectorDataClient,
     type PluginInspectorSection
 } from '../../../../lib/pluginInspector';
 import type { PluginPresentationState } from '../../../../core/hooks/createPluginPresentation';
 import { Accordion, AccordionContent, AccordionHeader, AccordionItem } from '../../../ui/Accordion';
 import { Button } from '../../../ui/Button';
-import { Checkbox } from '../../../ui/Checkbox';
+import { PluginInspectorFields } from './PluginInspectorFields';
 import './plugin-inspector-sections.css';
 
 interface SectionRevealProperties {
@@ -15,10 +16,16 @@ interface SectionRevealProperties {
     onSectionRevealed?: () => void;
 }
 
+interface SectionDataProperties {
+    assetId: string;
+    client: PluginInspectorDataClient;
+}
+
 const InspectorAccordion: Component<
-    SectionRevealProperties & {
-        sections: PluginInspectorSection[];
-    }
+    SectionRevealProperties &
+        SectionDataProperties & {
+            sections: PluginInspectorSection[];
+        }
 > = properties => {
     const [expanded, setExpanded] = createSignal(
         untrack(() => properties.sections.map(pluginInspectorSectionKey))
@@ -48,19 +55,15 @@ const InspectorAccordion: Component<
                                 }}
                             />
                             <AccordionContent>
-                                <div class="plugin-inspector-fields">
-                                    <p>{section.pluginName} · Declared defaults</p>
-                                    <For each={section.fields}>
-                                        {field => (
-                                            <Checkbox
-                                                size="sm"
-                                                disabled
-                                                label={field.label}
-                                                checked={field.defaultValue}
-                                            />
-                                        )}
-                                    </For>
-                                </div>
+                                <Show when={properties.assetId} keyed>
+                                    {assetId => (
+                                        <PluginInspectorFields
+                                            section={section}
+                                            assetId={assetId}
+                                            client={properties.client}
+                                        />
+                                    )}
+                                </Show>
                             </AccordionContent>
                         </AccordionItem>
                     );
@@ -70,11 +73,12 @@ const InspectorAccordion: Component<
     );
 };
 
-/** Renders approved definitions as native inspector controls with declared defaults. */
+/** Renders approved definitions as native inspector controls for the current asset. */
 export const PluginInspectorSections: Component<
-    SectionRevealProperties & {
-        presentation: PluginPresentationState;
-    }
+    SectionRevealProperties &
+        SectionDataProperties & {
+            presentation: PluginPresentationState;
+        }
 > = properties => {
     const sections = () => properties.presentation.sections();
     return (
@@ -96,6 +100,8 @@ export const PluginInspectorSections: Component<
                     available.length > 0 && (
                         <InspectorAccordion
                             sections={available}
+                            assetId={properties.assetId}
+                            client={properties.client}
                             revealSection={properties.revealSection}
                             onSectionRevealed={properties.onSectionRevealed}
                         />

@@ -119,10 +119,26 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
     let profile = tempfile::tempdir()?;
     let path = profile.path();
     let database = tauri::async_runtime::block_on(DbManager::new(&path.join("catalog.sqlite")))?;
+    tauri::async_runtime::block_on(async {
+        sqlx::query(
+            "INSERT INTO assets (id, name, path, state, format_type, family, file_size)
+                     VALUES ('asset', 'image.png', 'image.png', 'IDLE', 'png', 'IMAGE', 1)",
+        )
+        .execute(database.pool())
+        .await
+    })?;
+    let plugin_ledger: Arc<dyn crate::core::plugins::asset_data::PluginAssetDataLedger> =
+        Arc::new(crate::infra::database::ledger::SqliteAssetLedger::new(
+            database.pool().clone(),
+            Arc::new(crate::infra::events::TokioEventBus::new()),
+            path.into(),
+            Arc::new(crate::core::path_guard::LedgerPathGuard::new()),
+        ));
     let app = tauri::test::mock_builder()
         .manage(Arc::new(IpcAdmission::default()))
         .manage(DesktopPluginAdmin::default())
         .manage(Arc::new(database))
+        .manage(plugin_ledger)
         .manage(AppDirectories {
             app_data: path.into(),
             db_path: path.join("catalog.sqlite"),
@@ -133,6 +149,8 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
         .invoke_handler(tauri::generate_handler![
             list_plugin_settings,
             get_plugin_presentation,
+            get_plugin_inspector_values,
+            save_plugin_inspector_value,
             trust_plugin_publisher,
             revoke_plugin_publisher,
             install_reviewed_plugin,
@@ -205,7 +223,45 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
             "fieldId": "reviewed", "kind": "checkbox", "label": "Reference reviewed", "defaultValue": false
         })
     );
+    let target = json!({
+        "assetId": "asset", "pluginId": "org.example.reference-review", "sectionId": "review",
+        "packageRevision": presentation["sections"][0]["packageRevision"]
+    });
+    let edit =
+        json!({"target": target, "fieldId": "reviewed", "expectedRevision": "0", "value": true});
+    assert!(invoke(
+        &auxiliary,
+        "get_plugin_inspector_values",
+        json!({"target": target})
+    )
+    .is_err());
+    assert!(invoke(
+        &auxiliary,
+        "save_plugin_inspector_value",
+        json!({"edit": edit})
+    )
+    .is_err());
+    assert_eq!(
+        call("get_plugin_inspector_values", json!({"target": target}))?,
+        json!([{"fieldId":"reviewed", "state":{"status":"available","value":false,"revision":"0","writable":true}}])
+    );
+    assert_eq!(
+        call("save_plugin_inspector_value", json!({"edit": edit}))?,
+        json!({"status":"saved","value":true,"revision":"1"})
+    );
+    assert_eq!(
+        call("save_plugin_inspector_value", json!({"edit": edit}))?,
+        json!({"status":"conflict"})
+    );
+    let mut stale_target = target.clone();
+    stale_target["packageRevision"] = json!("ab".repeat(32));
+    assert!(call(
+        "get_plugin_inspector_values",
+        json!({"target": stale_target})
+    )
+    .is_err());
     call("disable_installed_plugin", reference.clone())?;
+    assert!(call("save_plugin_inspector_value", json!({"edit": edit})).is_err());
     assert_eq!(
         call("get_plugin_presentation", json!({}))?,
         json!({"sections": [], "screens": [], "commands": []})

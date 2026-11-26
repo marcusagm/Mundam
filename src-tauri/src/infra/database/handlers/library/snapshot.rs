@@ -3,7 +3,7 @@ use crate::core::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use sqlx::{Sqlite, Transaction};
 
-const TABLES: [&str; 7] = [
+const TABLES: [&str; 8] = [
     "folders",
     "assets",
     "asset_metadata_envelope",
@@ -11,6 +11,7 @@ const TABLES: [&str; 7] = [
     "asset_colors",
     "library_folder_identities",
     "library_file_identities",
+    "plugin_asset_data",
 ];
 const MAX_SNAPSHOT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_ENTITIES: usize = 100_000;
@@ -160,7 +161,8 @@ pub(crate) async fn restore(
         }
         envelope.tables
     };
-    if tables.len() != TABLES.len() && tables.len() != 5 {
+    // Older snapshots omitted file identities or predated catalog-owned plugin data.
+    if !matches!(tables.len(), 5 | 7) && tables.len() != TABLES.len() {
         return Err(invalid("Incomplete folder recovery snapshot"));
     }
     for (index, table) in tables.iter().enumerate() {

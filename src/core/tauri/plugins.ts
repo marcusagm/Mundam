@@ -1,4 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
+import {
+    PluginInspectorValuesSchema,
+    PluginInspectorEditSchema,
+    type PluginInspectorDataClient
+} from '../../lib/pluginInspector';
 import type { PluginSettingsClient } from '../../lib/plugins';
 import {
     PluginPresentationSchema,
@@ -16,6 +21,14 @@ async function refreshPresentationAfter<Result>(operation: Promise<Result>): Pro
 export const desktopPluginPresentation: PluginPresentationClient = {
     load: async () => PluginPresentationSchema.parse(await invoke('get_plugin_presentation')),
     subscribe: onChange => eventBus.on('plugins:presentation-changed', onChange)
+};
+
+/** Reads and edits plugin data with per-section feedback owned by the Inspector. */
+export const desktopPluginInspectorData: PluginInspectorDataClient = {
+    load: async target =>
+        PluginInspectorValuesSchema.parse(await invoke('get_plugin_inspector_values', { target })),
+    save: async edit =>
+        PluginInspectorEditSchema.parse(await invoke('save_plugin_inspector_value', { edit }))
 };
 
 /** Main-window adapter. The settings panel owns feedback for these commands. */

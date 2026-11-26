@@ -8,7 +8,7 @@ use crate::core::{
     },
     AppError, AppResult,
 };
-use mundam_plugin_sdk::{Control, Executor, Manifest, Version};
+use mundam_plugin_sdk::{package::VerifiedPackage, Control, Executor, Manifest, Version};
 
 impl PluginService {
     /// Returns approved presentation definitions for the active catalog.
@@ -43,21 +43,13 @@ fn project_package(
     executor: Executor,
     api_version: &Version,
 ) {
-    let Ok(verified) = check_signed_package(&package.bytes, &package.publisher) else {
+    let Ok(verified) = verify_approved_package(package, executor, api_version) else {
         return;
     };
     let declaration = verified.manifest().manifest();
-    if verified.package_digest() != package.digest
-        || declaration.id != package.id
-        || !verified.manifest().supports(executor, api_version)
-        || !declaration
-            .permissions
-            .iter()
-            .all(|permission| package.permissions.contains(permission))
-    {
-        return;
-    }
-    presentation.sections.extend(sections(declaration));
+    presentation
+        .sections
+        .extend(sections(declaration, package.revision()));
     presentation
         .commands
         .extend(
@@ -91,7 +83,32 @@ fn project_package(
         );
 }
 
-fn sections(declaration: &Manifest) -> impl Iterator<Item = PluginInspectorSection> + '_ {
+pub(super) fn verify_approved_package<'a>(
+    package: &'a ApprovedPluginPackage,
+    executor: Executor,
+    api_version: &Version,
+) -> AppResult<VerifiedPackage<'a>> {
+    let verified = check_signed_package(&package.bytes, &package.publisher)?;
+    let declaration = verified.manifest().manifest();
+    if verified.package_digest() != package.digest
+        || declaration.id != package.id
+        || !verified.manifest().supports(executor, api_version)
+        || !declaration
+            .permissions
+            .iter()
+            .all(|permission| package.permissions.contains(permission))
+    {
+        return Err(AppError::Forbidden(
+            "Plugin approval is no longer valid".into(),
+        ));
+    }
+    Ok(verified)
+}
+
+fn sections(
+    declaration: &Manifest,
+    package_revision: String,
+) -> impl Iterator<Item = PluginInspectorSection> + '_ {
     declaration
         .contributes
         .inspector_sections
@@ -101,6 +118,7 @@ fn sections(declaration: &Manifest) -> impl Iterator<Item = PluginInspectorSecti
             plugin_id: declaration.id.clone(),
             plugin_name: declaration.name.clone(),
             section_id: section.id.clone(),
+            package_revision: package_revision.clone(),
             title: section.title.clone(),
             viewport_action_label: section.viewport_action_label.clone(),
             sidebar_link_label: section.sidebar_link_label.clone(),

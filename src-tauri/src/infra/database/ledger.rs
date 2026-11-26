@@ -19,6 +19,10 @@ use crate::core::events::{AppEventBus, DomainEvent};
 use crate::core::ledger::command::LedgerCommand;
 use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::models::asset::Asset;
+use crate::core::plugins::asset_data::{
+    PluginAssetDataLedger, PluginAssetFieldKey, PluginBooleanField, PluginBooleanWrite,
+    PluginBooleanWriteOutcome,
+};
 
 #[cfg(test)]
 #[path = "ledger_concurrency_tests.rs"]
@@ -106,6 +110,28 @@ impl SqliteAssetLedger {
             budget,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl PluginAssetDataLedger for SqliteAssetLedger {
+    async fn read_plugin_boolean(
+        &self,
+        key: &PluginAssetFieldKey,
+    ) -> AppResult<Option<PluginBooleanField>> {
+        let mut connection = self.pool.acquire().await?;
+        super::plugin_asset_data::read_boolean(&mut connection, key).await
+    }
+
+    async fn write_plugin_boolean(
+        &self,
+        key: &PluginAssetFieldKey,
+        write: PluginBooleanWrite,
+    ) -> AppResult<PluginBooleanWriteOutcome> {
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let outcome = super::plugin_asset_data::write_boolean(&mut transaction, key, write).await?;
+        transaction.commit().await?;
+        Ok(outcome)
     }
 }
 
