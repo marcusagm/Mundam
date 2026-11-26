@@ -13,5 +13,8 @@ export const desktopPlugins: PluginSettingsClient = {
     reviewActivation: pluginId => invoke('review_plugin_activation', { pluginId }),
     enable: (reviewId, optionalPermissions) =>
         invoke('enable_reviewed_plugin', { reviewId, optionalPermissions }),
-    disable: pluginId => invoke('disable_installed_plugin', { pluginId })
+    disable: pluginId => invoke('disable_installed_plugin', { pluginId }),
+    reviewRollback: pluginId => invoke('review_plugin_rollback', { pluginId }),
+    remove: (pluginId, packageRevision) =>
+        invoke('remove_installed_plugin', { pluginId, packageRevision })
 };

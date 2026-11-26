@@ -6,7 +6,7 @@
 use crate::core::{
     plugins::{
         InstalledPlugin, PluginActivationReview, PluginInstallRecord, PluginRegistry,
-        PublisherAnchor, RegisteredPublisher,
+        PluginReplacement, PublisherAnchor, RegisteredPublisher, StoredPluginPackage,
     },
     AppError, AppResult,
 };
@@ -20,7 +20,9 @@ use sqlx::{
     Row, SqlitePool,
 };
 use std::{path::Path, time::Duration};
+use uuid::Uuid;
 
+mod package_changes;
 #[cfg(test)]
 mod tests;
 
@@ -163,8 +165,11 @@ impl PluginRegistry for SqlitePluginRegistry {
             ));
         }
         let existing = sqlx::query(
-            "SELECT id, publisher, version, name, 0 AS enabled, package_digest
-             FROM installed_plugins WHERE id = ?",
+            "SELECT plugin.id, plugin.publisher, plugin.version, plugin.name, 0 AS enabled,
+                    plugin.package_digest, plugin.package_revision, history.version AS rollback_version
+             FROM installed_plugins AS plugin
+             LEFT JOIN plugin_rollback_packages AS history ON history.plugin_id = plugin.id
+             WHERE plugin.id = ?",
         )
         .bind(&preview.plugin_id)
         .fetch_optional(&mut *transaction)
@@ -180,10 +185,11 @@ impl PluginRegistry for SqlitePluginRegistry {
             return Ok(installed);
         }
         let installed = sqlx::query(
-            "INSERT INTO installed_plugins (id, publisher, publisher_fingerprint, version, name, package_digest, package)
-             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7 WHERE
-                 (SELECT COUNT(*) FROM installed_plugins) < ?8
-             RETURNING id, publisher, version, name, 0 AS enabled",
+            "INSERT INTO installed_plugins (id, publisher, publisher_fingerprint, version, name, package_digest, package, package_revision)
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 WHERE
+                 (SELECT COUNT(*) FROM installed_plugins) < ?9
+             RETURNING id, publisher, version, name, 0 AS enabled, package_revision,
+                       NULL AS rollback_version",
         )
         .bind(&preview.plugin_id)
         .bind(&preview.publisher.namespace)
@@ -192,6 +198,7 @@ impl PluginRegistry for SqlitePluginRegistry {
         .bind(&preview.name)
         .bind(preview.package_digest.as_slice())
         .bind(record.bytes)
+        .bind(Uuid::new_v4().simple().to_string())
         .bind(MAX_INSTALLED_PACKAGES)
         .fetch_optional(&mut *transaction)
         .await?
@@ -203,7 +210,8 @@ impl PluginRegistry for SqlitePluginRegistry {
 
     async fn list_installed(&self, catalog_id: &str) -> AppResult<Vec<InstalledPlugin>> {
         sqlx::query(
-            "SELECT plugin.id, plugin.publisher, plugin.version, plugin.name,
+            "SELECT plugin.id, plugin.publisher, plugin.version, plugin.name, plugin.package_revision,
+                    history.version AS rollback_version,
                     EXISTS (
                         SELECT 1 FROM plugin_catalog_activations AS approval
                         JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
@@ -211,7 +219,9 @@ impl PluginRegistry for SqlitePluginRegistry {
                         WHERE approval.catalog_id = ?1 AND approval.plugin_id = plugin.id
                           AND approval.package_digest = plugin.package_digest AND publisher.revoked_at IS NULL
                     ) AS enabled
-             FROM installed_plugins AS plugin ORDER BY plugin.id",
+             FROM installed_plugins AS plugin
+             LEFT JOIN plugin_rollback_packages AS history ON history.plugin_id = plugin.id
+             ORDER BY plugin.id",
         )
         .bind(catalog_id)
         .fetch_all(&self.0)
@@ -221,12 +231,36 @@ impl PluginRegistry for SqlitePluginRegistry {
         .collect()
     }
 
-    async fn installed_package(&self, plugin_id: &str) -> AppResult<Vec<u8>> {
-        sqlx::query_scalar("SELECT package FROM installed_plugins WHERE id = ?")
-            .bind(plugin_id)
-            .fetch_optional(&self.0)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Plugin is not installed".into()))
+    async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>> {
+        package_changes::current_package(&self.0, plugin_id).await
+    }
+
+    async fn rollback_package(&self, plugin_id: &str) -> AppResult<Option<(Vec<u8>, [u8; 32])>> {
+        package_changes::rollback_package(&self.0, plugin_id).await
+    }
+
+    async fn replace(
+        &self,
+        record: PluginInstallRecord<'_>,
+        replacement: &PluginReplacement,
+    ) -> AppResult<InstalledPlugin> {
+        package_changes::replace(&self.0, record, replacement).await
+    }
+
+    async fn remove(&self, plugin_id: &str, current_revision: &str) -> AppResult<()> {
+        let affected =
+            sqlx::query("DELETE FROM installed_plugins WHERE id = ?1 AND package_revision = ?2")
+                .bind(plugin_id)
+                .bind(current_revision)
+                .execute(&self.0)
+                .await?
+                .rows_affected();
+        if affected == 0 {
+            return Err(AppError::ValidationFailed(
+                "The installed plugin changed after removal was reviewed".into(),
+            ));
+        }
+        Ok(())
     }
 
     async fn enable(
@@ -243,6 +277,7 @@ impl PluginRegistry for SqlitePluginRegistry {
              JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
                  AND publisher.fingerprint = plugin.publisher_fingerprint
              WHERE plugin.id = ?2 AND plugin.package_digest = ?3 AND publisher.revoked_at IS NULL
+                AND plugin.package_revision = ?5
              ON CONFLICT (catalog_id, plugin_id) DO UPDATE
              SET package_digest = excluded.package_digest, permissions = excluded.permissions",
         )
@@ -250,6 +285,7 @@ impl PluginRegistry for SqlitePluginRegistry {
         .bind(&review.plugin_id)
         .bind(review.package_digest.as_slice())
         .bind(permissions)
+        .bind(&review.package_revision)
         .execute(&self.0)
         .await?;
         if written.rows_affected() == 0 {
@@ -281,5 +317,13 @@ fn installed_projection(row: &SqliteRow) -> AppResult<InstalledPlugin> {
         name: row.try_get("name")?,
         enabled: approved,
         approved,
+        package_revision: row.try_get("package_revision")?,
+        rollback_version: row.try_get("rollback_version")?,
     })
+}
+
+fn stored_digest(row: &SqliteRow, column: &str) -> AppResult<[u8; 32]> {
+    row.try_get::<Vec<u8>, _>(column)?
+        .try_into()
+        .map_err(|_| AppError::Internal("Invalid plugin digest in the profile registry".into()))
 }

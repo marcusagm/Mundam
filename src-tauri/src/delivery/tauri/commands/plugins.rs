@@ -3,7 +3,9 @@
 use crate::{
     bootstrap::AppDirectories,
     core::{
-        imports::destinations::ImportDestinations, plugins::InstalledPlugin, AppError, AppResult,
+        imports::destinations::ImportDestinations,
+        plugins::{InstalledPlugin, PluginPackageChange, PluginReplacementKind},
+        AppError, AppResult,
     },
     delivery::tauri::{
         admission::IpcRequest,
@@ -67,6 +69,7 @@ struct PublisherDetails {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct InstalledDetails {
     id: String,
     publisher: String,
@@ -74,6 +77,8 @@ pub(crate) struct InstalledDetails {
     name: String,
     enabled: bool,
     approved: bool,
+    package_revision: String,
+    rollback_version: Option<String>,
 }
 
 impl From<InstalledPlugin> for InstalledDetails {
@@ -85,6 +90,8 @@ impl From<InstalledPlugin> for InstalledDetails {
             name: plugin.name,
             enabled: plugin.enabled,
             approved: plugin.approved,
+            package_revision: plugin.package_revision,
+            rollback_version: plugin.rollback_version,
         }
     }
 }
@@ -105,6 +112,16 @@ pub(crate) struct ReviewDetails {
     required_permissions: Vec<Permission>,
     optional_permissions: Vec<Permission>,
     compatible: bool,
+    replacement: Option<ReplacementDetails>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplacementDetails {
+    kind: PluginReplacementKind,
+    current_version: String,
+    added_permissions: Vec<Permission>,
+    removed_permissions: Vec<Permission>,
 }
 
 /// Reads local publisher and package inventory for Settings.
@@ -263,8 +280,13 @@ pub(crate) async fn choose_plugin_package(
         .map_err(|_| AppError::ValidationFailed("Choose a local plugin package.".into()))?;
     let bytes = read_selected_package(&path).await?;
     let service = admin.service(&directories.app_data).await?;
-    let (preview, review_id) = admin.review(service, bytes).await?;
-    Ok(Some(ReviewDetails {
+    let (change, review_id) = admin.review(service, bytes).await?;
+    Ok(Some(review_details(change, review_id)))
+}
+
+fn review_details(change: PluginPackageChange, review_id: Option<Uuid>) -> ReviewDetails {
+    let preview = change.preview;
+    ReviewDetails {
         review_id,
         plugin_id: preview.plugin_id,
         name: preview.name,
@@ -278,10 +300,49 @@ pub(crate) async fn choose_plugin_package(
         required_permissions: preview.required_permissions,
         optional_permissions: preview.optional_permissions,
         compatible: preview.compatible,
-    }))
+        replacement: change.replacement.map(|replacement| ReplacementDetails {
+            kind: replacement.kind,
+            current_version: replacement.current_version,
+            added_permissions: replacement.added_permissions,
+            removed_permissions: replacement.removed_permissions,
+        }),
+    }
 }
 
-/// Consumes the one-time review and installs the verified snapshot.
+/// Offers the retained package for an explicit rollback review.
+#[tauri::command]
+pub(crate) async fn review_plugin_rollback(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    plugin_id: String,
+) -> AppResult<ReviewDetails> {
+    let _selection = admin.selection.try_lock().map_err(|_| {
+        AppError::ValidationFailed("A plugin package is already being reviewed".into())
+    })?;
+    admin.clear_review().await;
+    let service = admin.service(&directories.app_data).await?;
+    let (change, id) = admin.review_rollback(service, &plugin_id).await?;
+    Ok(review_details(change, id))
+}
+
+/// Removes the exact registry package confirmed in Settings across all catalogs.
+#[tauri::command]
+pub(crate) async fn remove_installed_plugin(
+    _ipc: PluginSettingsRequest,
+    admin: State<'_, DesktopPluginAdmin>,
+    directories: State<'_, AppDirectories>,
+    plugin_id: String,
+    package_revision: String,
+) -> AppResult<()> {
+    admin
+        .service(&directories.app_data)
+        .await?
+        .remove_package(&plugin_id, &package_revision)
+        .await
+}
+
+/// Consumes the one-time review and installs or replaces the verified snapshot.
 #[tauri::command]
 pub(crate) async fn install_reviewed_plugin(
     _ipc: PluginSettingsRequest,

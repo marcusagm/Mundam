@@ -3,8 +3,8 @@
 use crate::{
     core::{
         plugins::{
-            InstallApproval, InstalledPlugin, PackagePreview, PluginActivationReview,
-            PublisherAnchor,
+            InstallApproval, InstalledPlugin, PluginActivationReview, PluginPackageChange,
+            PluginReplacement, PublisherAnchor,
         },
         AppError, AppResult,
     },
@@ -27,6 +27,7 @@ struct PendingReview {
     expires_at: Instant,
     bytes: Vec<u8>,
     approval: InstallApproval,
+    replacement: Option<PluginReplacement>,
 }
 
 struct PendingActivation {
@@ -71,23 +72,41 @@ impl DesktopPluginAdmin {
         &self,
         service: &PluginService,
         bytes: Vec<u8>,
-    ) -> AppResult<(PackagePreview, Option<Uuid>)> {
-        let preview = service.preview(bytes.clone()).await?;
-        let id = if preview.compatible {
+    ) -> AppResult<(PluginPackageChange, Option<Uuid>)> {
+        let change = service.review_package_change(bytes.clone()).await?;
+        Ok(self.remember_review(change, bytes).await)
+    }
+
+    pub(crate) async fn review_rollback(
+        &self,
+        service: &PluginService,
+        plugin_id: &str,
+    ) -> AppResult<(PluginPackageChange, Option<Uuid>)> {
+        let (change, bytes) = service.review_rollback(plugin_id).await?;
+        Ok(self.remember_review(change, bytes).await)
+    }
+
+    async fn remember_review(
+        &self,
+        change: PluginPackageChange,
+        bytes: Vec<u8>,
+    ) -> (PluginPackageChange, Option<Uuid>) {
+        let id = if change.preview.compatible {
             let id = Uuid::new_v4();
             *self.pending.lock().await = Some(PendingReview {
                 id,
                 expires_at: Instant::now() + REVIEW_LIFETIME,
                 bytes,
                 approval: InstallApproval {
-                    package_digest: preview.package_digest,
+                    package_digest: change.preview.package_digest,
                 },
+                replacement: change.replacement.clone(),
             });
             Some(id)
         } else {
             None
         };
-        Ok((preview, id))
+        (change, id)
     }
 
     pub(crate) async fn discard(&self, id: Uuid) {
@@ -163,7 +182,13 @@ impl DesktopPluginAdmin {
                 .filter(|review| Instant::now() < review.expires_at)
         }
         .ok_or_else(expired_review)?;
-        service.install(review.bytes, review.approval).await
+        if let Some(replacement) = review.replacement {
+            service
+                .replace_package(review.bytes, review.approval, &replacement)
+                .await
+        } else {
+            service.install(review.bytes, review.approval).await
+        }
     }
 }
 
@@ -205,6 +230,13 @@ fn invalid_file() -> AppError {
 }
 
 pub(crate) fn publisher_anchor(namespace: String, fingerprint: &str) -> AppResult<PublisherAnchor> {
+    Ok(PublisherAnchor {
+        namespace,
+        fingerprint: parse_sha256(fingerprint)?,
+    })
+}
+
+pub(crate) fn parse_sha256(fingerprint: &str) -> AppResult<[u8; 32]> {
     let invalid = || {
         AppError::ValidationFailed(
             "Enter a SHA-256 fingerprint with 64 hexadecimal characters.".into(),
@@ -218,10 +250,7 @@ pub(crate) fn publisher_anchor(namespace: String, fingerprint: &str) -> AppResul
         *byte = u8::from_str_radix(&fingerprint[index * 2..index * 2 + 2], 16)
             .map_err(|_| invalid())?;
     }
-    Ok(PublisherAnchor {
-        namespace,
-        fingerprint: bytes,
-    })
+    Ok(bytes)
 }
 
 pub(crate) fn fingerprint_hex(fingerprint: &[u8; 32]) -> String {

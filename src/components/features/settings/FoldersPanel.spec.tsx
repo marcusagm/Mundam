@@ -43,7 +43,9 @@ it('opens the folder settings from the settings sidebar', async () => {
                 discard: vi.fn(),
                 reviewActivation: vi.fn(),
                 enable: vi.fn(),
-                disable: vi.fn()
+                disable: vi.fn(),
+                reviewRollback: vi.fn(),
+                remove: vi.fn()
             }}
             externalImport={{
                 status: vi.fn(),

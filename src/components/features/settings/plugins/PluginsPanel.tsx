@@ -1,5 +1,6 @@
 import { createResource, createSignal, onCleanup, Show, untrack, type Component } from 'solid-js';
 import type {
+    InstalledPlugin,
     PluginActivationReview,
     PluginPackageReview as PackageReview,
     PluginPermission,
@@ -83,14 +84,55 @@ export const PluginsPanel: Component<{ client: PluginSettingsClient }> = propert
     const install = (reviewId: string) =>
         runAction(
             async () => {
+                const replacement = untrack(review)?.replacement;
                 setReview(undefined);
                 const installed = await properties.client.install(reviewId);
                 if (disposed) return;
-                setStatus(`${installed.name} is installed.`);
+                if (replacement) {
+                    setStatus(
+                        `${installed.name} ${installed.version} is installed and disabled in all catalogs.`
+                    );
+                } else {
+                    setStatus(`${installed.name} is installed.`);
+                }
                 await refetch();
             },
             'Could not install this review. Choose the package again.',
             setPackageFailure
+        );
+
+    const reviewRollback = (pluginId: string) =>
+        runAction(
+            async () => {
+                cancelActivation();
+                discard(untrack(review)?.reviewId);
+                setReview(undefined);
+                const pending = await properties.client.reviewRollback(pluginId);
+                if (disposed) {
+                    discard(pending.reviewId);
+                    return;
+                }
+                setReview(pending);
+            },
+            'Could not review the previous version. Check its compatibility and publisher trust.',
+            setActivationFailure
+        );
+
+    const remove = (plugin: InstalledPlugin) =>
+        runAction(
+            async () => {
+                cancelActivation();
+                discard(untrack(review)?.reviewId);
+                setReview(undefined);
+                try {
+                    await properties.client.remove(plugin.id, plugin.packageRevision);
+                } finally {
+                    await refetch();
+                }
+                setStatus(`${plugin.name} was removed from this profile.`);
+            },
+            'Could not remove this package. Review the installed version and try again.',
+            setActivationFailure
         );
 
     const reviewActivation = (pluginId: string) =>
@@ -181,7 +223,10 @@ export const PluginsPanel: Component<{ client: PluginSettingsClient }> = propert
                                 }, 'Could not revoke publisher trust.')
                             }
                         />
-                        <SectionGroup title="Install from file">
+                        <SectionGroup
+                            title="Install from file"
+                            description="Choose a signed package to install or update a plugin."
+                        >
                             <div class="plugin-settings-section">
                                 <div class="plugin-settings-actions">
                                     <Button
@@ -218,6 +263,8 @@ export const PluginsPanel: Component<{ client: PluginSettingsClient }> = propert
                                     busy={busy()}
                                     onReview={pluginId => void reviewActivation(pluginId)}
                                     onDisable={pluginId => void disable(pluginId)}
+                                    onRollback={pluginId => void reviewRollback(pluginId)}
+                                    onRemove={plugin => void remove(plugin)}
                                 />
                                 <Show when={activationFailure()}>
                                     <p role="alert">{activationFailure()}</p>

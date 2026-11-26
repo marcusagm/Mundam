@@ -182,6 +182,8 @@ pub fn run() {
             delivery::tauri::commands::plugins::review_plugin_activation,
             delivery::tauri::commands::plugins::enable_reviewed_plugin,
             delivery::tauri::commands::plugins::disable_installed_plugin,
+            delivery::tauri::commands::plugins::review_plugin_rollback,
+            delivery::tauri::commands::plugins::remove_installed_plugin,
             delivery::tauri::commands::external_import::get_external_import_status,
             delivery::tauri::commands::external_import::start_external_import,
             delivery::tauri::commands::external_import::stop_external_import,

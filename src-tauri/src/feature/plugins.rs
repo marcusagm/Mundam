@@ -13,6 +13,8 @@ use mundam_plugin_sdk::{
 };
 use std::{collections::HashSet, sync::Arc};
 
+mod package_changes;
+
 /// Application entry point for a local desktop adapter or an independent host.
 pub struct PluginService {
     registry: Arc<dyn PluginRegistry>,
@@ -126,10 +128,13 @@ impl PluginService {
         plugin_id: &str,
     ) -> AppResult<PluginActivationReview> {
         self.require_activation_available()?;
-        let preview = self
-            .preview(self.registry.installed_package(plugin_id).await?)
-            .await?;
-        if preview.plugin_id != plugin_id || !preview.compatible {
+        let current = self.require_current_package(plugin_id).await?;
+        let preview = self.preview(current.bytes).await?;
+        if preview.plugin_id != plugin_id
+            || preview.package_digest != current.package_digest
+            || preview.publisher != current.publisher
+            || !preview.compatible
+        {
             return Err(AppError::ValidationFailed(
                 "Plugin package is incompatible with this host".into(),
             ));
@@ -140,6 +145,7 @@ impl PluginService {
             name: preview.name,
             version: preview.version,
             package_digest: preview.package_digest,
+            package_revision: current.package_revision,
             required_permissions: preview.required_permissions,
             optional_permissions: preview.optional_permissions,
         })
@@ -158,7 +164,9 @@ impl PluginService {
         let current = self
             .review_activation(review.catalog_id.clone(), &review.plugin_id)
             .await?;
-        if current.package_digest != review.package_digest {
+        if current.package_digest != review.package_digest
+            || current.package_revision != review.package_revision
+        {
             return Err(AppError::ValidationFailed(
                 "Plugin package changed after permission review".into(),
             ));

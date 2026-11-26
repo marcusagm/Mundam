@@ -54,6 +54,43 @@ pub struct InstalledPlugin {
     pub name: String,
     pub enabled: bool,
     pub approved: bool,
+    pub package_revision: String,
+    pub rollback_version: Option<String>,
+}
+
+/// Current package identity and bytes used to plan a profile-wide replacement.
+pub struct StoredPluginPackage {
+    pub version: String,
+    pub package_digest: [u8; 32],
+    pub package_revision: String,
+    pub publisher: PublisherAnchor,
+    pub bytes: Vec<u8>,
+}
+
+/// The only supported replacement directions for a declarative package.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginReplacementKind {
+    Update,
+    Rollback,
+}
+
+/// A replacement review bound to the installed snapshot.
+#[derive(Clone, Debug)]
+pub struct PluginReplacement {
+    pub kind: PluginReplacementKind,
+    pub current_version: String,
+    pub current_digest: [u8; 32],
+    pub current_revision: String,
+    pub added_permissions: Vec<Permission>,
+    pub removed_permissions: Vec<Permission>,
+}
+
+/// Verified package data and the operation offered for consent.
+#[derive(Debug)]
+pub struct PluginPackageChange {
+    pub preview: PackagePreview,
+    pub replacement: Option<PluginReplacement>,
 }
 
 /// A verified package paired with the metadata rechecked at commit.
@@ -70,6 +107,7 @@ pub struct PluginActivationReview {
     pub name: String,
     pub version: String,
     pub package_digest: [u8; 32],
+    pub package_revision: String,
     pub required_permissions: Vec<Permission>,
     pub optional_permissions: Vec<Permission>,
 }
@@ -95,8 +133,21 @@ pub trait PluginRegistry: Send + Sync {
     /// Lists inventory and active state for a catalog, without reading package BLOBs.
     async fn list_installed(&self, catalog_id: &str) -> AppResult<Vec<InstalledPlugin>>;
 
-    /// Loads the installed signed bytes for verification.
-    async fn installed_package(&self, plugin_id: &str) -> AppResult<Vec<u8>>;
+    /// Loads the current package and its admission identity.
+    async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>>;
+
+    /// Loads the one retained rollback candidate and its recorded digest.
+    async fn rollback_package(&self, plugin_id: &str) -> AppResult<Option<(Vec<u8>, [u8; 32])>>;
+
+    /// Swaps an unchanged current package and revokes all grants in the same commit.
+    async fn replace(
+        &self,
+        record: PluginInstallRecord<'_>,
+        replacement: &PluginReplacement,
+    ) -> AppResult<InstalledPlugin>;
+
+    /// Removes exactly the reviewed current version and its dependent profile state.
+    async fn remove(&self, plugin_id: &str, current_revision: &str) -> AppResult<()>;
 
     /// Commits consent only while the reviewed package and publisher are still current.
     async fn enable(

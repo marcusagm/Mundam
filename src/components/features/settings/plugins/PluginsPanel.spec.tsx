@@ -26,7 +26,8 @@ const review: PluginPackageReview = {
     targets: [{ platform: 'all', architecture: 'all' }],
     requiredPermissions: ['selection.read', 'assetData.own.write'],
     optionalPermissions: [],
-    compatible: true
+    compatible: true,
+    replacement: null
 };
 
 function renderPanel(overrides: Partial<PluginSettingsClient> = {}) {
@@ -40,6 +41,8 @@ function renderPanel(overrides: Partial<PluginSettingsClient> = {}) {
         reviewActivation: vi.fn(),
         enable: vi.fn().mockResolvedValue(undefined),
         disable: vi.fn().mockResolvedValue(undefined),
+        reviewRollback: vi.fn(),
+        remove: vi.fn().mockResolvedValue(undefined),
         ...overrides
     };
     render(() => <PluginsPanel client={client} />);
@@ -84,22 +87,14 @@ it('requires independent publisher confirmation and a separate revocation confir
 });
 
 it('reviews permissions and passes only the backend review ID to installation', async () => {
-    const installed = {
-        id: review.pluginId,
-        publisher: review.publisher,
-        name: review.name,
-        version: review.version,
-        enabled: false,
-        approved: false
-    };
     const load = vi
         .fn()
         .mockResolvedValueOnce({ publishers: [], installed: [], safeMode: false })
-        .mockResolvedValue({ publishers: [], installed: [installed], safeMode: false });
+        .mockResolvedValue({ publishers: [], installed: [installedPlugin], safeMode: false });
     const client = renderPanel({
         load,
         choose: vi.fn().mockResolvedValue(review),
-        install: vi.fn().mockResolvedValue(installed)
+        install: vi.fn().mockResolvedValue(installedPlugin)
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Choose plugin package' }));
     await screen.findByRole('region', { name: review.name });
@@ -151,7 +146,9 @@ const installedPlugin = {
     name: review.name,
     version: review.version,
     enabled: false,
-    approved: false
+    approved: false,
+    packageRevision: 'revision-1',
+    rollbackVersion: null
 };
 
 it('requires approval before enabling and only submits selected optional permissions', async () => {
@@ -209,4 +206,99 @@ it('pauses approved plugins in safe mode and allows permission revocation', asyn
     fireEvent.click(screen.getByRole('button', { name: 'Disable in this catalog' }));
     await screen.findByText('Disabled');
     expect(client.disable).toHaveBeenCalledExactlyOnceWith(installedPlugin.id);
+});
+
+it('offers version changes for review and submits the update and rollback tickets', async () => {
+    const updated = {
+        ...installedPlugin,
+        version: '1.1.0',
+        packageRevision: 'revision-2',
+        rollbackVersion: '1.0.0'
+    };
+    const state: PluginSettings = {
+        safeMode: false,
+        publishers: [{ namespace: review.publisher, fingerprint, revoked: false }],
+        installed: [installedPlugin]
+    };
+    const client = renderPanel({
+        load: async () => ({ ...state }),
+        choose: vi.fn().mockResolvedValue({
+            ...review,
+            reviewId: 'update-ticket',
+            version: updated.version,
+            replacement: {
+                kind: 'update',
+                currentVersion: '1.0.0',
+                addedPermissions: ['assetData.own.write'],
+                removedPermissions: []
+            }
+        }),
+        reviewRollback: vi.fn().mockResolvedValue({
+            ...review,
+            reviewId: 'rollback-ticket',
+            replacement: {
+                kind: 'rollback',
+                currentVersion: '1.1.0',
+                addedPermissions: [],
+                removedPermissions: ['assetData.own.write']
+            }
+        }),
+        install: vi.fn(async reviewId => {
+            const result =
+                reviewId === 'update-ticket'
+                    ? updated
+                    : { ...installedPlugin, packageRevision: 'revision-3' };
+            state.installed = [result];
+            return result;
+        })
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose plugin package' }));
+    const update = await screen.findByRole<HTMLButtonElement>('button', {
+        name: 'Update and disable'
+    });
+    await waitFor(() => expect(update.disabled).toBe(false));
+    expect(screen.getByText('New or newly required permissions')).toBeTruthy();
+    expect(client.install).not.toHaveBeenCalled();
+    fireEvent.click(update);
+    const rollBack = await screen.findByRole<HTMLButtonElement>('button', {
+        name: 'Review rollback to 1.0.0'
+    });
+    await waitFor(() => expect(rollBack.disabled).toBe(false));
+    fireEvent.click(rollBack);
+    const restore = await screen.findByRole<HTMLButtonElement>('button', {
+        name: 'Restore and disable'
+    });
+    await waitFor(() => expect(restore.disabled).toBe(false));
+    expect(screen.getByText('Removed permissions')).toBeTruthy();
+    fireEvent.click(restore);
+    await screen.findByText('Review example 1.0.0 is installed and disabled in all catalogs.');
+    expect(client.reviewRollback).toHaveBeenCalledExactlyOnceWith(installedPlugin.id);
+    expect(client.install).toHaveBeenNthCalledWith(1, 'update-ticket');
+    expect(client.install).toHaveBeenNthCalledWith(2, 'rollback-ticket');
+});
+
+it('requires explicit removal confirmation for the displayed package revision', async () => {
+    const state: PluginSettings = {
+        safeMode: true,
+        publishers: [{ namespace: review.publisher, fingerprint, revoked: true }],
+        installed: [installedPlugin]
+    };
+    const client = renderPanel({
+        load: async () => ({ ...state }),
+        remove: vi.fn(async () => {
+            state.installed = [];
+        })
+    });
+    const openRemoval = await screen.findByRole('button', { name: 'Remove plugin' });
+    fireEvent.click(openRemoval);
+    expect(client.remove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel removal' }));
+    expect(screen.queryByRole('button', { name: 'Confirm removal' })).toBeNull();
+    fireEvent.click(openRemoval);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm removal' }));
+    await screen.findByText('No installed plugins.');
+    expect(client.remove).toHaveBeenCalledExactlyOnceWith(
+        installedPlugin.id,
+        installedPlugin.packageRevision
+    );
 });

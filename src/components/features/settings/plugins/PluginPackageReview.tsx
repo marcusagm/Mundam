@@ -38,6 +38,16 @@ export const PluginPackageReview: Component<{
 }> = properties => {
     const heading = createUniqueId();
     const installableReview = () => properties.review.compatible && properties.review.reviewId;
+    const actionLabel = () => {
+        switch (properties.review.replacement?.kind) {
+            case 'update':
+                return 'Update and disable';
+            case 'rollback':
+                return 'Restore and disable';
+            default:
+                return 'Install disabled';
+        }
+    };
     let title: HTMLHeadingElement | undefined;
     onMount(() => title?.focus());
 
@@ -78,13 +88,32 @@ export const PluginPackageReview: Component<{
                 label="Optional permissions"
                 permissions={properties.review.optionalPermissions}
             />
+            <Show when={properties.review.replacement}>
+                {replacement => (
+                    <>
+                        <p>
+                            Replace version {replacement().currentVersion} with version{' '}
+                            {properties.review.version}.
+                        </p>
+                        <PermissionList
+                            label="New or newly required permissions"
+                            permissions={replacement().addedPermissions}
+                        />
+                        <PermissionList
+                            label="Removed permissions"
+                            permissions={replacement().removedPermissions}
+                        />
+                    </>
+                )}
+            </Show>
             <Show
                 when={installableReview()}
                 fallback={<p role="status">This package is incompatible with this host.</p>}
             >
                 <p>
-                    Installation keeps this plugin disabled. Enabling it requires separate
-                    permission approval.
+                    {properties.review.replacement
+                        ? 'Changing the version clears approvals in all catalogs. Enable the package again to approve its permissions.'
+                        : 'Installation keeps this plugin disabled. Enabling it requires separate permission approval.'}
                 </p>
             </Show>
             <div class="plugin-settings-actions">
@@ -95,7 +124,7 @@ export const PluginPackageReview: Component<{
                             disabled={properties.busy}
                             onClick={() => properties.onInstall(reviewId())}
                         >
-                            Install disabled
+                            {actionLabel()}
                         </Button>
                     )}
                 </Show>

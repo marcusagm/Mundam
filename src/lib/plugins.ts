@@ -9,6 +9,8 @@ export interface PluginSettingsClient {
     reviewActivation(pluginId: string): Promise<PluginActivationReview>;
     enable(reviewId: string, optionalPermissions: PluginPermission[]): Promise<void>;
     disable(pluginId: string): Promise<void>;
+    reviewRollback(pluginId: string): Promise<PluginPackageReview>;
+    remove(pluginId: string, packageRevision: string): Promise<void>;
 }
 
 /** Recorded publisher identity and revocation status. */
@@ -26,6 +28,8 @@ export interface InstalledPlugin {
     version: string;
     enabled: boolean;
     approved: boolean;
+    packageRevision: string;
+    rollbackVersion: string | null;
 }
 
 /** Metadata-only settings inventory. */
@@ -62,4 +66,13 @@ export interface PluginPackageReview {
     requiredPermissions: PluginPermission[];
     optionalPermissions: PluginPermission[];
     compatible: boolean;
+    replacement: PluginReplacementReview | null;
+}
+
+/** Describes a verified update or rollback relative to the installed version. */
+export interface PluginReplacementReview {
+    kind: 'update' | 'rollback';
+    currentVersion: string;
+    addedPermissions: PluginPermission[];
+    removedPermissions: PluginPermission[];
 }

@@ -1,7 +1,10 @@
 //! Ensures package review, SQLite admission and reopening agree on the stored identity.
 
 use super::*;
-use crate::{core::plugins::InstallApproval, feature::plugins::PluginService};
+use crate::{
+    core::plugins::{InstallApproval, PluginReplacementKind},
+    feature::plugins::PluginService,
+};
 use mundam_plugin_sdk::package::{sign_package, signing_key_fingerprint};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -39,6 +42,143 @@ fn package(
         fingerprint: signing_key_fingerprint(&key)?,
     };
     Ok((publisher, sign_package(&manifest, ICON, &key)?))
+}
+
+#[tokio::test]
+async fn swaps_signed_versions_atomically_and_consumes_the_rollback_slot(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempfile::tempdir()?;
+    let registry =
+        Arc::new(SqlitePluginRegistry::open(&directory.path().join("plugins.sqlite")).await?);
+    let service = PluginService::new(registry.clone());
+    let tuple = package("org.example", "1.0.0", ">=1.0.0 <2.0.0", 14)?;
+    let (publisher, _) = tuple;
+    let key = fixture_key(14);
+    let mut first_declaration: Value = serde_json::from_slice(MANIFEST)?;
+    first_declaration["permissions"] = json!(["selection.read", "assetData.own.read"]);
+    first_declaration["optionalPermissions"] = json!(["assetData.own.write"]);
+    first_declaration["contributes"]["inspectorSections"][0]["fields"][0]["readOnly"] = json!(true);
+    let first_bytes = sign_package(&serde_json::to_vec(&first_declaration)?, ICON, &key)?;
+    let (_, second_bytes) = package("org.example", "1.1.0", ">=1.0.0 <2.0.0", 14)?;
+    let (_, unsupported_bytes) = package("org.example", "2.0.0", ">=2.0.0 <3.0.0", 14)?;
+    let (_, equal_precedence) = package("org.example", "1.0.0+repack", ">=1.0.0 <2.0.0", 14)?;
+    service.trust_publisher(publisher.clone()).await?;
+    let initial = service.review_package_change(first_bytes.clone()).await?;
+    let id = initial.preview.plugin_id.clone();
+    let first = service
+        .install(
+            first_bytes.clone(),
+            InstallApproval {
+                package_digest: initial.preview.package_digest,
+            },
+        )
+        .await?;
+    let approval = service.review_activation("catalog-a".into(), &id).await?;
+    service.enable(&approval, vec![]).await?;
+    let other_approval = service.review_activation("catalog-b".into(), &id).await?;
+    service.enable(&other_approval, vec![]).await?;
+    assert!(service
+        .review_package_change(equal_precedence)
+        .await
+        .is_err());
+
+    let unsupported = service
+        .review_package_change(unsupported_bytes.clone())
+        .await?;
+    assert!(!unsupported.preview.compatible);
+    assert!(service
+        .replace_package(
+            unsupported_bytes,
+            InstallApproval {
+                package_digest: unsupported.preview.package_digest,
+            },
+            unsupported
+                .replacement
+                .as_ref()
+                .ok_or("missing replacement")?
+        )
+        .await
+        .is_err());
+    assert!(service.list_installed("catalog-a").await?[0].enabled);
+    assert!(registry.rollback_package(&id).await?.is_none());
+
+    let change = service.review_package_change(second_bytes.clone()).await?;
+    let reviewed = change.replacement.as_ref().ok_or("missing update")?;
+    assert_eq!(reviewed.kind, PluginReplacementKind::Update);
+    assert_eq!(reviewed.added_permissions, [Permission::OwnDataWrite]);
+    let update = InstallApproval {
+        package_digest: change.preview.package_digest,
+    };
+    let (left, right) = tokio::join!(
+        service.replace_package(second_bytes.clone(), update, reviewed),
+        service.replace_package(second_bytes.clone(), update, reviewed)
+    );
+    let updated = match (left, right) {
+        (Ok(installed), Err(_)) | (Err(_), Ok(installed)) => installed,
+        _ => return Err("exactly one reviewed update must commit".into()),
+    };
+    assert_eq!(updated.version, "1.1.0");
+    assert_eq!(updated.rollback_version.as_deref(), Some("1.0.0"));
+    assert!(!service.list_installed("catalog-a").await?[0].approved);
+    assert!(!service.list_installed("catalog-b").await?[0].approved);
+    assert!(service
+        .review_package_change(first_bytes.clone())
+        .await
+        .is_err());
+
+    let (rollback, bytes) = service.review_rollback(&id).await?;
+    assert_eq!(bytes, first_bytes);
+    let restored = service
+        .replace_package(
+            bytes,
+            InstallApproval {
+                package_digest: rollback.preview.package_digest,
+            },
+            rollback.replacement.as_ref().ok_or("missing rollback")?,
+        )
+        .await?;
+    assert_eq!(restored.version, "1.0.0");
+    assert!(restored.rollback_version.is_none());
+    assert_ne!(restored.package_revision, first.package_revision);
+    assert!(service.enable(&approval, vec![]).await.is_err());
+    assert!(service
+        .remove_package(&id, &first.package_revision)
+        .await
+        .is_err());
+    assert!(service.review_rollback(&id).await.is_err());
+
+    let change = service.review_package_change(second_bytes.clone()).await?;
+    let current = service
+        .replace_package(
+            second_bytes,
+            update,
+            change.replacement.as_ref().ok_or("missing update")?,
+        )
+        .await?;
+    let (pending, rollback_bytes) = service.review_rollback(&id).await?;
+    service.revoke_publisher(publisher).await?;
+    assert!(service.review_rollback(&id).await.is_err());
+    assert!(service
+        .replace_package(
+            rollback_bytes,
+            InstallApproval {
+                package_digest: pending.preview.package_digest,
+            },
+            pending.replacement.as_ref().ok_or("missing rollback")?
+        )
+        .await
+        .is_err());
+    assert_eq!(
+        service.list_installed("catalog-a").await?[0].version,
+        "1.1.0"
+    );
+    service
+        .remove_package(&id, &current.package_revision)
+        .await?;
+    assert!(service.list_installed("catalog-a").await?.is_empty());
+    assert!(registry.rollback_package(&id).await?.is_none());
+    assert!(service.list_publishers().await?[0].revoked);
+    Ok(())
 }
 
 #[tokio::test]
