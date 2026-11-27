@@ -13,6 +13,27 @@ const WINDOWS_ICON: &[u8] =
     include_bytes!("../v1/examples/windows-verification/assets/verification.png");
 
 #[test]
+fn preview_access_requires_mandatory_selection_access() -> Result<(), Box<dyn Error>> {
+    let mut declaration: Value = serde_json::from_slice(UNIVERSAL)?;
+    declaration["contributes"] = json!({"screens": declaration["contributes"]["screens"]});
+    declaration["optionalPermissions"] = json!(["assetPreview.read"]);
+    declaration["permissions"] = json!([]);
+    assert_eq!(
+        parse_manifest(&serde_json::to_vec(&declaration)?)
+            .expect_err("preview without selection")
+            .field,
+        "permissions"
+    );
+    declaration["permissions"] = json!(["selection.read"]);
+    let verified = parse_manifest(&serde_json::to_vec(&declaration)?)?;
+    assert_eq!(
+        verified.manifest().optional_permissions,
+        [mundam_plugin_sdk::Permission::AssetPreviewRead]
+    );
+    Ok(())
+}
+
+#[test]
 fn screens_can_be_declared_without_asset_permissions() -> Result<(), Box<dyn Error>> {
     let mut declaration: Value = serde_json::from_slice(UNIVERSAL)?;
     declaration["permissions"] = json!([]);

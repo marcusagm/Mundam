@@ -166,6 +166,25 @@ fn validate_metadata(manifest: &mut Manifest) -> Result<(), ValidationError> {
             "permissions must be unique across both lists",
         );
     }
+    if permissions.contains(&Permission::AssetPreviewRead)
+        && !manifest.permissions.contains(&Permission::SelectionRead)
+    {
+        return invalid(
+            "permissions",
+            "assetPreview.read requires selection.read in permissions",
+        );
+    }
+    if let Some(worker) = &manifest.worker {
+        if !valid_slug(&worker.id) {
+            return invalid(
+                "worker.id",
+                "expected a worker identifier such as image-histogram",
+            );
+        }
+        if !permissions.contains(&Permission::AssetPreviewRead) {
+            return invalid("worker", "preview workers must declare assetPreview.read");
+        }
+    }
     Ok(())
 }
 

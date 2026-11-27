@@ -22,6 +22,7 @@ const SHARE_DIRECTORY: u32 = SHARE_READ | 2;
 const SYNCHRONIZE: u32 = 0x0010_0000;
 const DELETE: u32 = 0x0001_0000;
 const GENERIC_WRITE: u32 = 0x4000_0000;
+const GENERIC_READ: u32 = 0x8000_0000;
 const DIRECTORY_FILE: u32 = 1;
 const WRITE_THROUGH: u32 = 2;
 const NON_DIRECTORY_FILE: u32 = 0x40;
@@ -125,6 +126,26 @@ impl DirectoryChain {
 
     pub(in crate::infra::filesystem) fn identity(&self) -> io::Result<FileIdentity> {
         read_windows_handle(&self.leaf)
+    }
+
+    /// Opens one read-only regular file relative to the anchored directory.
+    pub(in crate::infra::filesystem) fn open_regular_read(&self, name: &OsStr) -> io::Result<File> {
+        let file = open_relative(
+            &self.leaf,
+            name,
+            GENERIC_READ,
+            NON_DIRECTORY_FILE,
+            SHARE_READ,
+        )?;
+        let metadata = file.metadata()?;
+        if metadata.is_file() && metadata.file_attributes() & ATTR_REPARSE_POINT == 0 {
+            Ok(file)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Expected a regular cache file",
+            ))
+        }
     }
 
     pub(in crate::infra::filesystem) fn create_temporary(

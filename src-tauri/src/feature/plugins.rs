@@ -17,6 +17,7 @@ mod asset_data;
 pub mod export;
 mod inspector;
 mod package_changes;
+pub mod preview_access;
 
 /// Application entry point for a local desktop adapter or an independent host.
 pub struct PluginService {
@@ -151,6 +152,7 @@ impl PluginService {
             package_revision: current.package_revision,
             required_permissions: preview.required_permissions,
             optional_permissions: preview.optional_permissions,
+            experimental_worker_id: preview.experimental_worker_id,
         })
     }
 
@@ -251,6 +253,7 @@ impl PluginService {
                 icon_png: verified.icon().to_vec(),
                 required_permissions: declaration.permissions.clone(),
                 optional_permissions: declaration.optional_permissions.clone(),
+                experimental_worker_id: declaration.worker.as_ref().map(|worker| worker.id.clone()),
                 compatible: executor
                     .is_some_and(|target| verified.manifest().supports(target, &api_version)),
             };

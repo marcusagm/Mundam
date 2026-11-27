@@ -1,0 +1,12 @@
+{
+    "name": "mundam-wit-preview-check",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test": "node --test conformance.test.mjs"
+    },
+    "devDependencies": {
+        "@bytecodealliance/jco-transpile": "0.24.0"
+    }
+}

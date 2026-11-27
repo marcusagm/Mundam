@@ -1,4 +1,4 @@
-# SDK declarativo de plugins do Mundam
+# SDK de plugins do Mundam
 
 A v1 descreve campos booleanos próprios para o Inspector, ações de navegação a partir da galeria e telas informativas. A navegação para uma seção do Inspector requer um asset ativo selecionado. Uma tela informativa fica disponível no menu **Plugin screens** após a aprovação do plugin no catálogo. O mesmo manifesto pode ser processado por uma ferramenta de autoria, pelo backend e por outro renderizador. [Schema v1](v1/manifest.schema.json) · [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 
@@ -35,10 +35,16 @@ cargo run --locked --manifest-path sdk/plugins/Cargo.toml -- schema
 - Declare de uma a quatro telas em `contributes.screens`, cada uma com `id` local estável, `title` de até 80 caracteres e 1 a 12 blocos. Um bloco com `kind: "paragraph"` aceita um `text` de até 240 caracteres. Um bloco com `kind: "list"` aceita de 1 a 12 itens de até 120 caracteres em `items`. O Mundam renderiza esses valores como texto literal. Um plugin que oferece apenas telas pode omitir `assetFields` e `inspectorSections` e declarar `permissions: []`. [Manifesto de referência](v1/examples/reference-review/manifest.json)
 - Declare até oito comandos em `contributes.commands`, com `id` local estável, `title` de até 80 caracteres e `action: { "kind": "openScreen", "screen": "id-local" }`. O destino deve pertencer ao mesmo manifesto. Use `suggestedShortcut` para recomendar uma combinação como `Mod+Shift+KeyH`. As sugestões aceitam `Mod+KeyA` a `Mod+KeyZ`, com Shift opcional. O usuário pode aceitar a sugestão ou atribuir sua própria combinação em **Keyboard Shortcuts → Plugin commands**. Um comando aprovado fica disponível no menu **Plugin commands** com qualquer configuração de teclado.
 - Declare `selection.read` e `assetData.own.read` em `permissions` para usar o inspector. Editores graváveis também exigem `assetData.own.write` nessa lista. As permissões opcionais usam `optionalPermissions` e devem ser distintas das obrigatórias. Toda permissão depende de consentimento e validação do host.
+- `assetPreview.read` permite ao host autorizar a leitura da miniatura de imagem do asset selecionado durante uma tentativa de worker. Pode ser obrigatória ou opcional e exige `selection.read` em `permissions`. A leitura usa somente bytes da miniatura gerada pelo Mundam. A capacidade está descrita no [contrato WIT preliminar](v1/wit/preview.wit) e funciona na prova supervisionada. A execução de workers incluídos em pacotes de plugins está em desenvolvimento.
+- Para a ABI experimental do auxiliar, declare `worker` no manifesto e coloque `worker.wasm` junto dele antes de executar o mesmo comando de empacotamento. O SDK escolherá o envelope v2. [Formato dos pacotes](v1/package-format.md)
 
 O schema verifica a estrutura. A biblioteca Rust verifica também a ordem do intervalo de API, referências, duplicidades entre listas, vínculo entre ID e namespace e permissões exigidas pelas contribuições. A CLI usa a mesma biblioteca para validar o documento e os bytes da imagem. Os exemplos são diretórios de autoria que podem ser empacotados e assinados pela CLI e instalados em **Settings → Plugins**. A interface atual exibe os valores padrão declarados. A persistência dos valores por asset tem entrega própria. [Plano de implementação](../../docs/report/2026-11-24-api-and-plugins.md)
 
 Para integrar a validação em Rust, use `parse_manifest` sobre os bytes, `validate_icon` sobre o recurso e `supports` com o alvo do executor e a versão de API. Para arquivos de distribuição, use `package::verify_package` com a política de confiança do host. O Cargo.lock da CLI fixa as dependências de leitura JSON, SemVer, normalização Unicode, decodificação PNG e criptografia.
+
+## Usar o preview em WIT
+
+O [exemplo Rust](v1/examples/wit-preview-check/README.md) gera os bindings do contrato de preview e executa um componente de conformidade com um host local de teste. O guest recebe um recurso opaco para a miniatura da seleção e pode ler intervalos com erros tipados. O [world de conformidade](v1/wit/preview-check.wit) permite testar esse fluxo antes da integração do Component Model ao runtime do Mundam.
 
 ## Empacotar e verificar
 

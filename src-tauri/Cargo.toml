@@ -121,7 +121,9 @@ objc2 = "0.6"
 opt-level = 3
 
 [dev-dependencies]
+mundam-runtime-transport = { path = "../sdk/plugins/runtime-transport" }
 tempfile = "3.10"
 tauri = { version = "2", features = ["test"] }
 subtle = "2"
 tower = { version = "0.5", features = ["util"] }
+wat = "=1.228.0"

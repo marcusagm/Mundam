@@ -102,12 +102,13 @@ it('reviews permissions and passes only the backend review ID to installation', 
         .mockResolvedValue({ publishers: [], installed: [installedPlugin], safeMode: false });
     const client = renderPanel({
         load,
-        choose: vi.fn().mockResolvedValue(review),
+        choose: vi.fn().mockResolvedValue({ ...review, experimentalWorkerId: 'read-preview' }),
         install: vi.fn().mockResolvedValue(installedPlugin)
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Choose plugin package' }));
     await screen.findByRole('region', { name: review.name });
     expect(screen.getByText('Save its own fields on the selected asset')).toBeTruthy();
+    expect(screen.getByText('Contains experimental worker read-preview.')).toBeTruthy();
     expect(client.install).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Install disabled' }));
     await screen.findByText('Disabled');
@@ -173,7 +174,8 @@ it('requires approval before enabling and only submits selected optional permiss
             name: review.name,
             version: review.version,
             requiredPermissions: ['selection.read'],
-            optionalPermissions: ['assetData.own.write']
+            optionalPermissions: ['assetPreview.read', 'assetData.own.write'],
+            experimentalWorkerId: 'read-preview'
         }),
         enable: vi.fn(async () => {
             state.installed = [{ ...installedPlugin, enabled: true, approved: true }];
@@ -184,18 +186,17 @@ it('requires approval before enabling and only submits selected optional permiss
         name: 'Approve and enable'
     });
     expect(screen.getByText('Required permissions')).toBeTruthy();
+    expect(screen.getByText('Contains experimental worker read-preview.')).toBeTruthy();
     expect(client.enable).not.toHaveBeenCalled();
     const optional = screen.getByRole('checkbox', {
-        name: 'Save its own fields on the selected asset'
+        name: 'Read the generated preview of the selected image'
     });
     expect(optional.getAttribute('aria-checked')).toBe('false');
     await waitFor(() => expect(approve.disabled).toBe(false));
     fireEvent.click(optional);
     fireEvent.click(approve);
     await screen.findByText('Enabled');
-    expect(client.enable).toHaveBeenCalledExactlyOnceWith('catalog-consent', [
-        'assetData.own.write'
-    ]);
+    expect(client.enable).toHaveBeenCalledExactlyOnceWith('catalog-consent', ['assetPreview.read']);
 });
 
 it('pauses approved plugins in safe mode and allows permission revocation', async () => {

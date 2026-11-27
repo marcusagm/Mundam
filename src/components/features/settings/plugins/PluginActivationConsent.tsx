@@ -27,6 +27,9 @@ export const PluginActivationConsent: Component<{
                     ? 'Approve these permissions for the current catalog.'
                     : 'Enable this plugin for the current catalog. It requests no permissions.'}
             </p>
+            <Show when={properties.review.experimentalWorkerId}>
+                {workerId => <p>Contains experimental worker {workerId()}.</p>}
+            </Show>
             <PermissionList
                 label="Required permissions"
                 permissions={properties.review.requiredPermissions}

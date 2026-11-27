@@ -3,7 +3,7 @@
 use super::processing::selection::{ACTIVE_ASSET, SOURCE_STAMP};
 use crate::core::{
     plugins::derived_data::{
-        PluginDerivedResultKey, PluginPreviewRevision, PluginPreviewSource,
+        PluginDerivedResultKey, PluginPreviewArtifact, PluginPreviewRevision, PluginPreviewSource,
         MAX_DERIVED_RESULT_BYTES,
     },
     AppError, AppResult,
@@ -15,17 +15,27 @@ pub(super) async fn preview_source(
     connection: &mut SqliteConnection,
     asset_id: &str,
 ) -> AppResult<Option<PluginPreviewSource>> {
+    Ok(preview_artifact(connection, asset_id)
+        .await?
+        .map(|artifact| artifact.source))
+}
+
+pub(super) async fn preview_artifact(
+    connection: &mut SqliteConnection,
+    asset_id: &str,
+) -> AppResult<Option<PluginPreviewArtifact>> {
     let statement = format!(
-        "SELECT task.thumbnail_artifact, task.thumbnail_digest
+        "SELECT task.thumbnail_artifact, task.thumbnail_digest, a.family
          FROM assets a JOIN processing_tasks task ON task.asset_id = a.id AND task.kind = 'thumbnail'
          WHERE a.id = ? AND {ACTIVE_ASSET}
            AND task.state = 'succeeded' AND task.source_stamp = ({SOURCE_STAMP})
            AND task.thumbnail_artifact = a.thumbnail_path AND task.thumbnail_digest IS NOT NULL"
     );
-    let Some((artifact, digest)) = sqlx::query_as::<_, (String, Vec<u8>)>(&statement)
-        .bind(asset_id)
-        .fetch_optional(connection)
-        .await?
+    let Some((file_name, digest, family)) =
+        sqlx::query_as::<_, (String, Vec<u8>, String)>(&statement)
+            .bind(asset_id)
+            .fetch_optional(connection)
+            .await?
     else {
         return Ok(None);
     };
@@ -34,10 +44,14 @@ pub(super) async fn preview_source(
         .map_err(|_| AppError::Internal("Invalid digest for native thumbnail".into()))?;
     let mut revision = blake3::Hasher::new_derive_key("Mundam plugin thumbnail revision v1");
     revision.update(&content_digest);
-    revision.update(artifact.as_bytes());
-    Ok(Some(PluginPreviewSource {
-        revision: PluginPreviewRevision(*revision.finalize().as_bytes()),
-        content_digest,
+    revision.update(file_name.as_bytes());
+    Ok(Some(PluginPreviewArtifact {
+        source: PluginPreviewSource {
+            revision: PluginPreviewRevision(*revision.finalize().as_bytes()),
+            content_digest,
+        },
+        file_name,
+        family,
     }))
 }
 

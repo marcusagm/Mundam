@@ -1,6 +1,7 @@
 //! Platform adapters for generated caches, exclusive original-media moves and recovery storage.
 
 pub mod asset_cache;
+pub mod plugin_previews;
 
 /// Exclusive native moves for managed library edits.
 pub(crate) mod exclusive_move;

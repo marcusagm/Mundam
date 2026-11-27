@@ -13,6 +13,7 @@ pub mod derived_data;
 pub mod export;
 pub mod inspector;
 pub mod presentation;
+pub mod preview_access;
 
 /// Explicitly approved publisher identity from an independent source.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,6 +44,7 @@ pub struct PackagePreview {
     pub icon_png: Vec<u8>,
     pub required_permissions: Vec<Permission>,
     pub optional_permissions: Vec<Permission>,
+    pub experimental_worker_id: Option<String>,
     pub compatible: bool,
 }
 
@@ -117,6 +119,7 @@ pub struct PluginActivationReview {
     pub package_revision: String,
     pub required_permissions: Vec<Permission>,
     pub optional_permissions: Vec<Permission>,
+    pub experimental_worker_id: Option<String>,
 }
 
 /// Atomic operations on the local profile, independent of the selected asset catalog.
@@ -152,6 +155,15 @@ pub trait PluginRegistry: Send + Sync {
         catalog_id: &str,
         plugin_id: &str,
     ) -> AppResult<Option<Box<dyn presentation::LockedPluginPackage>>>;
+
+    /// Holds a previously verified preview grant stable without loading the package again.
+    ///
+    /// # Errors
+    /// Returns a storage error if the registry cannot verify or hold the approval.
+    async fn lock_preview_approval(
+        &self,
+        approval: &preview_access::PluginPreviewApproval,
+    ) -> AppResult<Option<Box<dyn preview_access::HeldPluginPreviewApproval>>>;
 
     /// Loads the current package and its admission identity.
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>>;

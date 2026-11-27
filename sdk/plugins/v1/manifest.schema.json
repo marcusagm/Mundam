@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Mundam declarative plugin manifest v1",
+    "title": "Mundam plugin manifest v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -17,6 +17,32 @@
         "engines",
         "permissions",
         "contributes"
+    ],
+    "allOf": [
+        {
+            "if": {
+                "anyOf": [
+                    { "properties": { "permissions": { "contains": { "const": "assetPreview.read" } } } },
+                    {
+                        "required": ["optionalPermissions"],
+                        "properties": { "optionalPermissions": { "contains": { "const": "assetPreview.read" } } }
+                    }
+                ]
+            },
+            "then": { "properties": { "permissions": { "contains": { "const": "selection.read" } } } }
+        },
+        {
+            "if": { "required": ["worker"] },
+            "then": {
+                "anyOf": [
+                    { "properties": { "permissions": { "contains": { "const": "assetPreview.read" } } } },
+                    {
+                        "required": ["optionalPermissions"],
+                        "properties": { "optionalPermissions": { "contains": { "const": "assetPreview.read" } } }
+                    }
+                ]
+            }
+        }
     ],
     "if": {
         "properties": {
@@ -97,6 +123,15 @@
         },
         "permissions": { "$ref": "#/$defs/permissions" },
         "optionalPermissions": { "$ref": "#/$defs/permissions" },
+        "worker": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "abi"],
+            "properties": {
+                "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+                "abi": { "enum": ["preview-probe-v1", "wit-preview-check-v1"] }
+            }
+        },
         "contributes": {
             "type": "object",
             "additionalProperties": false,
@@ -149,7 +184,7 @@
         "permissions": {
             "type": "array",
             "uniqueItems": true,
-            "items": { "enum": ["selection.read", "assetData.own.read", "assetData.own.write"] }
+            "items": { "enum": ["selection.read", "assetPreview.read", "assetData.own.read", "assetData.own.write"] }
         },
         "assetField": {
             "type": "object",

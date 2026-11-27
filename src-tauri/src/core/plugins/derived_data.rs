@@ -18,6 +18,13 @@ pub struct PluginPreviewSource {
     pub content_digest: [u8; 32],
 }
 
+/// Host-only catalog projection used to open the native cache entry.
+pub struct PluginPreviewArtifact {
+    pub source: PluginPreviewSource,
+    pub file_name: String,
+    pub family: String,
+}
+
 /// Cache key supplied by the host after resolving a verified package and result declaration.
 pub struct PluginDerivedResultKey {
     pub asset_id: String,
@@ -31,12 +38,27 @@ pub struct PluginDerivedResultKey {
 /// Application callers own package admission and grants. The Ledger fences source validity.
 #[async_trait]
 pub trait PluginDerivedDataLedger: Send + Sync {
+    /// Returns the identity of the catalog that owns these assets and publications.
+    ///
+    /// # Errors
+    /// Returns a storage error if the catalog identity is unavailable.
+    async fn plugin_catalog_id(&self) -> AppResult<String>;
+
     /// Resolves the current published thumbnail identity. Missing or unverified thumbnails are unavailable.
     ///
     /// # Errors
     /// Returns a storage error if the current source cannot be read or has an invalid recorded digest.
     async fn plugin_preview_source(&self, asset_id: &str)
         -> AppResult<Option<PluginPreviewSource>>;
+
+    /// Resolves the current source and cache name in a single catalog read.
+    ///
+    /// # Errors
+    /// Propagates catalog read failures and invalid digests.
+    async fn plugin_preview_artifact(
+        &self,
+        asset_id: &str,
+    ) -> AppResult<Option<PluginPreviewArtifact>>;
 
     /// Reads a cache hit for the exact package, schema and current source revision.
     ///

@@ -1,11 +1,12 @@
 //! Filesystem and output adapter for standalone plugin authoring and verification.
 
 use mundam_plugin_sdk::package::{
-    sign_package, signing_key_fingerprint, verify_package, TrustedPublisher, MAX_PACKAGE_BYTES,
+    sign_package, sign_worker_package, signing_key_fingerprint, validate_resources, verify_package,
+    TrustedPublisher, MAX_PACKAGE_BYTES, MAX_WORKER_MODULE_BYTES,
 };
 use mundam_plugin_sdk::{
-    parse_manifest, validate_icon, Executor, ValidatedManifest, Version, MANIFEST_SCHEMA,
-    MAX_ICON_BYTES, MAX_MANIFEST_BYTES,
+    parse_manifest, Executor, ValidatedManifest, Version, MANIFEST_SCHEMA, MAX_ICON_BYTES,
+    MAX_MANIFEST_BYTES,
 };
 use serde_json::{json, Value};
 use std::error::Error;
@@ -60,6 +61,23 @@ fn read_icon(
         .map_err(|error| format!("icon: {error}").into())
 }
 
+fn read_worker_module(
+    manifest_path: &Path,
+    validated: &ValidatedManifest,
+) -> io::Result<Option<Vec<u8>>> {
+    if validated.manifest().worker.is_none() {
+        return Ok(None);
+    }
+    let path = manifest_path.with_file_name("worker.wasm");
+    if !fs::symlink_metadata(&path)?.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "worker.wasm must be a regular file",
+        ));
+    }
+    read_limited(&path, MAX_WORKER_MODULE_BYTES).map(Some)
+}
+
 fn api_version(flags: &[OsString]) -> Result<Version, Box<dyn Error>> {
     let version = match flags {
         [] => "1.0.0",
@@ -106,8 +124,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         (Some("validate"), [_, manifest_path, flags @ ..]) => {
             let api = api_version(flags)?;
             let manifest_path = Path::new(manifest_path);
-            let validated = parse_manifest(&read_limited(manifest_path, MAX_MANIFEST_BYTES)?)?;
-            validate_icon(&read_icon(manifest_path, &validated)?)?;
+            let manifest = read_limited(manifest_path, MAX_MANIFEST_BYTES)?;
+            let validated = parse_manifest(&manifest)?;
+            let icon = read_icon(manifest_path, &validated)?;
+            let module = read_worker_module(manifest_path, &validated)?;
+            validate_resources(&validated, manifest.len(), &icon, module.as_deref())?;
             write_json(
                 &mut output,
                 &json!({
@@ -125,8 +146,12 @@ fn run() -> Result<(), Box<dyn Error>> {
             let manifest = read_limited(manifest_path, MAX_MANIFEST_BYTES)?;
             let validated = parse_manifest(&manifest)?;
             let icon = read_icon(manifest_path, &validated)?;
+            let module = read_worker_module(manifest_path, &validated)?;
             let key = read_limited(Path::new(key_path), MAX_KEY_FILE_BYTES)?;
-            let package = sign_package(&manifest, &icon, &key)?;
+            let package = match module {
+                Some(module) => sign_worker_package(&manifest, &icon, &module, &key)?,
+                None => sign_package(&manifest, &icon, &key)?,
+            };
             let mut file = File::create_new(package_path)?;
             file.write_all(&package)?;
             file.sync_all()?;

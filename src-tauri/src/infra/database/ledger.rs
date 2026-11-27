@@ -27,7 +27,8 @@ use crate::core::plugins::data_management::{
     StoredPluginData, StoredPluginDataReview, StoredPluginOwner,
 };
 use crate::core::plugins::derived_data::{
-    PluginDerivedDataLedger, PluginDerivedResultKey, PluginPreviewRevision, PluginPreviewSource,
+    PluginDerivedDataLedger, PluginDerivedResultKey, PluginPreviewArtifact, PluginPreviewRevision,
+    PluginPreviewSource,
 };
 use serde_json::{Map, Value};
 
@@ -171,12 +172,25 @@ impl PluginAssetDataLedger for SqliteAssetLedger {
 
 #[async_trait]
 impl PluginDerivedDataLedger for SqliteAssetLedger {
+    async fn plugin_catalog_id(&self) -> AppResult<String> {
+        let mut connection = self.pool.acquire().await?;
+        super::plugin_data_management::catalog_id(&mut connection).await
+    }
+
     async fn plugin_preview_source(
         &self,
         asset_id: &str,
     ) -> AppResult<Option<PluginPreviewSource>> {
         let mut connection = self.pool.acquire().await?;
         super::plugin_derived_data::preview_source(&mut connection, asset_id).await
+    }
+
+    async fn plugin_preview_artifact(
+        &self,
+        asset_id: &str,
+    ) -> AppResult<Option<PluginPreviewArtifact>> {
+        let mut connection = self.pool.acquire().await?;
+        super::plugin_derived_data::preview_artifact(&mut connection, asset_id).await
     }
 
     async fn read_plugin_derived_result(

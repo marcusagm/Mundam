@@ -70,6 +70,8 @@ pub(crate) struct ActivationDetails {
     version: String,
     required_permissions: Vec<Permission>,
     optional_permissions: Vec<Permission>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    experimental_worker_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -122,6 +124,8 @@ pub(crate) struct ReviewDetails {
     targets: Vec<Target>,
     required_permissions: Vec<Permission>,
     optional_permissions: Vec<Permission>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    experimental_worker_id: Option<String>,
     compatible: bool,
     replacement: Option<ReplacementDetails>,
 }
@@ -292,7 +296,14 @@ pub(crate) async fn review_plugin_activation(
     plugin_id: String,
 ) -> AppResult<ActivationDetails> {
     let service = admin.service(&directories.app_data).await?;
-    let (review_id, name, version, required_permissions, optional_permissions) = admin
+    let (
+        review_id,
+        name,
+        version,
+        required_permissions,
+        optional_permissions,
+        experimental_worker_id,
+    ) = admin
         .review_activation(service, active_catalog(&database).await?, &plugin_id)
         .await?;
     Ok(ActivationDetails {
@@ -301,6 +312,7 @@ pub(crate) async fn review_plugin_activation(
         version,
         required_permissions,
         optional_permissions,
+        experimental_worker_id,
     })
 }
 
@@ -424,6 +436,7 @@ fn review_details(change: PluginPackageChange, review_id: Option<Uuid>) -> Revie
         targets: preview.targets,
         required_permissions: preview.required_permissions,
         optional_permissions: preview.optional_permissions,
+        experimental_worker_id: preview.experimental_worker_id,
         compatible: preview.compatible,
         replacement: change.replacement.map(|replacement| ReplacementDetails {
             kind: replacement.kind,

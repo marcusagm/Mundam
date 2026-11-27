@@ -1,0 +1,10 @@
+package mundam:worker@0.1.0;
+
+/// Conformance world for testing the preview import from an author-written guest.
+world preview-check {
+    import image-preview;
+    use image-preview.{preview-error};
+
+    /// Reads the RIFF and WebP markers from the selected preview.
+    export read-preview-signature: func() -> result<list<u8>, preview-error>;
+}

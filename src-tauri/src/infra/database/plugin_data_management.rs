@@ -58,14 +58,19 @@ pub(super) async fn inventory(
         .collect())
 }
 
+pub(super) async fn catalog_id(connection: &mut SqliteConnection) -> AppResult<String> {
+    Ok(
+        sqlx::query_scalar("SELECT catalog_id FROM import_preferences WHERE singleton = 1")
+            .fetch_one(connection)
+            .await?,
+    )
+}
+
 pub(super) async fn review(
     connection: &mut SqliteConnection,
     owner: &StoredPluginOwner,
 ) -> AppResult<StoredPluginDataReview> {
-    let catalog_id: String =
-        sqlx::query_scalar("SELECT catalog_id FROM import_preferences WHERE singleton = 1")
-            .fetch_one(&mut *connection)
-            .await?;
+    let catalog_id = catalog_id(connection).await?;
     let statement = format!(
         "SELECT kind, json_array(kind, recovery_id, asset_id, item_id, schema_version, revision, value_json)
          FROM ({STORED_DATA}) WHERE plugin_id = ? AND fingerprint = ?

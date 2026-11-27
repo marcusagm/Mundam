@@ -1,0 +1,21 @@
+package mundam:worker@0.1.0;
+
+interface image-preview {
+    enum preview-error {
+        unavailable,
+        invalid-range,
+        budget-exhausted,
+    }
+
+    /// A host-selected native WebP thumbnail scoped to the current worker attempt.
+    /// The attempt ends on cancellation or expiry. The host may revoke access.
+    resource preview {
+        byte-count: func() -> u32;
+
+        /// Reads exactly length bytes. Length must be between 1 and 65536, inclusive.
+        read: func(offset: u32, length: u32) -> result<list<u8>, preview-error>;
+    }
+
+    /// Opens the preview for the asset selected by the host when it admitted the attempt.
+    open-selected-preview: func() -> result<preview, preview-error>;
+}

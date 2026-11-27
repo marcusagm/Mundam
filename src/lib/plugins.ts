@@ -63,7 +63,11 @@ export interface PluginSettings {
 }
 
 /** Permissions that the current declarative SDK can request. */
-export type PluginPermission = 'selection.read' | 'assetData.own.read' | 'assetData.own.write';
+export type PluginPermission =
+    | 'selection.read'
+    | 'assetPreview.read'
+    | 'assetData.own.read'
+    | 'assetData.own.write';
 
 /** Permission request for one installed package in the current catalog. */
 export interface PluginActivationReview {
@@ -72,6 +76,7 @@ export interface PluginActivationReview {
     version: string;
     requiredPermissions: PluginPermission[];
     optionalPermissions: PluginPermission[];
+    experimentalWorkerId?: string;
 }
 
 /** Verified package details with a one-time review identifier if compatible. */
@@ -88,6 +93,7 @@ export interface PluginPackageReview {
     targets: { platform: string; architecture: string }[];
     requiredPermissions: PluginPermission[];
     optionalPermissions: PluginPermission[];
+    experimentalWorkerId?: string;
     compatible: boolean;
     replacement: PluginReplacementReview | null;
 }

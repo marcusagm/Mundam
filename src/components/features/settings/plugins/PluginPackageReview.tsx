@@ -8,6 +8,7 @@ import { Button } from '../../../ui/Button';
 /** Describes declarative plugin permissions in Settings. */
 export const permissionLabels: Record<PluginPermission, string> = {
     'selection.read': 'Read the current asset selection',
+    'assetPreview.read': 'Read the generated preview of the selected image',
     'assetData.own.read': 'Read its own fields on the selected asset',
     'assetData.own.write': 'Save its own fields on the selected asset'
 };
@@ -80,6 +81,9 @@ export const PluginPackageReview: Component<{
                         .join(', ')}
                 </dd>
             </dl>
+            <Show when={properties.review.experimentalWorkerId}>
+                {workerId => <p>Contains experimental worker {workerId()}.</p>}
+            </Show>
             <PermissionList
                 label="Required permissions"
                 permissions={properties.review.requiredPermissions}

@@ -127,7 +127,14 @@ impl DesktopPluginAdmin {
         service: &PluginService,
         catalog_id: String,
         plugin_id: &str,
-    ) -> AppResult<(Uuid, String, String, Vec<Permission>, Vec<Permission>)> {
+    ) -> AppResult<(
+        Uuid,
+        String,
+        String,
+        Vec<Permission>,
+        Vec<Permission>,
+        Option<String>,
+    )> {
         let mut pending = self.pending_activation.lock().await;
         pending.take();
         let review = service.review_activation(catalog_id, plugin_id).await?;
@@ -138,6 +145,7 @@ impl DesktopPluginAdmin {
             review.version.clone(),
             review.required_permissions.clone(),
             review.optional_permissions.clone(),
+            review.experimental_worker_id.clone(),
         );
         *pending = Some(PendingActivation {
             id,

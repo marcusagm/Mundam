@@ -1,0 +1,12 @@
+[package]
+name = "mundam-runtime-transport"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+tokio = { version = "=1.49.0", features = ["io-util", "macros", "process", "rt", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }

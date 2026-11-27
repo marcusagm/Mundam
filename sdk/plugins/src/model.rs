@@ -20,7 +20,25 @@ pub struct Manifest {
     pub permissions: Vec<Permission>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub optional_permissions: Vec<Permission>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker: Option<PluginWorker>,
     pub contributes: Contributions,
+}
+
+/// The worker associated with the executable slot of a signed package.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PluginWorker {
+    pub id: String,
+    pub abi: WorkerAbi,
+}
+
+/// Explicit ABI identifiers prevent a probe module from being treated as a WIT component.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WorkerAbi {
+    PreviewProbeV1,
+    WitPreviewCheckV1,
 }
 
 /// A pair of constraints that must both match the same executor.
@@ -63,6 +81,8 @@ pub struct Engines {
 pub enum Permission {
     #[serde(rename = "selection.read")]
     SelectionRead,
+    #[serde(rename = "assetPreview.read")]
+    AssetPreviewRead,
     #[serde(rename = "assetData.own.read")]
     OwnDataRead,
     #[serde(rename = "assetData.own.write")]

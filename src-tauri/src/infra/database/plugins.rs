@@ -6,6 +6,7 @@
 use crate::core::{
     plugins::{
         presentation::{ApprovedPluginPackage, LockedPluginPackage},
+        preview_access::{HeldPluginPreviewApproval, PluginPreviewApproval},
         InstalledPlugin, PluginActivationReview, PluginInstallRecord, PluginRegistry,
         PluginReplacement, PublisherAnchor, RegisteredPublisher, StoredPluginPackage,
     },
@@ -255,6 +256,41 @@ impl PluginRegistry for SqlitePluginRegistry {
         }))
     }
 
+    async fn lock_preview_approval(
+        &self,
+        approval: &PluginPreviewApproval,
+    ) -> AppResult<Option<Box<dyn HeldPluginPreviewApproval>>> {
+        let mut transaction = self.0.begin_with("BEGIN IMMEDIATE").await?;
+        let active: bool = sqlx::query_scalar(
+            "SELECT EXISTS (
+                SELECT 1 FROM plugin_catalog_activations AS approval
+                JOIN installed_plugins AS plugin ON plugin.id = approval.plugin_id
+                    AND plugin.package_digest = approval.package_digest
+                JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
+                    AND publisher.fingerprint = plugin.publisher_fingerprint
+                WHERE approval.catalog_id = ?1 AND approval.plugin_id = ?2
+                    AND approval.package_digest = ?3 AND plugin.publisher_fingerprint = ?4
+                    AND approval.activation_epoch = ?5 AND publisher.revoked_at IS NULL
+                    AND EXISTS (SELECT 1 FROM json_each(approval.permissions)
+                        WHERE value = 'selection.read')
+                    AND EXISTS (SELECT 1 FROM json_each(approval.permissions)
+                        WHERE value = 'assetPreview.read')
+            )",
+        )
+        .bind(&approval.catalog_id)
+        .bind(&approval.plugin_id)
+        .bind(approval.package_digest.as_slice())
+        .bind(approval.publisher_fingerprint.as_slice())
+        .bind(&approval.activation_epoch)
+        .fetch_one(&mut *transaction)
+        .await?;
+        Ok(active.then(|| {
+            Box::new(PreviewApprovalGuard {
+                _transaction: transaction,
+            }) as _
+        }))
+    }
+
     async fn current_package(&self, plugin_id: &str) -> AppResult<Option<StoredPluginPackage>> {
         package_changes::current_package(&self.0, plugin_id).await
     }
@@ -295,21 +331,24 @@ impl PluginRegistry for SqlitePluginRegistry {
         let permissions = serde_json::to_string(permissions)
             .map_err(|_| AppError::Internal("Could not encode plugin permissions".into()))?;
         let written = sqlx::query(
-            "INSERT INTO plugin_catalog_activations (catalog_id, plugin_id, package_digest, permissions)
-             SELECT ?1, plugin.id, plugin.package_digest, ?4
+            "INSERT INTO plugin_catalog_activations
+                (catalog_id, plugin_id, package_digest, permissions, activation_epoch)
+             SELECT ?1, plugin.id, plugin.package_digest, ?4, ?6
              FROM installed_plugins AS plugin
              JOIN plugin_publishers AS publisher ON publisher.namespace = plugin.publisher
                  AND publisher.fingerprint = plugin.publisher_fingerprint
              WHERE plugin.id = ?2 AND plugin.package_digest = ?3 AND publisher.revoked_at IS NULL
                 AND plugin.package_revision = ?5
              ON CONFLICT (catalog_id, plugin_id) DO UPDATE
-             SET package_digest = excluded.package_digest, permissions = excluded.permissions",
+             SET package_digest = excluded.package_digest, permissions = excluded.permissions,
+                 activation_epoch = excluded.activation_epoch",
         )
         .bind(&review.catalog_id)
         .bind(&review.plugin_id)
         .bind(review.package_digest.as_slice())
         .bind(permissions)
         .bind(&review.package_revision)
+        .bind(Uuid::new_v4().simple().to_string())
         .execute(&self.0)
         .await?;
         if written.rows_affected() == 0 {
@@ -337,6 +376,12 @@ struct RegistryApproval {
     _transaction: sqlx::Transaction<'static, sqlx::Sqlite>,
 }
 
+struct PreviewApprovalGuard {
+    _transaction: sqlx::Transaction<'static, sqlx::Sqlite>,
+}
+
+impl HeldPluginPreviewApproval for PreviewApprovalGuard {}
+
 impl LockedPluginPackage for RegistryApproval {
     fn package(&self) -> &ApprovedPluginPackage {
         &self.package
@@ -350,7 +395,7 @@ async fn select_approved(
 ) -> AppResult<Vec<ApprovedPluginPackage>> {
     let rows = sqlx::query(
         "SELECT plugin.id, plugin.publisher, plugin.publisher_fingerprint,
-                plugin.package_digest, plugin.package, approval.permissions
+                plugin.package_digest, plugin.package, approval.permissions, approval.activation_epoch
          FROM plugin_catalog_activations AS approval
          JOIN installed_plugins AS plugin ON plugin.id = approval.plugin_id
              AND plugin.package_digest = approval.package_digest
@@ -379,6 +424,7 @@ async fn select_approved(
             digest: stored_digest(&row, "package_digest")?,
             bytes: row.try_get("package")?,
             permissions,
+            activation_epoch: row.try_get("activation_epoch")?,
         });
     }
     Ok(packages)

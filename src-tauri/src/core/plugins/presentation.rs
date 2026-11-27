@@ -11,6 +11,7 @@ pub struct ApprovedPluginPackage {
     pub digest: [u8; 32],
     pub bytes: Vec<u8>,
     pub permissions: Vec<Permission>,
+    pub activation_epoch: String,
 }
 
 /// Keeps trust and approval stable across a catalog operation, including revocation by another process.
