@@ -293,7 +293,10 @@ export const PluginsPanel: Component<{ client: PluginSettingsClient }> = propert
                     </>
                 )}
             </Show>
-            <PluginDataSection exportAnnotations={() => properties.client.exportAnnotations()} />
+            <PluginDataSection
+                exportAnnotations={() => properties.client.exportAnnotations()}
+                storedData={properties.client.storedData}
+            />
         </div>
     );
 };

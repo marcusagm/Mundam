@@ -2,10 +2,11 @@ import { createSignal, Show, type Component } from 'solid-js';
 import type { PluginSettingsClient } from '../../../../lib/plugins';
 import { Button } from '../../../ui/Button';
 import { SectionGroup } from '../../../ui/SectionGroup';
+import { PluginStoredDataControls } from './PluginStoredDataControls';
 
 /** Exposes catalog data independently of the profile's installed package list. */
 export const PluginDataSection: Component<
-    Pick<PluginSettingsClient, 'exportAnnotations'>
+    Pick<PluginSettingsClient, 'exportAnnotations' | 'storedData'>
 > = properties => {
     const [exporting, setExporting] = createSignal(false);
     const [count, setCount] = createSignal<number | null>(null);
@@ -50,6 +51,10 @@ export const PluginDataSection: Component<
                         Exported {count()} plugin {count() === 1 ? 'annotation' : 'annotations'}.
                     </p>
                 </Show>
+                <PluginStoredDataControls
+                    client={properties.storedData}
+                    exportInProgress={exporting()}
+                />
             </div>
         </SectionGroup>
     );

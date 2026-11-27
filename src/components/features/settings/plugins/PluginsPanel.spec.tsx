@@ -34,6 +34,7 @@ function renderPanel(overrides: Partial<PluginSettingsClient> = {}) {
     const client: PluginSettingsClient = {
         load: vi.fn().mockResolvedValue({ publishers: [], installed: [], safeMode: false }),
         exportAnnotations: vi.fn().mockResolvedValue(null),
+        storedData: { list: vi.fn(), review: vi.fn(), purge: vi.fn() },
         choose: vi.fn().mockResolvedValue(null),
         trust: vi.fn().mockResolvedValue(undefined),
         revoke: vi.fn().mockResolvedValue(undefined),

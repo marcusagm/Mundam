@@ -9,6 +9,7 @@ use crate::{
                 PluginAssetDataLedger, PluginBooleanEdit, PluginInspectorEditResult,
                 PluginInspectorFieldState, PluginSectionTarget,
             },
+            data_management::{StoredPluginData, StoredPluginDataReview, StoredPluginOwner},
             presentation::PluginPresentation,
             InstalledPlugin, PluginPackageChange, PluginReplacementKind,
         },
@@ -165,6 +166,42 @@ async fn active_catalog(database: &DbManager) -> AppResult<String> {
         .preference()
         .await?
         .catalog_id)
+}
+
+/// Lists all plugin identities with retained data in the active catalog.
+/// # Errors
+/// Propagates admission and catalog read failures.
+#[tauri::command]
+pub(crate) async fn list_stored_plugin_data(
+    _ipc: PluginSettingsRequest,
+    ledger: State<'_, Arc<dyn PluginAssetDataLedger>>,
+) -> AppResult<Vec<StoredPluginData>> {
+    ledger.list_stored_plugin_data().await
+}
+
+/// Returns the impact and catalog revision for one exact signing identity.
+/// # Errors
+/// Propagates admission and catalog read failures.
+#[tauri::command]
+pub(crate) async fn review_stored_plugin_data(
+    _ipc: PluginSettingsRequest,
+    ledger: State<'_, Arc<dyn PluginAssetDataLedger>>,
+    owner: StoredPluginOwner,
+) -> AppResult<StoredPluginDataReview> {
+    ledger.review_stored_plugin_data(&owner).await
+}
+
+/// Removes the reviewed rows if the data still matches the user's confirmation.
+/// # Errors
+/// Propagates admission and catalog write failures.
+#[tauri::command]
+pub(crate) async fn purge_stored_plugin_data(
+    _ipc: PluginSettingsRequest,
+    ledger: State<'_, Arc<dyn PluginAssetDataLedger>>,
+    owner: StoredPluginOwner,
+    revision: String,
+) -> AppResult<bool> {
+    ledger.purge_stored_plugin_data(&owner, &revision).await
 }
 
 /// Exports the active catalog's saved annotations to a user-authorized JSON file.

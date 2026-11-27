@@ -3,6 +3,7 @@ export interface PluginSettingsClient {
     load(): Promise<PluginSettings>;
     /** Returns the number of saved annotations, or null when the file dialog is canceled. */
     exportAnnotations(): Promise<number | null>;
+    storedData: PluginStoredDataClient;
     trust(namespace: string, fingerprint: string): Promise<void>;
     revoke(namespace: string, fingerprint: string): Promise<void>;
     choose(): Promise<PluginPackageReview | null>;
@@ -13,6 +14,26 @@ export interface PluginSettingsClient {
     disable(pluginId: string): Promise<void>;
     reviewRollback(pluginId: string): Promise<PluginPackageReview>;
     remove(pluginId: string, packageRevision: string): Promise<void>;
+}
+
+/** The plugin ID and signing identity that own catalog data. */
+export interface StoredPluginOwner {
+    pluginId: string;
+    publisherFingerprint: string;
+}
+
+/** Counts of durable values and regenerable results in the active catalog. */
+export interface StoredPluginDataCounts {
+    annotations: number;
+    recoveryAnnotations: number;
+    cachedResults: number;
+}
+
+/** Settings access to data retained independently of package installation. */
+export interface PluginStoredDataClient {
+    list(): Promise<{ owner: StoredPluginOwner; counts: StoredPluginDataCounts }[]>;
+    review(owner: StoredPluginOwner): Promise<{ counts: StoredPluginDataCounts; revision: string }>;
+    purge(owner: StoredPluginOwner, revision: string): Promise<boolean>;
 }
 
 /** Recorded publisher identity and revocation status. */

@@ -17,6 +17,11 @@ const MAX_SNAPSHOT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_ENTITIES: usize = 100_000;
 const PAGE_SIZE: usize = 256;
 
+pub(super) struct CapturedFolder {
+    pub snapshot_json: String,
+    pub asset_ids_json: String,
+}
+
 #[derive(Serialize, Deserialize)]
 struct TableSnapshot {
     table: String,
@@ -58,10 +63,10 @@ async fn columns(transaction: &mut Transaction<'_, Sqlite>, table: &str) -> AppR
 ///
 /// # Errors
 /// Rejects oversized or invalid catalog data before moving original files.
-pub(crate) async fn capture(
+pub(super) async fn capture(
     transaction: &mut Transaction<'_, Sqlite>,
     folder_id: &str,
-) -> AppResult<String> {
+) -> AppResult<CapturedFolder> {
     let folders: Vec<String> = sqlx::query_scalar("WITH RECURSIVE tree(id) AS (SELECT id FROM folders WHERE id = ? UNION SELECT folders.id FROM folders JOIN tree ON folders.parent_id = tree.id) SELECT id FROM tree LIMIT 100001").bind(folder_id).fetch_all(&mut **transaction).await?;
     let assets: Vec<String> = sqlx::query_scalar("WITH RECURSIVE tree(id) AS (SELECT id FROM folders WHERE id = ? UNION SELECT folders.id FROM folders JOIN tree ON folders.parent_id = tree.id) SELECT id FROM assets WHERE folder_id IN (SELECT id FROM tree) LIMIT 100001").bind(folder_id).fetch_all(&mut **transaction).await?;
     if folders.len().saturating_add(assets.len()) > MAX_ENTITIES {
@@ -71,6 +76,7 @@ pub(crate) async fn capture(
     }
     let mut tables = Vec::new();
     let mut captured_bytes = 0usize;
+    let mut archived_annotation_bytes = 0usize;
     for table in TABLES {
         let columns = columns(transaction, table).await?;
         let fields = columns
@@ -94,7 +100,7 @@ pub(crate) async fn capture(
         let selection =
             format!("FROM {table} WHERE {identifier_column} IN (SELECT value FROM json_each(?))");
         let estimated: i64 = sqlx::query_scalar(&format!(
-            "SELECT COALESCE(SUM(length(CAST(json_object({fields}) AS BLOB))),0) {selection}"
+            "SELECT COALESCE(SUM(length(CAST(json_object({fields}) AS BLOB)) + 1),0) {selection}"
         ))
         .bind(&identifiers)
         .fetch_one(&mut **transaction)
@@ -104,6 +110,16 @@ pub(crate) async fn capture(
             return Err(invalid(
                 "Recovery metadata exceeds 64 MiB. Delete smaller subfolders.",
             ));
+        }
+        if table == "plugin_asset_data" {
+            // Retain the v1 schema entry. The recovery point owns these rows separately.
+            archived_annotation_bytes = estimated as usize;
+            tables.push(TableSnapshot {
+                table: table.into(),
+                columns,
+                rows: Vec::new(),
+            });
+            continue;
         }
         let query =
             format!("SELECT json_object({fields}) {selection} ORDER BY rowid LIMIT 256 OFFSET ?");
@@ -131,10 +147,13 @@ pub(crate) async fn capture(
         });
     }
     let serialized = serde_json::to_string(&Snapshot { version: 1, tables }).map_err(json_error)?;
-    if serialized.len() > MAX_SNAPSHOT_BYTES {
+    if serialized.len().saturating_add(archived_annotation_bytes) > MAX_SNAPSHOT_BYTES {
         return Err(invalid("Encoded recovery metadata exceeds 64 MiB"));
     }
-    Ok(serialized)
+    Ok(CapturedFolder {
+        snapshot_json: serialized,
+        asset_ids_json: serde_json::to_string(&assets).map_err(json_error)?,
+    })
 }
 
 /// Restores stable identities with defaults for additive schema migrations.
@@ -168,6 +187,9 @@ pub(crate) async fn restore(
     for (index, table) in tables.iter().enumerate() {
         if TABLES[index] != table.table {
             return Err(invalid("Unsupported folder recovery table order"));
+        }
+        if table.table == "plugin_asset_data" && !table.rows.is_empty() {
+            return Err(invalid("Folder recovery annotations require migration"));
         }
         let current = columns(transaction, &table.table).await?;
         let mut unique = std::collections::HashSet::new();

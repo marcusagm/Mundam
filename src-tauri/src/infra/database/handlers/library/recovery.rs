@@ -37,8 +37,18 @@ pub(crate) async fn capture(
     }
     let snapshot = snapshot::capture(transaction, identifier).await?;
     sqlx::query("INSERT INTO folder_recovery (folder_id, original_path, archive_path, snapshot_json, byte_count) VALUES (?, ?, ?, ?, ?)")
-        .bind(identifier).bind(source.to_string_lossy().as_ref()).bind(archive.to_string_lossy().as_ref()).bind(snapshot).bind(byte_count)
+        .bind(identifier).bind(source.to_string_lossy().as_ref()).bind(archive.to_string_lossy().as_ref()).bind(snapshot.snapshot_json).bind(byte_count)
         .execute(&mut **transaction).await?;
+    sqlx::query(
+        "INSERT INTO folder_recovery_plugin_asset_data
+            (folder_id, asset_id, plugin_id, publisher_fingerprint, field_id, schema_version, revision, value_json)
+         SELECT ?, asset_id, plugin_id, publisher_fingerprint, field_id, schema_version, revision, value_json
+         FROM plugin_asset_data WHERE asset_id IN (SELECT value FROM json_each(?))",
+    )
+    .bind(identifier)
+    .bind(snapshot.asset_ids_json)
+    .execute(&mut **transaction)
+    .await?;
     Ok(())
 }
 
@@ -87,6 +97,15 @@ pub(crate) async fn restore(
     }
     sqlx::query("UPDATE library_operation_receipts SET cleanup_pending = 0, cleanup_assets_json = '[]' WHERE entity_id = ? AND operation_kind = 'deleteFolder'").bind(identifier).execute(&mut **transaction).await?;
     changes.restored_assets = snapshot::restore(transaction, &snapshot).await?;
+    sqlx::query(
+        "INSERT INTO plugin_asset_data
+            (asset_id, plugin_id, publisher_fingerprint, field_id, schema_version, revision, value_json)
+         SELECT asset_id, plugin_id, publisher_fingerprint, field_id, schema_version, revision, value_json
+         FROM folder_recovery_plugin_asset_data WHERE folder_id = ?",
+    )
+    .bind(identifier)
+    .execute(&mut **transaction)
+    .await?;
     super::identities::restore_from_archive(transaction, identifier, &original, &archive).await?;
     sqlx::query("DELETE FROM folder_recovery WHERE folder_id = ?")
         .bind(identifier)

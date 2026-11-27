@@ -37,6 +37,7 @@ it('opens the folder settings from the settings sidebar', async () => {
             plugins={{
                 load: vi.fn(),
                 exportAnnotations: vi.fn(),
+                storedData: { list: vi.fn(), review: vi.fn(), purge: vi.fn() },
                 trust: vi.fn(),
                 revoke: vi.fn(),
                 choose: vi.fn(),

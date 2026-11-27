@@ -14,6 +14,7 @@ pub(crate) mod library_operations;
 pub mod manager;
 pub mod models;
 mod plugin_asset_data;
+mod plugin_data_management;
 mod plugin_derived_data;
 pub mod plugin_export;
 pub mod plugins;

@@ -104,6 +104,7 @@ export const InstalledPluginList: Component<{
                                         <p>
                                             Remove {plugin.name} from this profile? This clears its
                                             package, rollback version and approvals in all catalogs.
+                                            Saved data stays in each catalog.
                                         </p>
                                         <div class="plugin-settings-actions">
                                             <Button

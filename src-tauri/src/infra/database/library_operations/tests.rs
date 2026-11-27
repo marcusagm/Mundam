@@ -332,10 +332,27 @@ async fn undo_restores_files_folder_colors_and_asset_metadata_with_original_ids(
         publisher_fingerprint: [3; 32],
         field_id: "reviewed".into(),
     };
+    let erased_field = PluginAssetFieldKey {
+        asset_id: review.asset_id.clone(),
+        plugin_id: review.plugin_id.clone(),
+        publisher_fingerprint: [4; 32],
+        field_id: review.field_id.clone(),
+    };
     fixture
         .ledger
         .write_plugin_boolean(
             &review,
+            PluginBooleanWrite {
+                schema_version: 1,
+                expected_revision: 0,
+                value: true,
+            },
+        )
+        .await?;
+    fixture
+        .ledger
+        .write_plugin_boolean(
+            &erased_field,
             PluginBooleanWrite {
                 schema_version: 1,
                 expected_revision: 0,
@@ -361,6 +378,19 @@ async fn undo_restores_files_folder_colors_and_asset_metadata_with_original_ids(
             folder_id: child.clone(),
         })
         .await?;
+    let owner = crate::core::plugins::data_management::StoredPluginOwner {
+        plugin_id: erased_field.plugin_id.clone(),
+        publisher_fingerprint: "04".repeat(32),
+    };
+    let removal = fixture.ledger.review_stored_plugin_data(&owner).await?;
+    assert_eq!(removal.counts.annotations, 0);
+    assert_eq!(removal.counts.recovery_annotations, 1);
+    assert!(
+        fixture
+            .ledger
+            .purge_stored_plugin_data(&owner, &removal.revision)
+            .await?
+    );
     fixture
         .run(LibraryOperation::RestoreFolder {
             folder_id: child.clone(),
@@ -375,6 +405,10 @@ async fn undo_restores_files_folder_colors_and_asset_metadata_with_original_ids(
             .fetch_one(&fixture.pool)
             .await?;
     assert_eq!(metadata, ("Original notes".into(), 5, child.clone()));
+    assert_eq!(
+        fixture.ledger.read_plugin_boolean(&erased_field).await?,
+        None
+    );
     assert_eq!(
         fixture.ledger.read_plugin_boolean(&review).await?,
         Some(PluginBooleanField {

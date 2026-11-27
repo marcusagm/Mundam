@@ -1,5 +1,6 @@
 //! Catalog-scoped storage port for asset data owned by a verified plugin.
 
+use super::data_management::{StoredPluginData, StoredPluginDataReview, StoredPluginOwner};
 use crate::core::AppResult;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -89,6 +90,28 @@ pub enum PluginBooleanWriteOutcome {
 /// Data operations on the active catalog. The application service owns grant checks.
 #[async_trait]
 pub trait PluginAssetDataLedger: Send + Sync {
+    /// Lists stored namespaces without consulting registry or package state.
+    /// # Errors
+    /// Returns catalog read failures.
+    async fn list_stored_plugin_data(&self) -> AppResult<Vec<StoredPluginData>>;
+
+    /// Counts and fences the records belonging to one exact identity.
+    /// # Errors
+    /// Returns catalog read failures.
+    async fn review_stored_plugin_data(
+        &self,
+        owner: &StoredPluginOwner,
+    ) -> AppResult<StoredPluginDataReview>;
+
+    /// Deletes live, recoverable and cached rows atomically if they still match the review.
+    /// # Errors
+    /// Returns catalog failures without committing a partial purge.
+    async fn purge_stored_plugin_data(
+        &self,
+        owner: &StoredPluginOwner,
+        revision: &str,
+    ) -> AppResult<bool>;
+
     /// Reads an optional boolean field on an active asset.
     async fn read_plugin_boolean(
         &self,

@@ -50,6 +50,79 @@ fn write(schema_version: u32, expected_revision: i64, value: bool) -> PluginBool
 }
 
 #[tokio::test]
+async fn plugin_data_purge_rejects_stale_reviews_and_rolls_back_all_scopes(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::core::plugins::data_management::{StoredPluginDataCounts, StoredPluginOwner};
+    let directory = tempfile::tempdir()?;
+    let (database, ledger) = catalog(&directory.path().join("catalog.sqlite")).await?;
+    let owner = StoredPluginOwner {
+        plugin_id: "org.example.review".into(),
+        publisher_fingerprint: "01".repeat(32),
+    };
+    let chosen = key(&owner.plugin_id, 1);
+    let other = key(&owner.plugin_id, 2);
+    ledger
+        .write_plugin_boolean(&chosen, write(1, 0, true))
+        .await?;
+    ledger
+        .write_plugin_boolean(&other, write(1, 0, true))
+        .await?;
+    sqlx::query("INSERT INTO folder_recovery (folder_id, original_path, archive_path, snapshot_json) VALUES ('folder', '/original', '/archive', '[]')")
+        .execute(database.pool()).await?;
+    sqlx::query("INSERT INTO folder_recovery_plugin_asset_data VALUES ('folder', 'archived', ?1, ?2, 'reviewed', 1, 1, 'false')")
+        .bind(&owner.plugin_id).bind(&owner.publisher_fingerprint).execute(database.pool()).await?;
+    sqlx::query("INSERT INTO plugin_derived_results VALUES ('asset', ?1, ?2, 'derived', zeroblob(32), 1, zeroblob(32), '{}')")
+        .bind(&owner.plugin_id).bind([1u8; 32].as_slice()).execute(database.pool()).await?;
+    let first = ledger.review_stored_plugin_data(&owner).await?;
+    let expected = StoredPluginDataCounts {
+        annotations: 1,
+        recovery_annotations: 1,
+        cached_results: 1,
+    };
+    assert_eq!(first.counts, expected);
+    let inventory = ledger.list_stored_plugin_data().await?;
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(inventory[0].counts, expected);
+    ledger
+        .write_plugin_boolean(&chosen, write(1, 1, false))
+        .await?;
+    assert!(
+        !ledger
+            .purge_stored_plugin_data(&owner, &first.revision)
+            .await?
+    );
+
+    let refreshed = ledger.review_stored_plugin_data(&owner).await?;
+    assert_eq!(refreshed.counts, expected);
+    sqlx::query("CREATE TRIGGER reject_cache_purge BEFORE DELETE ON plugin_derived_results BEGIN SELECT RAISE(ABORT, 'test'); END")
+        .execute(database.pool()).await?;
+    assert!(ledger
+        .purge_stored_plugin_data(&owner, &refreshed.revision)
+        .await
+        .is_err());
+    assert_eq!(
+        ledger.review_stored_plugin_data(&owner).await?.revision,
+        refreshed.revision
+    );
+    sqlx::query("DROP TRIGGER reject_cache_purge")
+        .execute(database.pool())
+        .await?;
+    assert!(
+        ledger
+            .purge_stored_plugin_data(&owner, &refreshed.revision)
+            .await?
+    );
+    assert_eq!(
+        ledger.review_stored_plugin_data(&owner).await?.counts,
+        StoredPluginDataCounts::default()
+    );
+    assert_eq!(ledger.read_plugin_boolean(&chosen).await?, None);
+    assert!(ledger.read_plugin_boolean(&other).await?.is_some());
+    assert_eq!(ledger.list_stored_plugin_data().await?.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn plugin_asset_data_is_scoped_and_survives_trash_restore(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;

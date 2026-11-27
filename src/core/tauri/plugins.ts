@@ -42,6 +42,12 @@ export const desktopPlugins: PluginSettingsClient = {
         });
         return path ? invoke<number>('export_plugin_annotations', { path }) : null;
     },
+    storedData: {
+        list: () => invoke('list_stored_plugin_data'),
+        review: owner => invoke('review_stored_plugin_data', { owner }),
+        purge: (owner, revision) =>
+            refreshPresentationAfter(invoke('purge_stored_plugin_data', { owner, revision }))
+    },
     trust: (namespace, fingerprint) => invoke('trust_plugin_publisher', { namespace, fingerprint }),
     revoke: (namespace, fingerprint) =>
         refreshPresentationAfter(invoke('revoke_plugin_publisher', { namespace, fingerprint })),

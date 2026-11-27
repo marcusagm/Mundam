@@ -23,6 +23,9 @@ use crate::core::plugins::asset_data::{
     PluginAssetDataLedger, PluginAssetFieldKey, PluginBooleanField, PluginBooleanWrite,
     PluginBooleanWriteOutcome,
 };
+use crate::core::plugins::data_management::{
+    StoredPluginData, StoredPluginDataReview, StoredPluginOwner,
+};
 use crate::core::plugins::derived_data::{
     PluginDerivedDataLedger, PluginDerivedResultKey, PluginPreviewRevision, PluginPreviewSource,
 };
@@ -119,6 +122,33 @@ impl SqliteAssetLedger {
 
 #[async_trait]
 impl PluginAssetDataLedger for SqliteAssetLedger {
+    async fn list_stored_plugin_data(&self) -> AppResult<Vec<StoredPluginData>> {
+        let mut connection = self.pool.acquire().await?;
+        super::plugin_data_management::inventory(&mut connection).await
+    }
+
+    async fn review_stored_plugin_data(
+        &self,
+        owner: &StoredPluginOwner,
+    ) -> AppResult<StoredPluginDataReview> {
+        let mut transaction = self.pool.begin().await?;
+        let review = super::plugin_data_management::review(&mut transaction, owner).await?;
+        transaction.commit().await?;
+        Ok(review)
+    }
+
+    async fn purge_stored_plugin_data(
+        &self,
+        owner: &StoredPluginOwner,
+        revision: &str,
+    ) -> AppResult<bool> {
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let purged =
+            super::plugin_data_management::purge(&mut transaction, owner, revision).await?;
+        transaction.commit().await?;
+        Ok(purged)
+    }
+
     async fn read_plugin_boolean(
         &self,
         key: &PluginAssetFieldKey,

@@ -186,6 +186,9 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
         })
         .invoke_handler(tauri::generate_handler![
             list_plugin_settings,
+            list_stored_plugin_data,
+            review_stored_plugin_data,
+            purge_stored_plugin_data,
             get_plugin_presentation,
             get_plugin_inspector_values,
             save_plugin_inspector_value,
@@ -202,6 +205,7 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
     let window = WebviewWindowBuilder::new(&app, "main", Default::default()).build()?;
     let auxiliary = WebviewWindowBuilder::new(&app, "design-system", Default::default()).build()?;
     assert!(invoke(&auxiliary, "list_plugin_settings", json!({})).is_err());
+    assert!(invoke(&auxiliary, "list_stored_plugin_data", json!({})).is_err());
     assert!(invoke(&auxiliary, "get_plugin_presentation", json!({})).is_err());
     assert!(!path.join("plugins.sqlite").exists());
     let call =
@@ -331,6 +335,16 @@ fn settings_ipc_uses_the_managed_profile_for_trust_and_revocation() -> TestResul
             "packageRevision": restored["packageRevision"]
         }),
     )?;
+    let inventory = call("list_stored_plugin_data", json!({}))?;
+    let owner = &inventory[0]["owner"];
+    assert_eq!(owner["pluginId"], restored["id"]);
+    assert_eq!(inventory[0]["counts"]["annotations"], 1);
+    let review = call("review_stored_plugin_data", json!({"owner": owner}))?;
+    let request = json!({"owner": owner, "revision": review["revision"]});
+    assert!(invoke(&auxiliary, "purge_stored_plugin_data", request.clone()).is_err());
+    assert_eq!(call("purge_stored_plugin_data", request.clone())?, true);
+    assert_eq!(call("purge_stored_plugin_data", request)?, false);
+    assert_eq!(call("list_stored_plugin_data", json!({}))?, json!([]));
     assert_eq!(
         call("list_plugin_settings", json!({}))?["installed"],
         json!([])
