@@ -8,6 +8,8 @@ use async_trait::async_trait;
 use mundam_plugin_sdk::{Permission, Target};
 
 pub mod asset_data;
+pub mod derived_data;
+pub mod export;
 pub mod inspector;
 pub mod presentation;
 

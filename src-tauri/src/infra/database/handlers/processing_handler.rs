@@ -27,13 +27,14 @@ pub(crate) async fn commit(
         (
             ProcessingKind::Thumbnail,
             ProcessingResult::Thumbnail {
-                thumbnail_path,
+                thumbnail,
                 preview_path,
                 metadata,
                 unsupported_reason,
             },
         ) => {
-            validate_artifacts(ticket, thumbnail_path.as_deref(), preview_path.as_deref())?;
+            let thumbnail_path = thumbnail.as_ref().map(|artifact| artifact.path.as_str());
+            validate_artifacts(ticket, thumbnail_path, preview_path.as_deref())?;
             if let Some(metadata) = metadata {
                 if metadata.asset_id != ticket.asset_id {
                     return Err(invalid_result());
@@ -43,9 +44,18 @@ pub(crate) async fn commit(
                     asset_id: ticket.asset_id.clone(),
                 });
             }
-            sqlx::query("UPDATE processing_tasks SET preview_path = ? WHERE asset_id = ? AND kind = 'thumbnail'")
-                .bind(preview_path).bind(&ticket.asset_id).execute(&mut **transaction).await?;
-            if let Some(path) = thumbnail_path {
+            sqlx::query(
+                "UPDATE processing_tasks SET preview_path = ?, thumbnail_artifact = ?, thumbnail_digest = ?
+                 WHERE asset_id = ? AND kind = 'thumbnail'",
+            )
+            .bind(preview_path)
+            .bind(thumbnail_path)
+            .bind(thumbnail.as_ref().map(|artifact| artifact.content_digest.as_slice()))
+            .bind(&ticket.asset_id)
+            .execute(&mut **transaction)
+            .await?;
+            if let Some(artifact) = thumbnail {
+                let path = artifact.path;
                 let asset = thumbnail_handler::handle_update_thumbnail(
                     transaction,
                     &ticket.asset_id,

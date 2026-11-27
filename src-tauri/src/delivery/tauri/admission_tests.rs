@@ -329,6 +329,7 @@ fn every_registered_business_command_declares_admission() -> TestResult {
         include_str!("commands/duplicates.rs"),
         include_str!("commands/streaming.rs"),
         include_str!("commands/library.rs"),
+        include_str!("commands/plugins.rs"),
         include_str!("commands/text_files.rs"),
         include_str!("processing.rs"),
         include_str!("thumbnails.rs"),
@@ -350,7 +351,8 @@ fn every_registered_business_command_declares_admission() -> TestResult {
                 .trim();
             if name != "send_telemetry_log" {
                 assert!(
-                    signature.contains("_ipc: IpcRequest"),
+                    signature.contains("_ipc: IpcRequest")
+                        || signature.contains("_ipc: PluginSettingsRequest"),
                     "unguarded command: {name}"
                 );
                 guarded.insert(name.to_owned());

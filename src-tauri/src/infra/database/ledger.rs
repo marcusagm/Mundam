@@ -23,6 +23,10 @@ use crate::core::plugins::asset_data::{
     PluginAssetDataLedger, PluginAssetFieldKey, PluginBooleanField, PluginBooleanWrite,
     PluginBooleanWriteOutcome,
 };
+use crate::core::plugins::derived_data::{
+    PluginDerivedDataLedger, PluginDerivedResultKey, PluginPreviewRevision, PluginPreviewSource,
+};
+use serde_json::{Map, Value};
 
 #[cfg(test)]
 #[path = "ledger_concurrency_tests.rs"]
@@ -132,6 +136,43 @@ impl PluginAssetDataLedger for SqliteAssetLedger {
         let outcome = super::plugin_asset_data::write_boolean(&mut transaction, key, write).await?;
         transaction.commit().await?;
         Ok(outcome)
+    }
+}
+
+#[async_trait]
+impl PluginDerivedDataLedger for SqliteAssetLedger {
+    async fn plugin_preview_source(
+        &self,
+        asset_id: &str,
+    ) -> AppResult<Option<PluginPreviewSource>> {
+        let mut connection = self.pool.acquire().await?;
+        super::plugin_derived_data::preview_source(&mut connection, asset_id).await
+    }
+
+    async fn read_plugin_derived_result(
+        &self,
+        key: &PluginDerivedResultKey,
+        source: PluginPreviewRevision,
+    ) -> AppResult<Option<Map<String, Value>>> {
+        let mut transaction = self.pool.begin().await?;
+        let value = super::plugin_derived_data::read_result(&mut transaction, key, source).await?;
+        transaction.commit().await?;
+        Ok(value)
+    }
+
+    async fn write_plugin_derived_result(
+        &self,
+        key: &PluginDerivedResultKey,
+        source: PluginPreviewRevision,
+        value: Map<String, Value>,
+    ) -> AppResult<bool> {
+        let encoded = super::plugin_derived_data::encode_result(key, &value)?;
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let stored =
+            super::plugin_derived_data::write_result(&mut transaction, key, source, encoded)
+                .await?;
+        transaction.commit().await?;
+        Ok(stored)
     }
 }
 

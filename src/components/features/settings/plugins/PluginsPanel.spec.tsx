@@ -33,6 +33,7 @@ const review: PluginPackageReview = {
 function renderPanel(overrides: Partial<PluginSettingsClient> = {}) {
     const client: PluginSettingsClient = {
         load: vi.fn().mockResolvedValue({ publishers: [], installed: [], safeMode: false }),
+        exportAnnotations: vi.fn().mockResolvedValue(null),
         choose: vi.fn().mockResolvedValue(null),
         trust: vi.fn().mockResolvedValue(undefined),
         revoke: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +51,13 @@ function renderPanel(overrides: Partial<PluginSettingsClient> = {}) {
 }
 
 afterEach(cleanup);
+
+it('keeps annotation export accessible when the plugin registry cannot load', async () => {
+    const client = renderPanel({ load: vi.fn().mockRejectedValue(new Error('Unavailable')) });
+    await screen.findByText('Could not load plugin settings.');
+    fireEvent.click(screen.getByRole('button', { name: 'Export plugin annotations' }));
+    expect(client.exportAnnotations).toHaveBeenCalledOnce();
+});
 
 it('requires independent publisher confirmation and a separate revocation confirmation', async () => {
     const state: PluginSettings = { publishers: [], installed: [], safeMode: false };

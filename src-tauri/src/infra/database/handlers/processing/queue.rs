@@ -21,7 +21,8 @@ pub(crate) async fn enqueue(
          ON CONFLICT(asset_id, kind) DO UPDATE SET state = 'pending',
             generation = processing_tasks.generation + 1, source_stamp = excluded.source_stamp,
             attempts = 0, next_attempt_at = NULL, last_error = NULL, issue_code = NULL,
-            lease_id = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP"
+            lease_id = NULL, lease_expires_at = NULL, thumbnail_artifact = NULL,
+            thumbnail_digest = NULL, updated_at = CURRENT_TIMESTAMP"
     );
     sqlx::query(&statement)
         .bind(kind.as_str())
@@ -61,7 +62,8 @@ pub(crate) async fn begin(
             generation = processing_tasks.generation + (processing_tasks.source_stamp != excluded.source_stamp),
             attempts = CASE WHEN processing_tasks.source_stamp != excluded.source_stamp THEN 0 ELSE processing_tasks.attempts END,
             source_stamp = excluded.source_stamp, lease_id = excluded.lease_id,
-            lease_expires_at = excluded.lease_expires_at, updated_at = CURRENT_TIMESTAMP
+            lease_expires_at = excluded.lease_expires_at, thumbnail_artifact = NULL,
+            thumbnail_digest = NULL, updated_at = CURRENT_TIMESTAMP
          RETURNING generation",
     ).bind(&asset_id).bind(kind.as_str()).bind(&source_stamp).bind(&lease_id)
         .fetch_one(&mut *transaction).await?;

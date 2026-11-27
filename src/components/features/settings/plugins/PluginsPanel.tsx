@@ -10,6 +10,7 @@ import { Button } from '../../../ui/Button';
 import { SectionGroup } from '../../../ui/SectionGroup';
 import { PluginPackageReview } from './PluginPackageReview';
 import { PluginActivationConsent } from './PluginActivationConsent';
+import { PluginDataSection } from './PluginDataSection';
 import { InstalledPluginList } from './InstalledPluginList';
 import { PluginPublisherSection } from './PluginPublisherSection';
 import './plugins-panel.css';
@@ -292,6 +293,7 @@ export const PluginsPanel: Component<{ client: PluginSettingsClient }> = propert
                     </>
                 )}
             </Show>
+            <PluginDataSection exportAnnotations={() => properties.client.exportAnnotations()} />
         </div>
     );
 };

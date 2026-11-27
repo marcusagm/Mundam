@@ -4,6 +4,7 @@ use crate::core::formats::{
     provider::FormatProvider,
 };
 use crate::core::ledger::command::LedgerCommand;
+use crate::core::plugins::derived_data::PluginDerivedDataLedger;
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
 struct DelayedProvider {
@@ -203,13 +204,28 @@ async fn processing_thumbnail_publishes_immutable_versions_and_reclaims_previous
     let first_name = first.thumbnail_path.ok_or("No first thumbnail")?;
     assert!(first_name.starts_with("asset."));
     assert_ne!(first_name, "asset.webp");
-    assert!(image::load_from_memory(&tokio::fs::read(directory.join(&first_name)).await?).is_ok());
+    let first_bytes = tokio::fs::read(directory.join(&first_name)).await?;
+    assert!(image::load_from_memory(&first_bytes).is_ok());
+    let first_preview = fixture
+        .ledger
+        .plugin_preview_source("asset")
+        .await?
+        .ok_or("Missing native preview identity")?;
+    assert_eq!(
+        first_preview.content_digest,
+        *blake3::hash(&first_bytes).as_bytes()
+    );
     fixture
         .ledger
         .execute(LedgerCommand::RegenerateThumbnail {
             asset_id: "asset".into(),
         })
         .await?;
+    assert!(fixture
+        .ledger
+        .plugin_preview_source("asset")
+        .await?
+        .is_none());
     worker.process_single("asset".into(), false).await?;
     let second = fixture
         .processing

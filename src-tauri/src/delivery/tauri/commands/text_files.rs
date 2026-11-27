@@ -52,7 +52,7 @@ impl<'de, R: Runtime> tauri::ipc::CommandArg<'de, R> for TextFileAccess {
     }
 }
 
-fn selected_path<R: Runtime>(
+pub(super) fn selected_path<R: Runtime>(
     app: &AppHandle<R>,
     path: String,
     access: &TextFileAccess,

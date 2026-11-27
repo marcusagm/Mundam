@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 import {
     PluginInspectorValuesSchema,
     PluginInspectorEditSchema,
@@ -34,6 +35,13 @@ export const desktopPluginInspectorData: PluginInspectorDataClient = {
 /** Main-window adapter. The settings panel owns feedback for these commands. */
 export const desktopPlugins: PluginSettingsClient = {
     load: () => invoke('list_plugin_settings'),
+    exportAnnotations: async () => {
+        const path = await save({
+            defaultPath: 'mundam-plugin-annotations.json',
+            filters: [{ name: 'JSON', extensions: ['json'] }]
+        });
+        return path ? invoke<number>('export_plugin_annotations', { path }) : null;
+    },
     trust: (namespace, fingerprint) => invoke('trust_plugin_publisher', { namespace, fingerprint }),
     revoke: (namespace, fingerprint) =>
         refreshPresentationAfter(invoke('revoke_plugin_publisher', { namespace, fingerprint })),

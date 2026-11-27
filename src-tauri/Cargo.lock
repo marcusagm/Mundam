@@ -3626,6 +3626,7 @@ dependencies = [
  "fast_image_resize",
  "flashraw",
  "flate2",
+ "futures-util",
  "hound",
  "hyper",
  "hyper-util",

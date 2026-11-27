@@ -11,6 +11,7 @@ use crate::core::ledger::port::TransactionalAssetLedger;
 use crate::core::processing::control::{ProcessingControl, WorkerKind};
 use crate::core::processing::{
     ProcessingKind, ProcessingOutcome, ProcessingRepository, ProcessingResult, ProcessingTicket,
+    PublishedThumbnail,
 };
 use crate::core::repository::AssetQueryHandler;
 use crate::core::workflows::thumbnails::priority::ThumbnailPriorityState;
@@ -447,7 +448,7 @@ impl ThumbnailWorker {
                 .commit_processing(
                     ticket,
                     ProcessingResult::Thumbnail {
-                        thumbnail_path: None,
+                        thumbnail: None,
                         preview_path,
                         metadata,
                         unsupported_reason: Some("Provider has no thumbnail capability".into()),
@@ -463,11 +464,15 @@ impl ThumbnailWorker {
             return Ok(None);
         }
         phase.store(6, Ordering::Relaxed);
-        let final_bytes = tokio::task::spawn_blocking(move || prepare_thumbnail(bytes))
-            .await
-            .map_err(|error| {
-                AppError::Internal(format!("Thumbnail encoding task failed: {error}"))
-            })??;
+        let (final_bytes, content_digest) = tokio::task::spawn_blocking(move || {
+            let encoded = prepare_thumbnail(bytes)?;
+            let content_digest = *blake3::hash(&encoded).as_bytes();
+            Ok::<_, AppError>((encoded, content_digest))
+        })
+        .await
+        .map_err(|error| {
+            AppError::Internal(format!("Thumbnail encoding task failed: {error}"))
+        })??;
         if token.is_cancelled() {
             return Ok(None);
         }
@@ -489,7 +494,10 @@ impl ThumbnailWorker {
             .commit_processing(
                 ticket,
                 ProcessingResult::Thumbnail {
-                    thumbnail_path: Some(filename),
+                    thumbnail: Some(PublishedThumbnail {
+                        path: filename,
+                        content_digest,
+                    }),
                     preview_path,
                     metadata,
                     unsupported_reason: None,

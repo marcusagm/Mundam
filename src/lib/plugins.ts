@@ -1,6 +1,8 @@
 /** Profile-wide plugin administration contract consumed by Settings. */
 export interface PluginSettingsClient {
     load(): Promise<PluginSettings>;
+    /** Returns the number of saved annotations, or null when the file dialog is canceled. */
+    exportAnnotations(): Promise<number | null>;
     trust(namespace: string, fingerprint: string): Promise<void>;
     revoke(namespace: string, fingerprint: string): Promise<void>;
     choose(): Promise<PluginPackageReview | null>;

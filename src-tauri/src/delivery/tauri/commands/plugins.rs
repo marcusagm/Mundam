@@ -20,7 +20,10 @@ use crate::{
             fingerprint_hex, publisher_anchor, read_selected_package, DesktopPluginAdmin,
         },
     },
-    infra::database::{import_destinations::SqliteImportDestinations, manager::DbManager},
+    infra::database::{
+        import_destinations::SqliteImportDestinations, manager::DbManager,
+        plugin_export::SqlitePluginAnnotationReader,
+    },
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use mundam_plugin_sdk::{Permission, Target};
@@ -28,7 +31,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tauri::{
     ipc::{CommandArg, CommandItem, InvokeError},
-    Runtime, State, WebviewWindow,
+    AppHandle, Runtime, State, WebviewWindow,
 };
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
@@ -162,6 +165,27 @@ async fn active_catalog(database: &DbManager) -> AppResult<String> {
         .preference()
         .await?
         .catalog_id)
+}
+
+/// Exports the active catalog's saved annotations to a user-authorized JSON file.
+///
+/// # Errors
+/// Rejects calls outside Settings admission or filesystem scope and propagates export failures.
+#[tauri::command]
+pub(crate) async fn export_plugin_annotations<R: Runtime>(
+    _ipc: PluginSettingsRequest,
+    access: super::text_files::TextFileAccess,
+    app: AppHandle<R>,
+    database: State<'_, Arc<DbManager>>,
+    path: String,
+) -> AppResult<u64> {
+    let destination = super::text_files::selected_path(&app, path, &access)?;
+    crate::feature::plugins::export::annotations(
+        &SqlitePluginAnnotationReader(database.pool()),
+        &active_catalog(&database).await?,
+        &destination,
+    )
+    .await
 }
 
 /// Loads the catalog's approved presentation definitions through the main-window boundary.

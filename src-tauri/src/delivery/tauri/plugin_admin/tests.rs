@@ -9,6 +9,7 @@ use crate::{
 use mundam_plugin_sdk::package::{sign_package, signing_key_fingerprint};
 use serde_json::{json, Value};
 use tauri::{test::MockRuntime, Manager, WebviewWindow, WebviewWindowBuilder};
+use tauri_plugin_fs::FsExt;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -112,6 +113,43 @@ fn invoke(window: &WebviewWindow<MockRuntime>, command: &str, body: Value) -> Re
     )?
     .deserialize()
     .map_err(|error| json!(error.to_string()))
+}
+
+#[test]
+fn plugin_annotation_export_ipc_requires_an_authorized_path_and_main_window() -> TestResult {
+    let directory = tempfile::tempdir()?;
+    let database =
+        tauri::async_runtime::block_on(DbManager::new(&directory.path().join("catalog.sqlite")))?;
+    let admission = Arc::new(IpcAdmission::default());
+    let app = tauri::test::mock_builder()
+        .manage(admission.clone())
+        .manage(Arc::new(database))
+        .plugin(tauri_plugin_fs::init())
+        .invoke_handler(tauri::generate_handler![export_plugin_annotations])
+        .build(crate::application_context::<MockRuntime>())?;
+    let main = WebviewWindowBuilder::new(&app, "main", Default::default()).build()?;
+    let auxiliary = WebviewWindowBuilder::new(&app, "startup", Default::default()).build()?;
+    let path = directory.path().join("annotations.json");
+    let command = "export_plugin_annotations";
+    assert!(invoke(&main, command, json!({"path": path})).is_err());
+    app.fs_scope().allow_file(&path)?;
+    assert!(invoke(&auxiliary, command, json!({"path": path})).is_err());
+    assert!(!path.exists());
+    assert_eq!(
+        invoke(&main, command, json!({"path": path})).map_err(|error| error.to_string())?,
+        0
+    );
+    let document: Value = serde_json::from_slice(&std::fs::read(&path)?)?;
+    assert!(document["catalogId"]
+        .as_str()
+        .is_some_and(|id| !id.is_empty()));
+    assert_eq!(document["fields"], json!([]));
+    admission.close();
+    let error = invoke(&main, command, json!({"path": path}))
+        .err()
+        .ok_or("export admitted after shutdown")?;
+    assert_eq!(error["code"], "CANCELLED");
+    Ok(())
 }
 
 #[test]

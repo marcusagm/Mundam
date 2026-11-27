@@ -83,7 +83,7 @@ pub struct ProcessingTicket {
 pub enum ProcessingResult {
     /// Optional metadata and model preview remain useful without thumbnail support.
     Thumbnail {
-        thumbnail_path: Option<String>,
+        thumbnail: Option<PublishedThumbnail>,
         preview_path: Option<String>,
         metadata: Option<crate::core::ledger::command::UpdateTechnicalMetadataPayload>,
         unsupported_reason: Option<String>,
@@ -92,6 +92,12 @@ pub enum ProcessingResult {
     Colors(Vec<crate::core::models::asset::AssetColor>),
     /// Exact and optional visual representation of the ticket's asset.
     Fingerprint(crate::core::models::DuplicateFingerprint),
+}
+
+/// Encoded thumbnail written by the worker for this processing attempt.
+pub struct PublishedThumbnail {
+    pub path: String,
+    pub content_digest: [u8; 32],
 }
 
 /// Distinguishes valid results, unsupported work and retryable processing failures.

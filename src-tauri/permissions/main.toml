@@ -464,6 +464,7 @@ commands.allow = [
     "get_plugin_presentation",
     "get_plugin_inspector_values",
     "save_plugin_inspector_value",
+    "export_plugin_annotations",
     "list_plugin_settings", "trust_plugin_publisher", "revoke_plugin_publisher",
     "choose_plugin_package", "install_reviewed_plugin", "discard_plugin_review",
     "review_plugin_activation", "enable_reviewed_plugin", "disable_installed_plugin",

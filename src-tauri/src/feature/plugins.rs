@@ -14,6 +14,7 @@ use mundam_plugin_sdk::{
 use std::{collections::HashSet, sync::Arc};
 
 mod asset_data;
+pub mod export;
 mod inspector;
 mod package_changes;
 

@@ -5,7 +5,8 @@ use crate::core::{
         command::{LedgerCommand, UpdateTechnicalMetadataPayload},
         port::TransactionalAssetLedger,
     },
-    processing::ProcessingResult,
+    plugins::derived_data::PluginDerivedDataLedger,
+    processing::{ProcessingResult, PublishedThumbnail},
 };
 use crate::processing::workers::test_support::{ProcessingFixture, TestResult};
 
@@ -117,7 +118,10 @@ async fn processing_lease_survives_reopening_the_database_and_only_expires_once(
 
 fn thumbnail_result(ticket: &ProcessingTicket) -> ProcessingResult {
     ProcessingResult::Thumbnail {
-        thumbnail_path: Some(format!("{}.{}.webp", ticket.asset_id, ticket.lease_id)),
+        thumbnail: Some(PublishedThumbnail {
+            path: format!("{}.{}.webp", ticket.asset_id, ticket.lease_id),
+            content_digest: [1; 32],
+        }),
         preview_path: Some(format!("{}.{}.glb", ticket.asset_id, ticket.lease_id)),
         metadata: Some(UpdateTechnicalMetadataPayload {
             asset_id: ticket.asset_id.clone(),
@@ -153,6 +157,11 @@ async fn processing_fenced_thumbnail_commit_is_atomic_and_emits_nothing_on_rollb
     let rows: (Option<String>, i64, i64) = sqlx::query_as("SELECT thumbnail_path, (SELECT COUNT(*) FROM asset_metadata_envelope), (SELECT COUNT(*) FROM processing_tasks WHERE kind = 'colors') FROM assets WHERE id = 'asset'")
         .fetch_one(&fixture.pool).await?;
     assert_eq!(rows, (None, 0, 0));
+    assert!(fixture
+        .ledger
+        .plugin_preview_source("asset")
+        .await?
+        .is_none());
     assert!(fixture.processing.preview_path("asset").await?.is_none());
     assert!(fixture.processing.is_current(&ticket).await?);
     sqlx::query("DROP TRIGGER reject_processing_completion")
