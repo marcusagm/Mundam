@@ -122,6 +122,7 @@ pub struct DuplicateRuleSet {
 /// Every field is `Option` — `None` means the user chose to skip merging
 /// that particular piece of metadata. Only non-None fields are written to
 /// the kept assets via the Asset Ledger.
+/// Plugin annotations remain owned by each original asset throughout resolution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataMergePayload {

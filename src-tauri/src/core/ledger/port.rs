@@ -9,6 +9,19 @@ use async_trait::async_trait;
 /// It commits catalog changes and coordinates recoverable filesystem effects.
 #[async_trait]
 pub trait TransactionalAssetLedger: Send + Sync {
+    /// Summarizes durable annotations in the exact tree an unlink would remove.
+    ///
+    /// # Errors
+    /// Returns storage failures or rejects folders that are not monitored roots.
+    async fn review_folder_unlink(
+        &self,
+        _folder_id: &str,
+    ) -> AppResult<crate::core::library::FolderUnlinkImpact> {
+        Err(crate::core::error::AppError::Internal(
+            "Folder unlink review is unsupported".into(),
+        ))
+    }
+
     /// Reclaims unreferenced processing artifacts while preserving published and leased files.
     ///
     /// # Errors

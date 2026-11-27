@@ -72,6 +72,10 @@ impl Drop for ScanRunningGuard {
 #[path = "coordinator_tests.rs"]
 mod processing_tests;
 
+#[cfg(test)]
+#[path = "annotation_tests.rs"]
+mod annotation_tests;
+
 /// Command handler for duplicate operations.
 #[derive(Clone)]
 pub struct DuplicateCommandService {
@@ -364,6 +368,7 @@ impl DuplicateCommandService {
     /// This is an explicit, user-initiated action separate from `resolve_group`.
     /// Each field in the payload that is `Some(...)` is applied to all kept assets
     /// via the Asset Ledger. Fields that are `None` are left untouched.
+    /// Plugin annotations retain their original asset and revision through merge and Undo.
     ///
     /// `is_favorite` requires reading the current asset state to decide whether a
     /// toggle is needed, since the Ledger exposes a toggle — not a setter.

@@ -1,6 +1,6 @@
 import { reconcile } from 'solid-js/store';
 import { untrack } from 'solid-js';
-import { invokeCommand as invoke } from '../../../lib/api';
+import { invoke } from '@tauri-apps/api/core';
 
 import { tagService } from '../../../lib/tags';
 import { ActionResult, ErrorCode } from '../../types/actions';
@@ -25,6 +25,12 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { eventBus } from '../../utils/eventBus';
 import type { SearchGroup, SearchCriterion } from '../../../types';
 import type { SearchGroup as UISearchGroup } from '../filter/schemas';
+
+/** Reviewed impact of unlinking a monitored root. */
+interface FolderUnlinkImpact {
+    annotationCount: number;
+    annotationRevision: string;
+}
 
 const mapToSearchGroup = (group: UISearchGroup): SearchGroup => ({
     id: group.id,
@@ -211,9 +217,12 @@ export const libraryActions = {
         }
     },
 
-    removeLocation: async (locationId: number | string) => {
+    reviewLocationRemoval: (folderId: string) =>
+        invoke<FolderUnlinkImpact>('review_location_removal', { folderId }),
+
+    removeLocation: async (folderId: string, annotationRevision: string) => {
         try {
-            await invoke('remove_location', { folderId: String(locationId) });
+            await invoke('remove_location', { folderId, annotationRevision });
 
             return { success: true };
         } catch (err) {

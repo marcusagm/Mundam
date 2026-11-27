@@ -189,6 +189,17 @@ impl PluginDerivedDataLedger for SqliteAssetLedger {
 /// A `Result` containing the updated asset or an error.
 #[async_trait]
 impl TransactionalAssetLedger for SqliteAssetLedger {
+    async fn review_folder_unlink(
+        &self,
+        folder_id: &str,
+    ) -> AppResult<crate::core::library::FolderUnlinkImpact> {
+        let mut transaction = self.pool.begin().await?;
+        let impact =
+            super::handlers::folder_removal::unlink_impact(&mut transaction, folder_id).await?;
+        transaction.commit().await?;
+        Ok(impact)
+    }
+
     async fn import_preparation_destination(
         &self,
         authority: &crate::core::imports::publication::PublicationAuthority,
@@ -310,7 +321,9 @@ impl TransactionalAssetLedger for SqliteAssetLedger {
         super::library_operations::journal::recover(&self.pool, &self.app_data_directory).await?;
         let mut tx = if matches!(
             &command,
-            LedgerCommand::BatchCreate(_) | LedgerCommand::CreateFolder(_)
+            LedgerCommand::BatchCreate(_)
+                | LedgerCommand::CreateFolder(_)
+                | LedgerCommand::RemoveFolder(_)
         ) {
             self.pool.begin_with("BEGIN IMMEDIATE").await?
         } else {

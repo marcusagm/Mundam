@@ -19,6 +19,7 @@ use crate::core::{
 /// survives post-commit refresh/cleanup failures without reporting the write as failed.
 pub async fn execute(
     folder_id: &str,
+    annotation_revision: String,
     ledger: &dyn TransactionalAssetLedger,
     queries: &dyn AssetQueryHandler,
     observer: &dyn RootObservation,
@@ -32,6 +33,7 @@ pub async fn execute(
         .execute(LedgerCommand::RemoveFolder(RemoveFolderPayload {
             folder_id: folder_id.into(),
             expected_path: None,
+            reviewed_annotations: Some(annotation_revision),
         }))
         .await
     {

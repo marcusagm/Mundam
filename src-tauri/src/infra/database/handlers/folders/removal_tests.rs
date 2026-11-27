@@ -60,8 +60,100 @@ async fn asset(
 fn removal(folder_id: &str) -> LedgerCommand {
     LedgerCommand::RemoveFolder(RemoveFolderPayload {
         expected_path: None,
+        reviewed_annotations: None,
         folder_id: folder_id.to_owned(),
     })
+}
+
+#[tokio::test]
+async fn folder_unlink_rechecks_plugin_annotations_before_removing_catalog_data() -> TestResult {
+    let pool = database().await?;
+    let app_data = tempfile::tempdir()?;
+    let originals = tempfile::tempdir()?;
+    let ledger = SqliteAssetLedger::new(
+        pool.clone(),
+        Arc::new(TokioEventBus::new()),
+        app_data.path().into(),
+        Arc::new(LedgerPathGuard::new()),
+    );
+    let root_path = originals.path().join("Root");
+    let child_path = root_path.join("Child");
+    tokio::fs::create_dir_all(&child_path).await?;
+    let root_id = folder(&ledger, &root_path, None).await?;
+    let child_id = folder(&ledger, &child_path, Some(root_id.clone())).await?;
+    let other_id = folder(&ledger, &originals.path().join("Other"), None).await?;
+    let original = child_path.join("annotated.jpg");
+    tokio::fs::write(&original, b"original").await?;
+    asset(&pool, "annotated", Some(&child_id), &original).await?;
+    asset(&pool, "orphan", None, &root_path.join("orphan.jpg")).await?;
+    asset(
+        &pool,
+        "other",
+        Some(&other_id),
+        &originals.path().join("other.jpg"),
+    )
+    .await?;
+    sqlx::query("UPDATE assets SET deleted_at = CURRENT_TIMESTAMP WHERE id = 'annotated'")
+        .execute(&pool)
+        .await?;
+
+    assert!(ledger.review_folder_unlink(&child_id).await.is_err());
+    let initial = ledger.review_folder_unlink(&root_id).await?;
+    assert_eq!(initial.annotation_count, 0);
+    assert_ne!(
+        initial.annotation_revision,
+        ledger
+            .review_folder_unlink(&other_id)
+            .await?
+            .annotation_revision
+    );
+    let reviewed_removal = |revision| {
+        LedgerCommand::RemoveFolder(RemoveFolderPayload {
+            folder_id: root_id.clone(),
+            expected_path: None,
+            reviewed_annotations: Some(revision),
+        })
+    };
+    sqlx::query(
+        "INSERT INTO plugin_asset_data (asset_id, plugin_id, publisher_fingerprint, field_id, schema_version, revision, value_json)
+         SELECT id, 'org.example.review', ?1, 'reviewed', 1, 1, 'true' FROM assets",
+    ).bind("ab".repeat(32)).execute(&pool).await?;
+    assert!(ledger
+        .execute(reviewed_removal(initial.annotation_revision))
+        .await
+        .is_err());
+    let current = ledger.review_folder_unlink(&root_id).await?;
+    assert_eq!(current.annotation_count, 2);
+    sqlx::query(
+        "UPDATE plugin_asset_data SET revision = 2, value_json = 'false' WHERE asset_id = 'orphan'",
+    )
+    .execute(&pool)
+    .await?;
+    assert!(ledger
+        .execute(reviewed_removal(current.annotation_revision))
+        .await
+        .is_err());
+    let current = ledger.review_folder_unlink(&root_id).await?;
+    assert_eq!(current.annotation_count, 2);
+    ledger
+        .execute(reviewed_removal(current.annotation_revision))
+        .await?;
+    let remaining: Vec<String> = sqlx::query_scalar("SELECT asset_id FROM plugin_asset_data")
+        .fetch_all(&pool)
+        .await?;
+    assert_eq!(remaining, ["other"]);
+    assert_eq!(tokio::fs::read(&original).await?, b"original");
+
+    let relinked_id = folder(&ledger, &root_path, None).await?;
+    assert_ne!(relinked_id, root_id);
+    assert_eq!(
+        ledger
+            .review_folder_unlink(&relinked_id)
+            .await?
+            .annotation_count,
+        0
+    );
+    Ok(())
 }
 
 #[tokio::test]

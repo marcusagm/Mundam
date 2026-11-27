@@ -66,6 +66,10 @@ export const MetadataMergeModalInner: Component<MetadataMergeModalProperties> = 
                     Review metadata from discarded candidates before resolving. Deselect any fields
                     you want to skip.
                 </p>
+                <p class="merge-modal-subtitle">
+                    Plugin annotations stay with their original asset. Restore an item from Trash to
+                    recover its annotations.
+                </p>
                 <div class="merge-modal-kept-list">
                     <span class="merge-modal-kept-label">Keeping:</span>
                     <For each={props.keptCandidates}>
@@ -87,7 +91,7 @@ export const MetadataMergeModalInner: Component<MetadataMergeModalProperties> = 
                             when={hasMergeableContent()}
                             fallback={
                                 <div class="merge-modal-empty">
-                                    <p>No metadata differences found between candidates.</p>
+                                    <p>No library metadata available to merge.</p>
                                 </div>
                             }
                         >

@@ -501,6 +501,7 @@ impl LibraryIndexer {
                     crate::core::ledger::command::RemoveFolderPayload {
                         folder_id,
                         expected_path: Some(PathBuf::from(&path)),
+                        reviewed_annotations: None,
                     },
                 ))
                 .await;

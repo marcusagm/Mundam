@@ -132,6 +132,7 @@ pub fn run() {
             delivery::tauri::commands::queries::get_library_cache_stats,
             delivery::tauri::commands::mutations::create_folder,
             delivery::tauri::commands::mutations::remove_location,
+            delivery::tauri::commands::mutations::review_location_removal,
             delivery::tauri::commands::mutations::start_indexing,
             delivery::tauri::commands::mutations::set_asset_folder,
             delivery::tauri::commands::mutations::update_asset_tags,

@@ -66,6 +66,9 @@ pub struct RemoveFolderPayload {
     /// Observation fence; absent for explicit unlink/deletion intentions.
     #[serde(default)]
     pub expected_path: Option<PathBuf>,
+    /// Revision acknowledged by the user for explicit unlink of a monitored root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewed_annotations: Option<String>,
 }
 
 /// Payload for renaming/moving a folder and its contents.

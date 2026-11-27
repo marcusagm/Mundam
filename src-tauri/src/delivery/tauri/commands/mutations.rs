@@ -235,7 +235,20 @@ pub async fn replace_tags_for_assets_batch(
     Ok(())
 }
 
-/// RPC Command to remove a location/folder.
+/// Summarizes the effect on durable plugin annotations before a monitored root is unlinked.
+///
+/// # Errors
+/// Rejects non-root folders and propagates catalog read failures.
+#[tauri::command]
+pub async fn review_location_removal(
+    _ipc: IpcRequest,
+    folder_id: String,
+    ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
+) -> AppResult<crate::core::library::FolderUnlinkImpact> {
+    ledger.review_folder_unlink(&folder_id).await
+}
+
+/// Unlinks the monitored root after its annotation impact has been reviewed.
 ///
 /// # Arguments
 ///
@@ -248,12 +261,14 @@ pub async fn replace_tags_for_assets_batch(
 pub async fn remove_location(
     _ipc: IpcRequest,
     folder_id: String,
+    annotation_revision: String,
     ledger: State<'_, Arc<dyn TransactionalAssetLedger>>,
     queries: State<'_, Arc<dyn crate::core::repository::AssetQueryHandler>>,
     watcher: State<'_, Arc<dyn crate::core::library::RootObservation>>,
 ) -> AppResult<()> {
     crate::feature::library::remove_location::execute(
         &folder_id,
+        annotation_revision,
         ledger.inner().as_ref(),
         queries.inner().as_ref(),
         watcher.inner().as_ref(),

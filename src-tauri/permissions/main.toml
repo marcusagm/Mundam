@@ -90,8 +90,8 @@ commands.allow = ["add_location"]
 
 [[permission]]
 identifier = "allow-remove-location"
-description = "Enables remove_location to delete folder and its images"
-commands.allow = ["remove_location"]
+description = "Reviews annotation impact and unlinks a monitored root from the catalog"
+commands.allow = ["remove_location", "review_location_removal"]
 
 [[permission]]
 identifier = "allow-get-locations"

@@ -179,6 +179,14 @@ pub async fn handle_remove_folder(
             ));
         }
     }
+    if let Some(reviewed) = payload.reviewed_annotations.as_deref() {
+        let impact = super::folder_removal::unlink_impact(transaction, folder_identifier).await?;
+        if impact.annotation_revision != reviewed {
+            return Err(AppError::ValidationFailed(
+                "Plugin annotations changed. Review the folder impact before unlinking.".into(),
+            ));
+        }
+    }
     super::folder_removal::delete_assets(transaction, folder_identifier).await?;
     sqlx::query!("DELETE FROM folders WHERE id = ?", folder_identifier)
         .execute(&mut **transaction)

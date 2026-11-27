@@ -5,6 +5,15 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Impact shown before unlinking a monitored root from the catalog.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderUnlinkImpact {
+    pub annotation_count: u64,
+    /// Opaque revision of the annotation rows the user is about to discard.
+    pub annotation_revision: String,
+}
+
 /// Stable filesystem object identity; paths and timestamps are not identity proofs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileIdentity {

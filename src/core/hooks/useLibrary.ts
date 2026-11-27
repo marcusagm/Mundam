@@ -36,6 +36,7 @@ export const useLibrary = () => {
         setThumbnailPriority: libraryActions.setThumbnailPriority,
         executeOperation: executeLibraryOperation,
         addLocation: libraryActions.addLocation,
+        reviewLocationRemoval: libraryActions.reviewLocationRemoval,
         removeLocation: libraryActions.removeLocation
     };
 };

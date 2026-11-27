@@ -667,6 +667,7 @@ impl LibraryIndexer {
                     .execute(LedgerCommand::RemoveFolder(
                         crate::core::ledger::command::RemoveFolderPayload {
                             expected_path: Some(folder.path.clone()),
+                            reviewed_annotations: None,
                             folder_id: folder.id.clone(),
                         },
                     ))

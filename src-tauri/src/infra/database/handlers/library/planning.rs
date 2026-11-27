@@ -222,6 +222,7 @@ pub(crate) async fn prepare(
                 RemoveFolderPayload {
                     folder_id,
                     expected_path: None,
+                    reviewed_annotations: None,
                 },
             )
             .await?;
